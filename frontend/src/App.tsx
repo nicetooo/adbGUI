@@ -403,8 +403,8 @@ function App() {
       case '4':
         const filteredLogs = logs.filter(l => l.toLowerCase().includes(logFilter.toLowerCase()));
         return (
-          <div style={{ padding: 24, height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ padding: 24, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
               <h2 style={{ margin: 0 }}>Logcat</h2>
               <Space>
                 <Select 
@@ -435,7 +435,7 @@ function App() {
               placeholder="Filter logs..." 
               value={logFilter}
               onChange={e => setLogFilter(e.target.value)}
-              style={{ marginBottom: 16 }}
+              style={{ marginBottom: 16, flexShrink: 0 }}
             />
             <div style={{ 
               flex: 1, 
@@ -445,8 +445,10 @@ function App() {
               fontSize: '12px',
               padding: '8px', 
               overflowY: 'auto',
+              overflowX: 'hidden',
               borderRadius: '4px',
-              whiteSpace: 'pre-wrap'
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all'
             }}>
               {filteredLogs.map((log, index) => (
                 <div key={index} style={{ borderBottom: '1px solid #333' }}>{log}</div>
@@ -482,7 +484,7 @@ function App() {
         </Menu>
       </Sider>
       <Layout className="site-layout">
-        <Content style={{ margin: '0' }}>
+        <Content style={{ margin: '0', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {renderContent()}
         </Content>
       </Layout>
