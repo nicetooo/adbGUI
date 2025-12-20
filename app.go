@@ -39,9 +39,12 @@ type App struct {
 
 	// aaptCache caches app label & icon so each package is processed at most once.
 	// Keyed by package name.
-	aaptCache   map[string]AppPackage
-	aaptCacheMu sync.RWMutex
-	cachePath   string
+	aaptCache       map[string]AppPackage
+	aaptCacheMu     sync.RWMutex
+	cachePath       string
+	scrcpyCmds      map[string]*exec.Cmd
+	scrcpyRecordCmd map[string]*exec.Cmd
+	scrcpyMu        sync.Mutex
 }
 
 type Device struct {
@@ -78,7 +81,9 @@ type AppPackage struct {
 // NewApp creates a new App application struct
 func NewApp() *App {
 	return &App{
-		aaptCache: make(map[string]AppPackage),
+		aaptCache:       make(map[string]AppPackage),
+		scrcpyCmds:      make(map[string]*exec.Cmd),
+		scrcpyRecordCmd: make(map[string]*exec.Cmd),
 	}
 }
 
@@ -1013,14 +1018,149 @@ func (a *App) RunAdbCommand(args []string) (string, error) {
 	return string(output), nil
 }
 
+// SelectRecordPath opens a file dialog to select a path for scrcpy recording
+func (a *App) SelectRecordPath() (string, error) {
+	defaultDir, _ := os.UserHomeDir()
+	downloadsDir := filepath.Join(defaultDir, "Downloads")
+	if _, err := os.Stat(downloadsDir); err == nil {
+		defaultDir = downloadsDir
+	}
+
+	return wailsRuntime.SaveFileDialog(a.ctx, wailsRuntime.SaveDialogOptions{
+		DefaultFilename: "recording_" + time.Now().Format("20060102_150405") + ".mp4",
+		Title:           "Select Recording Save Path",
+		Filters: []wailsRuntime.FileFilter{
+			{DisplayName: "MP4 Video (*.mp4)", Pattern: "*.mp4"},
+			{DisplayName: "MKV Video (*.mkv)", Pattern: "*.mkv"},
+		},
+		DefaultDirectory: defaultDir,
+	})
+}
+
+// StartRecording starts a separate scrcpy process just for recording without a window
+func (a *App) StartRecording(deviceId string, config ScrcpyConfig) error {
+	if deviceId == "" {
+		return fmt.Errorf("no device specified")
+	}
+
+	if config.RecordPath == "" {
+		return fmt.Errorf("no record path specified")
+	}
+
+	a.scrcpyMu.Lock()
+	if _, exists := a.scrcpyRecordCmd[deviceId]; exists {
+		a.scrcpyMu.Unlock()
+		return fmt.Errorf("recording already in progress for this device")
+	}
+	a.scrcpyMu.Unlock()
+
+	// Use the same args as StartScrcpy but add --no-window and --record
+	args := []string{"-s", deviceId, "--no-window", "--record", config.RecordPath}
+
+	if config.MaxSize > 0 {
+		args = append(args, "--max-size", fmt.Sprintf("%d", config.MaxSize))
+	}
+	if config.BitRate > 0 {
+		args = append(args, "--video-bit-rate", fmt.Sprintf("%dM", config.BitRate))
+	}
+	if config.MaxFps > 0 {
+		args = append(args, "--max-fps", fmt.Sprintf("%d", config.MaxFps))
+	}
+	if config.VideoCodec != "" {
+		args = append(args, "--video-codec", config.VideoCodec)
+	}
+	if config.AudioCodec != "" {
+		args = append(args, "--audio-codec", config.AudioCodec)
+	}
+	if config.NoAudio {
+		args = append(args, "--no-audio")
+	}
+
+	cmd := exec.Command(a.scrcpyPath, args...)
+	cmd.Env = append(os.Environ(),
+		"SCRCPY_SERVER_PATH="+a.serverPath,
+		"ADB="+a.adbPath,
+	)
+
+	fmt.Printf("Starting recording process: %s %v\n", a.scrcpyPath, cmd.Args)
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start recording: %w", err)
+	}
+
+	a.scrcpyMu.Lock()
+	a.scrcpyRecordCmd[deviceId] = cmd
+	a.scrcpyMu.Unlock()
+
+	wailsRuntime.EventsEmit(a.ctx, "scrcpy-record-started", map[string]interface{}{
+		"deviceId":   deviceId,
+		"recordPath": config.RecordPath,
+		"startTime":  time.Now().Unix(),
+	})
+
+	go func() {
+		_ = cmd.Wait()
+		a.scrcpyMu.Lock()
+		delete(a.scrcpyRecordCmd, deviceId)
+		a.scrcpyMu.Unlock()
+		wailsRuntime.EventsEmit(a.ctx, "scrcpy-record-stopped", deviceId)
+	}()
+
+	return nil
+}
+
+// StopRecording stops the recording process for the given device
+func (a *App) StopRecording(deviceId string) error {
+	a.scrcpyMu.Lock()
+	defer a.scrcpyMu.Unlock()
+
+	if cmd, exists := a.scrcpyRecordCmd[deviceId]; exists && cmd.Process != nil {
+		// On Unix-like systems, send SIGINT for graceful shutdown (finalizes MP4/MKV)
+		// On Windows, Kill is the standard but we can try to be slightly more careful
+		var err error
+		if runtime.GOOS != "windows" {
+			err = cmd.Process.Signal(os.Interrupt)
+		} else {
+			err = cmd.Process.Kill()
+		}
+		delete(a.scrcpyRecordCmd, deviceId)
+		return err
+	}
+	return nil
+}
+
+// OpenPath opens a file or directory in the default system browser
+func (a *App) OpenPath(path string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("explorer", "/select,", filepath.Clean(path))
+	case "darwin":
+		cmd = exec.Command("open", "-R", path)
+	default: // Linux
+		// On linux, opening and selecting is not standardized across file managers
+		// We'll just open the parent directory
+		cmd = exec.Command("xdg-open", filepath.Dir(path))
+	}
+	return cmd.Start()
+}
+
 type ScrcpyConfig struct {
-	MaxSize       int  `json:"maxSize"`
-	BitRate       int  `json:"bitRate"`
-	MaxFps        int  `json:"maxFps"`
-	StayAwake     bool `json:"stayAwake"`
-	TurnScreenOff bool `json:"turnScreenOff"`
-	NoAudio       bool `json:"noAudio"`
-	AlwaysOnTop   bool `json:"alwaysOnTop"`
+	MaxSize          int    `json:"maxSize"`
+	BitRate          int    `json:"bitRate"`
+	MaxFps           int    `json:"maxFps"`
+	StayAwake        bool   `json:"stayAwake"`
+	TurnScreenOff    bool   `json:"turnScreenOff"`
+	NoAudio          bool   `json:"noAudio"`
+	AlwaysOnTop      bool   `json:"alwaysOnTop"`
+	ShowTouches      bool   `json:"showTouches"`
+	Fullscreen       bool   `json:"fullscreen"`
+	ReadOnly         bool   `json:"readOnly"`
+	PowerOffOnClose  bool   `json:"powerOffOnClose"`
+	WindowBorderless bool   `json:"windowBorderless"`
+	VideoCodec       string `json:"videoCodec"`
+	AudioCodec       string `json:"audioCodec"`
+	RecordPath       string `json:"recordPath"`
 }
 
 // StartScrcpy starts scrcpy for the given device with custom configuration
@@ -1029,7 +1169,16 @@ func (a *App) StartScrcpy(deviceId string, config ScrcpyConfig) error {
 		return fmt.Errorf("no device specified")
 	}
 
+	a.scrcpyMu.Lock()
+	if cmd, exists := a.scrcpyCmds[deviceId]; exists && cmd.Process != nil {
+		// If already running, we might want to kill it or just return error
+		// For now, let's kill it to restart with new config
+		_ = cmd.Process.Kill()
+	}
+	a.scrcpyMu.Unlock()
+
 	args := []string{"-s", deviceId}
+	// ... (rest of args) ...
 	if config.MaxSize > 0 {
 		args = append(args, "--max-size", fmt.Sprintf("%d", config.MaxSize))
 	}
@@ -1050,6 +1199,30 @@ func (a *App) StartScrcpy(deviceId string, config ScrcpyConfig) error {
 	}
 	if config.AlwaysOnTop {
 		args = append(args, "--always-on-top")
+	}
+	if config.ShowTouches {
+		args = append(args, "--show-touches")
+	}
+	if config.Fullscreen {
+		args = append(args, "--fullscreen")
+	}
+	if config.ReadOnly {
+		args = append(args, "--read-only")
+	}
+	if config.PowerOffOnClose {
+		args = append(args, "--power-off-on-close")
+	}
+	if config.WindowBorderless {
+		args = append(args, "--window-borderless")
+	}
+	if config.VideoCodec != "" {
+		args = append(args, "--video-codec", config.VideoCodec)
+	}
+	if config.AudioCodec != "" {
+		args = append(args, "--audio-codec", config.AudioCodec)
+	}
+	if config.RecordPath != "" {
+		args = append(args, "--record", config.RecordPath)
 	}
 
 	args = append(args, "--window-title", "ADB GUI - "+deviceId)
@@ -1072,6 +1245,45 @@ func (a *App) StartScrcpy(deviceId string, config ScrcpyConfig) error {
 		return fmt.Errorf("failed to start scrcpy: %w", err)
 	}
 
+	a.scrcpyMu.Lock()
+	a.scrcpyCmds[deviceId] = cmd
+	a.scrcpyMu.Unlock()
+
+	// Notify frontend that scrcpy has started
+	wailsRuntime.EventsEmit(a.ctx, "scrcpy-started", map[string]interface{}{
+		"deviceId":   deviceId,
+		"recording":  config.RecordPath != "",
+		"recordPath": config.RecordPath,
+		"startTime":  time.Now().Unix(),
+	})
+
+	// Wait for process to exit in a goroutine
+	go func() {
+		_ = cmd.Wait()
+		a.scrcpyMu.Lock()
+		delete(a.scrcpyCmds, deviceId)
+		a.scrcpyMu.Unlock()
+		wailsRuntime.EventsEmit(a.ctx, "scrcpy-stopped", deviceId)
+	}()
+
+	return nil
+}
+
+// StopScrcpy stops scrcpy for the given device
+func (a *App) StopScrcpy(deviceId string) error {
+	a.scrcpyMu.Lock()
+	defer a.scrcpyMu.Unlock()
+
+	if cmd, exists := a.scrcpyCmds[deviceId]; exists && cmd.Process != nil {
+		var err error
+		if runtime.GOOS != "windows" {
+			err = cmd.Process.Signal(os.Interrupt)
+		} else {
+			err = cmd.Process.Kill()
+		}
+		delete(a.scrcpyCmds, deviceId)
+		return err
+	}
 	return nil
 }
 

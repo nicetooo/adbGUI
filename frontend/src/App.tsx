@@ -23,6 +23,7 @@ import {
   Tooltip,
   Checkbox,
   Tabs,
+  notification,
 } from "antd";
 import LogcatView from "./components/LogcatView";
 import DeviceSelector from "./components/DeviceSelector";
@@ -70,6 +71,11 @@ import {
   StartLogcat,
   StopLogcat,
   StartScrcpy,
+  StopScrcpy,
+  StartRecording,
+  StopRecording,
+  OpenPath,
+  SelectRecordPath,
   InstallAPK,
   ExportAPK,
   ListFiles,
@@ -179,7 +185,36 @@ function App() {
     turnScreenOff: false,
     noAudio: false,
     alwaysOnTop: false,
+    showTouches: false,
+    fullscreen: false,
+    readOnly: false,
+    powerOffOnClose: false,
+    windowBorderless: false,
+    videoCodec: "h264",
+    audioCodec: "opus",
+    recordPath: "",
   });
+
+  // Mirror tracking state
+  const [isMirroring, setIsMirroring] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [mirrorStartTime, setMirrorStartTime] = useState<number | null>(null);
+  const [recordStartTime, setRecordStartTime] = useState<number | null>(null);
+  const [mirrorDuration, setMirrorDuration] = useState(0);
+  const [recordDuration, setRecordDuration] = useState(0);
+  const [shouldRecord, setShouldRecord] = useState(false);
+
+  // Refs for event listeners to avoid stale closures
+  const isRecordingRef = useRef(false);
+  const recordPathRef = useRef("");
+
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
+
+  useEffect(() => {
+    recordPathRef.current = scrcpyConfig.recordPath;
+  }, [scrcpyConfig.recordPath]);
 
   const fetchDevices = async () => {
     setLoading(true);
@@ -247,11 +282,116 @@ function App() {
     // Use only ONE listener to start with, or keep both with the debounce
     EventsOn("wails:file-drop", handleFileDrop);
 
+    EventsOn("scrcpy-started", (data: any) => {
+      setIsMirroring(true);
+      setMirrorStartTime(data.startTime);
+      setMirrorDuration(0);
+      if (data.recording) {
+        setIsRecording(true);
+        setShouldRecord(true);
+        setRecordStartTime(data.startTime);
+        setRecordDuration(0);
+        setScrcpyConfig((prev) => ({ ...prev, recordPath: data.recordPath }));
+      }
+    });
+
+    EventsOn("scrcpy-stopped", (deviceId: string) => {
+      setIsMirroring(false);
+      setMirrorStartTime(null);
+
+      // If we were recording as part of the mirror session, show notification
+      if (isRecordingRef.current) {
+        setIsRecording(false);
+        setShouldRecord(false);
+        setRecordStartTime(null);
+        notification.success({
+          message: "Recording Saved",
+          description: "The screen recording has been saved successfully.",
+          btn: (
+            <Button
+              type="primary"
+              size="small"
+              onClick={() => {
+                if (recordPathRef.current) {
+                  OpenPath(recordPathRef.current);
+                }
+                notification.destroy();
+              }}
+            >
+              Show in Folder
+            </Button>
+          ),
+          key: "scrcpy-record-saved",
+          duration: 5,
+        });
+      }
+    });
+
+    EventsOn("scrcpy-record-started", (data: any) => {
+      setIsRecording(true);
+      setShouldRecord(true);
+      setRecordStartTime(data.startTime);
+      setRecordDuration(0);
+      setScrcpyConfig((prev) => ({ ...prev, recordPath: data.recordPath }));
+    });
+
+    EventsOn("scrcpy-record-stopped", (deviceId: string) => {
+      const path = recordPathRef.current;
+      setIsRecording(false);
+      setShouldRecord(false);
+      setRecordStartTime(null);
+
+      // Show notification with action to open folder
+      notification.success({
+        message: "Recording Saved",
+        description: "The screen recording has been saved successfully.",
+        btn: (
+          <Button
+            type="primary"
+            size="small"
+            onClick={() => {
+              if (path) {
+                OpenPath(path);
+              }
+              notification.destroy();
+            }}
+          >
+            Show in Folder
+          </Button>
+        ),
+        key: "scrcpy-record-saved",
+        duration: 5,
+      });
+    });
+
     return () => {
       EventsOff("wails:file-drop");
+      EventsOff("scrcpy-started");
+      EventsOff("scrcpy-stopped");
+      EventsOff("scrcpy-record-started");
+      EventsOff("scrcpy-record-stopped");
       StopLogcat();
     };
   }, []);
+
+  useEffect(() => {
+    let timer: any;
+    if (isMirroring || isRecording) {
+      timer = setInterval(() => {
+        if (isMirroring && mirrorStartTime) {
+          setMirrorDuration(Math.floor(Date.now() / 1000 - mirrorStartTime));
+        }
+        if (isRecording && recordStartTime) {
+          setRecordDuration(Math.floor(Date.now() / 1000 - recordStartTime));
+        }
+      }, 1000);
+    }
+
+    if (!isMirroring) setMirrorDuration(0);
+    if (!isRecording) setRecordDuration(0);
+
+    return () => clearInterval(timer);
+  }, [isMirroring, isRecording, mirrorStartTime, recordStartTime]);
 
   useEffect(() => {
     // When switching to apps, logcat or files tab, if data is not loaded yet, fetch it
@@ -591,10 +731,63 @@ function App() {
 
   const handleStartScrcpy = async (deviceId: string) => {
     try {
-      await StartScrcpy(deviceId, scrcpyConfig);
-      message.success("Starting Scrcpy...");
+      let currentConfig = { ...scrcpyConfig };
+
+      if (shouldRecord) {
+        const path = await SelectRecordPath();
+        if (!path) {
+          message.info("Recording cancelled");
+          return;
+        }
+        currentConfig.recordPath = path;
+      } else {
+        currentConfig.recordPath = "";
+      }
+
+      await StartScrcpy(deviceId, currentConfig);
+      message.success(
+        shouldRecord ? "Starting Recording & Mirror..." : "Starting Mirror..."
+      );
     } catch (err) {
       message.error("Failed to start Scrcpy: " + String(err));
+    }
+  };
+
+  const handleStopScrcpy = async (deviceId: string) => {
+    try {
+      if (isRecording) {
+        await StopRecording(deviceId);
+      }
+      await StopScrcpy(deviceId);
+      message.success("Mirror stopped");
+    } catch (err) {
+      message.error("Failed to stop Mirror: " + String(err));
+    }
+  };
+
+  const handleStartMidSessionRecord = async () => {
+    if (!selectedDevice) return;
+    try {
+      const path = await SelectRecordPath();
+      if (!path) return;
+
+      const config = { ...scrcpyConfig, recordPath: path };
+      await StartRecording(selectedDevice, config);
+      message.success("Recording started");
+    } catch (err) {
+      message.error("Failed to start recording: " + String(err));
+    }
+  };
+
+  const handleStopMidSessionRecord = async () => {
+    if (!selectedDevice) return;
+    const currentRecordPath = scrcpyConfig.recordPath;
+    try {
+      await StopRecording(selectedDevice);
+      // Logic for showing success is handled by scrcpy-record-stopped event
+      // but we can also do it here for immediate feedback if event is slow
+    } catch (err) {
+      message.error("Failed to stop recording: " + String(err));
     }
   };
 
@@ -1426,7 +1619,10 @@ function App() {
                 flexShrink: 0,
               }}
             >
-              <h2 style={{ margin: 0 }}>Mirror</h2>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <h2 style={{ margin: 0 }}>Mirror Screen</h2>
+                <Tag color="blue">Powered by Scrcpy</Tag>
+              </div>
               <Space>
                 <DeviceSelector
                   devices={devices}
@@ -1435,35 +1631,212 @@ function App() {
                   onRefresh={fetchDevices}
                   loading={loading}
                 />
-                <Button
-                  type="primary"
-                  icon={<DesktopOutlined />}
-                  onClick={() => handleStartScrcpy(selectedDevice)}
-                  disabled={!selectedDevice}
-                >
-                  Start Mirroring
-                </Button>
+                {isMirroring ? (
+                  <Button
+                    type="primary"
+                    danger
+                    size="large"
+                    icon={<StopOutlined />}
+                    onClick={() => handleStopScrcpy(selectedDevice)}
+                    disabled={!selectedDevice}
+                    style={{ height: "40px", borderRadius: "8px" }}
+                  >
+                    Stop Mirroring
+                  </Button>
+                ) : (
+                  <Button
+                    type="primary"
+                    size="large"
+                    icon={<DesktopOutlined />}
+                    onClick={() => handleStartScrcpy(selectedDevice)}
+                    disabled={!selectedDevice}
+                    style={{ height: "40px", borderRadius: "8px" }}
+                  >
+                    Start Mirroring
+                  </Button>
+                )}
               </Space>
             </div>
 
-            <div style={{ flex: 1, overflowY: "auto" }}>
-              <Row gutter={[16, 16]}>
-                <Col span={12}>
-                  <Card title="Video Quality" size="small">
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ marginBottom: 8 }}>Max Size (0 = auto)</div>
-                      <InputNumber
-                        min={0}
-                        max={4096}
-                        value={scrcpyConfig.maxSize}
-                        onChange={(v) =>
-                          setScrcpyConfig({ ...scrcpyConfig, maxSize: v || 0 })
-                        }
-                        style={{ width: "100%" }}
+            {isMirroring && (
+              <div
+                style={{
+                  marginBottom: 16,
+                  padding: "8px 16px",
+                  backgroundColor: isRecording ? "#fff1f0" : "#e6f7ff",
+                  border: `1px solid ${isRecording ? "#ffa39e" : "#91d5ff"}`,
+                  borderRadius: "8px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  animation: isRecording ? "pulse 2s infinite" : "none",
+                }}
+              >
+                <Space size="large">
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                  >
+                    <Tag color="processing">MIRRORING</Tag>
+                    <span
+                      style={{ fontWeight: "bold", fontFamily: "monospace" }}
+                    >
+                      {new Date(mirrorDuration * 1000)
+                        .toISOString()
+                        .substr(11, 8)}
+                    </span>
+                  </div>
+                  {isRecording && (
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 8 }}
+                    >
+                      <Tag color="error" icon={<div className="record-dot" />}>
+                        RECORDING
+                      </Tag>
+                      <span
+                        style={{
+                          fontWeight: "bold",
+                          fontFamily: "monospace",
+                          color: "#cf1322",
+                        }}
+                      >
+                        {new Date(recordDuration * 1000)
+                          .toISOString()
+                          .substr(11, 8)}
+                      </span>
+                    </div>
+                  )}
+                </Space>
+                <Space>
+                  {isRecording && scrcpyConfig.recordPath && (
+                    <span style={{ fontSize: "12px", color: "#666" }}>
+                      Saving to: {scrcpyConfig.recordPath.split(/[\\/]/).pop()}
+                    </span>
+                  )}
+                </Space>
+              </div>
+            )}
+
+            <div style={{ flex: 1, overflowY: "auto", paddingRight: 8 }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "16px",
+                  alignItems: "flex-start",
+                }}
+              >
+                {/* Left Column */}
+                <div
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "16px",
+                  }}
+                >
+                  {/* Recording */}
+                  <Card
+                    title={
+                      <Space>
+                        <DownloadOutlined />
+                        Recording
+                      </Space>
+                    }
+                    size="small"
+                    style={{
+                      border: shouldRecord ? "1px solid #ff4d4f" : undefined,
+                      backgroundColor: shouldRecord ? "#fff1f0" : undefined,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Space direction="vertical" size={0}>
+                        <span
+                          style={{
+                            fontWeight: shouldRecord ? "bold" : "normal",
+                          }}
+                        >
+                          Record Screen
+                        </span>
+                        <div style={{ fontSize: "11px", color: "#888" }}>
+                          {shouldRecord
+                            ? "Save dialog will show up"
+                            : "Save session as video"}
+                        </div>
+                      </Space>
+                      <Switch
+                        size="small"
+                        checked={shouldRecord || isRecording}
+                        onChange={async (v) => {
+                          setShouldRecord(v);
+                          if (isMirroring) {
+                            if (v) {
+                              await handleStartMidSessionRecord();
+                            } else {
+                              await handleStopMidSessionRecord();
+                            }
+                          }
+                        }}
+                        style={{
+                          backgroundColor:
+                            shouldRecord || isRecording ? "#ff4d4f" : undefined,
+                        }}
                       />
                     </div>
+                  </Card>
+
+                  {/* Video Settings */}
+                  <Card
+                    title={
+                      <Space>
+                        <PlayCircleOutlined />
+                        Video Settings
+                      </Space>
+                    }
+                    size="small"
+                    className="mirror-card"
+                  >
                     <div style={{ marginBottom: 16 }}>
-                      <div style={{ marginBottom: 8 }}>Bit Rate (Mbps)</div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span>Max Resolution</span>
+                        <Tag>{scrcpyConfig.maxSize || "Auto"}</Tag>
+                      </div>
+                      <Slider
+                        min={0}
+                        max={2560}
+                        step={128}
+                        value={scrcpyConfig.maxSize}
+                        onChange={(v) =>
+                          setScrcpyConfig({ ...scrcpyConfig, maxSize: v })
+                        }
+                        marks={{
+                          0: "Auto",
+                          1024: "1024",
+                          1920: "1080",
+                          2560: "2K",
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: 16, marginTop: 24 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span>Bit Rate (Mbps)</span>
+                        <Tag>{scrcpyConfig.bitRate}M</Tag>
+                      </div>
                       <Slider
                         min={1}
                         max={64}
@@ -1473,8 +1846,17 @@ function App() {
                         }
                       />
                     </div>
+
                     <div style={{ marginBottom: 16 }}>
-                      <div style={{ marginBottom: 8 }}>Max FPS</div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span>Max FPS</span>
+                        <Tag>{scrcpyConfig.maxFps}</Tag>
+                      </div>
                       <Slider
                         min={15}
                         max={144}
@@ -1484,36 +1866,193 @@ function App() {
                         }
                       />
                     </div>
-                  </Card>
-                </Col>
 
-                <Col span={12}>
-                  <Card title="Options" size="small">
-                    <Space direction="vertical" style={{ width: "100%" }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <span>Video Codec</span>
+                      <Select
+                        size="small"
+                        value={scrcpyConfig.videoCodec}
+                        onChange={(v) =>
+                          setScrcpyConfig({ ...scrcpyConfig, videoCodec: v })
+                        }
+                        style={{ width: 100 }}
                       >
-                        <span>Stay Awake</span>
+                        <Option value="h264">H.264</Option>
+                        <Option value="h265">H.265</Option>
+                        <Option value="av1">AV1</Option>
+                      </Select>
+                    </div>
+                  </Card>
+
+                  {/* Audio Settings */}
+                  <Card
+                    title={
+                      <Space>
+                        <FileTextOutlined />
+                        Audio Settings
+                      </Space>
+                    }
+                    size="small"
+                  >
+                    <Space direction="vertical" style={{ width: "100%" }}>
+                      <div className="setting-item">
+                        <span>Disable Audio</span>
                         <Switch
+                          size="small"
+                          checked={scrcpyConfig.noAudio}
+                          onChange={(v) =>
+                            setScrcpyConfig({ ...scrcpyConfig, noAudio: v })
+                          }
+                        />
+                      </div>
+                      <div className="setting-item">
+                        <span>Audio Codec</span>
+                        <Select
+                          size="small"
+                          disabled={scrcpyConfig.noAudio}
+                          value={scrcpyConfig.audioCodec}
+                          onChange={(v) =>
+                            setScrcpyConfig({ ...scrcpyConfig, audioCodec: v })
+                          }
+                          style={{ width: 100 }}
+                        >
+                          <Option value="opus">Opus</Option>
+                          <Option value="aac">AAC</Option>
+                          <Option value="flac">FLAC</Option>
+                          <Option value="raw">RAW</Option>
+                        </Select>
+                      </div>
+                    </Space>
+                  </Card>
+                </div>
+
+                {/* Right Column */}
+                <div
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "16px",
+                  }}
+                >
+                  {/* Window Options */}
+                  <Card
+                    title={
+                      <Space>
+                        <SettingOutlined />
+                        Window Options
+                      </Space>
+                    }
+                    size="small"
+                  >
+                    <Space direction="vertical" style={{ width: "100%" }}>
+                      <div className="setting-item">
+                        <span>Always On Top</span>
+                        <Switch
+                          size="small"
+                          checked={scrcpyConfig.alwaysOnTop}
+                          onChange={(v) =>
+                            setScrcpyConfig({ ...scrcpyConfig, alwaysOnTop: v })
+                          }
+                        />
+                      </div>
+                      <div className="setting-item">
+                        <span>Fullscreen</span>
+                        <Switch
+                          size="small"
+                          checked={scrcpyConfig.fullscreen}
+                          onChange={(v) =>
+                            setScrcpyConfig({ ...scrcpyConfig, fullscreen: v })
+                          }
+                        />
+                      </div>
+                      <div className="setting-item">
+                        <span>Borderless</span>
+                        <Switch
+                          size="small"
+                          checked={scrcpyConfig.windowBorderless}
+                          onChange={(v) =>
+                            setScrcpyConfig({
+                              ...scrcpyConfig,
+                              windowBorderless: v,
+                            })
+                          }
+                        />
+                      </div>
+                    </Space>
+                  </Card>
+
+                  {/* Control & Interaction */}
+                  <Card
+                    title={
+                      <Space>
+                        <MobileOutlined />
+                        Control & Interaction
+                      </Space>
+                    }
+                    size="small"
+                  >
+                    <Space direction="vertical" style={{ width: "100%" }}>
+                      <div className="setting-item">
+                        <Tooltip title="Prevent device from sleeping">
+                          <span>Stay Awake</span>
+                        </Tooltip>
+                        <Switch
+                          size="small"
                           checked={scrcpyConfig.stayAwake}
                           onChange={(v) =>
                             setScrcpyConfig({ ...scrcpyConfig, stayAwake: v })
                           }
                         />
                       </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}
-                      >
-                        <span>Turn Screen Off</span>
+                      <div className="setting-item">
+                        <Tooltip title="Disable keyboard/mouse control">
+                          <span>Read Only</span>
+                        </Tooltip>
                         <Switch
+                          size="small"
+                          checked={scrcpyConfig.readOnly}
+                          onChange={(v) =>
+                            setScrcpyConfig({ ...scrcpyConfig, readOnly: v })
+                          }
+                        />
+                      </div>
+                      <div className="setting-item">
+                        <span>Show Touches</span>
+                        <Switch
+                          size="small"
+                          checked={scrcpyConfig.showTouches}
+                          onChange={(v) =>
+                            setScrcpyConfig({ ...scrcpyConfig, showTouches: v })
+                          }
+                        />
+                      </div>
+                    </Space>
+                  </Card>
+
+                  {/* Power Management */}
+                  <Card
+                    title={
+                      <Space>
+                        <StopOutlined />
+                        Power Management
+                      </Space>
+                    }
+                    size="small"
+                  >
+                    <Space direction="vertical" style={{ width: "100%" }}>
+                      <div className="setting-item">
+                        <Tooltip title="Turn off device screen while mirroring">
+                          <span>Turn Screen Off</span>
+                        </Tooltip>
+                        <Switch
+                          size="small"
                           checked={scrcpyConfig.turnScreenOff}
                           onChange={(v) =>
                             setScrcpyConfig({
@@ -1523,40 +2062,25 @@ function App() {
                           }
                         />
                       </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}
-                      >
-                        <span>No Audio</span>
+                      <div className="setting-item">
+                        <Tooltip title="Power off device when closing mirror">
+                          <span>Power Off On Close</span>
+                        </Tooltip>
                         <Switch
-                          checked={scrcpyConfig.noAudio}
+                          size="small"
+                          checked={scrcpyConfig.powerOffOnClose}
                           onChange={(v) =>
-                            setScrcpyConfig({ ...scrcpyConfig, noAudio: v })
-                          }
-                        />
-                      </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}
-                      >
-                        <span>Always On Top</span>
-                        <Switch
-                          checked={scrcpyConfig.alwaysOnTop}
-                          onChange={(v) =>
-                            setScrcpyConfig({ ...scrcpyConfig, alwaysOnTop: v })
+                            setScrcpyConfig({
+                              ...scrcpyConfig,
+                              powerOffOnClose: v,
+                            })
                           }
                         />
                       </div>
                     </Space>
                   </Card>
-                </Col>
-              </Row>
+                </div>
+              </div>
             </div>
           </div>
         );

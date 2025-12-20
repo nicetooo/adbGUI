@@ -62,8 +62,16 @@ export function MoveFile(arg1, arg2, arg3) {
   return window['go']['main']['App']['MoveFile'](arg1, arg2, arg3);
 }
 
+export function OpenPath(arg1) {
+  return window['go']['main']['App']['OpenPath'](arg1);
+}
+
 export function RunAdbCommand(arg1) {
   return window['go']['main']['App']['RunAdbCommand'](arg1);
+}
+
+export function SelectRecordPath() {
+  return window['go']['main']['App']['SelectRecordPath']();
 }
 
 export function StartActivity(arg1, arg2) {
@@ -78,12 +86,24 @@ export function StartLogcat(arg1, arg2) {
   return window['go']['main']['App']['StartLogcat'](arg1, arg2);
 }
 
+export function StartRecording(arg1, arg2) {
+  return window['go']['main']['App']['StartRecording'](arg1, arg2);
+}
+
 export function StartScrcpy(arg1, arg2) {
   return window['go']['main']['App']['StartScrcpy'](arg1, arg2);
 }
 
 export function StopLogcat() {
   return window['go']['main']['App']['StopLogcat']();
+}
+
+export function StopRecording(arg1) {
+  return window['go']['main']['App']['StopRecording'](arg1);
+}
+
+export function StopScrcpy(arg1) {
+  return window['go']['main']['App']['StopScrcpy'](arg1);
 }
 
 export function UninstallApp(arg1, arg2) {

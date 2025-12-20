@@ -82,6 +82,14 @@ export namespace main {
 	    turnScreenOff: boolean;
 	    noAudio: boolean;
 	    alwaysOnTop: boolean;
+	    showTouches: boolean;
+	    fullscreen: boolean;
+	    readOnly: boolean;
+	    powerOffOnClose: boolean;
+	    windowBorderless: boolean;
+	    videoCodec: string;
+	    audioCodec: string;
+	    recordPath: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ScrcpyConfig(source);
@@ -96,6 +104,14 @@ export namespace main {
 	        this.turnScreenOff = source["turnScreenOff"];
 	        this.noAudio = source["noAudio"];
 	        this.alwaysOnTop = source["alwaysOnTop"];
+	        this.showTouches = source["showTouches"];
+	        this.fullscreen = source["fullscreen"];
+	        this.readOnly = source["readOnly"];
+	        this.powerOffOnClose = source["powerOffOnClose"];
+	        this.windowBorderless = source["windowBorderless"];
+	        this.videoCodec = source["videoCodec"];
+	        this.audioCodec = source["audioCodec"];
+	        this.recordPath = source["recordPath"];
 	    }
 	}
 

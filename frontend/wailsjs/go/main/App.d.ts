@@ -32,7 +32,11 @@ export function Mkdir(arg1:string,arg2:string):Promise<void>;
 
 export function MoveFile(arg1:string,arg2:string,arg3:string):Promise<void>;
 
+export function OpenPath(arg1:string):Promise<void>;
+
 export function RunAdbCommand(arg1:Array<string>):Promise<string>;
+
+export function SelectRecordPath():Promise<string>;
 
 export function StartActivity(arg1:string,arg2:string):Promise<string>;
 
@@ -40,8 +44,14 @@ export function StartApp(arg1:string,arg2:string):Promise<string>;
 
 export function StartLogcat(arg1:string,arg2:string):Promise<void>;
 
+export function StartRecording(arg1:string,arg2:main.ScrcpyConfig):Promise<void>;
+
 export function StartScrcpy(arg1:string,arg2:main.ScrcpyConfig):Promise<void>;
 
 export function StopLogcat():Promise<void>;
+
+export function StopRecording(arg1:string):Promise<void>;
+
+export function StopScrcpy(arg1:string):Promise<void>;
 
 export function UninstallApp(arg1:string,arg2:string):Promise<string>;
