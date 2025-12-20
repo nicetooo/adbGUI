@@ -63,6 +63,21 @@ type Device struct {
 	Brand string `json:"brand"`
 }
 
+type DeviceInfo struct {
+	Model        string            `json:"model"`
+	Brand        string            `json:"brand"`
+	Manufacturer string            `json:"manufacturer"`
+	AndroidVer   string            `json:"androidVer"`
+	SDK          string            `json:"sdk"`
+	ABI          string            `json:"abi"`
+	Serial       string            `json:"serial"`
+	Resolution   string            `json:"resolution"`
+	Density      string            `json:"density"`
+	CPU          string            `json:"cpu"`
+	Memory       string            `json:"memory"`
+	Props        map[string]string `json:"props"`
+}
+
 type FileInfo struct {
 	Name    string `json:"name"`
 	Size    int64  `json:"size"`
@@ -928,6 +943,92 @@ func (a *App) GetDevices() ([]Device, error) {
 	wg.Wait()
 
 	return devices, nil
+}
+
+// GetDeviceInfo returns detailed information about a device
+func (a *App) GetDeviceInfo(deviceId string) (DeviceInfo, error) {
+	var info DeviceInfo
+	info.Props = make(map[string]string)
+
+	if deviceId == "" {
+		return info, fmt.Errorf("no device specified")
+	}
+
+	// 1. Get properties
+	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "getprop")
+	output, err := cmd.Output()
+	if err == nil {
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			// Format: [prop.name]: [prop.value]
+			parts := strings.SplitN(line, "]: [", 2)
+			if len(parts) == 2 {
+				key := strings.TrimPrefix(parts[0], "[")
+				val := strings.TrimSuffix(parts[1], "]")
+				info.Props[key] = val
+
+				switch key {
+				case "ro.product.model":
+					info.Model = val
+				case "ro.product.brand":
+					info.Brand = val
+				case "ro.product.manufacturer":
+					info.Manufacturer = val
+				case "ro.build.version.release":
+					info.AndroidVer = val
+				case "ro.build.version.sdk":
+					info.SDK = val
+				case "ro.product.cpu.abi":
+					info.ABI = val
+				case "ro.serialno":
+					info.Serial = val
+				}
+			}
+		}
+	}
+
+	// 2. Get resolution
+	cmd = exec.Command(a.adbPath, "-s", deviceId, "shell", "wm", "size")
+	out, err := cmd.Output()
+	if err == nil {
+		info.Resolution = strings.TrimSpace(strings.TrimPrefix(string(out), "Physical size: "))
+	}
+
+	// 3. Get density
+	cmd = exec.Command(a.adbPath, "-s", deviceId, "shell", "wm", "density")
+	out, err = cmd.Output()
+	if err == nil {
+		info.Density = strings.TrimSpace(strings.TrimPrefix(string(out), "Physical density: "))
+	}
+
+	// 4. Get CPU info (brief)
+	cmd = exec.Command(a.adbPath, "-s", deviceId, "shell", "cat /proc/cpuinfo | grep 'Hardware' | head -1")
+	out, err = cmd.Output()
+	if err == nil && len(out) > 0 {
+		info.CPU = strings.TrimSpace(strings.TrimPrefix(string(out), "Hardware\t: "))
+	}
+	if info.CPU == "" {
+		// Try another way to get processor info
+		cmd = exec.Command(a.adbPath, "-s", deviceId, "shell", "cat /proc/cpuinfo | grep 'processor' | wc -l")
+		out, err = cmd.Output()
+		if err == nil {
+			cores := strings.TrimSpace(string(out))
+			info.CPU = fmt.Sprintf("%s Core(s)", cores)
+		}
+	}
+
+	// 5. Get Memory info
+	cmd = exec.Command(a.adbPath, "-s", deviceId, "shell", "cat /proc/meminfo | grep 'MemTotal'")
+	out, err = cmd.Output()
+	if err == nil {
+		info.Memory = strings.TrimSpace(strings.TrimPrefix(string(out), "MemTotal:"))
+	}
+
+	return info, nil
 }
 
 // RunAdbCommand executes an arbitrary ADB command

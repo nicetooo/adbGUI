@@ -8,6 +8,7 @@ import FilesView, { FocusInput } from "./components/FilesView";
 import ShellView from "./components/ShellView";
 import MirrorView from "./components/MirrorView";
 import AppInfoModal from "./components/AppInfoModal";
+import DeviceInfoModal from "./components/DeviceInfoModal";
 import {
   MobileOutlined,
   AppstoreOutlined,
@@ -49,6 +50,7 @@ import {
   CancelOpenFile,
   DownloadFile,
   GetThumbnail,
+  GetDeviceInfo,
 } from "../wailsjs/go/main/App";
 // @ts-ignore
 import { main } from "../wailsjs/go/models";
@@ -71,6 +73,12 @@ function App() {
   const [selectedKey, setSelectedKey] = useState("1");
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Device Info state
+  const [deviceInfoVisible, setDeviceInfoVisible] = useState(false);
+  const [deviceInfoLoading, setDeviceInfoLoading] = useState(false);
+  const [selectedDeviceInfo, setSelectedDeviceInfo] =
+    useState<main.DeviceInfo | null>(null);
 
   // Shell state
   const [shellOutput, setShellOutput] = useState("");
@@ -168,6 +176,19 @@ function App() {
       message.error("Failed to fetch devices: " + String(err));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFetchDeviceInfo = async (deviceId: string) => {
+    setDeviceInfoVisible(true);
+    setDeviceInfoLoading(true);
+    try {
+      const res = await GetDeviceInfo(deviceId);
+      setSelectedDeviceInfo(res);
+    } catch (err) {
+      message.error("Failed to fetch device info: " + String(err));
+    } finally {
+      setDeviceInfoLoading(false);
     }
   };
 
@@ -817,6 +838,7 @@ function App() {
             setShellCmd={setShellCmd}
             fetchFiles={fetchFiles}
             handleStartScrcpy={handleStartScrcpy}
+            handleFetchDeviceInfo={handleFetchDeviceInfo}
           />
         );
       case "6":
@@ -972,6 +994,17 @@ function App() {
         activitySearch={activitySearch}
         setActivitySearch={setActivitySearch}
         handleStartActivity={handleStartActivity}
+      />
+
+      <DeviceInfoModal
+        visible={deviceInfoVisible}
+        onCancel={() => setDeviceInfoVisible(false)}
+        deviceInfo={selectedDeviceInfo}
+        loading={deviceInfoLoading}
+        onRefresh={() =>
+          selectedDeviceInfo &&
+          handleFetchDeviceInfo(selectedDeviceInfo.serial || selectedDevice)
+        }
       />
     </Layout>
   );

@@ -22,6 +22,8 @@ export function ForceStopApp(arg1:string,arg2:string):Promise<string>;
 
 export function GetAppInfo(arg1:string,arg2:string,arg3:boolean):Promise<main.AppPackage>;
 
+export function GetDeviceInfo(arg1:string):Promise<main.DeviceInfo>;
+
 export function GetDevices():Promise<Array<main.Device>>;
 
 export function GetThumbnail(arg1:string,arg2:string,arg3:string):Promise<string>;

@@ -52,6 +52,40 @@ export namespace main {
 	        this.brand = source["brand"];
 	    }
 	}
+	export class DeviceInfo {
+	    model: string;
+	    brand: string;
+	    manufacturer: string;
+	    androidVer: string;
+	    sdk: string;
+	    abi: string;
+	    serial: string;
+	    resolution: string;
+	    density: string;
+	    cpu: string;
+	    memory: string;
+	    props: {[key: string]: string};
+	
+	    static createFrom(source: any = {}) {
+	        return new DeviceInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.model = source["model"];
+	        this.brand = source["brand"];
+	        this.manufacturer = source["manufacturer"];
+	        this.androidVer = source["androidVer"];
+	        this.sdk = source["sdk"];
+	        this.abi = source["abi"];
+	        this.serial = source["serial"];
+	        this.resolution = source["resolution"];
+	        this.density = source["density"];
+	        this.cpu = source["cpu"];
+	        this.memory = source["memory"];
+	        this.props = source["props"];
+	    }
+	}
 	export class FileInfo {
 	    name: string;
 	    size: number;

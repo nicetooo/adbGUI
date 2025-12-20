@@ -7,6 +7,7 @@ import {
   FileTextOutlined,
   FolderOutlined,
   DesktopOutlined,
+  InfoCircleOutlined,
 } from "@ant-design/icons";
 
 interface Device {
@@ -25,6 +26,7 @@ interface DevicesViewProps {
   setShellCmd: (cmd: string) => void;
   fetchFiles: (path: string) => Promise<void>;
   handleStartScrcpy: (id: string) => Promise<void>;
+  handleFetchDeviceInfo: (id: string) => Promise<void>;
 }
 
 const DevicesView: React.FC<DevicesViewProps> = ({
@@ -36,6 +38,7 @@ const DevicesView: React.FC<DevicesViewProps> = ({
   setShellCmd,
   fetchFiles,
   handleStartScrcpy,
+  handleFetchDeviceInfo,
 }) => {
   const deviceColumns = [
     {
@@ -58,6 +61,7 @@ const DevicesView: React.FC<DevicesViewProps> = ({
       title: "State",
       dataIndex: "state",
       key: "state",
+      width: 130,
       render: (state: string) => (
         <Tag color={state === "device" ? "green" : "red"}>
           {state.toUpperCase()}
@@ -67,8 +71,16 @@ const DevicesView: React.FC<DevicesViewProps> = ({
     {
       title: "Action",
       key: "action",
+      width: 280,
       render: (_: any, record: Device) => (
-        <Space size="middle">
+        <Space size="small">
+          <Tooltip title="Device Info">
+            <Button
+              size="small"
+              icon={<InfoCircleOutlined />}
+              onClick={() => handleFetchDeviceInfo(record.id)}
+            />
+          </Tooltip>
           <Tooltip title="Shell">
             <Button
               size="small"
