@@ -45,6 +45,10 @@ import {
   MoveFile,
   CopyFile,
   Mkdir,
+  OpenFileOnHost,
+  CancelOpenFile,
+  DownloadFile,
+  GetThumbnail,
 } from "../wailsjs/go/main/App";
 // @ts-ignore
 import { main } from "../wailsjs/go/models";
@@ -396,6 +400,50 @@ function App() {
     if (!selectedDevice) return;
     try {
       switch (action) {
+        case "open":
+          const openKey = `open_${file.path}`;
+          message.loading({
+            content: (
+              <span>
+                Opening {file.name}...
+                <Button
+                  type="link"
+                  size="small"
+                  onClick={async () => {
+                    await CancelOpenFile(file.path);
+                    message.destroy(openKey);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </span>
+            ),
+            key: openKey,
+            duration: 0,
+          });
+          try {
+            await OpenFileOnHost(selectedDevice, file.path);
+            message.destroy(openKey);
+          } catch (err) {
+            if (String(err).includes("cancelled")) {
+              message.info("Open cancelled", 2);
+            } else {
+              message.error("Failed to open file: " + String(err), 3);
+            }
+            message.destroy(openKey);
+          }
+          break;
+        case "download":
+          const downloadKey = `download_${file.path}`;
+          try {
+            const savePath = await DownloadFile(selectedDevice, file.path);
+            if (savePath) {
+              message.success(`Downloaded to ${savePath}`);
+            }
+          } catch (err) {
+            message.error("Download failed: " + String(err));
+          }
+          break;
         case "delete":
           await DeleteFile(selectedDevice, file.path);
           message.success("Deleted " + file.name);

@@ -1,5 +1,15 @@
 import React, { useRef, useEffect } from "react";
-import { Table, Button, Tag, Space, Tooltip, Input, Checkbox, Dropdown, Modal } from "antd";
+import {
+  Table,
+  Button,
+  Tag,
+  Space,
+  Tooltip,
+  Input,
+  Checkbox,
+  Dropdown,
+  Modal,
+} from "antd";
 import {
   ReloadOutlined,
   FolderOutlined,
@@ -10,7 +20,12 @@ import {
   ArrowLeftOutlined,
   FolderAddOutlined,
   SnippetsOutlined,
+  PictureOutlined,
+  PlaySquareOutlined,
+  VerticalAlignBottomOutlined,
 } from "@ant-design/icons";
+// @ts-ignore
+import { GetThumbnail } from "../../wailsjs/go/main/App";
 import DeviceSelector from "./DeviceSelector";
 
 interface Device {
@@ -19,6 +34,103 @@ interface Device {
   model: string;
   brand: string;
 }
+
+const NameWithThumbnail = ({
+  deviceId,
+  record,
+  onClick,
+}: {
+  deviceId: string;
+  record: any;
+  onClick: () => void;
+}) => {
+  const [thumb, setThumb] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(false);
+
+  const name = record.name.toLowerCase();
+  const isImage =
+    name.endsWith(".jpg") ||
+    name.endsWith(".jpeg") ||
+    name.endsWith(".png") ||
+    name.endsWith(".webp") ||
+    name.endsWith(".gif");
+  const isVideo =
+    name.endsWith(".mp4") ||
+    name.endsWith(".mkv") ||
+    name.endsWith(".mov") ||
+    name.endsWith(".avi");
+
+  React.useEffect(() => {
+    if ((isImage || isVideo) && deviceId && !thumb && !loading) {
+      setLoading(true);
+      GetThumbnail(deviceId, record.path, record.modTime)
+        .then((res: string) => {
+          setThumb(res);
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    }
+  }, [deviceId, record.path, record.modTime]);
+
+  const icon = thumb ? (
+    <img
+      src={thumb}
+      style={{
+        width: 24,
+        height: 24,
+        objectFit: "cover",
+        borderRadius: 2,
+        display: "block",
+      }}
+    />
+  ) : record.isDir ? (
+    <FolderOutlined style={{ color: "#1890ff" }} />
+  ) : isImage ? (
+    <PictureOutlined style={{ color: "#52c41a" }} />
+  ) : isVideo ? (
+    <PlaySquareOutlined style={{ color: "#eb2f96" }} />
+  ) : (
+    <FileOutlined />
+  );
+
+  const content = (
+    <Space
+      onClick={onClick}
+      style={{
+        cursor: "pointer",
+        width: "100%",
+      }}
+    >
+      {icon}
+      <span>{record.name}</span>
+    </Space>
+  );
+
+  if (thumb) {
+    return (
+      <Tooltip
+        title={
+          <img
+            src={thumb}
+            style={{
+              maxWidth: 400,
+              maxHeight: 400,
+              display: "block",
+              borderRadius: 4,
+            }}
+          />
+        }
+        mouseEnterDelay={0.3}
+        overlayStyle={{ maxWidth: "none" }}
+        overlayInnerStyle={{ padding: 0, backgroundColor: "transparent" }}
+      >
+        {content}
+      </Tooltip>
+    );
+  }
+
+  return content;
+};
 
 interface FilesViewProps {
   devices: Device[];
@@ -94,20 +206,17 @@ const FilesView: React.FC<FilesViewProps> = ({
       key: "name",
       sorter: (a: any, b: any) => a.name.localeCompare(b.name),
       render: (_: any, record: any) => (
-        <Space
-          onClick={() => record.isDir && fetchFiles(record.path)}
-          style={{
-            cursor: record.isDir ? "pointer" : "default",
-            width: "100%",
+        <NameWithThumbnail
+          deviceId={selectedDevice}
+          record={record}
+          onClick={() => {
+            if (record.isDir) {
+              fetchFiles(record.path);
+            } else {
+              handleFileAction("open", record);
+            }
           }}
-        >
-          {record.isDir ? (
-            <FolderOutlined style={{ color: "#1890ff" }} />
-          ) : (
-            <FileOutlined />
-          )}
-          <span>{record.name}</span>
-        </Space>
+        />
       ),
     },
     {
@@ -139,9 +248,18 @@ const FilesView: React.FC<FilesViewProps> = ({
     {
       title: "Action",
       key: "action",
-      width: 150,
+      width: 180,
       render: (_: any, record: any) => (
         <Space>
+          {!record.isDir && (
+            <Tooltip title="Download">
+              <Button
+                size="small"
+                icon={<VerticalAlignBottomOutlined />}
+                onClick={() => handleFileAction("download", record)}
+              />
+            </Tooltip>
+          )}
           <Tooltip title="Copy">
             <Button
               size="small"
@@ -159,6 +277,12 @@ const FilesView: React.FC<FilesViewProps> = ({
           <Dropdown
             menu={{
               items: [
+                {
+                  key: "open",
+                  label: "Open on Host",
+                  disabled: record.isDir,
+                  onClick: () => handleFileAction("open", record),
+                },
                 {
                   key: "rename",
                   label: "Rename",
@@ -268,7 +392,8 @@ const FilesView: React.FC<FilesViewProps> = ({
             onClick={() => handleFileAction("paste", null)}
             type={clipboard ? "primary" : "default"}
           >
-            Paste {clipboard && `(${clipboard.type === "copy" ? "Copy" : "Cut"})`}
+            Paste{" "}
+            {clipboard && `(${clipboard.type === "copy" ? "Copy" : "Cut"})`}
           </Button>
         </Space>
       </div>
@@ -295,7 +420,13 @@ const FilesView: React.FC<FilesViewProps> = ({
           size="small"
           scroll={{ y: "calc(100vh - 170px)" }}
           onRow={(record) => ({
-            onDoubleClick: () => record.isDir && fetchFiles(record.path),
+            onDoubleClick: () => {
+              if (record.isDir) {
+                fetchFiles(record.path);
+              } else {
+                handleFileAction("open", record);
+              }
+            },
           })}
           style={{ flex: 1 }}
         />
@@ -306,4 +437,3 @@ const FilesView: React.FC<FilesViewProps> = ({
 
 export { FocusInput };
 export default FilesView;
-

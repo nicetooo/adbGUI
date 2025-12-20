@@ -14,7 +14,15 @@ input, textarea {
 
 /* Helper class for selectable areas */
 .selectable,
-.selectable * {
+.selectable *,
+.ant-message-notice-content,
+.ant-message-notice-content *,
+.ant-notification-notice,
+.ant-notification-notice *,
+.ant-modal-body,
+.ant-modal-body *,
+.ant-modal-confirm-body,
+.ant-modal-confirm-body * {
     user-select: text !important;
     -webkit-user-select: text !important;
 }
