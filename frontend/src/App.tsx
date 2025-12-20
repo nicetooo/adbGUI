@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Layout, Menu, Table, Button, Tag, Space, message, Input, Select, Popconfirm, Radio, Dropdown, List, Switch, Slider, InputNumber, Card, Row, Col, Modal } from 'antd';
+import { Layout, Menu, Table, Button, Tag, Space, message, Input, Select, Popconfirm, Radio, Dropdown, List, Switch, Slider, InputNumber, Card, Row, Col, Modal, Tooltip } from 'antd';
 import LogcatView from './components/LogcatView';
 import { 
   MobileOutlined, 
@@ -550,87 +550,90 @@ function App() {
     {
       title: 'Action',
       key: 'action',
-      width: 100,
+      width: 250,
       render: (_: any, record: main.AppPackage) => {
         return (
-          <Dropdown menu={{ items: [
-            {
-              key: 'info',
-              icon: <InfoCircleOutlined />,
-              label: 'App Info',
-              onClick: () => handleFetchAppInfo(record.name)
-            },
-            {
-              key: 'logcat',
-              icon: <FileTextOutlined />,
-              label: 'Logcat',
-              onClick: () => handleAppLogcat(record.name)
-            },
-            {
-              key: 'export',
-              icon: <DownloadOutlined />,
-              label: 'Export APK',
-              onClick: () => handleExportAPK(record.name)
-            },
-            {
-              type: 'divider'
-            },
-            {
-              key: 'start',
-              icon: <PlayCircleOutlined />,
-              label: 'Launch App',
-              onClick: () => handleStartApp(record.name)
-            },
-            {
-              key: 'stop',
-              icon: <StopOutlined />,
-              label: 'Force Stop',
-              onClick: () => handleForceStop(record.name)
-            },
-            {
-              key: 'state',
-              icon: record.state === 'enabled' ? <CloseCircleOutlined /> : <CheckCircleOutlined />,
-              label: record.state === 'enabled' ? 'Disable' : 'Enable',
-              onClick: () => handleToggleState(record.name, record.state)
-            },
-            {
-              type: 'divider'
-            },
-            {
-              key: 'clear',
-              icon: <ClearOutlined />,
-              label: 'Clear Data',
-              danger: true,
-              onClick: () => {
-                 Modal.confirm({
-                   title: 'Clear App Data',
-                   content: `Are you sure you want to clear all data for ${record.name}? This cannot be undone.`,
-                   okText: 'Clear',
-                   okType: 'danger',
-                   cancelText: 'Cancel',
-                   onOk: () => handleClearData(record.name),
-                 });
+          <Space size={4}>
+            <Tooltip title="Launch App">
+              <Button 
+                size="small" 
+                icon={<PlayCircleOutlined />} 
+                onClick={() => handleStartApp(record.name)}
+              />
+            </Tooltip>
+            <Tooltip title="Logcat">
+              <Button 
+                size="small" 
+                icon={<FileTextOutlined />} 
+                onClick={() => handleAppLogcat(record.name)}
+              />
+            </Tooltip>
+            <Tooltip title="Export APK">
+              <Button 
+                size="small" 
+                icon={<DownloadOutlined />} 
+                onClick={() => handleExportAPK(record.name)}
+              />
+            </Tooltip>
+            <Tooltip title="App Info">
+              <Button 
+                size="small" 
+                icon={<InfoCircleOutlined />} 
+                onClick={() => handleFetchAppInfo(record.name)}
+              />
+            </Tooltip>
+            <Dropdown menu={{ items: [
+              {
+                key: 'stop',
+                icon: <StopOutlined />,
+                label: 'Force Stop',
+                onClick: () => handleForceStop(record.name)
+              },
+              {
+                key: 'state',
+                icon: record.state === 'enabled' ? <CloseCircleOutlined /> : <CheckCircleOutlined />,
+                label: record.state === 'enabled' ? 'Disable' : 'Enable',
+                onClick: () => handleToggleState(record.name, record.state)
+              },
+              {
+                type: 'divider'
+              },
+              {
+                key: 'clear',
+                icon: <ClearOutlined />,
+                label: 'Clear Data',
+                danger: true,
+                onClick: () => {
+                   Modal.confirm({
+                     title: 'Clear App Data',
+                     content: `Are you sure you want to clear all data for ${record.name}? This cannot be undone.`,
+                     okText: 'Clear',
+                     okType: 'danger',
+                     cancelText: 'Cancel',
+                     onOk: () => handleClearData(record.name),
+                   });
+                }
+              },
+              {
+                key: 'uninstall',
+                icon: <DeleteOutlined />,
+                label: 'Uninstall',
+                danger: true,
+                onClick: () => {
+                   Modal.confirm({
+                     title: 'Uninstall App',
+                     content: `Are you sure you want to uninstall ${record.name}?`,
+                     okText: 'Uninstall',
+                     okType: 'danger',
+                     cancelText: 'Cancel',
+                     onOk: () => handleUninstall(record.name),
+                   });
+                }
               }
-            },
-            {
-              key: 'uninstall',
-              icon: <DeleteOutlined />,
-              label: 'Uninstall',
-              danger: true,
-              onClick: () => {
-                 Modal.confirm({
-                   title: 'Uninstall App',
-                   content: `Are you sure you want to uninstall ${record.name}?`,
-                   okText: 'Uninstall',
-                   okType: 'danger',
-                   cancelText: 'Cancel',
-                   onOk: () => handleUninstall(record.name),
-                 });
-              }
-            }
-          ] }} trigger={['click']}>
-            <Button size="small" icon={<MoreOutlined />} />
-          </Dropdown>
+            ] }} trigger={['click']}>
+              <Button size="small" icon={<MoreOutlined />} />
+            </Dropdown>
+          </Space>
         );
       },
     },

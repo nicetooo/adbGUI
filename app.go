@@ -1210,14 +1210,20 @@ func (a *App) ExportAPK(deviceId string, packageName string) (string, error) {
 
 	// 2. Open Save File Dialog
 	fileName := packageName + ".apk"
-	homeDir, _ := os.UserHomeDir()
+	defaultDir, _ := os.UserHomeDir()
+	downloadsDir := filepath.Join(defaultDir, "Downloads")
+	// Check if Downloads exists, if not fallback to home
+	if _, err := os.Stat(downloadsDir); err == nil {
+		defaultDir = downloadsDir
+	}
+
 	savePath, err := wailsRuntime.SaveFileDialog(a.ctx, wailsRuntime.SaveDialogOptions{
 		DefaultFilename: fileName,
 		Title:           "Export APK",
 		Filters: []wailsRuntime.FileFilter{
 			{DisplayName: "Android Package (*.apk)", Pattern: "*.apk"},
 		},
-		DefaultDirectory: homeDir,
+		DefaultDirectory: defaultDir,
 	})
 
 	if err != nil {
