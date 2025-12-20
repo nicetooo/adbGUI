@@ -14,15 +14,27 @@ jobs:
         include:
           - os: macos-latest
             platform: darwin
-            arch: universal
+            arch: amd64
+            output: adbGUI.app
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
             output: adbGUI.app
           - os: windows-latest
             platform: windows
             arch: amd64
             output: adbGUI.exe
+          - os: windows-latest
+            platform: windows
+            arch: arm64
+            output: adbGUI.exe
           - os: ubuntu-22.04
             platform: linux
             arch: amd64
+            output: adbGUI
+          - os: ubuntu-22.04
+            platform: linux
+            arch: arm64
             output: adbGUI
 
     runs-on: ${{ matrix.os }}
@@ -52,6 +64,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev pkg-config build-essential
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu
+          fi
 
       - name: Download Binaries (macOS)
         if: matrix.platform == 'darwin'
@@ -91,27 +106,28 @@ jobs:
         if: matrix.platform == 'darwin'
         run: |
           cd build/bin
-          zip -r ../../adbGUI-macOS.zip adbGUI.app
+          zip -r ../../adbGUI-macOS-${{ matrix.arch }}.zip adbGUI.app
 
       - name: Package Artifacts (Windows)
         if: matrix.platform == 'windows'
         run: |
           cd build/bin
-          powershell Compress-Archive -Path adbGUI.exe -DestinationPath ../../adbGUI-Windows.zip
+          # Use zip for consistency in bash shell
+          zip ../../adbGUI-Windows-${{ matrix.arch }}.zip adbGUI.exe
 
       - name: Package Artifacts (Linux)
         if: matrix.platform == 'linux'
         run: |
           cd build/bin
-          tar -czvf ../../adbGUI-Linux.tar.gz adbGUI
+          tar -czvf ../../adbGUI-Linux-${{ matrix.arch }}.tar.gz adbGUI
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            adbGUI-macOS.zip
-            adbGUI-Windows.zip
-            adbGUI-Linux.tar.gz
+            adbGUI-macOS-*.zip
+            adbGUI-Windows-*.zip
+            adbGUI-Linux-*.tar.gz
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
