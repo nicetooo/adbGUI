@@ -419,12 +419,30 @@ func (a *App) UninstallApp(deviceId, packageName string) (string, error) {
 	if deviceId == "" {
 		return "", fmt.Errorf("no device specified")
 	}
+
+	fmt.Printf("Uninstalling %s from %s\n", packageName, deviceId)
+
+	// Try standard uninstall first
 	cmd := exec.Command(a.adbPath, "-s", deviceId, "uninstall", packageName)
 	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return string(output), fmt.Errorf("failed to uninstall: %w", err)
+	outStr := string(output)
+
+	// adb uninstall sometimes returns 0 but prints Failure [DELETE_FAILED_INTERNAL_ERROR] etc.
+	if err == nil && !strings.Contains(outStr, "Failure") {
+		return outStr, nil
 	}
-	return string(output), nil
+
+	// If it fails, it might be a system app or have other issues.
+	// Try the shell pm uninstall -k --user 0 method which works for system apps (removes for current user)
+	fmt.Printf("Standard uninstall failed for %s (Output: %s), trying pm uninstall --user 0...\n", packageName, outStr)
+	cmd2 := exec.Command(a.adbPath, "-s", deviceId, "shell", "pm", "uninstall", "-k", "--user", "0", packageName)
+	output2, err2 := cmd2.CombinedOutput()
+	outStr2 := string(output2)
+	if err2 != nil || strings.Contains(outStr2, "Failure") {
+		return outStr2, fmt.Errorf("failed to uninstall: %s", outStr2)
+	}
+
+	return outStr2, nil
 }
 
 // ClearAppData clears the application data

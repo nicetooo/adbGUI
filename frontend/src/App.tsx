@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Layout, Menu, Table, Button, Tag, Space, message, Input, Select, Popconfirm, Radio, Dropdown, List, Switch, Slider, InputNumber, Card, Row, Col } from 'antd';
+import { Layout, Menu, Table, Button, Tag, Space, message, Input, Select, Popconfirm, Radio, Dropdown, List, Switch, Slider, InputNumber, Card, Row, Col, Modal } from 'antd';
 import { 
   MobileOutlined, 
   AppstoreOutlined, 
@@ -160,11 +160,13 @@ function App() {
   };
 
   const handleUninstall = async (packageName: string) => {
+    console.log(`Uninstalling ${packageName} from device ${selectedDevice}`);
     try {
       await UninstallApp(selectedDevice, packageName);
       message.success(`Uninstalled ${packageName}`);
       fetchPackages();
     } catch (err) {
+      console.error('Uninstall error:', err);
       message.error('Failed to uninstall: ' + String(err));
     }
   };
@@ -450,9 +452,14 @@ function App() {
               label: 'Uninstall',
               danger: true,
               onClick: () => {
-                 if (window.confirm(`Are you sure you want to uninstall ${record.name}?`)) {
-                   handleUninstall(record.name);
-                 }
+                 Modal.confirm({
+                   title: 'Uninstall App',
+                   content: `Are you sure you want to uninstall ${record.name}?`,
+                   okText: 'Uninstall',
+                   okType: 'danger',
+                   cancelText: 'Cancel',
+                   onOk: () => handleUninstall(record.name),
+                 });
               }
             }
           ] }} trigger={['click']}>
