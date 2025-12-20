@@ -2,6 +2,8 @@
 
 Ein leistungsstarkes, modernes und eigenständiges Android-Verwaltungstool, entwickelt mit **Wails**, **React** und **Ant Design**.
 
+> ✨ **Hinweis**: Diese Anwendung ist das Ergebnis von reinem **vibecoding**.
+
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
 

@@ -2,6 +2,8 @@
 
 **Wails**, **React**, **Ant Design**으로 구축된 강력하고 현대적인 독립형 Android 관리 도구입니다.
 
+> ✨ **참고**: 이 애플리케이션은 순수한 **vibecoding**의 결과물입니다.
+
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
 

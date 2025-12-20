@@ -2,6 +2,8 @@
 
 Một công cụ quản lý Android mạnh mẽ, hiện đại và độc lập được xây dựng bằng **Wails**, **React** và **Ant Design**.
 
+> ✨ **Lưu ý**: Ứng dụng này là kết quả của quá trình **vibecoding** thuần túy.
+
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
 

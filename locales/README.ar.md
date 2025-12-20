@@ -2,6 +2,8 @@
 
 أداة قوية وحديثة ومستقلة لإدارة أجهزة أندرويد، تم بناؤها باستخدام **Wails** و **React** و **Ant Design**.
 
+> ✨ **ملاحظة**: هذا التطبيق هو ثمرة **vibecoding** خالص.
+
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
 

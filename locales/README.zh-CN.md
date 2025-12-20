@@ -2,6 +2,8 @@
 
 一个强大、现代且自包含的 Android 管理工具，基于 **Wails**、**React** 和 **Ant Design** 构建。
 
+> ✨ **注意**：本应用为纯 **vibecoding** 产物。
+
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
 

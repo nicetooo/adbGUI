@@ -2,6 +2,8 @@
 
 Мощный, современный и автономный инструмент для управления Android, созданный с использованием **Wails**, **React** и **Ant Design**.
 
+> ✨ **Примечание**: Это приложение — результат чистого **vibecoding**.
+
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
 

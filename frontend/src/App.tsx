@@ -9,6 +9,7 @@ import ShellView from "./components/ShellView";
 import MirrorView from "./components/MirrorView";
 import AppInfoModal from "./components/AppInfoModal";
 import DeviceInfoModal from "./components/DeviceInfoModal";
+import AboutModal from "./components/AboutModal";
 import {
   MobileOutlined,
   AppstoreOutlined,
@@ -16,8 +17,13 @@ import {
   FileTextOutlined,
   DesktopOutlined,
   FolderOutlined,
+  GithubOutlined,
+  BugOutlined,
+  InfoCircleOutlined,
 } from "@ant-design/icons";
 import "./App.css";
+// @ts-ignore
+const BrowserOpenURL = (window as any).runtime.BrowserOpenURL;
 // @ts-ignore
 import {
   GetDevices,
@@ -79,6 +85,9 @@ function App() {
   const [deviceInfoLoading, setDeviceInfoLoading] = useState(false);
   const [selectedDeviceInfo, setSelectedDeviceInfo] =
     useState<main.DeviceInfo | null>(null);
+
+  // About state
+  const [aboutVisible, setAboutVisible] = useState(false);
 
   // Shell state
   const [shellOutput, setShellOutput] = useState("");
@@ -953,23 +962,107 @@ function App() {
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
-      <Sider width={200} theme="dark">
-        <Menu
-          theme="dark"
-          selectedKeys={[selectedKey]}
-          mode="inline"
-          onClick={({ key }) => setSelectedKey(key)}
-          items={[
-            { key: "1", icon: <MobileOutlined />, label: "Devices" },
-            { key: "2", icon: <AppstoreOutlined />, label: "Apps" },
-            { key: "6", icon: <FolderOutlined />, label: "Files" },
-            { key: "3", icon: <CodeOutlined />, label: "Shell" },
-            { key: "4", icon: <FileTextOutlined />, label: "Logcat" },
-            { key: "5", icon: <DesktopOutlined />, label: "Mirror" },
-          ]}
-        />
+      <Sider
+        width={200}
+        theme="dark"
+        style={{
+          height: "100vh",
+          position: "fixed",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div
+          style={{ display: "flex", flexDirection: "column", height: "100%" }}
+        >
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            <Menu
+              theme="dark"
+              selectedKeys={[selectedKey]}
+              mode="inline"
+              onClick={({ key }) => setSelectedKey(key)}
+              items={[
+                { key: "1", icon: <MobileOutlined />, label: "Devices" },
+                { key: "2", icon: <AppstoreOutlined />, label: "Apps" },
+                { key: "6", icon: <FolderOutlined />, label: "Files" },
+                { key: "3", icon: <CodeOutlined />, label: "Shell" },
+                { key: "4", icon: <FileTextOutlined />, label: "Logcat" },
+                { key: "5", icon: <DesktopOutlined />, label: "Mirror" },
+              ]}
+            />
+          </div>
+          <div
+            style={{
+              padding: "8px 16px",
+              borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+              display: "flex",
+              justifyContent: "center",
+              gap: "8px",
+            }}
+          >
+            <Button
+              type="text"
+              size="small"
+              icon={
+                <InfoCircleOutlined
+                  style={{ fontSize: "16px", color: "rgba(255,255,255,0.45)" }}
+                />
+              }
+              onClick={() => setAboutVisible(true)}
+              title="About"
+            />
+            <Button
+              type="text"
+              size="small"
+              icon={
+                <GithubOutlined
+                  style={{ fontSize: "16px", color: "rgba(255,255,255,0.45)" }}
+                />
+              }
+              onClick={() =>
+                BrowserOpenURL &&
+                BrowserOpenURL("https://github.com/nicetooo/adbGUI")
+              }
+              title="GitHub Repository"
+            />
+            <Button
+              type="text"
+              size="small"
+              icon={
+                <BugOutlined
+                  style={{ fontSize: "16px", color: "rgba(255,255,255,0.45)" }}
+                />
+              }
+              onClick={() => {
+                if (!BrowserOpenURL) return;
+                const currentDevice = devices.find(
+                  (d) => d.id === selectedDevice
+                );
+                const deviceInfo = currentDevice
+                  ? `${currentDevice.brand} ${currentDevice.model} (${
+                      selectedDeviceInfo?.serial === selectedDevice &&
+                      selectedDeviceInfo.androidVer
+                        ? `Android ${selectedDeviceInfo.androidVer}, `
+                        : ""
+                    }ID: ${currentDevice.id})`
+                  : "None";
+
+                const body = encodeURIComponent(
+                  `### Description\n(Please describe the issue here)\n\n### Environment\n- App Version: 1.0.0\n- Device: ${deviceInfo}\n- OS: ${navigator.platform}\n\n### Steps to Reproduce\n1. \n2. \n\n### Expected Behavior\n\n### Actual Behavior`
+                );
+                BrowserOpenURL(
+                  `https://github.com/nicetooo/adbGUI/issues/new?body=${body}`
+                );
+              }}
+              title="Feedback & Issues"
+            />
+          </div>
+        </div>
       </Sider>
-      <Layout className="site-layout">
+      <Layout className="site-layout" style={{ marginLeft: 200 }}>
         <Content
           style={{
             margin: "0",
@@ -1005,6 +1098,11 @@ function App() {
           selectedDeviceInfo &&
           handleFetchDeviceInfo(selectedDeviceInfo.serial || selectedDevice)
         }
+      />
+
+      <AboutModal
+        visible={aboutVisible}
+        onCancel={() => setAboutVisible(false)}
       />
     </Layout>
   );
