@@ -13,16 +13,24 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   FileTextOutlined,
-  PauseOutlined,
-  PlayCircleOutlined,
-  DesktopOutlined,
-  SettingOutlined,
-  DownloadOutlined,
-  InfoCircleOutlined
+  PauseOutlined, 
+  PlayCircleOutlined, 
+  DesktopOutlined, 
+  SettingOutlined, 
+  DownloadOutlined, 
+  InfoCircleOutlined,
+  FolderOutlined,
+  FileOutlined,
+  ArrowLeftOutlined,
+  CopyOutlined,
+  ScissorOutlined,
+  SnippetsOutlined,
+  FolderAddOutlined,
+  FolderOpenOutlined
 } from '@ant-design/icons';
 import './App.css';
 // @ts-ignore
-import { GetDevices, RunAdbCommand, ListPackages, GetAppInfo, UninstallApp, ClearAppData, ForceStopApp, StartApp, EnableApp, DisableApp, StartLogcat, StopLogcat, StartScrcpy, InstallAPK, ExportAPK } from '../wailsjs/go/main/App';
+import { GetDevices, RunAdbCommand, ListPackages, GetAppInfo, UninstallApp, ClearAppData, ForceStopApp, StartApp, EnableApp, DisableApp, StartLogcat, StopLogcat, StartScrcpy, InstallAPK, ExportAPK, ListFiles, DeleteFile, MoveFile, CopyFile, Mkdir } from '../wailsjs/go/main/App';
 // @ts-ignore
 import { main } from '../wailsjs/go/models';
 // @ts-ignore
@@ -60,6 +68,13 @@ function App() {
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [infoLoading, setInfoLoading] = useState(false);
   const [permissionSearch, setPermissionSearch] = useState('');
+
+  // Files state
+  const [currentPath, setCurrentPath] = useState('/sdcard');
+  const [fileList, setFileList] = useState<any[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [clipboard, setClipboard] = useState<{ path: string, type: 'copy' | 'cut' } | null>(null);
+  const [showHiddenFiles, setShowHiddenFiles] = useState(false);
 
   // Logcat state
   const [logs, setLogs] = useState<string[]>([]);
@@ -151,10 +166,13 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // When switching to apps or logcat tab, if packages are not loaded yet, fetch them
-    if ((selectedKey === '2' || selectedKey === '4') && selectedDevice && packages.length === 0) {
-      // Only fetch if packages list is empty (not already loaded)
-      fetchPackages('user', selectedDevice);
+    // When switching to apps, logcat or files tab, if data is not loaded yet, fetch it
+    if ((selectedKey === '2' || selectedKey === '4' || selectedKey === '6') && selectedDevice) {
+      if (selectedKey === '2' && packages.length === 0) {
+        fetchPackages('user', selectedDevice);
+      } else if (selectedKey === '6' && fileList.length === 0) {
+        fetchFiles(currentPath);
+      }
     }
   }, [selectedKey, selectedDevice]);
 
@@ -221,6 +239,93 @@ function App() {
     } finally {
       setInfoLoading(false);
     }
+  };
+
+  const fetchFiles = async (path: string) => {
+    if (!selectedDevice) return;
+    setFilesLoading(true);
+    try {
+      const res = await ListFiles(selectedDevice, path);
+      setFileList(res || []);
+      setCurrentPath(path);
+    } catch (err) {
+      message.error('Failed to list files: ' + String(err));
+    } finally {
+      setFilesLoading(false);
+    }
+  };
+
+  const handleFileAction = async (action: string, file: any) => {
+    if (!selectedDevice) return;
+    try {
+      switch (action) {
+        case 'delete':
+          await DeleteFile(selectedDevice, file.path);
+          message.success('Deleted ' + file.name);
+          fetchFiles(currentPath);
+          break;
+        case 'copy':
+          setClipboard({ path: file.path, type: 'copy' });
+          message.info('Copied ' + file.name);
+          break;
+        case 'cut':
+          setClipboard({ path: file.path, type: 'cut' });
+          message.info('Cut ' + file.name);
+          break;
+        case 'paste':
+          if (!clipboard) return;
+          const dest = currentPath + (currentPath.endsWith('/') ? '' : '/') + clipboard.path.split('/').pop();
+          if (clipboard.type === 'copy') {
+            await CopyFile(selectedDevice, clipboard.path, dest);
+            message.success('Pasted ' + clipboard.path.split('/').pop());
+          } else {
+            await MoveFile(selectedDevice, clipboard.path, dest);
+            message.success('Moved ' + clipboard.path.split('/').pop());
+            setClipboard(null);
+          }
+          fetchFiles(currentPath);
+          break;
+        case 'rename':
+          Modal.confirm({
+            title: 'Rename File',
+            content: <Input defaultValue={file.name} id="rename-input" />,
+            onOk: async () => {
+              const newName = (document.getElementById('rename-input') as HTMLInputElement).value;
+              if (newName && newName !== file.name) {
+                const newPath = currentPath + (currentPath.endsWith('/') ? '' : '/') + newName;
+                await MoveFile(selectedDevice, file.path, newPath);
+                message.success('Renamed to ' + newName);
+                fetchFiles(currentPath);
+              }
+            }
+          });
+          break;
+        case 'mkdir':
+          Modal.confirm({
+            title: 'New Directory',
+            content: <Input placeholder="Directory name" id="mkdir-input" />,
+            onOk: async () => {
+              const name = (document.getElementById('mkdir-input') as HTMLInputElement).value;
+              if (name) {
+                const newPath = currentPath + (currentPath.endsWith('/') ? '' : '/') + name;
+                await Mkdir(selectedDevice, newPath);
+                message.success('Created directory ' + name);
+                fetchFiles(currentPath);
+              }
+            }
+          });
+          break;
+      }
+    } catch (err) {
+      message.error('File action failed: ' + String(err));
+    }
+  };
+
+  const handleExploreAppFiles = (packageName: string) => {
+    const path = `/sdcard/Android/data/${packageName}`;
+    setCurrentPath(path);
+    setSelectedKey('6'); // Switch to Files tab
+    fetchFiles(path);
   };
 
   const handleUninstall = async (packageName: string) => {
@@ -550,7 +655,7 @@ function App() {
     {
       title: 'Action',
       key: 'action',
-      width: 250,
+      width: 280,
       render: (_: any, record: main.AppPackage) => {
         return (
           <Space size={4}>
@@ -566,6 +671,13 @@ function App() {
                 size="small" 
                 icon={<FileTextOutlined />} 
                 onClick={() => handleAppLogcat(record.name)}
+              />
+            </Tooltip>
+            <Tooltip title="Explore Files">
+              <Button 
+                size="small" 
+                icon={<FolderOpenOutlined />} 
+                onClick={() => handleExploreAppFiles(record.name)}
               />
             </Tooltip>
             <Tooltip title="Export APK">
@@ -653,6 +765,112 @@ function App() {
               </Button>
             </div>
             <Table columns={deviceColumns} dataSource={devices} rowKey="id" loading={loading} />
+          </div>
+        );
+      case '6':
+        const fileColumns = [
+          {
+            title: 'Name',
+            key: 'name',
+            render: (_: any, record: any) => (
+              <Space onClick={() => record.isDir && fetchFiles(record.path)} style={{ cursor: record.isDir ? 'pointer' : 'default', width: '100%' }}>
+                {record.isDir ? <FolderOutlined style={{ color: '#1890ff' }} /> : <FileOutlined />}
+                <span>{record.name}</span>
+              </Space>
+            ),
+          },
+          {
+            title: 'Size',
+            dataIndex: 'size',
+            key: 'size',
+            width: 100,
+            render: (size: number, record: any) => record.isDir ? '-' : (size > 1024 * 1024 ? (size / (1024 * 1024)).toFixed(2) + ' MB' : (size / 1024).toFixed(2) + ' KB'),
+          },
+          {
+            title: 'Time',
+            dataIndex: 'modTime',
+            key: 'modTime',
+            width: 180,
+          },
+          {
+            title: 'Action',
+            key: 'action',
+            width: 150,
+            render: (_: any, record: any) => (
+              <Space>
+                <Tooltip title="Copy">
+                  <Button size="small" icon={<CopyOutlined />} onClick={() => handleFileAction('copy', record)} />
+                </Tooltip>
+                <Tooltip title="Cut">
+                  <Button size="small" icon={<ScissorOutlined />} onClick={() => handleFileAction('cut', record)} />
+                </Tooltip>
+                <Dropdown menu={{ items: [
+                  { key: 'rename', label: 'Rename', onClick: () => handleFileAction('rename', record) },
+                  { key: 'delete', label: 'Delete', danger: true, onClick: () => {
+                    Modal.confirm({
+                      title: 'Delete File',
+                      content: `Are you sure you want to delete ${record.name}?`,
+                      onOk: () => handleFileAction('delete', record),
+                    });
+                  }},
+                ] }}>
+                  <Button size="small" icon={<MoreOutlined />} />
+                </Dropdown>
+              </Space>
+            ),
+          },
+        ];
+
+        const filteredFiles = fileList.filter(f => showHiddenFiles || !f.name.startsWith('.'));
+
+        return (
+          <div style={{ padding: 24, height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+                <Button 
+                  icon={<ArrowLeftOutlined />} 
+                  onClick={() => {
+                    const parts = currentPath.split('/').filter(Boolean);
+                    parts.pop();
+                    fetchFiles('/' + parts.join('/'));
+                  }}
+                  disabled={currentPath === '/' || currentPath === ''}
+                />
+                <Input 
+                  value={currentPath} 
+                  onChange={e => setCurrentPath(e.target.value)}
+                  onPressEnter={() => fetchFiles(currentPath)}
+                  style={{ flex: 1 }}
+                />
+                <Button icon={<ReloadOutlined />} onClick={() => fetchFiles(currentPath)} loading={filesLoading} />
+              </div>
+              <Space style={{ marginLeft: 16 }}>
+                <Checkbox checked={showHiddenFiles} onChange={e => setShowHiddenFiles(e.target.checked)}>
+                  Show Hidden
+                </Checkbox>
+                <Button icon={<FolderAddOutlined />} onClick={() => handleFileAction('mkdir', null)}>New Folder</Button>
+                <Button 
+                  icon={<SnippetsOutlined />} 
+                  disabled={!clipboard} 
+                  onClick={() => handleFileAction('paste', null)}
+                  type={clipboard ? 'primary' : 'default'}
+                >
+                  Paste {clipboard && `(${clipboard.type === 'copy' ? 'Copy' : 'Cut'})`}
+                </Button>
+              </Space>
+            </div>
+            <Table 
+              columns={fileColumns} 
+              dataSource={filteredFiles} 
+              rowKey="path" 
+              loading={filesLoading}
+              pagination={false}
+              size="small"
+              scroll={{ y: 'calc(100vh - 250px)' }}
+              onRow={(record) => ({
+                onDoubleClick: () => record.isDir && fetchFiles(record.path),
+              })}
+            />
           </div>
         );
       case '2':
@@ -877,6 +1095,7 @@ function App() {
           items={[
             { key: '1', icon: <MobileOutlined />, label: 'Devices' },
             { key: '2', icon: <AppstoreOutlined />, label: 'Apps' },
+            { key: '6', icon: <FolderOutlined />, label: 'Files' },
             { key: '3', icon: <CodeOutlined />, label: 'Shell' },
             { key: '4', icon: <FileTextOutlined />, label: 'Logcat' },
             { key: '5', icon: <DesktopOutlined />, label: 'Scrcpy' },

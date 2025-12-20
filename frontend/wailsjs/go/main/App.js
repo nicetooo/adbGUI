@@ -6,6 +6,14 @@ export function ClearAppData(arg1, arg2) {
   return window['go']['main']['App']['ClearAppData'](arg1, arg2);
 }
 
+export function CopyFile(arg1, arg2, arg3) {
+  return window['go']['main']['App']['CopyFile'](arg1, arg2, arg3);
+}
+
+export function DeleteFile(arg1, arg2) {
+  return window['go']['main']['App']['DeleteFile'](arg1, arg2);
+}
+
 export function DisableApp(arg1, arg2) {
   return window['go']['main']['App']['DisableApp'](arg1, arg2);
 }
@@ -38,8 +46,20 @@ export function InstallAPK(arg1, arg2) {
   return window['go']['main']['App']['InstallAPK'](arg1, arg2);
 }
 
+export function ListFiles(arg1, arg2) {
+  return window['go']['main']['App']['ListFiles'](arg1, arg2);
+}
+
 export function ListPackages(arg1, arg2) {
   return window['go']['main']['App']['ListPackages'](arg1, arg2);
+}
+
+export function Mkdir(arg1, arg2) {
+  return window['go']['main']['App']['Mkdir'](arg1, arg2);
+}
+
+export function MoveFile(arg1, arg2, arg3) {
+  return window['go']['main']['App']['MoveFile'](arg1, arg2, arg3);
 }
 
 export function RunAdbCommand(arg1) {

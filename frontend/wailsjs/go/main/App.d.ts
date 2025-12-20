@@ -4,6 +4,10 @@ import {main} from '../models';
 
 export function ClearAppData(arg1:string,arg2:string):Promise<string>;
 
+export function CopyFile(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function DeleteFile(arg1:string,arg2:string):Promise<void>;
+
 export function DisableApp(arg1:string,arg2:string):Promise<string>;
 
 export function EnableApp(arg1:string,arg2:string):Promise<string>;
@@ -20,7 +24,13 @@ export function Greet(arg1:string):Promise<string>;
 
 export function InstallAPK(arg1:string,arg2:string):Promise<string>;
 
+export function ListFiles(arg1:string,arg2:string):Promise<Array<main.FileInfo>>;
+
 export function ListPackages(arg1:string,arg2:string):Promise<Array<main.AppPackage>>;
+
+export function Mkdir(arg1:string,arg2:string):Promise<void>;
+
+export function MoveFile(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function RunAdbCommand(arg1:Array<string>):Promise<string>;
 

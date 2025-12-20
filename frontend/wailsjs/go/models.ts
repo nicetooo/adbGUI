@@ -48,6 +48,28 @@ export namespace main {
 	        this.brand = source["brand"];
 	    }
 	}
+	export class FileInfo {
+	    name: string;
+	    size: number;
+	    mode: string;
+	    modTime: string;
+	    isDir: boolean;
+	    path: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new FileInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.size = source["size"];
+	        this.mode = source["mode"];
+	        this.modTime = source["modTime"];
+	        this.isDir = source["isDir"];
+	        this.path = source["path"];
+	    }
+	}
 	export class ScrcpyConfig {
 	    maxSize: number;
 	    bitRate: number;

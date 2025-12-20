@@ -49,6 +49,15 @@ type Device struct {
 	Brand string `json:"brand"`
 }
 
+type FileInfo struct {
+	Name    string `json:"name"`
+	Size    int64  `json:"size"`
+	Mode    string `json:"mode"`
+	ModTime string `json:"modTime"`
+	IsDir   bool   `json:"isDir"`
+	Path    string `json:"path"`
+}
+
 type AppPackage struct {
 	Name             string   `json:"name"`
 	Label            string   `json:"label"` // Application label/name
@@ -1241,4 +1250,132 @@ func (a *App) ExportAPK(deviceId string, packageName string) (string, error) {
 	}
 
 	return savePath, nil
+}
+
+// ListFiles returns a list of files in the specified directory on the device
+func (a *App) ListFiles(deviceId, path string) ([]FileInfo, error) {
+	if deviceId == "" {
+		return nil, fmt.Errorf("no device specified")
+	}
+
+	// Use ls -la to get detailed information
+	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "ls", "-la", path)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list files: %w (output: %s)", err, string(output))
+	}
+
+	lines := strings.Split(string(output), "\n")
+	var files []FileInfo
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "total ") {
+			continue
+		}
+
+		parts := strings.Fields(line)
+		if len(parts) < 7 {
+			continue
+		}
+
+		mode := parts[0]
+		isDir := strings.HasPrefix(mode, "d")
+		isLink := strings.HasPrefix(mode, "l")
+
+		var name string
+		var size int64
+		var modTime string
+
+		// Find the index of size field (usually index 3 or 4)
+		// and name usually starts after the date/time fields (index 5, 6 or 6, 7)
+		// We use a more robust scanning approach
+
+		// In most Android versions: 0:mode, 1:links, 2:user, 3:group, 4:size, 5:date, 6:time, 7:name
+		// But links, user, group might vary. We know size is the first large number after group.
+
+		foundSize := false
+		for i := 3; i < len(parts); i++ {
+			// Try to parse size
+			if !foundSize {
+				if n, err := fmt.Sscanf(parts[i], "%d", &size); n > 0 && err == nil {
+					foundSize = true
+					if i+3 < len(parts) {
+						modTime = parts[i+1] + " " + parts[i+2]
+						name = strings.Join(parts[i+3:], " ")
+					}
+					break
+				}
+			}
+		}
+
+		// Fallback if the above parsing failed
+		if name == "" {
+			name = parts[len(parts)-1]
+			if len(parts) >= 3 {
+				modTime = parts[len(parts)-3] + " " + parts[len(parts)-2]
+			}
+		}
+
+		// Handle symbolic links: "name -> /path/to/target"
+		if isLink && strings.Contains(name, " -> ") {
+			linkParts := strings.Split(name, " -> ")
+			name = linkParts[0]
+			// Often symlinks in Android data are directories
+			isDir = true
+		}
+
+		// Skip . and ..
+		if name == "." || name == ".." || name == "" {
+			continue
+		}
+
+		files = append(files, FileInfo{
+			Name:    name,
+			Size:    size,
+			Mode:    mode,
+			ModTime: modTime,
+			IsDir:   isDir,
+			Path:    filepath.Join(path, name),
+		})
+	}
+
+	return files, nil
+}
+
+// DeleteFile deletes a file or directory on the device
+func (a *App) DeleteFile(deviceId, path string) error {
+	if deviceId == "" {
+		return fmt.Errorf("no device specified")
+	}
+	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "rm", "-rf", path)
+	return cmd.Run()
+}
+
+// MoveFile moves or renames a file or directory on the device
+func (a *App) MoveFile(deviceId, src, dest string) error {
+	if deviceId == "" {
+		return fmt.Errorf("no device specified")
+	}
+	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "mv", src, dest)
+	return cmd.Run()
+}
+
+// CopyFile copies a file or directory on the device
+func (a *App) CopyFile(deviceId, src, dest string) error {
+	if deviceId == "" {
+		return fmt.Errorf("no device specified")
+	}
+	// Use cp -R for recursive copy
+	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "cp", "-R", src, dest)
+	return cmd.Run()
+}
+
+// Mkdir creates a new directory on the device
+func (a *App) Mkdir(deviceId, path string) error {
+	if deviceId == "" {
+		return fmt.Errorf("no device specified")
+	}
+	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "mkdir", "-p", path)
+	return cmd.Run()
 }
