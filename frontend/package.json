@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
+    "@tanstack/react-virtual": "^3.13.13",
     "antd": "^6.1.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

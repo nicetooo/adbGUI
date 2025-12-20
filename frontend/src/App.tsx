@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Layout, Menu, Table, Button, Tag, Space, message, Input, Select, Popconfirm, Radio, Dropdown, List, Switch, Slider, InputNumber, Card, Row, Col, Modal } from 'antd';
+import LogcatView from './components/LogcatView';
 import { 
   MobileOutlined, 
   AppstoreOutlined, 
@@ -60,7 +61,8 @@ function App() {
   const [isLogging, setIsLogging] = useState(false);
   const [logFilter, setLogFilter] = useState('');
   const [selectedPackage, setSelectedPackage] = useState<string>('');
-  const logsEndRef = useRef<HTMLDivElement>(null);
+  const [autoScroll, setAutoScroll] = useState(true);
+  const logsContainerRef = useRef<HTMLDivElement>(null);
 
   // Scrcpy state
   const [scrcpyConfig, setScrcpyConfig] = useState<main.ScrcpyConfig>({
@@ -139,13 +141,6 @@ function App() {
     }
   }, [selectedKey, selectedDevice]);
 
-  // Auto-scroll logs
-  useEffect(() => {
-    if (isLogging && logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [logs, isLogging]);
-
   const fetchPackages = async () => {
     if (!selectedDevice) return;
     setAppsLoading(true);
@@ -222,13 +217,7 @@ function App() {
         await StartLogcat(device, pkg);
         setIsLogging(true);
         EventsOn("logcat-data", (data: string) => {
-          setLogs(prev => {
-             const newLogs = [...prev, data];
-             if (newLogs.length > 1000) {
-               return newLogs.slice(newLogs.length - 1000);
-             }
-             return newLogs;
-          });
+          setLogs(prev => [...prev, data]);
         });
       } catch (err) {
         message.error("Failed to start logcat: " + String(err));
@@ -562,79 +551,22 @@ function App() {
         );
       case '4':
         const filteredLogs = logs.filter(l => l.toLowerCase().includes(logFilter.toLowerCase()));
-        return (
-          <div style={{ padding: 24, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-              <h2 style={{ margin: 0 }}>Logcat</h2>
-              <Space>
-                <Select 
-                  value={selectedDevice} 
-                  onChange={setSelectedDevice} 
-                  style={{ width: 200 }} 
-                  placeholder="Select Device"
-                  disabled={isLogging}
-                >
-                  {devices.map(d => (
-                    <Option key={d.id} value={d.id}>
-                      {d.brand ? `${d.brand} ${d.model}` : (d.model || d.id)}
-                    </Option>
-                  ))}
-                </Select>
-                <Select
-                  showSearch
-                  value={selectedPackage}
-                  onChange={setSelectedPackage}
-                  style={{ width: 250 }}
-                  placeholder="All Apps (Optional)"
-                  disabled={isLogging}
-                  allowClear
-                  filterOption={(input, option) =>
-                    (option?.children as unknown as string).toLowerCase().indexOf(input.toLowerCase()) >= 0
-                  }
-                >
-                  {packages.map(p => (
-                    <Option key={p.name} value={p.name}>{p.name}</Option>
-                  ))}
-                </Select>
-                <Button 
-                  type={isLogging ? 'primary' : 'default'} 
-                  danger={isLogging}
-                  icon={isLogging ? <PauseOutlined /> : <PlayCircleOutlined />} 
-                  onClick={toggleLogcat}
-                >
-                  {isLogging ? 'Stop' : 'Start'}
-                </Button>
-                <Button icon={<ClearOutlined />} onClick={() => setLogs([])}>
-                  Clear
-                </Button>
-              </Space>
-            </div>
-            <Input 
-              placeholder="Filter logs..." 
-              value={logFilter}
-              onChange={e => setLogFilter(e.target.value)}
-              style={{ marginBottom: 16, flexShrink: 0 }}
-            />
-            <div style={{ 
-              flex: 1, 
-              backgroundColor: '#1e1e1e', 
-              color: '#d4d4d4', 
-              fontFamily: 'monospace', 
-              fontSize: '12px',
-              padding: '8px', 
-              overflowY: 'auto',
-              overflowX: 'hidden',
-              borderRadius: '4px',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-all'
-            }}>
-              {filteredLogs.map((log, index) => (
-                <div key={index} style={{ borderBottom: '1px solid #333' }}>{log}</div>
-              ))}
-              <div ref={logsEndRef} />
-            </div>
-          </div>
-        );
+        return <LogcatView 
+          devices={devices}
+          selectedDevice={selectedDevice}
+          setSelectedDevice={setSelectedDevice}
+          packages={packages}
+          selectedPackage={selectedPackage}
+          setSelectedPackage={setSelectedPackage}
+          isLogging={isLogging}
+          toggleLogcat={toggleLogcat}
+          logs={filteredLogs}
+          setLogs={setLogs}
+          logFilter={logFilter}
+          setLogFilter={setLogFilter}
+          autoScroll={autoScroll}
+          setAutoScroll={setAutoScroll}
+        />;
       case '5':
         return (
           <div style={{ padding: 24, height: '100%', overflowY: 'auto' }}>
