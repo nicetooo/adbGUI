@@ -62,41 +62,89 @@ export default function LogcatView({
     return 'V';
   };
 
+  // 1. 深度编译过滤信息
+  const filterInfo = useMemo(() => {
+    const rawInput = logFilter || '';
+    if (!rawInput.trim() && levelFilter.length === 0) {
+      return { regex: null, invalid: false, pattern: '', highlighter: null };
+    }
+    
+    try {
+      let pattern = rawInput;
+      if (!useRegex) {
+        pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      }
+
+      // 如果开启了全词匹配，对模式进行单词边界包裹
+      if (matchWholeWord) {
+        // 在正则模式下，我们需要确保单词边界包裹住整个 OR 组
+        pattern = `\\b(?:${pattern})\\b`;
+      }
+      
+      const flags = matchCase ? '' : 'i';
+      return {
+        regex: new RegExp(pattern, flags),
+        highlighter: new RegExp(pattern, flags + 'g'),
+        invalid: false,
+        pattern
+      };
+    } catch (e) {
+      return { regex: null, invalid: true, pattern: rawInput, highlighter: null };
+    }
+  }, [logFilter, useRegex, matchCase, matchWholeWord]);
+
+  // 2. 强力过滤引擎（极致鲁棒版：改用 match 以避开 test 的状态坑）
   const filteredLogs = useMemo(() => {
     if (!logFilter && levelFilter.length === 0) return logs;
     
-    let regex: RegExp | null = null;
-    if (logFilter) {
-      try {
-        let pattern = logFilter;
-        if (!useRegex) {
-          // Escape special chars if not using regex
-          pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        }
-        if (matchWholeWord) {
-          pattern = `\\b${pattern}\\b`;
-        }
-        regex = new RegExp(pattern, matchCase ? '' : 'i');
-      } catch (e) {
-        // Invalid regex, don't filter during typing
-        return logs.filter(log => {
-          const level = getLogLevel(log);
-          return levelFilter.length === 0 || levelFilter.includes(level);
-        });
-      }
-    }
+    const { regex, invalid } = filterInfo;
+    const hasLevelFilter = levelFilter.length > 0;
+    const isRegexMode = useRegex && !invalid && !!regex;
+    const simpleFlags = matchCase ? '' : 'i';
+
+    // 预编译分词正则：这是解决 Activity|Window 失效的终极保险
+    const orParts = (isRegexMode && logFilter.includes('|')) 
+      ? logFilter.split('|').map(p => {
+          const t = p.trim();
+          if (!t) return null;
+          try { 
+            return new RegExp(matchWholeWord ? `\\b(?:${t})\\b` : t, simpleFlags); 
+          } catch { return null; }
+        }).filter(Boolean) as RegExp[]
+      : [];
 
     return logs.filter(log => {
-      // 1. Level Check
-      const level = getLogLevel(log);
-      if (levelFilter.length > 0 && !levelFilter.includes(level)) return false;
+      // A. 级别过滤
+      if (hasLevelFilter) {
+        const level = getLogLevel(log);
+        if (!levelFilter.includes(level)) return false;
+      }
       
-      // 2. Text Check
-      if (regex && !regex.test(log)) return false;
-      
+      // B. 文本/正则过滤
+      if (logFilter && !invalid) {
+        // 剥离控制字符，但不使用 normalize 以保持原始编码
+        const line = String(log).replace(/\u001b\[[0-9;]*m/g, '');
+        
+        if (isRegexMode) {
+          // 1. 优先尝试主正则，使用 match 以增强鲁棒性
+          if (line.match(regex!)) return true;
+          
+          // 2. 如果主正则由于某些引擎 Bug 没过，强制对分词进行并集校验
+          if (orParts.length > 0) {
+            for (const r of orParts) {
+              if (line.match(r)) return true;
+            }
+          }
+          return false;
+        } else {
+          // 非正则模式：普通包含
+          return line.toLowerCase().includes(logFilter.toLowerCase());
+        }
+      }
       return true;
     });
-  }, [logs, levelFilter, logFilter, matchCase, matchWholeWord, useRegex]);
+  }, [logs, levelFilter, logFilter, filterInfo, useRegex, matchCase, matchWholeWord]);
+
 
   const virtualizer = useVirtualizer({
     count: filteredLogs.length,
@@ -145,50 +193,38 @@ export default function LogcatView({
   };
 
   const renderLogLine = (text: string) => {
+    if (!text) return null;
     const level = getLogLevel(text);
     const color = getLogColor(level);
+    const { highlighter, invalid } = filterInfo;
     
-    if (!logFilter) {
+    if (!logFilter || invalid || !highlighter) {
       return <span style={{ color }}>{text}</span>;
     }
 
     try {
-      let pattern = logFilter;
-      if (!useRegex) {
-        pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      }
-      if (matchWholeWord) {
-        pattern = `\\b${pattern}\\b`;
-      }
-      
-      const regex = new RegExp(pattern, matchCase ? 'g' : 'gi');
       const parts: React.ReactNode[] = [];
       let lastIndex = 0;
       let match;
+      
+      const activeHighlighter = highlighter;
+      activeHighlighter.lastIndex = 0;
 
-      // 使用 exec 循环代替 split，避免捕获组导致的嵌套和重复渲染问题
-      while ((match = regex.exec(text)) !== null) {
-        // 防止死循环 (空匹配)
-        if (match.index === regex.lastIndex) {
-          regex.lastIndex++;
-        }
-
-        // 添加匹配前的非匹配部分
+      while ((match = activeHighlighter.exec(text)) !== null) {
         if (match.index > lastIndex) {
           parts.push(text.substring(lastIndex, match.index));
         }
 
-        // 添加匹配部分（高亮）
         parts.push(
           <mark key={match.index} style={{ backgroundColor: '#ffcc00', color: '#000', borderRadius: '2px', padding: '0 1px' }}>
             {match[0]}
           </mark>
         );
         
-        lastIndex = regex.lastIndex;
+        lastIndex = activeHighlighter.lastIndex;
+        if (match[0].length === 0) activeHighlighter.lastIndex++;
       }
 
-      // 添加最后剩下的部分
       if (lastIndex < text.length) {
         parts.push(text.substring(lastIndex));
       }
@@ -248,43 +284,112 @@ export default function LogcatView({
       </div>
       
       <div style={{ marginBottom: 12, display: 'flex', gap: 16, alignItems: 'center', flexShrink: 0 }}>
-        <Input 
-          placeholder="Filter logs by text..." 
-          value={logFilter}
-          onChange={e => setLogFilter(e.target.value)}
-          style={{ flex: 1 }}
-          suffix={
-            <Space size={2} style={{ marginRight: -7 }}>
-              <Button 
-                size="small" 
-                type={matchCase ? 'primary' : 'text'} 
-                style={{ fontSize: '12px', padding: '0 4px', height: 22, minWidth: 24, borderRadius: 2 }}
-                onClick={() => setMatchCase(!matchCase)}
-                title="Match Case"
-              >
-                Aa
-              </Button>
-              <Button 
-                size="small" 
-                type={matchWholeWord ? 'primary' : 'text'} 
-                style={{ fontSize: '12px', padding: '0 4px', height: 22, minWidth: 24, borderRadius: 2 }}
-                onClick={() => setMatchWholeWord(!matchWholeWord)}
-                title="Match Whole Word"
-              >
-                W
-              </Button>
-              <Button 
-                size="small" 
-                type={useRegex ? 'primary' : 'text'} 
-                style={{ fontSize: '12px', padding: '0 4px', height: 22, minWidth: 24, borderRadius: 2 }}
-                onClick={() => setUseRegex(!useRegex)}
-                title="Use Regular Expression"
-              >
-                .*
-              </Button>
-            </Space>
-          }
-        />
+        <div style={{ flex: 1, position: 'relative' }}>
+          <Input 
+            placeholder={useRegex ? "Filter logs by regex..." : "Filter logs by text..."}
+            value={logFilter}
+            onChange={e => setLogFilter(e.target.value)}
+            status={filterInfo.invalid ? 'error' : ''}
+            suffix={
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {logFilter && !filterInfo.invalid && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginRight: 4 }}>
+                    <span style={{ 
+                      fontSize: '9px', 
+                      padding: '0 4px', 
+                      borderRadius: '2px', 
+                      backgroundColor: useRegex ? '#e6f7ff' : '#f5f5f5',
+                      color: useRegex ? '#1677ff' : '#888',
+                      border: `1px solid ${useRegex ? '#91d5ff' : '#d9d9d9'}`,
+                      fontWeight: 'bold'
+                    }}>
+                      {useRegex ? 'REG' : 'TXT'}
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#888' }}>
+                      {filteredLogs.length} / {logs.length}
+                    </span>
+                  </div>
+                )}
+                <Space size={2} style={{ marginRight: -7 }}>
+                  <Button 
+                    size="small" 
+                    type={matchCase ? 'primary' : 'default'} 
+                    style={{ 
+                      fontSize: '11px', 
+                      padding: '0 4px', 
+                      height: 20, 
+                      minWidth: 24, 
+                      borderRadius: 2,
+                      backgroundColor: matchCase ? '#1677ff' : '#f5f5f5',
+                      color: matchCase ? '#fff' : '#555',
+                      border: 'none',
+                      fontWeight: 'bold'
+                    }}
+                    onClick={() => setMatchCase(!matchCase)}
+                    title="Match Case (Aa)"
+                  >
+                    Aa
+                  </Button>
+                  <Button 
+                    size="small" 
+                    type={matchWholeWord ? 'primary' : 'default'} 
+                    style={{ 
+                      fontSize: '11px', 
+                      padding: '0 4px', 
+                      height: 20, 
+                      minWidth: 24, 
+                      borderRadius: 2,
+                      backgroundColor: matchWholeWord ? '#1677ff' : '#f5f5f5',
+                      color: matchWholeWord ? '#fff' : '#555',
+                      border: 'none',
+                      fontWeight: 'bold'
+                    }}
+                    onClick={() => setMatchWholeWord(!matchWholeWord)}
+                    title="Match Whole Word (W)"
+                  >
+                    W
+                  </Button>
+                  <Button 
+                    size="small" 
+                    type={useRegex ? 'primary' : 'default'} 
+                    style={{ 
+                      fontSize: '11px', 
+                      padding: '0 4px', 
+                      height: 20, 
+                      minWidth: 24, 
+                      borderRadius: 2,
+                      backgroundColor: useRegex ? '#1677ff' : '#f5f5f5',
+                      color: useRegex ? '#fff' : '#555',
+                      border: 'none',
+                      fontWeight: 'bold'
+                    }}
+                    onClick={() => setUseRegex(!useRegex)}
+                    title="Use Regular Expression (.*)"
+                  >
+                    .*
+                  </Button>
+                </Space>
+              </div>
+            }
+          />
+          {logFilter && (
+            <div style={{ 
+              position: 'absolute', 
+              top: '100%', 
+              left: 0, 
+              fontSize: '10px', 
+              color: filterInfo.invalid ? '#f5222d' : '#888', 
+              marginTop: 2,
+              fontFamily: 'monospace',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              width: '100%'
+            }}>
+              {filterInfo.invalid ? 'Invalid Regex Syntax' : `Pattern: /${filterInfo.pattern}/${matchCase ? '' : 'i'}`}
+            </div>
+          )}
+        </div>
         <Checkbox.Group 
           options={[
             { label: <span style={{ color: getLogColor('E') }}>Error</span>, value: 'E' },
@@ -298,7 +403,7 @@ export default function LogcatView({
         />
       </div>
 
-      <div style={{ flex: 1, position: 'relative', minHeight: 0, backgroundColor: '#1e1e1e', borderRadius: '4px', overflow: 'hidden' }}>
+      <div style={{ flex: 1, position: 'relative', minHeight: 0, backgroundColor: '#1e1e1e', borderRadius: '4px', overflow: 'hidden', marginTop: 12 }}>
         <div
           ref={parentRef}
           onScroll={handleScroll}

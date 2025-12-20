@@ -587,7 +587,6 @@ function App() {
           </div>
         );
       case '4':
-        const filteredLogs = logs.filter(l => l.toLowerCase().includes(logFilter.toLowerCase()));
         return <LogcatView 
           devices={devices}
           selectedDevice={selectedDevice}
@@ -597,7 +596,7 @@ function App() {
           setSelectedPackage={setSelectedPackage}
           isLogging={isLogging}
           toggleLogcat={toggleLogcat}
-          logs={filteredLogs}
+          logs={logs}
           setLogs={setLogs}
           logFilter={logFilter}
           setLogFilter={setLogFilter}
