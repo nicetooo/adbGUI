@@ -18,12 +18,15 @@ jobs:
             platform: windows
             arch: amd64
             output: adbGUI.exe
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             platform: linux
             arch: amd64
             output: adbGUI
 
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout code
@@ -58,7 +61,6 @@ jobs:
 
       - name: Download Binaries (Windows)
         if: matrix.platform == 'windows'
-        shell: bash
         run: |
           mkdir -p bin/windows
           # Example for ADB
@@ -71,7 +73,6 @@ jobs:
 
       - name: Download Binaries (Linux)
         if: matrix.platform == 'linux'
-        shell: bash
         run: |
           mkdir -p bin/linux
           # Example for ADB
