@@ -50,6 +50,9 @@ export default function LogcatView({
   const parentRef = useRef<HTMLDivElement>(null);
   const scrollingRef = useRef(false);
   const [levelFilter, setLevelFilter] = useState<string[]>([]);
+  const [matchCase, setMatchCase] = useState(false);
+  const [matchWholeWord, setMatchWholeWord] = useState(false);
+  const [useRegex, setUseRegex] = useState(false);
 
   const getLogLevel = (text: string) => {
     if (text.includes(' E/') || text.includes(' F/') || text.startsWith('E/')) return 'E';
@@ -60,12 +63,40 @@ export default function LogcatView({
   };
 
   const filteredLogs = useMemo(() => {
-    if (levelFilter.length === 0) return logs;
+    if (!logFilter && levelFilter.length === 0) return logs;
+    
+    let regex: RegExp | null = null;
+    if (logFilter) {
+      try {
+        let pattern = logFilter;
+        if (!useRegex) {
+          // Escape special chars if not using regex
+          pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+        if (matchWholeWord) {
+          pattern = `\\b${pattern}\\b`;
+        }
+        regex = new RegExp(pattern, matchCase ? '' : 'i');
+      } catch (e) {
+        // Invalid regex, don't filter during typing
+        return logs.filter(log => {
+          const level = getLogLevel(log);
+          return levelFilter.length === 0 || levelFilter.includes(level);
+        });
+      }
+    }
+
     return logs.filter(log => {
+      // 1. Level Check
       const level = getLogLevel(log);
-      return levelFilter.includes(level);
+      if (levelFilter.length > 0 && !levelFilter.includes(level)) return false;
+      
+      // 2. Text Check
+      if (regex && !regex.test(log)) return false;
+      
+      return true;
     });
-  }, [logs, levelFilter]);
+  }, [logs, levelFilter, logFilter, matchCase, matchWholeWord, useRegex]);
 
   const virtualizer = useVirtualizer({
     count: filteredLogs.length,
@@ -84,36 +115,23 @@ export default function LogcatView({
   }, [filteredLogs.length, autoScroll, virtualizer]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    // 如果正在进行点击后的自动平滑滚动，不处理滚动事件，防止干扰 autoScroll 状态
     if (scrollingRef.current) return;
-
     const target = e.currentTarget;
     const { scrollTop, scrollHeight, clientHeight } = target;
-    
-    // 如果日志还在刷新，我们加宽判断范围（150px）
     const isAtBottom = scrollHeight - scrollTop - clientHeight < 150;
     
-    if (isAtBottom) {
-      if (!autoScroll) setAutoScroll(true);
-    } else {
-      // 只有在用户明显向上滚动时才停掉 autoscroll
-      if (autoScroll) setAutoScroll(false);
-    }
+    if (isAtBottom && !autoScroll) setAutoScroll(true);
+    else if (!isAtBottom && autoScroll) setAutoScroll(false);
   };
 
   const scrollToBottom = () => {
     scrollingRef.current = true;
     setAutoScroll(true);
-    
     virtualizer.scrollToIndex(filteredLogs.length - 1, {
       align: 'end',
       behavior: 'smooth',
     });
-
-    // 动画结束后释放锁定，允许后续的手动滚动检测
-    setTimeout(() => {
-      scrollingRef.current = false;
-    }, 1000); // 增加锁定时长以确保平滑滚动执行完毕
+    setTimeout(() => { scrollingRef.current = false; }, 1000);
   };
 
   const getLogColor = (level: string) => {
@@ -134,20 +152,51 @@ export default function LogcatView({
       return <span style={{ color }}>{text}</span>;
     }
 
-    const parts = text.split(new RegExp(`(${logFilter})`, 'gi'));
-    return (
-      <span style={{ color }}>
-        {parts.map((part, i) => 
-          part.toLowerCase() === logFilter.toLowerCase() ? (
-            <mark key={i} style={{ backgroundColor: '#ffcc00', color: '#000', borderRadius: '2px', padding: '0 1px' }}>
-              {part}
-            </mark>
-          ) : (
-            <span key={i}>{part}</span>
-          )
-        )}
-      </span>
-    );
+    try {
+      let pattern = logFilter;
+      if (!useRegex) {
+        pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      }
+      if (matchWholeWord) {
+        pattern = `\\b${pattern}\\b`;
+      }
+      
+      const regex = new RegExp(pattern, matchCase ? 'g' : 'gi');
+      const parts: React.ReactNode[] = [];
+      let lastIndex = 0;
+      let match;
+
+      // 使用 exec 循环代替 split，避免捕获组导致的嵌套和重复渲染问题
+      while ((match = regex.exec(text)) !== null) {
+        // 防止死循环 (空匹配)
+        if (match.index === regex.lastIndex) {
+          regex.lastIndex++;
+        }
+
+        // 添加匹配前的非匹配部分
+        if (match.index > lastIndex) {
+          parts.push(text.substring(lastIndex, match.index));
+        }
+
+        // 添加匹配部分（高亮）
+        parts.push(
+          <mark key={match.index} style={{ backgroundColor: '#ffcc00', color: '#000', borderRadius: '2px', padding: '0 1px' }}>
+            {match[0]}
+          </mark>
+        );
+        
+        lastIndex = regex.lastIndex;
+      }
+
+      // 添加最后剩下的部分
+      if (lastIndex < text.length) {
+        parts.push(text.substring(lastIndex));
+      }
+
+      return <span style={{ color }}>{parts.length > 0 ? parts : text}</span>;
+    } catch (e) {
+      return <span style={{ color }}>{text}</span>;
+    }
   };
 
   return (
@@ -204,6 +253,37 @@ export default function LogcatView({
           value={logFilter}
           onChange={e => setLogFilter(e.target.value)}
           style={{ flex: 1 }}
+          suffix={
+            <Space size={2} style={{ marginRight: -7 }}>
+              <Button 
+                size="small" 
+                type={matchCase ? 'primary' : 'text'} 
+                style={{ fontSize: '12px', padding: '0 4px', height: 22, minWidth: 24, borderRadius: 2 }}
+                onClick={() => setMatchCase(!matchCase)}
+                title="Match Case"
+              >
+                Aa
+              </Button>
+              <Button 
+                size="small" 
+                type={matchWholeWord ? 'primary' : 'text'} 
+                style={{ fontSize: '12px', padding: '0 4px', height: 22, minWidth: 24, borderRadius: 2 }}
+                onClick={() => setMatchWholeWord(!matchWholeWord)}
+                title="Match Whole Word"
+              >
+                W
+              </Button>
+              <Button 
+                size="small" 
+                type={useRegex ? 'primary' : 'text'} 
+                style={{ fontSize: '12px', padding: '0 4px', height: 22, minWidth: 24, borderRadius: 2 }}
+                onClick={() => setUseRegex(!useRegex)}
+                title="Use Regular Expression"
+              >
+                .*
+              </Button>
+            </Space>
+          }
         />
         <Checkbox.Group 
           options={[

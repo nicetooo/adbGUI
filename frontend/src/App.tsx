@@ -232,7 +232,13 @@ function App() {
         await StartLogcat(device, pkg);
         setIsLogging(true);
         EventsOn("logcat-data", (data: string) => {
-          setLogs(prev => [...prev, data]);
+          setLogs(prev => {
+            const next = [...prev, data];
+            if (next.length > 50000) {
+              return next.slice(next.length - 50000);
+            }
+            return next;
+          });
         });
       } catch (err) {
         message.error("Failed to start logcat: " + String(err));
