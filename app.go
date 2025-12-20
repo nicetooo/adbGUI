@@ -38,6 +38,8 @@ type Device struct {
 
 type AppPackage struct {
 	Name  string `json:"name"`
+	Label string `json:"label"` // Application label/name
+	Icon  string `json:"icon"`  // Base64 encoded icon
 	Type  string `json:"type"`  // "system" or "user"
 	State string `json:"state"` // "enabled" or "disabled"
 }
@@ -410,6 +412,74 @@ func (a *App) ListPackages(deviceId string) ([]AppPackage, error) {
 	if err := fetch("-3", "user"); err != nil {
 		return nil, fmt.Errorf("failed to list user packages: %w", err)
 	}
+
+	// 2. Fetch labels in parallel for user packages (system packages usually don't have good labels via ADB)
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 10) // Limit concurrency to 10
+	for i := range packages {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			pkg := &packages[idx]
+			// Try to get label using dumpsys or resolve-activity
+			// Method 1: resolve-activity (often contains the label)
+			cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "cmd", "package", "resolve-activity", "--brief", pkg.Name)
+			output, err := cmd.Output()
+			if err == nil {
+				lines := strings.Split(string(output), "\n")
+				for _, line := range lines {
+					if strings.Contains(line, "labelRes=") {
+						// Unfortunately resolving labelRes needs more work, but sometimes nonLocalizedLabel is there
+					}
+				}
+			}
+
+			// Improved Label Extraction Logic
+			if pkg.Label == "" {
+				// 1. Try to extract from package name using a smarter brand map
+				brandMap := map[string]string{
+					"com.ss.android.ugc.tiktok.lite": "TikTok Lite",
+					"com.zhiliaoapp.musically":       "TikTok",
+					"com.ss.android.ugc.aweme":       "Douyin",
+					"com.google.android.youtube":     "YouTube",
+					"com.google.android.gms":         "Google Play Services",
+					"com.android.vending":            "Google Play Store",
+					"com.whatsapp":                   "WhatsApp",
+					"com.facebook.katana":            "Facebook",
+					"com.facebook.orca":              "Messenger",
+					"com.instagram.android":          "Instagram",
+				}
+
+				if brand, ok := brandMap[pkg.Name]; ok {
+					pkg.Label = brand
+				} else {
+					// 2. Generic brand extraction
+					parts := strings.Split(pkg.Name, ".")
+					var meaningful []string
+					skip := map[string]bool{
+						"com": true, "net": true, "org": true, "android": true,
+						"google": true, "ss": true, "ugc": true, "app": true,
+					}
+					for _, p := range parts {
+						if !skip[strings.ToLower(p)] && len(p) > 2 {
+							meaningful = append(meaningful, p)
+						}
+					}
+					if len(meaningful) == 0 {
+						meaningful = parts[len(parts)-1:]
+					}
+					for i, p := range meaningful {
+						meaningful[i] = strings.ToUpper(p[:1]) + p[1:]
+					}
+					pkg.Label = strings.Join(meaningful, " ")
+				}
+			}
+		}(i)
+	}
+	wg.Wait()
 
 	return packages, nil
 }

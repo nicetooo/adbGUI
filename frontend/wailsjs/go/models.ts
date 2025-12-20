@@ -2,6 +2,8 @@ export namespace main {
 	
 	export class AppPackage {
 	    name: string;
+	    label: string;
+	    icon: string;
 	    type: string;
 	    state: string;
 	
@@ -12,6 +14,8 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
+	        this.label = source["label"];
+	        this.icon = source["icon"];
 	        this.type = source["type"];
 	        this.state = source["state"];
 	    }

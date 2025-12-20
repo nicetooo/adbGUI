@@ -387,9 +387,57 @@ function App() {
 
   const appColumns = [
     {
-      title: 'Package Name',
-      dataIndex: 'name',
-      key: 'name',
+      title: 'App',
+      key: 'app',
+      render: (_: any, record: main.AppPackage) => {
+        const firstLetter = (record.label || record.name).charAt(0).toUpperCase();
+        const colors = [
+          '#f56a00', '#7265e6', '#ffbf00', '#00a2ae', '#1890ff', 
+          '#52c41a', '#eb2f96', '#fadb14', '#fa541c', '#13c2c2'
+        ];
+        const color = colors[Math.abs(record.name.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0)) % colors.length];
+
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ 
+              width: 36, 
+              height: 36, 
+              borderRadius: 8, 
+              backgroundColor: color, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              position: 'relative',
+              overflow: 'hidden',
+              flexShrink: 0,
+              fontSize: '18px',
+              fontWeight: 'bold',
+              color: '#fff',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}>
+              <img 
+                src={`https://play-lh.googleusercontent.com/i-p/get-icon?id=${record.name}&w=72`}
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  objectFit: 'cover',
+                  position: 'absolute',
+                  zIndex: 2 
+                }}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.opacity = '0';
+                }}
+                alt=""
+              />
+              <span style={{ position: 'relative', zIndex: 1 }}>{firstLetter}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+              <span style={{ fontWeight: 600, fontSize: '14px', color: '#1a1a1a' }}>{record.label || record.name}</span>
+              <span style={{ fontSize: '10px', color: '#888', fontFamily: 'monospace' }}>{record.name}</span>
+            </div>
+          </div>
+        );
+      }
     },
     {
       title: 'Type',
