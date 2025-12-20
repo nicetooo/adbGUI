@@ -155,21 +155,39 @@ export default function LogcatView({
 
   // 自动滚动逻辑
   useEffect(() => {
-    if (autoScroll && filteredLogs.length > 0 && !scrollingRef.current) {
+    if (autoScroll && filteredLogs.length > 0) {
+      // 这里的 scrollToIndex 会触发 handleScroll
+      // 我们需要通过 scrollingRef 来避免它误触发 setAutoScroll(false)
+      scrollingRef.current = true;
       virtualizer.scrollToIndex(filteredLogs.length - 1, {
         align: 'end',
       });
+      // 给予足够的时间让渲染和滚动完成
+      const timer = setTimeout(() => {
+        scrollingRef.current = false;
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [filteredLogs.length, autoScroll, virtualizer]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    // 如果是程序触发的滚动，不处理逻辑
     if (scrollingRef.current) return;
+    
     const target = e.currentTarget;
     const { scrollTop, scrollHeight, clientHeight } = target;
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 150;
     
-    if (isAtBottom && !autoScroll) setAutoScroll(true);
-    else if (!isAtBottom && autoScroll) setAutoScroll(false);
+    // 增加容错值到 50px，某些高清屏或缩放情况下会有像素偏移
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+    
+    // 只有当用户真的滚离底部时才关闭 autoScroll
+    if (!isAtBottom && autoScroll) {
+      setAutoScroll(false);
+    } 
+    // 当用户滚回底部时自动开启 autoScroll
+    else if (isAtBottom && !autoScroll) {
+      setAutoScroll(true);
+    }
   };
 
   const scrollToBottom = () => {
