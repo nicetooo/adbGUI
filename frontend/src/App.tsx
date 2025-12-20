@@ -22,6 +22,7 @@ import {
   Modal,
   Tooltip,
   Checkbox,
+  Tabs,
 } from "antd";
 import LogcatView from "./components/LogcatView";
 import {
@@ -64,6 +65,7 @@ import {
   StartApp,
   EnableApp,
   DisableApp,
+  StartActivity,
   StartLogcat,
   StopLogcat,
   StartScrcpy,
@@ -128,7 +130,6 @@ interface Device {
 }
 
 function App() {
-  const [collapsed, setCollapsed] = useState(false);
   const [selectedKey, setSelectedKey] = useState("1");
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(false);
@@ -148,6 +149,7 @@ function App() {
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [infoLoading, setInfoLoading] = useState(false);
   const [permissionSearch, setPermissionSearch] = useState("");
+  const [activitySearch, setActivitySearch] = useState("");
 
   // Files state
   const [currentPath, setCurrentPath] = useState("/");
@@ -322,6 +324,7 @@ function App() {
               minSdkVersion: res.minSdkVersion || p.minSdkVersion,
               targetSdkVersion: res.targetSdkVersion || p.targetSdkVersion,
               permissions: res.permissions || p.permissions,
+              activities: res.activities || p.activities,
             };
           }
           return p;
@@ -494,6 +497,18 @@ function App() {
       message.success(`Started ${packageName}`);
     } catch (err) {
       message.error("Failed to start app: " + String(err));
+    } finally {
+      hide();
+    }
+  };
+
+  const handleStartActivity = async (activityName: string) => {
+    const hide = message.loading(`Launching activity ${activityName}...`, 0);
+    try {
+      await StartActivity(selectedDevice, activityName);
+      message.success(`Started activity successfully`);
+    } catch (err) {
+      message.error("Failed to start activity: " + String(err));
     } finally {
       hide();
     }
@@ -1535,23 +1550,7 @@ function App() {
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
-      <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed}>
-        <div
-          className="logo"
-          style={{
-            height: 32,
-            margin: 16,
-            background: "rgba(255, 255, 255, 0.2)",
-            borderRadius: 6,
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            color: "white",
-            fontWeight: "bold",
-          }}
-        >
-          {!collapsed && "ADB GUI"}
-        </div>
+      <Sider width={200} theme="dark">
         <Menu
           theme="dark"
           selectedKeys={[selectedKey]}
@@ -1744,81 +1743,180 @@ function App() {
                   </Card>
                 </Col>
                 <Col span={24}>
-                  <Card
+                  <Tabs
+                    defaultActiveKey="permissions"
+                    type="card"
                     size="small"
-                    title={
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}
-                      >
-                        <span>Permissions</span>
-                        <Input
-                          placeholder="Search permissions..."
-                          size="small"
-                          style={{ width: 200 }}
-                          allowClear
-                          value={permissionSearch}
-                          onChange={(e) => setPermissionSearch(e.target.value)}
-                        />
-                      </div>
-                    }
-                  >
-                    <div style={{ maxHeight: 200, overflowY: "auto" }}>
-                      {selectedAppInfo.permissions &&
-                      selectedAppInfo.permissions.length > 0 ? (
-                        selectedAppInfo.permissions
-                          .filter((p) =>
-                            p
-                              .toLowerCase()
-                              .includes(permissionSearch.toLowerCase())
-                          )
-                          .map((p, i) => (
-                            <div
-                              key={i}
-                              style={{
-                                fontSize: 12,
-                                padding: "4px 8px",
-                                borderBottom: "1px solid #f0f0f0",
-                              }}
-                            >
-                              {p.replace("android.permission.", "")}
-                            </div>
-                          ))
-                      ) : (
-                        <p
-                          style={{
-                            color: "#bfbfbf",
-                            fontStyle: "italic",
-                            textAlign: "center",
-                            padding: "20px 0",
-                          }}
-                        >
-                          No permissions listed
-                        </p>
-                      )}
-                      {selectedAppInfo.permissions &&
-                        selectedAppInfo.permissions.length > 0 &&
-                        selectedAppInfo.permissions.filter((p) =>
-                          p
-                            .toLowerCase()
-                            .includes(permissionSearch.toLowerCase())
-                        ).length === 0 && (
-                          <p
-                            style={{
-                              color: "#bfbfbf",
-                              fontStyle: "italic",
-                              textAlign: "center",
-                              padding: "20px 0",
-                            }}
+                    items={[
+                      {
+                        key: "permissions",
+                        label: `Permissions (${
+                          selectedAppInfo.permissions?.length || 0
+                        })`,
+                        children: (
+                          <Card
+                            size="small"
+                            title={
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <span>Permissions</span>
+                                <Input
+                                  placeholder="Search permissions..."
+                                  size="small"
+                                  style={{ width: 200 }}
+                                  allowClear
+                                  value={permissionSearch}
+                                  onChange={(e) =>
+                                    setPermissionSearch(e.target.value)
+                                  }
+                                />
+                              </div>
+                            }
                           >
-                            No permissions match your search
-                          </p>
-                        )}
-                    </div>
-                  </Card>
+                            <div style={{ maxHeight: 300, overflowY: "auto" }}>
+                              {selectedAppInfo.permissions &&
+                              selectedAppInfo.permissions.length > 0 ? (
+                                selectedAppInfo.permissions
+                                  .filter((p) =>
+                                    p
+                                      .toLowerCase()
+                                      .includes(permissionSearch.toLowerCase())
+                                  )
+                                  .map((p, i) => (
+                                    <div
+                                      key={i}
+                                      style={{
+                                        fontSize: 12,
+                                        padding: "4px 8px",
+                                        borderBottom: "1px solid #f0f0f0",
+                                      }}
+                                    >
+                                      {p.replace("android.permission.", "")}
+                                    </div>
+                                  ))
+                              ) : (
+                                <p
+                                  style={{
+                                    color: "#bfbfbf",
+                                    fontStyle: "italic",
+                                    textAlign: "center",
+                                    padding: "20px 0",
+                                  }}
+                                >
+                                  No permissions listed
+                                </p>
+                              )}
+                            </div>
+                          </Card>
+                        ),
+                      },
+                      {
+                        key: "activities",
+                        label: `Activities (${
+                          selectedAppInfo.activities?.length || 0
+                        })`,
+                        children: (
+                          <Card
+                            size="small"
+                            title={
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <span>Activities</span>
+                                <Input
+                                  placeholder="Search activities..."
+                                  size="small"
+                                  style={{ width: 200 }}
+                                  allowClear
+                                  value={activitySearch}
+                                  onChange={(e) =>
+                                    setActivitySearch(e.target.value)
+                                  }
+                                />
+                              </div>
+                            }
+                          >
+                            <div style={{ maxHeight: 300, overflowY: "auto" }}>
+                              {selectedAppInfo.activities &&
+                              selectedAppInfo.activities.length > 0 ? (
+                                selectedAppInfo.activities
+                                  .filter((a) =>
+                                    a
+                                      .toLowerCase()
+                                      .includes(activitySearch.toLowerCase())
+                                  )
+                                  .sort((a, b) => {
+                                    const aLaunchable =
+                                      selectedAppInfo.launchableActivities?.includes(
+                                        a
+                                      );
+                                    const bLaunchable =
+                                      selectedAppInfo.launchableActivities?.includes(
+                                        b
+                                      );
+                                    if (aLaunchable && !bLaunchable) return -1;
+                                    if (!aLaunchable && bLaunchable) return 1;
+                                    return a.localeCompare(b);
+                                  })
+                                  .map((a, i) => (
+                                    <div
+                                      key={i}
+                                      style={{
+                                        fontSize: 12,
+                                        padding: "6px 8px",
+                                        borderBottom: "1px solid #f0f0f0",
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                      }}
+                                    >
+                                      <span
+                                        style={{
+                                          fontFamily: "monospace",
+                                          wordBreak: "break-all",
+                                          marginRight: 8,
+                                        }}
+                                      >
+                                        {a.includes("/") ? a.split("/")[1] : a}
+                                      </span>
+                                      {selectedAppInfo.launchableActivities?.includes(a) && (
+                                        <Button
+                                          size="small"
+                                          icon={<PlayCircleOutlined />}
+                                          onClick={() => handleStartActivity(a)}
+                                        >
+                                          Launch
+                                        </Button>
+                                      )}
+                                    </div>
+                                  ))
+                              ) : (
+                                <p
+                                  style={{
+                                    color: "#bfbfbf",
+                                    fontStyle: "italic",
+                                    textAlign: "center",
+                                    padding: "20px 0",
+                                  }}
+                                >
+                                  No activities listed
+                                </p>
+                              )}
+                            </div>
+                          </Card>
+                        ),
+                      },
+                    ]}
+                  />
                 </Col>
               </Row>
             </div>

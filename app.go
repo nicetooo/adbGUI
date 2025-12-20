@@ -61,16 +61,18 @@ type FileInfo struct {
 }
 
 type AppPackage struct {
-	Name             string   `json:"name"`
-	Label            string   `json:"label"` // Application label/name
-	Icon             string   `json:"icon"`  // Base64 encoded icon
-	Type             string   `json:"type"`  // "system" or "user"
-	State            string   `json:"state"` // "enabled" or "disabled"
-	VersionName      string   `json:"versionName"`
-	VersionCode      string   `json:"versionCode"`
-	MinSdkVersion    string   `json:"minSdkVersion"`
-	TargetSdkVersion string   `json:"targetSdkVersion"`
-	Permissions      []string `json:"permissions"`
+	Name                 string   `json:"name"`
+	Label                string   `json:"label"` // Application label/name
+	Icon                 string   `json:"icon"`  // Base64 encoded icon
+	Type                 string   `json:"type"`  // "system" or "user"
+	State                string   `json:"state"` // "enabled" or "disabled"
+	VersionName          string   `json:"versionName"`
+	VersionCode          string   `json:"versionCode"`
+	MinSdkVersion        string   `json:"minSdkVersion"`
+	TargetSdkVersion     string   `json:"targetSdkVersion"`
+	Permissions          []string `json:"permissions"`
+	Activities           []string `json:"activities"`
+	LaunchableActivities []string `json:"launchableActivities"`
 }
 
 // NewApp creates a new App application struct
@@ -179,26 +181,186 @@ func (a *App) setupBinaries() {
 	fmt.Printf("Binaries setup at: %s\n", tempDir)
 }
 
+// normalizeActivityName ensures activity name is in format "package/full.class.Name"
+func (a *App) normalizeActivityName(activity, packageName string) string {
+	if !strings.Contains(activity, "/") {
+		// If it's just a class name, prepend package
+		if strings.HasPrefix(activity, ".") {
+			return packageName + "/" + packageName + activity
+		}
+		return packageName + "/" + activity
+	}
+
+	parts := strings.SplitN(activity, "/", 2)
+	pkg := parts[0]
+	class := parts[1]
+
+	if strings.HasPrefix(class, ".") {
+		return pkg + "/" + pkg + class
+	}
+	return activity
+}
+
 // GetAppInfo returns detailed information for a specific package
 func (a *App) GetAppInfo(deviceId, packageName string, force bool) (AppPackage, error) {
-	return a.getAppInfoWithAapt(deviceId, packageName, force)
+	// 1. 获取快速实时信息 (Activities, Permissions, State) via ADB
+	pkg, _ := a.getAdbDetailedInfo(deviceId, packageName)
+
+	// 2. 检查缓存中是否有 AAPT 信息 (Label, Icon, Versions)
+	a.aaptCacheMu.RLock()
+	cached, hasCache := a.aaptCache[packageName]
+	a.aaptCacheMu.RUnlock()
+
+	// 如果没有缓存，或者是强制刷新，或者是旧版本缓存（缺少 LaunchableActivities），则执行耗时的 AAPT 流程
+	if force || !hasCache || cached.Label == "" || cached.LaunchableActivities == nil {
+		detailedPkg, err := a.getAppInfoWithAapt(deviceId, packageName, force)
+		if err == nil {
+			// 合并 AAPT 信息到实时信息中
+			pkg.Label = detailedPkg.Label
+			pkg.Icon = detailedPkg.Icon
+			pkg.VersionName = detailedPkg.VersionName
+			pkg.VersionCode = detailedPkg.VersionCode
+			pkg.MinSdkVersion = detailedPkg.MinSdkVersion
+			pkg.TargetSdkVersion = detailedPkg.TargetSdkVersion
+			pkg.LaunchableActivities = detailedPkg.LaunchableActivities
+
+			// 合并 Activity 列表并去重
+			if len(detailedPkg.Activities) > 0 {
+				seen := make(map[string]bool)
+				for _, act := range pkg.Activities {
+					seen[act] = true
+				}
+				for _, act := range detailedPkg.Activities {
+					if !seen[act] {
+						pkg.Activities = append(pkg.Activities, act)
+						seen[act] = true
+					}
+				}
+			}
+		}
+	} else {
+		// 使用缓存的静态信息
+		pkg.Label = cached.Label
+		pkg.Icon = cached.Icon
+		pkg.VersionName = cached.VersionName
+		pkg.VersionCode = cached.VersionCode
+		pkg.MinSdkVersion = cached.MinSdkVersion
+		pkg.TargetSdkVersion = cached.TargetSdkVersion
+		pkg.LaunchableActivities = cached.LaunchableActivities
+
+		// 如果 ADB 没拿到，从缓存拿
+		if len(pkg.Activities) == 0 {
+			pkg.Activities = cached.Activities
+		}
+	}
+
+	return pkg, nil
+}
+
+// getAdbDetailedInfo 获取可以通过 ADB 快速获取的信息
+func (a *App) getAdbDetailedInfo(deviceId, packageName string) (AppPackage, error) {
+	var pkg AppPackage
+	pkg.Name = packageName
+
+	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "dumpsys", "package", packageName)
+	output, err := cmd.Output()
+	if err != nil {
+		return pkg, err
+	}
+
+	outputStr := string(output)
+	pkg.Activities = a.parseActivitiesFromDumpsys(outputStr, packageName)
+	pkg.Permissions = a.parsePermissionsFromDumpsys(outputStr)
+
+	return pkg, nil
+}
+
+// parseActivitiesFromDumpsys 从 dumpsys 输出中解析 Activity
+func (a *App) parseActivitiesFromDumpsys(output, packageName string) []string {
+	var activities []string
+	seen := make(map[string]bool)
+	lines := strings.Split(output, "\n")
+	inActivities := false
+
+	// 更加宽松的匹配模式：
+	// 1. 匹配 com.package/.Activity
+	// 2. 匹配 com.package/com.package.Activity
+	// 3. 匹配格式如 "7d4b655 com.package/.Activity"
+	pkgPattern := regexp.QuoteMeta(packageName)
+	activityRegex := regexp.MustCompile(`(?i)(` + pkgPattern + `\/[\.\w\$]+)`)
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		// 识别进入 Activities 区域
+		if strings.EqualFold(trimmed, "Activities:") {
+			inActivities = true
+			continue
+		}
+
+		if inActivities {
+			// 如果遇到新的顶级分类（通常是不带空格且以冒号结尾的行），停止解析
+			if len(line) > 0 && !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") && strings.HasSuffix(trimmed, ":") {
+				inActivities = false
+				continue
+			}
+
+			// 尝试提取符合格式的组件名
+			matches := activityRegex.FindAllStringSubmatch(line, -1)
+			for _, match := range matches {
+				act := a.normalizeActivityName(match[1], packageName)
+				if !seen[act] {
+					activities = append(activities, act)
+					seen[act] = true
+				}
+			}
+		}
+	}
+
+	// 兜底方案：如果没找到带 Activities: 标签的区域，全文本搜索一遍
+	if len(activities) == 0 {
+		matches := activityRegex.FindAllStringSubmatch(output, -1)
+		for _, match := range matches {
+			act := a.normalizeActivityName(match[1], packageName)
+			if !seen[act] {
+				activities = append(activities, act)
+				seen[act] = true
+			}
+		}
+	}
+
+	return activities
+}
+
+// parsePermissionsFromDumpsys 从 dumpsys 输出中解析权限
+func (a *App) parsePermissionsFromDumpsys(output string) []string {
+	var permissions []string
+	lines := strings.Split(output, "\n")
+	inPermissions := false
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "requested permissions:") {
+			inPermissions = true
+			continue
+		}
+		if inPermissions {
+			if strings.Contains(trimmed, ":") && !strings.HasPrefix(trimmed, "android.permission") {
+				inPermissions = false
+				continue
+			}
+			// 权限行通常是 android.permission.INTERNET 这种格式
+			if strings.HasPrefix(trimmed, "android.permission") || strings.Contains(trimmed, "permission") {
+				perm := strings.Split(trimmed, ":")[0]
+				permissions = append(permissions, strings.TrimSpace(perm))
+			}
+		}
+	}
+	return permissions
 }
 
 // getAppInfoWithAapt extracts app label, icon and other metadata using aapt
 func (a *App) getAppInfoWithAapt(deviceId, packageName string, force bool) (AppPackage, error) {
-	// 0. Check cache first to ensure we only process each package once
-	if !force {
-		a.aaptCacheMu.RLock()
-		if cached, ok := a.aaptCache[packageName]; ok {
-			// If we have more than just basic info (e.g., VersionName), return it
-			if cached.VersionName != "" || cached.Label != "" {
-				a.aaptCacheMu.RUnlock()
-				return cached, nil
-			}
-		}
-		a.aaptCacheMu.RUnlock()
-	}
-
 	var pkg AppPackage
 	pkg.Name = packageName
 
@@ -211,7 +373,7 @@ func (a *App) getAppInfoWithAapt(deviceId, packageName string, force bool) (AppP
 		return pkg, fmt.Errorf("aapt not available (file missing or empty)")
 	}
 
-	// 1. Get APK path from device (no timeout)
+	// 1. Get APK path from device
 	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "pm", "path", packageName)
 	output, err := cmd.Output()
 	if err != nil {
@@ -235,30 +397,18 @@ func (a *App) getAppInfoWithAapt(deviceId, packageName string, force bool) (AppP
 	tmpAPK := filepath.Join(tmpDir, packageName+".apk")
 	defer os.Remove(tmpAPK) // Clean up
 
-	// 3. Pull APK to local (no timeout)
+	// 3. Pull APK to local
 	pullCmd := exec.Command(a.adbPath, "-s", deviceId, "pull", remotePath, tmpAPK)
 	pullOutput, err := pullCmd.CombinedOutput()
 	if err != nil {
 		return pkg, fmt.Errorf("failed to pull APK: %w (output: %s)", err, string(pullOutput))
 	}
 
-	// Check if APK file was actually downloaded
-	if info, err := os.Stat(tmpAPK); err != nil || info.Size() == 0 {
-		return pkg, fmt.Errorf("APK file not downloaded or empty: %v", err)
-	}
-
-	// 4. Use aapt to dump badging (get metadata) - no timeout
+	// 4. Use aapt to dump badging
 	aaptCmd := exec.Command(a.aaptPath, "dump", "badging", tmpAPK)
 	aaptOutput, err := aaptCmd.CombinedOutput()
 	if err != nil {
-		if len(aaptOutput) == 0 {
-			return pkg, fmt.Errorf("aapt command failed with no output: %w", err)
-		}
 		return pkg, fmt.Errorf("failed to run aapt: %w, output: %s", err, string(aaptOutput))
-	}
-
-	if len(aaptOutput) == 0 {
-		return pkg, fmt.Errorf("aapt command succeeded but output is empty")
 	}
 
 	// 5. Parse information from aapt output
@@ -267,12 +417,10 @@ func (a *App) getAppInfoWithAapt(deviceId, packageName string, force bool) (AppP
 	pkg.VersionName, pkg.VersionCode = a.parseVersionFromAapt(outputStr)
 	pkg.MinSdkVersion = a.parseSdkVersionFromAapt(outputStr, "sdkVersion:")
 	pkg.TargetSdkVersion = a.parseSdkVersionFromAapt(outputStr, "targetSdkVersion:")
-	pkg.Permissions = a.parsePermissionsFromAapt(outputStr)
+	pkg.LaunchableActivities = a.parseActivitiesFromAapt(outputStr, packageName)
+	pkg.Activities = pkg.LaunchableActivities
 
-	// Debug logging
-	fmt.Printf("DEBUG: Extracted for %s: Label='%s', Version='%s'\n", packageName, pkg.Label, pkg.VersionName)
-
-	// 6. Extract icon using aapt (don't fail if icon extraction fails)
+	// 6. Extract icon using aapt
 	icon, err := a.extractIconWithAapt(tmpAPK)
 	if err == nil {
 		pkg.Icon = icon
@@ -336,6 +484,121 @@ func (a *App) parsePermissionsFromAapt(output string) []string {
 		}
 	}
 	return permissions
+}
+
+// getActivitiesWithAdb gets all activities of a package using adb dumpsys
+func (a *App) getActivitiesWithAdb(deviceId, packageName string) []string {
+	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "dumpsys", "package", packageName)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("Error getting activities for %s: %v\n", packageName, err)
+		return nil
+	}
+
+	var activities []string
+	seen := make(map[string]bool)
+	lines := strings.Split(string(output), "\n")
+	inActivities := false
+
+	// Regex to match activity names like com.example/.MainActivity
+	// and handle the case where the package name is omitted in the output (e.g. .MainActivity)
+	activityRegex := regexp.MustCompile(`(?i)(` + regexp.QuoteMeta(packageName) + `\/[\.\w\$]+)`)
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "Activities:" {
+			inActivities = true
+			continue
+		}
+		if inActivities {
+			// If we hit a line that starts with less indentation than the activities, we might be out
+			// But dumpsys output is a bit inconsistent. Let's look for the next section.
+			if len(line) > 0 && !strings.HasPrefix(line, "    ") && !strings.HasPrefix(line, "\t") && trimmed != "" && !strings.Contains(line, "Activities:") {
+				// Potential end of section
+				if strings.HasSuffix(trimmed, ":") {
+					// Definitely a new section
+					inActivities = false
+					continue
+				}
+			}
+
+			matches := activityRegex.FindAllStringSubmatch(line, -1)
+			for _, match := range matches {
+				activity := match[1]
+				if !seen[activity] {
+					activities = append(activities, activity)
+					seen[activity] = true
+				}
+			}
+		}
+	}
+
+	// If no activities found with package name prefix, try a simpler approach
+	if len(activities) == 0 {
+		// Fallback: look for lines starting with some spaces and then a dot or package name
+		for _, line := range lines {
+			if strings.Contains(line, packageName+"/") {
+				parts := strings.Fields(line)
+				for _, p := range parts {
+					if strings.Contains(p, packageName+"/") {
+						p = strings.Trim(p, ":")
+						p = a.normalizeActivityName(p, packageName)
+						if !seen[p] {
+							activities = append(activities, p)
+							seen[p] = true
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return activities
+}
+
+// StartActivity launches a specific activity
+func (a *App) StartActivity(deviceId, activityName string) (string, error) {
+	if deviceId == "" {
+		return "", fmt.Errorf("no device specified")
+	}
+	// activityName is usually in format "com.example/.MainActivity"
+	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "am", "start", "-n", activityName)
+	output, err := cmd.CombinedOutput()
+	outStr := string(output)
+
+	if err != nil {
+		return outStr, fmt.Errorf("failed to start activity: %w", err)
+	}
+
+	// 检查输出内容是否包含错误关键字，因为 am start 即使失败也可能返回退出码 0
+	if strings.Contains(outStr, "Error:") || strings.Contains(outStr, "Exception") || strings.Contains(outStr, "requires") {
+		return outStr, fmt.Errorf("failed to start activity: %s", outStr)
+	}
+
+	return outStr, nil
+}
+
+// parseActivitiesFromAapt 从 aapt dump badging 输出中解析启动 Activity
+func (a *App) parseActivitiesFromAapt(output, packageName string) []string {
+	var activities []string
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "launchable-activity:") {
+			// 格式: launchable-activity: name='com.example.MainActivity' label='App' icon=''
+			idx := strings.Index(line, "name='")
+			if idx > 0 {
+				start := idx + 6
+				end := strings.Index(line[start:], "'")
+				if end > 0 {
+					name := line[start : start+end]
+					// 转换为标准格式: packageName/fullClassName
+					name = a.normalizeActivityName(name, packageName)
+					activities = append(activities, name)
+				}
+			}
+		}
+	}
+	return activities
 }
 
 // parseLabelFromAapt parses the application label from aapt dump badging output

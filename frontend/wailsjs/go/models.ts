@@ -11,6 +11,8 @@ export namespace main {
 	    minSdkVersion: string;
 	    targetSdkVersion: string;
 	    permissions: string[];
+	    activities: string[];
+	    launchableActivities: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new AppPackage(source);
@@ -28,6 +30,8 @@ export namespace main {
 	        this.minSdkVersion = source["minSdkVersion"];
 	        this.targetSdkVersion = source["targetSdkVersion"];
 	        this.permissions = source["permissions"];
+	        this.activities = source["activities"];
+	        this.launchableActivities = source["launchableActivities"];
 	    }
 	}
 	export class Device {
