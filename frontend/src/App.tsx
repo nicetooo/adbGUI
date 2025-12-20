@@ -284,13 +284,12 @@ function App() {
 
     EventsOn("scrcpy-started", (data: any) => {
       setIsMirroring(true);
-      setMirrorStartTime(data.startTime);
-      setMirrorDuration(0);
+      // Only set start time if it's not already set (prevents reset during config updates)
+      setMirrorStartTime((prev) => prev || data.startTime);
       if (data.recording) {
         setIsRecording(true);
         setShouldRecord(true);
-        setRecordStartTime(data.startTime);
-        setRecordDuration(0);
+        setRecordStartTime((prev) => prev || data.startTime);
         setScrcpyConfig((prev) => ({ ...prev, recordPath: data.recordPath }));
       }
     });
@@ -298,33 +297,8 @@ function App() {
     EventsOn("scrcpy-stopped", (deviceId: string) => {
       setIsMirroring(false);
       setMirrorStartTime(null);
-
-      // If we were recording as part of the mirror session, show notification
-      if (isRecordingRef.current) {
-        setIsRecording(false);
-        setShouldRecord(false);
-        setRecordStartTime(null);
-        notification.success({
-          message: "Recording Saved",
-          description: "The screen recording has been saved successfully.",
-          btn: (
-            <Button
-              type="primary"
-              size="small"
-              onClick={() => {
-                if (recordPathRef.current) {
-                  OpenPath(recordPathRef.current);
-                }
-                notification.destroy();
-              }}
-            >
-              Show in Folder
-            </Button>
-          ),
-          key: "scrcpy-record-saved",
-          duration: 5,
-        });
-      }
+      // NOTE: We no longer clean up recording here. 
+      // Recording has its own dedicated "scrcpy-record-stopped" event.
     });
 
     EventsOn("scrcpy-record-started", (data: any) => {
@@ -729,25 +703,33 @@ function App() {
     startLogging(selectedDevice, pkgName);
   };
 
-  const handleStartScrcpy = async (deviceId: string) => {
+  const handleStartScrcpy = async (
+    deviceId: string,
+    overrideConfig?: main.ScrcpyConfig
+  ) => {
     try {
-      let currentConfig = { ...scrcpyConfig };
-
-      if (shouldRecord) {
-        const path = await SelectRecordPath();
-        if (!path) {
-          message.info("Recording cancelled");
-          return;
-        }
-        currentConfig.recordPath = path;
-      } else {
-        currentConfig.recordPath = "";
-      }
+      let currentConfig = { ...(overrideConfig || scrcpyConfig) };
 
       await StartScrcpy(deviceId, currentConfig);
-      message.success(
-        shouldRecord ? "Starting Recording & Mirror..." : "Starting Mirror..."
-      );
+
+      // Separate recording launch if enabled
+      if (shouldRecord && !isRecordingRef.current) {
+        const path = await SelectRecordPath();
+        if (path) {
+          const recordConfig = { ...currentConfig, recordPath: path };
+          await StartRecording(deviceId, recordConfig);
+        } else {
+          setShouldRecord(false);
+        }
+      }
+
+      if (!overrideConfig) {
+        message.success(
+          shouldRecord
+            ? "Starting Recording & Mirror..."
+            : "Starting Mirror..."
+        );
+      }
     } catch (err) {
       message.error("Failed to start Scrcpy: " + String(err));
     }
@@ -755,7 +737,7 @@ function App() {
 
   const handleStopScrcpy = async (deviceId: string) => {
     try {
-      if (isRecording) {
+      if (isRecordingRef.current) {
         await StopRecording(deviceId);
       }
       await StopScrcpy(deviceId);
@@ -769,25 +751,39 @@ function App() {
     if (!selectedDevice) return;
     try {
       const path = await SelectRecordPath();
-      if (!path) return;
+      if (!path) {
+        setShouldRecord(false);
+        return;
+      }
 
       const config = { ...scrcpyConfig, recordPath: path };
       await StartRecording(selectedDevice, config);
+      // setShouldRecord(true); // Should already be true from switch
+      setIsRecording(true);
       message.success("Recording started");
     } catch (err) {
+      setIsRecording(false);
+      setShouldRecord(false);
       message.error("Failed to start recording: " + String(err));
     }
   };
 
   const handleStopMidSessionRecord = async () => {
     if (!selectedDevice) return;
-    const currentRecordPath = scrcpyConfig.recordPath;
     try {
+      setIsRecording(false);
+      setShouldRecord(false);
       await StopRecording(selectedDevice);
-      // Logic for showing success is handled by scrcpy-record-stopped event
-      // but we can also do it here for immediate feedback if event is slow
     } catch (err) {
       message.error("Failed to stop recording: " + String(err));
+    }
+  };
+
+  const updateScrcpyConfig = async (newConfig: main.ScrcpyConfig) => {
+    setScrcpyConfig(newConfig);
+    if (isMirroring && selectedDevice) {
+      // Use setTimeout to allow state to propagate or just pass config directly
+      await handleStartScrcpy(selectedDevice, newConfig);
     }
   };
 
@@ -1663,56 +1659,25 @@ function App() {
                 style={{
                   marginBottom: 16,
                   padding: "8px 16px",
-                  backgroundColor: isRecording ? "#fff1f0" : "#e6f7ff",
-                  border: `1px solid ${isRecording ? "#ffa39e" : "#91d5ff"}`,
+                  backgroundColor: "#e6f7ff",
+                  border: "1px solid #91d5ff",
                   borderRadius: "8px",
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  animation: isRecording ? "pulse 2s infinite" : "none",
                 }}
               >
-                <Space size="large">
-                  <div
-                    style={{ display: "flex", alignItems: "center", gap: 8 }}
-                  >
-                    <Tag color="processing">MIRRORING</Tag>
-                    <span
-                      style={{ fontWeight: "bold", fontFamily: "monospace" }}
-                    >
-                      {new Date(mirrorDuration * 1000)
-                        .toISOString()
-                        .substr(11, 8)}
-                    </span>
-                  </div>
-                  {isRecording && (
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
-                    >
-                      <Tag color="error" icon={<div className="record-dot" />}>
-                        RECORDING
-                      </Tag>
-                      <span
-                        style={{
-                          fontWeight: "bold",
-                          fontFamily: "monospace",
-                          color: "#cf1322",
-                        }}
-                      >
-                        {new Date(recordDuration * 1000)
-                          .toISOString()
-                          .substr(11, 8)}
-                      </span>
-                    </div>
-                  )}
-                </Space>
-                <Space>
-                  {isRecording && scrcpyConfig.recordPath && (
-                    <span style={{ fontSize: "12px", color: "#666" }}>
-                      Saving to: {scrcpyConfig.recordPath.split(/[\\/]/).pop()}
-                    </span>
-                  )}
-                </Space>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Tag color="processing">MIRRORING</Tag>
+                  <span style={{ fontWeight: "bold", fontFamily: "monospace" }}>
+                    {new Date(mirrorDuration * 1000)
+                      .toISOString()
+                      .substr(11, 8)}
+                  </span>
+                </div>
+                <div style={{ fontSize: "12px", color: "#1890ff" }}>
+                  Active mirror session
+                </div>
               </div>
             )}
 
@@ -1743,8 +1708,12 @@ function App() {
                     }
                     size="small"
                     style={{
-                      border: shouldRecord ? "1px solid #ff4d4f" : undefined,
-                      backgroundColor: shouldRecord ? "#fff1f0" : undefined,
+                      border:
+                        shouldRecord || isRecording
+                          ? "1px solid #ff4d4f"
+                          : undefined,
+                      backgroundColor:
+                        shouldRecord || isRecording ? "#fff1f0" : undefined,
                     }}
                   >
                     <div
@@ -1752,20 +1721,24 @@ function App() {
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
+                        marginBottom: isRecording ? 12 : 0,
                       }}
                     >
                       <Space direction="vertical" size={0}>
                         <span
                           style={{
-                            fontWeight: shouldRecord ? "bold" : "normal",
+                            fontWeight:
+                              shouldRecord || isRecording ? "bold" : "normal",
                           }}
                         >
                           Record Screen
                         </span>
                         <div style={{ fontSize: "11px", color: "#888" }}>
-                          {shouldRecord
+                          {isRecording
+                            ? "Recording in progress..."
+                            : shouldRecord
                             ? "Save dialog will show up"
-                            : "Save session as video"}
+                            : "Independent of other settings"}
                         </div>
                       </Space>
                       <Switch
@@ -1787,6 +1760,57 @@ function App() {
                         }}
                       />
                     </div>
+
+                    {isRecording && (
+                      <div
+                        style={{
+                          padding: "8px",
+                          backgroundColor: "rgba(255, 77, 79, 0.05)",
+                          borderRadius: "4px",
+                          border: "1px dashed #ffa39e",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginBottom: 4,
+                          }}
+                        >
+                          <Tag
+                            color="error"
+                            icon={<div className="record-dot" />}
+                            style={{ margin: 0 }}
+                          >
+                            RECORD
+                          </Tag>
+                          <span
+                            style={{
+                              fontWeight: "bold",
+                              fontFamily: "monospace",
+                              color: "#cf1322",
+                            }}
+                          >
+                            {new Date(recordDuration * 1000)
+                              .toISOString()
+                              .substr(11, 8)}
+                          </span>
+                        </div>
+                        {scrcpyConfig.recordPath && (
+                          <div
+                            style={{
+                              fontSize: "10px",
+                              color: "#888",
+                              wordBreak: "break-all",
+                              marginTop: 4,
+                            }}
+                          >
+                            File: {scrcpyConfig.recordPath.split(/[\\/]/).pop()}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </Card>
 
                   {/* Video Settings */}
@@ -1879,7 +1903,7 @@ function App() {
                         size="small"
                         value={scrcpyConfig.videoCodec}
                         onChange={(v) =>
-                          setScrcpyConfig({ ...scrcpyConfig, videoCodec: v })
+                          updateScrcpyConfig({ ...scrcpyConfig, videoCodec: v })
                         }
                         style={{ width: 100 }}
                       >
@@ -1907,7 +1931,7 @@ function App() {
                           size="small"
                           checked={scrcpyConfig.noAudio}
                           onChange={(v) =>
-                            setScrcpyConfig({ ...scrcpyConfig, noAudio: v })
+                            updateScrcpyConfig({ ...scrcpyConfig, noAudio: v })
                           }
                         />
                       </div>
@@ -1918,7 +1942,7 @@ function App() {
                           disabled={scrcpyConfig.noAudio}
                           value={scrcpyConfig.audioCodec}
                           onChange={(v) =>
-                            setScrcpyConfig({ ...scrcpyConfig, audioCodec: v })
+                            updateScrcpyConfig({ ...scrcpyConfig, audioCodec: v })
                           }
                           style={{ width: 100 }}
                         >
@@ -1958,7 +1982,10 @@ function App() {
                           size="small"
                           checked={scrcpyConfig.alwaysOnTop}
                           onChange={(v) =>
-                            setScrcpyConfig({ ...scrcpyConfig, alwaysOnTop: v })
+                            updateScrcpyConfig({
+                              ...scrcpyConfig,
+                              alwaysOnTop: v,
+                            })
                           }
                         />
                       </div>
@@ -1968,7 +1995,10 @@ function App() {
                           size="small"
                           checked={scrcpyConfig.fullscreen}
                           onChange={(v) =>
-                            setScrcpyConfig({ ...scrcpyConfig, fullscreen: v })
+                            updateScrcpyConfig({
+                              ...scrcpyConfig,
+                              fullscreen: v,
+                            })
                           }
                         />
                       </div>
@@ -1978,7 +2008,7 @@ function App() {
                           size="small"
                           checked={scrcpyConfig.windowBorderless}
                           onChange={(v) =>
-                            setScrcpyConfig({
+                            updateScrcpyConfig({
                               ...scrcpyConfig,
                               windowBorderless: v,
                             })
@@ -2007,7 +2037,7 @@ function App() {
                           size="small"
                           checked={scrcpyConfig.stayAwake}
                           onChange={(v) =>
-                            setScrcpyConfig({ ...scrcpyConfig, stayAwake: v })
+                            updateScrcpyConfig({ ...scrcpyConfig, stayAwake: v })
                           }
                         />
                       </div>
@@ -2019,7 +2049,7 @@ function App() {
                           size="small"
                           checked={scrcpyConfig.readOnly}
                           onChange={(v) =>
-                            setScrcpyConfig({ ...scrcpyConfig, readOnly: v })
+                            updateScrcpyConfig({ ...scrcpyConfig, readOnly: v })
                           }
                         />
                       </div>
@@ -2029,7 +2059,10 @@ function App() {
                           size="small"
                           checked={scrcpyConfig.showTouches}
                           onChange={(v) =>
-                            setScrcpyConfig({ ...scrcpyConfig, showTouches: v })
+                            updateScrcpyConfig({
+                              ...scrcpyConfig,
+                              showTouches: v,
+                            })
                           }
                         />
                       </div>
@@ -2055,7 +2088,7 @@ function App() {
                           size="small"
                           checked={scrcpyConfig.turnScreenOff}
                           onChange={(v) =>
-                            setScrcpyConfig({
+                            updateScrcpyConfig({
                               ...scrcpyConfig,
                               turnScreenOff: v,
                             })
@@ -2070,7 +2103,7 @@ function App() {
                           size="small"
                           checked={scrcpyConfig.powerOffOnClose}
                           onChange={(v) =>
-                            setScrcpyConfig({
+                            updateScrcpyConfig({
                               ...scrcpyConfig,
                               powerOffOnClose: v,
                             })

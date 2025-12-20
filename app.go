@@ -218,7 +218,7 @@ func (a *App) GetAppInfo(deviceId, packageName string, force bool) (AppPackage, 
 
 	// 如果没有缓存，或者是强制刷新，或者是旧版本缓存（缺少 LaunchableActivities），则执行耗时的 AAPT 流程
 	if force || !hasCache || cached.Label == "" || cached.LaunchableActivities == nil {
-		detailedPkg, err := a.getAppInfoWithAapt(deviceId, packageName, force)
+		detailedPkg, err := a.getAppInfoWithAapt(deviceId, packageName)
 		if err == nil {
 			// 合并 AAPT 信息到实时信息中
 			pkg.Label = detailedPkg.Label
@@ -365,7 +365,7 @@ func (a *App) parsePermissionsFromDumpsys(output string) []string {
 }
 
 // getAppInfoWithAapt extracts app label, icon and other metadata using aapt
-func (a *App) getAppInfoWithAapt(deviceId, packageName string, force bool) (AppPackage, error) {
+func (a *App) getAppInfoWithAapt(deviceId, packageName string) (AppPackage, error) {
 	var pkg AppPackage
 	pkg.Name = packageName
 
@@ -474,91 +474,6 @@ func (a *App) parseSdkVersionFromAapt(output, prefix string) string {
 		}
 	}
 	return ""
-}
-
-// parsePermissionsFromAapt parses uses-permission from aapt output
-func (a *App) parsePermissionsFromAapt(output string) []string {
-	var permissions []string
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "uses-permission: name=") {
-			perm := strings.TrimPrefix(line, "uses-permission: name=")
-			perm = strings.Trim(perm, "'\"")
-			permissions = append(permissions, perm)
-		}
-	}
-	return permissions
-}
-
-// getActivitiesWithAdb gets all activities of a package using adb dumpsys
-func (a *App) getActivitiesWithAdb(deviceId, packageName string) []string {
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "dumpsys", "package", packageName)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		fmt.Printf("Error getting activities for %s: %v\n", packageName, err)
-		return nil
-	}
-
-	var activities []string
-	seen := make(map[string]bool)
-	lines := strings.Split(string(output), "\n")
-	inActivities := false
-
-	// Regex to match activity names like com.example/.MainActivity
-	// and handle the case where the package name is omitted in the output (e.g. .MainActivity)
-	activityRegex := regexp.MustCompile(`(?i)(` + regexp.QuoteMeta(packageName) + `\/[\.\w\$]+)`)
-
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "Activities:" {
-			inActivities = true
-			continue
-		}
-		if inActivities {
-			// If we hit a line that starts with less indentation than the activities, we might be out
-			// But dumpsys output is a bit inconsistent. Let's look for the next section.
-			if len(line) > 0 && !strings.HasPrefix(line, "    ") && !strings.HasPrefix(line, "\t") && trimmed != "" && !strings.Contains(line, "Activities:") {
-				// Potential end of section
-				if strings.HasSuffix(trimmed, ":") {
-					// Definitely a new section
-					inActivities = false
-					continue
-				}
-			}
-
-			matches := activityRegex.FindAllStringSubmatch(line, -1)
-			for _, match := range matches {
-				activity := match[1]
-				if !seen[activity] {
-					activities = append(activities, activity)
-					seen[activity] = true
-				}
-			}
-		}
-	}
-
-	// If no activities found with package name prefix, try a simpler approach
-	if len(activities) == 0 {
-		// Fallback: look for lines starting with some spaces and then a dot or package name
-		for _, line := range lines {
-			if strings.Contains(line, packageName+"/") {
-				parts := strings.Fields(line)
-				for _, p := range parts {
-					if strings.Contains(p, packageName+"/") {
-						p = strings.Trim(p, ":")
-						p = a.normalizeActivityName(p, packageName)
-						if !seen[p] {
-							activities = append(activities, p)
-							seen[p] = true
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return activities
 }
 
 // StartActivity launches a specific activity
@@ -1048,9 +963,9 @@ func (a *App) StartRecording(deviceId string, config ScrcpyConfig) error {
 	}
 
 	a.scrcpyMu.Lock()
-	if _, exists := a.scrcpyRecordCmd[deviceId]; exists {
-		a.scrcpyMu.Unlock()
-		return fmt.Errorf("recording already in progress for this device")
+	if cmd, exists := a.scrcpyRecordCmd[deviceId]; exists && cmd.Process != nil {
+		// If a recording process already exists, kill it to start a new one
+		_ = cmd.Process.Kill()
 	}
 	a.scrcpyMu.Unlock()
 
@@ -1116,15 +1031,10 @@ func (a *App) StopRecording(deviceId string) error {
 
 	if cmd, exists := a.scrcpyRecordCmd[deviceId]; exists && cmd.Process != nil {
 		// On Unix-like systems, send SIGINT for graceful shutdown (finalizes MP4/MKV)
-		// On Windows, Kill is the standard but we can try to be slightly more careful
-		var err error
 		if runtime.GOOS != "windows" {
-			err = cmd.Process.Signal(os.Interrupt)
-		} else {
-			err = cmd.Process.Kill()
+			return cmd.Process.Signal(os.Interrupt)
 		}
-		delete(a.scrcpyRecordCmd, deviceId)
-		return err
+		return cmd.Process.Kill()
 	}
 	return nil
 }
@@ -1221,9 +1131,6 @@ func (a *App) StartScrcpy(deviceId string, config ScrcpyConfig) error {
 	if config.AudioCodec != "" {
 		args = append(args, "--audio-codec", config.AudioCodec)
 	}
-	if config.RecordPath != "" {
-		args = append(args, "--record", config.RecordPath)
-	}
 
 	args = append(args, "--window-title", "ADB GUI - "+deviceId)
 
@@ -1251,19 +1158,23 @@ func (a *App) StartScrcpy(deviceId string, config ScrcpyConfig) error {
 
 	// Notify frontend that scrcpy has started
 	wailsRuntime.EventsEmit(a.ctx, "scrcpy-started", map[string]interface{}{
-		"deviceId":   deviceId,
-		"recording":  config.RecordPath != "",
-		"recordPath": config.RecordPath,
-		"startTime":  time.Now().Unix(),
+		"deviceId":  deviceId,
+		"startTime": time.Now().Unix(),
 	})
 
 	// Wait for process to exit in a goroutine
 	go func() {
 		_ = cmd.Wait()
 		a.scrcpyMu.Lock()
-		delete(a.scrcpyCmds, deviceId)
-		a.scrcpyMu.Unlock()
-		wailsRuntime.EventsEmit(a.ctx, "scrcpy-stopped", deviceId)
+		// Only cleanup and emit event if this is still the active command
+		// (Prevents "stopped" events from firing during a configuration restart)
+		if a.scrcpyCmds[deviceId] == cmd {
+			delete(a.scrcpyCmds, deviceId)
+			a.scrcpyMu.Unlock()
+			wailsRuntime.EventsEmit(a.ctx, "scrcpy-stopped", deviceId)
+		} else {
+			a.scrcpyMu.Unlock()
+		}
 	}()
 
 	return nil
@@ -1275,14 +1186,8 @@ func (a *App) StopScrcpy(deviceId string) error {
 	defer a.scrcpyMu.Unlock()
 
 	if cmd, exists := a.scrcpyCmds[deviceId]; exists && cmd.Process != nil {
-		var err error
-		if runtime.GOOS != "windows" {
-			err = cmd.Process.Signal(os.Interrupt)
-		} else {
-			err = cmd.Process.Kill()
-		}
-		delete(a.scrcpyCmds, deviceId)
-		return err
+		// For mirroring window, force kill is better for immediate response
+		return cmd.Process.Kill()
 	}
 	return nil
 }
