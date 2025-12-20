@@ -923,8 +923,23 @@ function App() {
         ) : selectedAppInfo && (
           <div style={{ padding: '10px 0', opacity: infoLoading ? 0.6 : 1, transition: 'opacity 0.3s' }}>
             {infoLoading && (
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.5)' }}>
-                <ReloadOutlined spin style={{ fontSize: 24, color: '#1890ff' }} />
+              <div style={{ 
+                position: 'absolute', 
+                top: 0, 
+                left: 0, 
+                right: 0, 
+                bottom: 0, 
+                zIndex: 10, 
+                display: 'flex', 
+                flexDirection: 'column',
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                background: 'rgba(255,255,255,0.7)',
+                borderRadius: 8
+              }}>
+                <ReloadOutlined spin style={{ fontSize: 32, color: '#1890ff', marginBottom: 12 }} />
+                <div style={{ fontSize: 14, color: '#1890ff', fontWeight: 'bold' }}>Refreshing App Info...</div>
+                <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>Extracting data from APK, please wait</div>
               </div>
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 24 }}>
