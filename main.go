@@ -18,8 +18,8 @@ func main() {
 	// Create application with options
 	err := wails.Run(&options.App{
 		Title:     "adbGUI",
-		Width:     1920,
-		Height:    1080,
+		Width:     1280,
+		Height:    720,
 		MinWidth:  1280,
 		MinHeight: 720,
 		AssetServer: &assetserver.Options{
