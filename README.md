@@ -9,7 +9,20 @@ A powerful, modern, and self-contained Android management tool built with **Wail
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
 
-## ✨ Features
+## 📸 App Screenshots
+
+| Device Mirror | File Manager |
+|:---:|:---:|
+| <img src="screenshots/mirror.png" width="400" /> | <img src="screenshots/files.png" width="400" /> |
+
+| App Management | Logcat Viewer |
+|:---:|:---:|
+| <img src="screenshots/apps.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+
+| ADB Shell | System Tray |
+|:---:|:---:|
+| <img src="screenshots/shell.png" width="400" /> | <img src="screenshots/tray.png" width="400" /> |
+
 
 ### 📱 Device Management
 - **Unified Device List**: Seamlessly manage unified physical and wireless devices.

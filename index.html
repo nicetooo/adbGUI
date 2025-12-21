@@ -267,68 +267,143 @@
     </div>
   </section>
 
-  <!-- Troubleshooting Section -->
+  <!-- Screenshots Section -->
   <section class="w-full max-w-6xl mx-auto px-6 md:px-12 py-12 border-t border-zinc-900">
-    <h2 class="text-3xl font-bold mb-8 text-white">Troubleshooting</h2>
-    <div class="bg-zinc-900/40 p-8 rounded-2xl border border-red-500/20">
-      <h3 class="text-xl font-bold text-red-400 mb-4">
-        macOS: "App is damaged and can't be opened"
-      </h3>
-      <p class="text-zinc-300 mb-4 leading-relaxed">
-        If you see this error, it's due to macOS Gatekeeper quarantine on downloaded unsigned apps. To fix it, run this
-        command in your terminal:
-      </p>
-      <div class="bg-black/50 p-4 rounded-lg border border-zinc-800 font-mono text-sm text-emerald-400 overflow-x-auto">
-        sudo xattr -cr /path/to/adbGUI.app
+    <h2 class="text-3xl font-bold mb-12 text-white text-center">Screenshots</h2>
+    <div class="space-y-12">
+      <!-- Row 1 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div class="group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10"></div>
+          <div class="absolute bottom-4 left-4 z-20">
+            <h3 class="text-lg font-bold text-white">Device Mirroring</h3>
+            <p class="text-sm text-zinc-400">Low-latency control & recording</p>
+          </div>
+          <img src="screenshots/mirror.png" alt="Device Mirroring"
+            class="w-full h-auto transform transition-transform duration-500 group-hover:scale-105">
+        </div>
+        <div class="group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10"></div>
+          <div class="absolute bottom-4 left-4 z-20">
+            <h3 class="text-lg font-bold text-white">File Manager</h3>
+            <p class="text-sm text-zinc-400">Drag & drop transfer</p>
+          </div>
+          <img src="screenshots/files.png" alt="File Manager"
+            class="w-full h-auto transform transition-transform duration-500 group-hover:scale-105">
+        </div>
       </div>
-      <p class="text-zinc-500 text-sm mt-3">
-        *Replace <code>/path/to/adbGUI.app</code> with the actual path to your downloaded application (e.g.,
-        <code>/Applications/adbGUI.app</code>)*
-      </p>
-    </div>
 
-    <div class="bg-zinc-900/40 p-8 rounded-2xl border border-blue-500/20 mt-6">
-      <h3 class="text-xl font-bold text-blue-400 mb-4">
-        Windows: "Windows protected your PC"
-      </h3>
-      <p class="text-zinc-300 mb-4 leading-relaxed">
-        If Microsoft Defender SmartScreen prevents startup:
-        <br>
-        <span class="text-zinc-400">Click <b>More info</b> &rarr; <b>Run anyway</b>.</span>
-      </p>
-    </div>
-
-    <div class="mt-8 text-center">
-      <p class="text-zinc-400 text-sm border-t border-zinc-800 pt-8 inline-block">
-        <span class="text-emerald-400 font-bold">✨ Alternative:</span> You can also <a
-          href="https://github.com/nicetooo/adbGUI#build" target="_blank" class="underline hover:text-emerald-300">build
-          from source</a> safely on your own machine.
-      </p>
-    </div>
-  </section>
-
-  <!-- Footer -->
-  <footer
-    class="w-full max-w-6xl mx-auto px-6 md:px-12 py-12 border-t border-zinc-900 flex flex-col md:flex-row justify-between items-center gap-6">
-    <div class="flex flex-col items-center md:items-start gap-4">
-      <div class="flex items-center gap-3 grayscale opacity-70">
-        <img src="build/icon.svg" class="w-5 h-5" alt="adbGUI logo" />
-        <span class="text-sm font-bold tracking-tight text-white uppercase italic">adbGUI</span>
+      <!-- Row 2 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div class="group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10"></div>
+          <div class="absolute bottom-4 left-4 z-20">
+            <h3 class="text-lg font-bold text-white">App Management</h3>
+            <p class="text-sm text-zinc-400">Batch install & detailed info</p>
+          </div>
+          <img src="screenshots/apps.png" alt="App Management"
+            class="w-full h-auto transform transition-transform duration-500 group-hover:scale-105">
+        </div>
+        <div class="group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10"></div>
+          <div class="absolute bottom-4 left-4 z-20">
+            <h3 class="text-lg font-bold text-white">Logcat Viewer</h3>
+            <p class="text-sm text-zinc-400">Real-time filtering & search</p>
+          </div>
+          <img src="screenshots/logcat.png" alt="Logcat Viewer"
+            class="w-full h-auto transform transition-transform duration-500 group-hover:scale-105">
+        </div>
       </div>
-      <p class="text-[10px] text-zinc-500 max-w-lg leading-relaxed">
-        © 2025 adbGUI Project. MIT License.<br />
-        Android is a trademark of Google LLC. The Android robot is reproduced
-        or modified from work created and shared by Google and used according
-        to terms described in the Creative Commons 3.0 Attribution License.
-      </p>
+
+      <!-- Row 3 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div class="group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10"></div>
+          <div class="absolute bottom-4 left-4 z-20">
+            <h3 class="text-lg font-bold text-white">ADB Shell</h3>
+            <p class="text-sm text-zinc-400">Integrated terminal console</p>
+          </div>
+          <img src="screenshots/shell.png" alt="ADB Shell"
+            class="w-full h-auto transform transition-transform duration-500 group-hover:scale-105">
+        </div>
+        <!-- Spacer or another image -->
+        <div class="group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10"></div>
+          <div class="absolute bottom-4 left-4 z-20">
+            <h3 class="text-lg font-bold text-white">System Tray</h3>
+            <p class="text-sm text-zinc-400">Quick access & background control</p>
+          </div>
+          <img src="screenshots/tray.png" alt="System Tray"
+            class="w-full h-auto transform transition-transform duration-500 group-hover:scale-105">
+        </div>
+      </div>
     </div>
-    <div class="flex gap-6 text-sm font-medium">
-      <a href="https://github.com/nicetooo/adbGUI"
-        class="text-zinc-300 hover:text-emerald-400 transition-colors">GitHub</a>
-      <a href="https://github.com/nicetooo/adbGUI/issues"
-        class="text-zinc-300 hover:text-emerald-400 transition-colors">Issues</a>
-    </div>
-  </footer>
+
+    <!-- Troubleshooting Section -->
+    <section class="w-full max-w-6xl mx-auto px-6 md:px-12 py-12 border-t border-zinc-900">
+      <h2 class="text-3xl font-bold mb-8 text-white">Troubleshooting</h2>
+      <div class="bg-zinc-900/40 p-8 rounded-2xl border border-red-500/20">
+        <h3 class="text-xl font-bold text-red-400 mb-4">
+          macOS: "App is damaged and can't be opened"
+        </h3>
+        <p class="text-zinc-300 mb-4 leading-relaxed">
+          If you see this error, it's due to macOS Gatekeeper quarantine on downloaded unsigned apps. To fix it, run
+          this
+          command in your terminal:
+        </p>
+        <div
+          class="bg-black/50 p-4 rounded-lg border border-zinc-800 font-mono text-sm text-emerald-400 overflow-x-auto">
+          sudo xattr -cr /path/to/adbGUI.app
+        </div>
+        <p class="text-zinc-500 text-sm mt-3">
+          *Replace <code>/path/to/adbGUI.app</code> with the actual path to your downloaded application (e.g.,
+          <code>/Applications/adbGUI.app</code>)*
+        </p>
+      </div>
+
+      <div class="bg-zinc-900/40 p-8 rounded-2xl border border-blue-500/20 mt-6">
+        <h3 class="text-xl font-bold text-blue-400 mb-4">
+          Windows: "Windows protected your PC"
+        </h3>
+        <p class="text-zinc-300 mb-4 leading-relaxed">
+          If Microsoft Defender SmartScreen prevents startup:
+          <br>
+          <span class="text-zinc-400">Click <b>More info</b> &rarr; <b>Run anyway</b>.</span>
+        </p>
+      </div>
+
+      <div class="mt-8 text-center">
+        <p class="text-zinc-400 text-sm border-t border-zinc-800 pt-8 inline-block">
+          <span class="text-emerald-400 font-bold">✨ Alternative:</span> You can also <a
+            href="https://github.com/nicetooo/adbGUI#build" target="_blank"
+            class="underline hover:text-emerald-300">build
+            from source</a> safely on your own machine.
+        </p>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer
+      class="w-full max-w-6xl mx-auto px-6 md:px-12 py-12 border-t border-zinc-900 flex flex-col md:flex-row justify-between items-center gap-6">
+      <div class="flex flex-col items-center md:items-start gap-4">
+        <div class="flex items-center gap-3 grayscale opacity-70">
+          <img src="build/icon.svg" class="w-5 h-5" alt="adbGUI logo" />
+          <span class="text-sm font-bold tracking-tight text-white uppercase italic">adbGUI</span>
+        </div>
+        <p class="text-[10px] text-zinc-500 max-w-lg leading-relaxed">
+          © 2025 adbGUI Project. MIT License.<br />
+          Android is a trademark of Google LLC. The Android robot is reproduced
+          or modified from work created and shared by Google and used according
+          to terms described in the Creative Commons 3.0 Attribution License.
+        </p>
+      </div>
+      <div class="flex gap-6 text-sm font-medium">
+        <a href="https://github.com/nicetooo/adbGUI"
+          class="text-zinc-300 hover:text-emerald-400 transition-colors">GitHub</a>
+        <a href="https://github.com/nicetooo/adbGUI/issues"
+          class="text-zinc-300 hover:text-emerald-400 transition-colors">Issues</a>
+      </div>
+    </footer>
 </body>
 
 </html>
