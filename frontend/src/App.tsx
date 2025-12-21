@@ -46,6 +46,7 @@ import {
   RemoveHistoryDevice,
   OpenSettings,
   StartLogcat,
+  GetAppVersion,
 } from "../wailsjs/go/main/App";
 // @ts-ignore
 import { main } from "../wailsjs/go/models";
@@ -84,6 +85,7 @@ function App() {
 
   // About state
   const [aboutVisible, setAboutVisible] = useState(false);
+  const [appVersion, setAppVersion] = useState<string>("");
 
   // Wireless Connect state
   const [wirelessConnectVisible, setWirelessConnectVisible] = useState(false);
@@ -370,6 +372,8 @@ function App() {
       }
     });
 
+    GetAppVersion().then(v => setAppVersion(v)).catch(() => {});
+
     return () => {
       EventsOff("scrcpy-started");
       EventsOff("scrcpy-stopped");
@@ -618,7 +622,7 @@ function App() {
                 if (!BrowserOpenURL) return;
                 const currentDevice = devices.find(d => d.id === selectedDevice);
                 const deviceInfo = currentDevice ? `${currentDevice.brand} ${currentDevice.model} (ID: ${currentDevice.id})` : "None";
-                const body = encodeURIComponent(`### Description\n(Please describe the issue here)\n\n### Environment\n- App Version: 1.0.0\n- Device: ${deviceInfo}\n- OS: ${navigator.platform}`);
+                const body = encodeURIComponent(`### Description\n(Please describe the issue here)\n\n### Environment\n- App Version: ${appVersion || "Unknown"}\n- Device: ${deviceInfo}\n- OS: ${navigator.platform}`);
                 BrowserOpenURL(`https://github.com/nicetooo/adbGUI/issues/new?body=${body}`);
               }}
               title={t("app.feedback")}
