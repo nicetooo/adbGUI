@@ -16,6 +16,7 @@ interface AppInfoModalProps {
   activitySearch: string;
   setActivitySearch: (val: string) => void;
   handleStartActivity: (activityName: string) => Promise<void>;
+  getContainer?: string | (() => HTMLElement) | false;
 }
 
 const AppInfoModal: React.FC<AppInfoModalProps> = ({
@@ -29,10 +30,19 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({
   activitySearch,
   setActivitySearch,
   handleStartActivity,
+  getContainer,
 }) => {
   const { t } = useTranslation();
   return (
     <Modal
+      getContainer={getContainer}
+      centered
+      style={{ top: 0, paddingBottom: 0 }}
+      styles={{
+        wrapper: { position: "absolute", overflow: "hidden" },
+        mask: { position: "absolute" },
+      }}
+      bodyStyle={{ overflowY: "auto", maxHeight: "calc(80vh - 120px)" }}
       title={
         <div
           style={{
@@ -42,7 +52,16 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({
             paddingRight: 32,
           }}
         >
-          <span>{t("app_info.title")}</span>
+          <div style={{ display: "flex", flexDirection: "column", maxWidth: "70%" }}>
+            <span style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.2 }}>
+              {selectedAppInfo ? (selectedAppInfo.label || selectedAppInfo.name) : t("app_info.title")}
+            </span>
+            {selectedAppInfo && (
+              <span style={{ fontSize: 12, color: "#888", fontWeight: "normal", marginTop: 2 }}>
+                {selectedAppInfo.name}
+              </span>
+            )}
+          </div>
           {selectedAppInfo && (
             <Button
               size="small"
@@ -82,7 +101,7 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({
           <div
             className="selectable"
             style={{
-              padding: "10px 0",
+              paddingTop: 8,
               opacity: infoLoading ? 0.6 : 1,
               transition: "opacity 0.3s",
               userSelect: "text",
@@ -98,105 +117,40 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({
                   bottom: 0,
                   zIndex: 10,
                   display: "flex",
-                  flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
                   background: "rgba(255,255,255,0.7)",
-                  borderRadius: 8,
                 }}
               >
-                <ReloadOutlined
-                  spin
-                  style={{ fontSize: 32, color: "#1890ff", marginBottom: 12 }}
-                />
-                <div
-                  style={{
-                    fontSize: 14,
-                    color: "#1890ff",
-                    fontWeight: "bold",
-                  }}
-                  >
-                    {t("app_info.refreshing")}
-                  </div>
-                  <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
-                    {t("app_info.refreshing_desc")}
-                  </div>
-                </div>
+                <ReloadOutlined spin style={{ fontSize: 24, color: "#1890ff" }} />
+              </div>
             )}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 20,
-                marginBottom: 24,
-              }}
-            >
-              <div
-                style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 12,
-                  backgroundColor: "#f0f0f0",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  overflow: "hidden",
-                  flexShrink: 0,
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                }}
-              >
-                {selectedAppInfo.icon ? (
-                  <img
-                    src={selectedAppInfo.icon}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
-                    alt=""
-                  />
-                ) : (
-                  <AppstoreOutlined
-                    style={{ fontSize: 32, color: "#bfbfbf" }}
-                  />
-                )}
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 20 }}>
-                  {selectedAppInfo.label || selectedAppInfo.name}
-                </h3>
-                <code style={{ fontSize: 12, color: "#888" }}>
-                  {selectedAppInfo.name}
-                </code>
-              </div>
+            
+            {/* 紧凑的信息展示区 */}
+            <div style={{ 
+              marginBottom: 16, 
+              padding: "8px 12px", 
+              background: "#f5f5f5", 
+              borderRadius: 6,
+              fontSize: 13,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "12px 24px"
+            }}>
+               <div style={{ display: "flex", alignItems: "center" }}>
+                  <span style={{ color: "#666", marginRight: 4 }}>Version:</span>
+                  <span style={{ fontWeight: 500 }}>
+                    {selectedAppInfo.versionName || "N/A"} 
+                    <span style={{ color: "#999", marginLeft: 4 }}>({selectedAppInfo.versionCode || 0})</span>
+                  </span>
+               </div>
+               <div style={{ display: "flex", alignItems: "center" }}>
+                  <span style={{ color: "#666", marginRight: 4 }}>SDK:</span>
+                  <span style={{ fontWeight: 500 }}>
+                    Min {selectedAppInfo.minSdkVersion || "?"} / Target {selectedAppInfo.targetSdkVersion || "?"}
+                  </span>
+               </div>
             </div>
-
-            <Row gutter={[16, 16]}>
-              <Col span={12}>
-                <Card size="small" title={t("app_info.version_info")}>
-                  <p>
-                    <strong>{t("app_info.version_name")}:</strong>{" "}
-                    {selectedAppInfo.versionName || "N/A"}
-                  </p>
-                  <p>
-                    <strong>{t("app_info.version_code")}:</strong>{" "}
-                    {selectedAppInfo.versionCode || "N/A"}
-                  </p>
-                </Card>
-              </Col>
-              <Col span={12}>
-                <Card size="small" title={t("app_info.sdk_info")}>
-                  <p>
-                    <strong>{t("app_info.min_sdk")}:</strong>{" "}
-                    {selectedAppInfo.minSdkVersion || "N/A"}
-                  </p>
-                  <p>
-                    <strong>{t("app_info.target_sdk")}:</strong>{" "}
-                    {selectedAppInfo.targetSdkVersion || "N/A"}
-                  </p>
-                </Card>
-              </Col>
-              <Col span={24}>
                 <Tabs
                   defaultActiveKey="permissions"
                   type="card"
@@ -373,9 +327,7 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     },
                   ]}
                 />
-              </Col>
-            </Row>
-          </div>
+              </div>
         )
       )}
     </Modal>

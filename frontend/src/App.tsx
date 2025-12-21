@@ -128,12 +128,6 @@ function App() {
   const [appsLoading, setAppsLoading] = useState(false);
   const [packageFilter, setPackageFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("user"); // all, system, user - default to user
-  const [selectedAppInfo, setSelectedAppInfo] =
-    useState<main.AppPackage | null>(null);
-  const [infoModalVisible, setInfoModalVisible] = useState(false);
-  const [infoLoading, setInfoLoading] = useState(false);
-  const [permissionSearch, setPermissionSearch] = useState("");
-  const [activitySearch, setActivitySearch] = useState("");
 
   // Files state
   const [currentPath, setCurrentPath] = useState("/");
@@ -516,49 +510,6 @@ function App() {
     }
   };
 
-  const handleFetchAppInfo = async (
-    packageName: string,
-    force: boolean = false
-  ) => {
-    if (!selectedDevice) return;
-
-    // If not forcing, show what we already have in the packages list
-    if (!force) {
-      setSelectedAppInfo(packages.find((p) => p.name === packageName) || null);
-    }
-
-    setPermissionSearch(""); // Reset search when opening info
-    setInfoModalVisible(true);
-    setInfoLoading(true);
-    try {
-      const res = await GetAppInfo(selectedDevice, packageName, force);
-      setSelectedAppInfo(res);
-      // Update the app in the packages list if we got new data
-      // Only merge fields that are not empty to avoid overwriting existing type/state
-      setPackages((prev) =>
-        prev.map((p) => {
-          if (p.name === packageName) {
-            return {
-              ...p,
-              label: res.label || p.label,
-              icon: res.icon || p.icon,
-              versionName: res.versionName || p.versionName,
-              versionCode: res.versionCode || p.versionCode,
-              minSdkVersion: res.minSdkVersion || p.minSdkVersion,
-              targetSdkVersion: res.targetSdkVersion || p.targetSdkVersion,
-              permissions: res.permissions || p.permissions,
-              activities: res.activities || p.activities,
-            };
-          }
-          return p;
-        })
-      );
-    } catch (err) {
-      message.error(t("app.fetch_app_info_failed") + ": " + String(err));
-    } finally {
-      setInfoLoading(false);
-    }
-  };
 
   const fetchFiles = async (path: string) => {
     if (!selectedDevice) return;
@@ -777,17 +728,6 @@ function App() {
     }
   };
 
-  const handleStartActivity = async (activityName: string) => {
-    const hide = message.loading(t("app.launching", { name: activityName }), 0);
-    try {
-      await StartActivity(selectedDevice, activityName);
-      message.success(t("app.start_activity_success"));
-    } catch (err) {
-      message.error(t("app.start_activity_failed") + ": " + String(err));
-    } finally {
-      hide();
-    }
-  };
 
   const handleOpenSettings = async (deviceId: string, action: string = "", data: string = "") => {
     const hide = message.loading(t("app.opening_settings"), 0);
@@ -1094,7 +1034,6 @@ function App() {
             handleAppLogcat={handleAppLogcat}
             handleExploreAppFiles={handleExploreAppFiles}
             handleExportAPK={handleExportAPK}
-            handleFetchAppInfo={handleFetchAppInfo}
             handleForceStop={handleForceStop}
             handleToggleState={handleToggleState}
             handleClearData={handleClearData}
@@ -1341,18 +1280,6 @@ function App() {
         </Content>
       </Layout>
 
-      <AppInfoModal
-        visible={infoModalVisible}
-        onCancel={() => setInfoModalVisible(false)}
-        selectedAppInfo={selectedAppInfo}
-        infoLoading={infoLoading}
-        handleFetchAppInfo={handleFetchAppInfo}
-        permissionSearch={permissionSearch}
-        setPermissionSearch={setPermissionSearch}
-        activitySearch={activitySearch}
-        setActivitySearch={setActivitySearch}
-        handleStartActivity={handleStartActivity}
-      />
 
       <DeviceInfoModal
         visible={deviceInfoVisible}
