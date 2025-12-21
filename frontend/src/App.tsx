@@ -261,11 +261,11 @@ function App() {
     if (isLogging) {
       await StopLogcat();
       setIsLogging(false);
-      EventsOff("logcat-line");
+      EventsOff("logcat-data");
     } else {
       setLogs([]);
       setIsLogging(true);
-      EventsOn("logcat-line", (line: string) => {
+      EventsOn("logcat-data", (line: string) => {
         setLogs((prev) => {
           const next = [...prev, line];
           return next.slice(-1000); // Keep last 1000 lines
@@ -276,7 +276,7 @@ function App() {
       } catch (err) {
         message.error(t("app.logcat_failed") + ": " + String(err));
         setIsLogging(false);
-        EventsOff("logcat-line");
+        EventsOff("logcat-data");
       }
     }
   };

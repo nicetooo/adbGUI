@@ -67,6 +67,10 @@ type App struct {
 	historyMu   sync.Mutex
 
 	version string
+
+	// Last active tracking
+	lastActive   map[string]int64
+	lastActiveMu sync.RWMutex
 }
 
 type HistoryDevice struct {
@@ -80,14 +84,15 @@ type HistoryDevice struct {
 }
 
 type Device struct {
-	ID       string   `json:"id"`
-	Serial   string   `json:"serial"`
-	State    string   `json:"state"`
-	Model    string   `json:"model"`
-	Brand    string   `json:"brand"`
-	Type     string   `json:"type"` // "wired", "wireless", or "both"
-	IDs      []string `json:"ids"`  // Store all adb IDs (e.g. [serial, 192.168.1.1:5555])
-	WifiAddr string   `json:"wifiAddr"`
+	ID         string   `json:"id"`
+	Serial     string   `json:"serial"`
+	State      string   `json:"state"`
+	Model      string   `json:"model"`
+	Brand      string   `json:"brand"`
+	Type       string   `json:"type"` // "wired", "wireless", or "both"
+	IDs        []string `json:"ids"`  // Store all adb IDs (e.g. [serial, 192.168.1.1:5555])
+	WifiAddr   string   `json:"wifiAddr"`
+	LastActive int64    `json:"lastActive"`
 }
 
 type DeviceInfo struct {
@@ -129,15 +134,38 @@ type AppPackage struct {
 	LaunchableActivities []string `json:"launchableActivities"`
 }
 
-// NewApp creates a new App application struct
 func NewApp(version string) *App {
-	return &App{
+	app := &App{
 		aaptCache:       make(map[string]AppPackage),
 		scrcpyCmds:      make(map[string]*exec.Cmd),
 		scrcpyRecordCmd: make(map[string]*exec.Cmd),
 		openFileCmds:    make(map[string]*exec.Cmd),
+		lastActive:      make(map[string]int64),
 		version:         version,
 	}
+	app.initPersistentCache()
+	return app
+}
+
+// updateLastActive updates the last active timestamp for a device (resolving to Serial if possible)
+func (a *App) updateLastActive(deviceId string) {
+	if deviceId == "" {
+		return
+	}
+
+	// Try to find the true serial for this deviceId
+	serial := deviceId
+	devices, _ := a.GetDevices()
+	for _, d := range devices {
+		if d.ID == deviceId {
+			serial = d.Serial
+			break
+		}
+	}
+
+	a.lastActiveMu.Lock()
+	defer a.lastActiveMu.Unlock()
+	a.lastActive[serial] = time.Now().Unix()
 }
 
 // GetAppVersion returns the application version
@@ -1565,6 +1593,21 @@ func (a *App) GetDevices() ([]Device, error) {
 		}
 	}
 
+	// 7. Populating LastActive and Sorting
+	a.lastActiveMu.RLock()
+	for i := range finalDevices {
+		d := finalDevices[i]
+		if ts, ok := a.lastActive[d.Serial]; ok {
+			d.LastActive = ts
+		}
+	}
+	a.lastActiveMu.RUnlock()
+
+	// Sort by LastActive descending
+	sort.SliceStable(finalDevices, func(i, j int) bool {
+		return finalDevices[i].LastActive > finalDevices[j].LastActive
+	})
+
 	// Return flat slice
 	result := make([]Device, len(finalDevices))
 	for i, d := range finalDevices {
@@ -1602,6 +1645,8 @@ func (a *App) TakeScreenshot(deviceId, savePath string) (string, error) {
 	if savePath == "" {
 		return "", fmt.Errorf("no save path specified")
 	}
+
+	a.updateLastActive(deviceId)
 
 	// 4. Check if screen is truly active and unlocked
 	// We use Case-Insensitive matching and cover multiple variants
@@ -1767,6 +1812,7 @@ func (a *App) SelectRecordPath(deviceModel string) (string, error) {
 
 // StartRecording starts a separate scrcpy process just for recording without a window
 func (a *App) StartRecording(deviceId string, config ScrcpyConfig) error {
+	a.updateLastActive(deviceId)
 	if deviceId == "" {
 		return fmt.Errorf("no device specified")
 	}
@@ -1914,6 +1960,7 @@ type ScrcpyConfig struct {
 
 // StartScrcpy starts scrcpy for the given device with custom configuration
 func (a *App) StartScrcpy(deviceId string, config ScrcpyConfig) error {
+	a.updateLastActive(deviceId)
 	if deviceId == "" {
 		return fmt.Errorf("no device specified")
 	}
@@ -2033,6 +2080,7 @@ func (a *App) StopScrcpy(deviceId string) error {
 
 // StartLogcat starts the logcat stream for a device, optionally filtering by package name
 func (a *App) StartLogcat(deviceId, packageName string) error {
+	a.updateLastActive(deviceId)
 	if a.logcatCmd != nil {
 		return fmt.Errorf("logcat already running")
 	}
@@ -2305,6 +2353,7 @@ func (a *App) ListPackages(deviceId string, packageType string) ([]AppPackage, e
 
 // UninstallApp uninstalls an app
 func (a *App) UninstallApp(deviceId, packageName string) (string, error) {
+	a.updateLastActive(deviceId)
 	if deviceId == "" {
 		return "", fmt.Errorf("no device specified")
 	}
@@ -2362,6 +2411,7 @@ func (a *App) ForceStopApp(deviceId, packageName string) (string, error) {
 
 // StartApp launches the application using monkey command
 func (a *App) StartApp(deviceId, packageName string) (string, error) {
+	a.updateLastActive(deviceId)
 	if deviceId == "" {
 		return "", fmt.Errorf("no device specified")
 	}
@@ -2475,6 +2525,7 @@ func (a *App) ExportAPK(deviceId string, packageName string) (string, error) {
 
 // ListFiles returns a list of files in the specified directory on the device
 func (a *App) ListFiles(deviceId, pathStr string) ([]FileInfo, error) {
+	a.updateLastActive(deviceId)
 	if deviceId == "" {
 		return nil, fmt.Errorf("no device specified")
 	}
@@ -2788,6 +2839,7 @@ func (a *App) generateVideoThumbnail(localPath string) ([]byte, error) {
 
 // DeleteFile deletes a file or directory on the device
 func (a *App) DeleteFile(deviceId, pathStr string) error {
+	a.updateLastActive(deviceId)
 	if deviceId == "" {
 		return fmt.Errorf("no device specified")
 	}

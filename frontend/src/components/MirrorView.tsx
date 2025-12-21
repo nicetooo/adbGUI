@@ -162,6 +162,8 @@ const MirrorView: React.FC<MirrorViewProps> = ({
 
       // The global listener will handle the toasts based on events emitted by TakeScreenshot
       await TakeScreenshot(selectedDevice, defaultPath);
+      // Immediately refresh to show re-ordered device list
+      await fetchDevices();
     } catch (err) {
       // Functional errors are handled by the global listener via events
     }

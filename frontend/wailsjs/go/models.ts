@@ -43,6 +43,7 @@ export namespace main {
 	    type: string;
 	    ids: string[];
 	    wifiAddr: string;
+	    lastActive: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new Device(source);
@@ -58,6 +59,7 @@ export namespace main {
 	        this.type = source["type"];
 	        this.ids = source["ids"];
 	        this.wifiAddr = source["wifiAddr"];
+	        this.lastActive = source["lastActive"];
 	    }
 	}
 	export class DeviceInfo {
