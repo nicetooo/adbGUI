@@ -65,9 +65,12 @@ Para habilitar el **control táctil** en Scrcpy, debe:
 ## 🚀 Empezando
 
 ### Prerrequisitos
-- **Go** (v1.21+)
-- **Node.js** (v18+)
-- **Wails CLI** (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+- **Go** (v1.21)
+- **Node.js** (v18 LTS)
+- **Wails CLI** (v2.9.2)
+  ```bash
+  go install github.com/wailsapp/wails/v2/cmd/wails@v2.9.2
+  ```
 
 ### Desarrollo
 ```bash
@@ -85,6 +88,26 @@ Este proyecto utiliza GitHub Actions para automatizar las construcciones multipl
 1. Etiquete su commit: `git tag v1.0.0`
 2. Empuje la etiqueta: `git push origin v1.0.0`
 La GitHub Action construirá automáticamente para macOS, Windows y Linux, y subirá los artefactos a la página de Lanzamientos.
+
+---
+
+## 🔧 Solución de problemas
+
+### macOS: "La aplicación está dañada y no se puede abrir"
+Si descargas la aplicación desde GitHub y ves el error *"adbGUI.app está dañada y no se puede abrir"*, esto se debe a la cuarentena de macOS Gatekeeper.
+
+Para solucionar esto, ejecuta el siguiente comando en tu terminal:
+```bash
+sudo xattr -cr /path/to/adbGUI.app
+```
+*(Reemplaza `/path/to/adbGUI.app` con la ruta real de tu aplicación descargada)*
+
+> **O compílalo tú mismo:** Si prefieres no eludir Gatekeeper, puedes [compilar la aplicación desde el código fuente](#-empezando) fácilmente de forma local. ¡Solo toma unos minutos!
+
+### Windows: "Windows protegió su PC"
+Si ves una ventana azul de SmartScreen impidiendo el inicio:
+1. Haz clic en **Más información (More info)**.
+2. Haz clic en **Ejecutar de todas formas (Run anyway)**.
 
 ---
 

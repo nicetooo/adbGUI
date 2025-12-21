@@ -67,9 +67,12 @@ To enable **touch control** in Scrcpy, you must:
 ## 🚀 Getting Started
 
 ### Prerequisites
-- **Go** (v1.21+)
-- **Node.js** (v18+)
-- **Wails CLI** (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+- **Go** (v1.21)
+- **Node.js** (v18 LTS)
+- **Wails CLI** (v2.9.2)
+  ```bash
+  go install github.com/wailsapp/wails/v2/cmd/wails@v2.9.2
+  ```
 
 ### Development
 ```bash
@@ -87,6 +90,26 @@ This project uses GitHub Actions to automate multi-platform builds. To create a 
 1. Tag your commit: `git tag v1.0.0`
 2. Push the tag: `git push origin v1.0.0`
 The GitHub Action will automatically build for macOS, Windows, and Linux, and upload the artifacts to the Release page.
+
+---
+
+## 🔧 Troubleshooting
+
+### macOS: "App is damaged and can't be opened"
+If you download the app from GitHub and see the error *"adbGUI.app is damaged and can't be opened"*, this is due to macOS Gatekeeper quarantine.
+
+To fix this, run the following command in your terminal:
+```bash
+sudo xattr -cr /path/to/adbGUI.app
+```
+*(Replace `/path/to/adbGUI.app` with the actual path to your downloaded application)*
+
+> **Or build it yourself:** If you prefer not to bypass Gatekeeper, you can easily [build the app from source](#-getting-started) locally. It only takes a few minutes!
+
+### Windows: "Windows protected your PC"
+If you see a blue SmartScreen popup preventing the app from starting:
+1. Click **More info**.
+2. Click **Run anyway**.
 
 ---
 

@@ -65,9 +65,12 @@
 ## 🚀 开始使用
 
 ### 前置条件
-- **Go** (v1.21+)
-- **Node.js** (v18+)
-- **Wails CLI** (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+- **Go** (v1.21)
+- **Node.js** (v18 LTS)
+- **Wails CLI** (v2.9.2)
+  ```bash
+  go install github.com/wailsapp/wails/v2/cmd/wails@v2.9.2
+  ```
 
 ### 开发
 ```bash
@@ -85,6 +88,26 @@ wails build
 1. 为您的提交打标签：`git tag v1.0.0`
 2. 推送标签：`git push origin v1.0.0`
 GitHub Action 将自动为 macOS、Windows 和 Linux 构建，并将产物上传到 Release 页面。
+
+---
+
+## 🔧 故障排除
+
+### macOS: "应用已损坏，无法打开"
+如果您从 GitHub 下载应用并看到 *"adbGUI.app 已损坏，无法打开"* 的错误提示，这是由于 macOS Gatekeeper 的隔离机制导致的。
+
+要解决此问题，请在终端中运行以下命令：
+```bash
+sudo xattr -cr /path/to/adbGUI.app
+```
+*(请将 `/path/to/adbGUI.app` 替换为您下载应用的实际路径)*
+
+> **或者选择自己构建：** 如果您不想绕过 Gatekeeper，您可以轻松地[从源码构建应用](#-开始使用)。只需几分钟即可完成！
+
+### Windows: "Windows 已保护你的电脑"
+如果看到蓝色的 SmartScreen 窗口阻止应用启动：
+1. 点击 **更多信息 (More info)**。
+2. 点击 **仍要运行 (Run anyway)**。
 
 ---
 

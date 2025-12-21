@@ -65,9 +65,12 @@ Scrcpy で**タッチ操作**を有効にするには、以下を行う必要が
 ## 🚀 はじめに
 
 ### 前提条件
-- **Go** (v1.21+)
-- **Node.js** (v18+)
-- **Wails CLI** (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+- **Go** (v1.21)
+- **Node.js** (v18 LTS)
+- **Wails CLI** (v2.9.2)
+  ```bash
+  go install github.com/wailsapp/wails/v2/cmd/wails@v2.9.2
+  ```
 
 ### 開発
 ```bash
@@ -85,6 +88,26 @@ wails build
 1. コミットにタグを付ける: `git tag v1.0.0`
 2. タグをプッシュする: `git push origin v1.0.0`
 GitHub Action は macOS、Windows、Linux 用に自動的にビルドし、アーティファクトをリリースページにアップロードします。
+
+---
+
+## 🔧 トラブルシューティング
+
+### macOS: "Appが壊れているため開けません"
+GitHubからダウンロードした際に *"adbGUI.app は壊れているため開けません"* というエラーが表示される場合、これは macOS Gatekeeper の隔離機能によるものです。
+
+これを解決するには、ターミナルで以下のコマンドを実行してください：
+```bash
+sudo xattr -cr /path/to/adbGUI.app
+```
+*(`/path/to/adbGUI.app` はダウンロードしたアプリケーションの実際のパスに置き換えてください)*
+
+> **または自分でビルドする：** Gatekeeperを回避したくない場合は、ローカルで[ソースからアプリをビルド](#-はじめる)することができます。数分で終わります！
+
+### Windows: "Windows によって PC が保護されました"
+青い SmartScreen ウィンドウが起動をブロックする場合：
+1. **詳細情報 (More info)** をクリックします。
+2. **実行 (Run anyway)** をクリックします。
 
 ---
 

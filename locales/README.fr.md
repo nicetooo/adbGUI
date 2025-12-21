@@ -65,9 +65,12 @@ Pour activer le **contrôle tactile** dans Scrcpy, vous devez :
 ## 🚀 Pour Commencer
 
 ### Prérequis
-- **Go** (v1.21+)
-- **Node.js** (v18+)
-- **Wails CLI** (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+- **Go** (v1.21)
+- **Node.js** (v18 LTS)
+- **Wails CLI** (v2.9.2)
+  ```bash
+  go install github.com/wailsapp/wails/v2/cmd/wails@v2.9.2
+  ```
 
 ### Développement
 ```bash
@@ -85,6 +88,26 @@ Ce projet utilise GitHub Actions pour automatiser les builds multi-plateformes. 
 1. Marquez votre commit : `git tag v1.0.0`
 2. Poussez le tag : `git push origin v1.0.0`
 La GitHub Action construira automatiquement pour macOS, Windows et Linux, et téléchargera les artefacts sur la page Release.
+
+---
+
+## 🔧 Dépannage
+
+### macOS: "L'application est endommagée et ne peut pas être ouverte"
+Si vous téléchargez l'application depuis GitHub et que vous voyez l'erreur *"adbGUI.app est endommagé et ne peut pas être ouvert"*, cela est dû à la quarantaine macOS Gatekeeper.
+
+Pour corriger cela, exécutez la commande suivante dans votre terminal :
+```bash
+sudo xattr -cr /path/to/adbGUI.app
+```
+*(Remplacez `/path/to/adbGUI.app` par le chemin réel de votre application téléchargée)*
+
+> **Ou compilez-le vous-même :** Si vous préférez ne pas contourner Gatekeeper, vous pouvez facilement [compiler l'application à partir du code source](#-commencer) localement. Cela ne prend que quelques minutes !
+
+### Windows : "Windows a protégé votre ordinateur"
+Si vous voyez une fenêtre bleue SmartScreen empêchant le démarrage :
+1. Cliquez sur **Informations complémentaires (More info)**.
+2. Cliquez sur **Exécuter quand même (Run anyway)**.
 
 ---
 

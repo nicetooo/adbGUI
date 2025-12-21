@@ -65,9 +65,12 @@ Scrcpy에서 **터치 제어**를 활성화하려면 다음을 수행해야 합�
 ## 🚀 시작하기
 
 ### 필수 조건
-- **Go** (v1.21+)
-- **Node.js** (v18+)
-- **Wails CLI** (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+- **Go** (v1.21)
+- **Node.js** (v18 LTS)
+- **Wails CLI** (v2.9.2)
+  ```bash
+  go install github.com/wailsapp/wails/v2/cmd/wails@v2.9.2
+  ```
 
 ### 개발
 ```bash
@@ -85,6 +88,26 @@ wails build
 1. 커밋에 태그 달기: `git tag v1.0.0`
 2. 태그 푸시: `git push origin v1.0.0`
 GitHub Action은 macOS, Windows 및 Linux용으로 자동 빌드하고 아티팩트를 릴리스 페이지에 업로드합니다.
+
+---
+
+## 🔧 문제 해결
+
+### macOS: "앱이 손상되었기 때문에 열 수 없습니다"
+GitHub에서 앱을 다운로드할 때 *"adbGUI.app이(가) 손상되었기 때문에 열 수 없습니다"* 오류가 표시된다면, 이는 macOS Gatekeeper 격리 기능 때문입니다.
+
+이 문제를 해결하려면 터미널에서 다음 명령어를 실행하세요:
+```bash
+sudo xattr -cr /path/to/adbGUI.app
+```
+*(`/path/to/adbGUI.app`을 실제 다운로드한 애플리케이션 경로로 변경하세요)*
+
+> **직접 빌드하기:** Gatekeeper를 우회하고 싶지 않다면, 로컬에서 [소스 코드로 앱을 빌드](#-시작하기)할 수 있습니다. 몇 분이면 충분합니다!
+
+### Windows: "Windows의 PC 보호"
+파란색 SmartScreen 창이 앱 실행을 차단하는 경우:
+1. **추가 정보 (More info)** 를 클릭하세요.
+2. **실행 (Run anyway)** 을 클릭하세요.
 
 ---
 

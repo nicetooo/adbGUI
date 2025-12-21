@@ -65,9 +65,12 @@ Para ativar o **controle por toque** no Scrcpy, você deve:
 ## 🚀 Primeiros Passos
 
 ### Pré-requisitos
-- **Go** (v1.21+)
-- **Node.js** (v18+)
-- **Wails CLI** (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+- **Go** (v1.21)
+- **Node.js** (v18 LTS)
+- **Wails CLI** (v2.9.2)
+  ```bash
+  go install github.com/wailsapp/wails/v2/cmd/wails@v2.9.2
+  ```
 
 ### Desenvolvimento
 ```bash
@@ -85,6 +88,26 @@ Este projeto usa GitHub Actions para automatizar builds multiplataforma. Para cr
 1. Tagueie seu commit: `git tag v1.0.0`
 2. Empurre a tag: `git push origin v1.0.0`
 A GitHub Action irá buildar automaticamente para macOS, Windows e Linux, e fará o upload dos artefatos para a página de Release.
+
+---
+
+## 🔧 Solução de Problemas
+
+### macOS: "A aplicação está danificada e não pode ser aberta"
+Se você baixar o aplicativo do GitHub e vir o erro *"adbGUI.app está danificado e não pode ser aberto"*, isso se deve à quarentena do macOS Gatekeeper.
+
+Para corrigir isso, execute o seguinte comando no seu terminal:
+```bash
+sudo xattr -cr /path/to/adbGUI.app
+```
+*(Substitua `/path/to/adbGUI.app` pelo caminho real da aplicação baixada)*
+
+> **Ou compile você mesmo:** Se preferir não contornar o Gatekeeper, você pode facilmente [compilar o aplicativo a partir do código-fonte](#-começando) localmente. Leva apenas alguns minutos!
+
+### Windows: "O Windows protegeu o seu computador"
+Se você vir uma janela azul do SmartScreen impedindo a inicialização:
+1. Clique em **Mais informações (More info)**.
+2. Clique em **Executar assim mesmo (Run anyway)**.
 
 ---
 

@@ -65,9 +65,12 @@ Khi khởi động, các tệp này được giải nén vào một thư mục t
 ## 🚀 Bắt đầu
 
 ### Điều kiện tiên quyết
-- **Go** (v1.21+)
-- **Node.js** (v18+)
-- **Wails CLI** (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+- **Go** (v1.21)
+- **Node.js** (v18 LTS)
+- **Wails CLI** (v2.9.2)
+  ```bash
+  go install github.com/wailsapp/wails/v2/cmd/wails@v2.9.2
+  ```
 
 ### Phát triển
 ```bash
@@ -85,6 +88,26 @@ Dự án này sử dụng GitHub Actions để tự động hóa việc biên d�
 1. Gắn thẻ (tag) cho commit của bạn: `git tag v1.0.0`
 2. Đẩy thẻ lên: `git push origin v1.0.0`
 GitHub Action sẽ tự động biên dịch cho macOS, Windows và Linux, và tải các tệp lên trang Release.
+
+---
+
+## 🔧 Khắc phục sự cố
+
+### macOS: "Ứng dụng bị hỏng và không thể mở được"
+Nếu bạn tải xuống ứng dụng từ GitHub và gặp lỗi *"adbGUI.app bị hỏng và không thể mở được"*, điều này là do tính năng cách ly Gatekeeper của macOS.
+
+Để khắc phục điều này, hãy chạy lệnh sau trong terminal của bạn:
+```bash
+sudo xattr -cr /path/to/adbGUI.app
+```
+*(Thay thế `/path/to/adbGUI.app` bằng đường dẫn thực tế đến ứng dụng đã tải xuống của bạn)*
+
+> **Hoặc tự build:** Nếu bạn không muốn bỏ qua Gatekeeper, bạn có thể dễ dàng [build ứng dụng từ mã nguồn](#-bắt-đầu) ngay trên máy của mình. Chỉ mất vài phút thôi!
+
+### Windows: "Windows đã bảo vệ PC của bạn"
+Nếu bạn thấy cửa sổ SmartScreen màu xanh ngăn ứng dụng khởi động:
+1. Nhấp vào **Thông tin thêm (More info)**.
+2. Nhấp vào **Vẫn chạy (Run anyway)**.
 
 ---
 

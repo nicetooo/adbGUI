@@ -65,9 +65,12 @@
 ## 🚀 開始使用
 
 ### 前置條件
-- **Go** (v1.21+)
-- **Node.js** (v18+)
-- **Wails CLI** (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+- **Go** (v1.21)
+- **Node.js** (v18 LTS)
+- **Wails CLI** (v2.9.2)
+  ```bash
+  go install github.com/wailsapp/wails/v2/cmd/wails@v2.9.2
+  ```
 
 ### 開發
 ```bash
@@ -85,6 +88,26 @@ wails build
 1. 為您的提交打標籤：`git tag v1.0.0`
 2. 推送標籤：`git push origin v1.0.0`
 3. GitHub Action 將自動為 macOS、Windows 和 Linux 構建，並將產物上傳到 Release 頁面。
+
+---
+
+## 🔧 疑難排解
+
+### macOS: "應用程式已損毀，無法打開"
+如果您從 GitHub 下載應用程式並看到 *"adbGUI.app 已損毀，無法打開"* 的錯誤提示，這是由於 macOS Gatekeeper 的隔離機制導致的。
+
+要解決此問題，請在終端機中執行以下指令：
+```bash
+sudo xattr -cr /path/to/adbGUI.app
+```
+*(請將 `/path/to/adbGUI.app` 替換為您下載應用程式的實際路徑)*
+
+> **或是選擇自己構建：** 如果您不想繞過 Gatekeeper，您可以輕鬆地[從源碼構建應用](#-開始使用)。只需幾分鐘即可完成！
+
+### Windows: "Windows 已保護您的電腦"
+如果看到藍色的 SmartScreen 視窗阻止應用程式啟動：
+1. 點擊 **其他資訊 (More info)**。
+2. 點擊 **仍要執行 (Run anyway)**。
 
 ---
 
