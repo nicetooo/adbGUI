@@ -8,6 +8,7 @@ A powerful, modern, and self-contained Android management tool built with **Wail
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
+[![Website](https://img.shields.io/website?up_message=online&url=https%3A%2F%2Fadbgui.nicetooo.com)](https://adbgui.nicetooo.com)
 
 ## 📸 App Screenshots
 

@@ -86,10 +86,34 @@
       <div class="flex flex-col items-center gap-6"
         data-signals="{platformInfo: 'Ready for Windows, macOS, and Linux'}">
         <div class="flex flex-col sm:flex-row items-center justify-center gap-6">
-          <a href="https://github.com/nicetooo/adbGUI/releases/latest"
-            class="w-full sm:w-auto inline-flex items-center justify-center px-10 py-4 bg-emerald-500 text-black font-bold rounded-xl hover:bg-emerald-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-            Download v0.1.0
-          </a>
+          <div class="relative group z-50">
+            <a id="download-btn" href="https://github.com/nicetooo/adbGUI/releases/latest"
+              class="w-full sm:w-auto inline-flex items-center justify-center px-10 py-4 bg-emerald-500 text-black font-bold rounded-xl hover:bg-emerald-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+              Download v0.1.0
+            </a>
+
+            <!-- macOS Dropdown -->
+            <div id="mac-dropdown"
+              class="hidden absolute top-full left-1/2 -translate-x-1/2 mt-4 w-60 bg-[#09090b] border border-zinc-800 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
+              <div class="flex flex-col p-1">
+                <a href="https://github.com/nicetooo/adbGUI/releases/latest/download/adbGUI-macOS-universal.zip"
+                  class="flex flex-col gap-0.5 px-4 py-3 rounded-lg hover:bg-zinc-800 transition-colors text-left">
+                  <span class="font-bold text-white text-sm">Universal</span>
+                  <span class="text-[10px] text-zinc-500 font-medium tracking-wide">RECOMMENDED</span>
+                </a>
+                <a href="https://github.com/nicetooo/adbGUI/releases/latest/download/adbGUI-macOS-arm64.zip"
+                  class="flex flex-col gap-0.5 px-4 py-3 rounded-lg hover:bg-zinc-800 transition-colors text-left">
+                  <span class="font-bold text-white text-sm">Apple Silicon</span>
+                  <span class="text-[10px] text-zinc-500 font-medium tracking-wide">M1 / M2 / M3 / M4</span>
+                </a>
+                <a href="https://github.com/nicetooo/adbGUI/releases/latest/download/adbGUI-macOS-x86_64.zip"
+                  class="flex flex-col gap-0.5 px-4 py-3 rounded-lg hover:bg-zinc-800 transition-colors text-left">
+                  <span class="font-bold text-white text-sm">Intel</span>
+                  <span class="text-[10px] text-zinc-500 font-medium tracking-wide">Older Macs</span>
+                </a>
+              </div>
+            </div>
+          </div>
 
           <div class="flex gap-6 items-center px-6 py-3 text-zinc-400 border border-zinc-800 rounded-xl bg-zinc-900/50">
             <!-- Windows -->
@@ -409,6 +433,43 @@
           class="text-zinc-300 hover:text-emerald-400 transition-colors">Issues</a>
       </div>
     </footer>
+    <script>
+      function updateDownloadButton() {
+        const btn = document.getElementById('download-btn');
+        const macDropdown = document.getElementById('mac-dropdown');
+        if (!btn) return;
+
+        const userAgent = navigator.userAgent.toLowerCase();
+        const isMac = userAgent.indexOf('mac') > -1;
+        const isWin = userAgent.indexOf('win') > -1;
+        const isLinux = userAgent.indexOf('linux') > -1;
+
+        if (isMac) {
+          // MacOS logic: Show dropdown, change text
+          btn.textContent = 'Download for macOS';
+          btn.href = "https://github.com/nicetooo/adbGUI/releases/latest"; // Default fallback
+          if (macDropdown) {
+            macDropdown.classList.remove('hidden');
+          }
+        } else {
+          // Other OS logic: Direct download
+          let filename = '';
+          if (isWin) {
+            filename = 'adbGUI-Windows-x86_64.zip';
+            btn.textContent = 'Download for Windows';
+          } else if (isLinux) {
+            filename = 'adbGUI-Linux-x86_64.tar.gz';
+            btn.textContent = 'Download for Linux';
+          }
+
+          if (filename) {
+            btn.href = `https://github.com/nicetooo/adbGUI/releases/latest/download/${filename}`;
+          }
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', updateDownloadButton);
+    </script>
 </body>
 
 </html>
