@@ -77,6 +77,7 @@
     "export_failed": "匯出失敗",
     "recording_saved": "錄屏已儲存",
     "recording_saved_desc": "螢幕錄影已成功儲存。",
+    "screenshot_success": "截圖已保存到 {{path}}",
     "show_in_folder": "在資料夾中顯示",
     "about": "關於",
     "github": "GitHub 倉庫",
@@ -238,6 +239,7 @@
   "mirror": {
     "title": "螢幕投屏",
     "powered_by": "基於 Scrcpy",
+    "screenshot": "截屏",
     "start": "開始投屏",
     "stop": "停止投屏",
     "active_session": "正在進行的投屏會話",

@@ -77,6 +77,7 @@
     "export_failed": "Export failed",
     "recording_saved": "Recording Saved",
     "recording_saved_desc": "The screen recording has been saved successfully.",
+    "screenshot_success": "Screenshot saved to {{path}}",
     "show_in_folder": "Show in Folder",
     "about": "About",
     "github": "GitHub Repository",
@@ -248,6 +249,7 @@
   "mirror": {
     "title": "Mirror Screen",
     "powered_by": "Powered by Scrcpy",
+    "screenshot": "Take Screenshot",
     "start": "Start Mirroring",
     "stop": "Stop Mirroring",
     "record_start": "Start Record",

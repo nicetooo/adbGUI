@@ -134,6 +134,10 @@ export function SelectRecordPath(arg1) {
   return window['go']['main']['App']['SelectRecordPath'](arg1);
 }
 
+export function SelectScreenshotPath(arg1) {
+  return window['go']['main']['App']['SelectScreenshotPath'](arg1);
+}
+
 export function Shutdown(arg1) {
   return window['go']['main']['App']['Shutdown'](arg1);
 }
@@ -176,6 +180,10 @@ export function StopScrcpy(arg1) {
 
 export function SwitchToWireless(arg1) {
   return window['go']['main']['App']['SwitchToWireless'](arg1);
+}
+
+export function TakeScreenshot(arg1, arg2) {
+  return window['go']['main']['App']['TakeScreenshot'](arg1, arg2);
 }
 
 export function UninstallApp(arg1, arg2) {

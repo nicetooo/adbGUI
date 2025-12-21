@@ -10,6 +10,7 @@ import {
   SettingOutlined,
   MobileOutlined,
   FolderOpenOutlined,
+  ScissorOutlined,
 } from "@ant-design/icons";
 import DeviceSelector from "./DeviceSelector";
 // @ts-ignore
@@ -21,7 +22,9 @@ import {
   StopScrcpy, 
   StartRecording, 
   StopRecording, 
-  SelectRecordPath 
+  SelectRecordPath,
+  SelectScreenshotPath,
+  TakeScreenshot,
 } from "../../wailsjs/go/main/App";
 
 const { Option } = Select;
@@ -148,6 +151,22 @@ const MirrorView: React.FC<MirrorViewProps> = ({
     }
   };
 
+  const handleTakeScreenshot = async () => {
+    if (!selectedDevice) return;
+    try {
+      const device = devices.find(d => d.id === selectedDevice);
+      const defaultPath = await SelectScreenshotPath(device?.model || "");
+      if (!defaultPath) return;
+
+      const path = await TakeScreenshot(selectedDevice, defaultPath);
+      if (path) {
+        message.success(t("app.screenshot_success", { path }));
+      }
+    } catch (err) {
+      message.error(t("app.command_failed") + ": " + String(err));
+    }
+  };
+
   const handleStartMidSessionRecord = async () => {
     if (!selectedDevice) return;
     try {
@@ -244,6 +263,16 @@ const MirrorView: React.FC<MirrorViewProps> = ({
               {t("mirror.start")}
             </Button>
           )}
+          <Button
+            size="large"
+            icon={<ScissorOutlined />}
+            onClick={handleTakeScreenshot}
+            disabled={!selectedDevice}
+            style={{ height: "40px", borderRadius: "8px" }}
+            title={t("mirror.screenshot")}
+          >
+            {t("mirror.screenshot")}
+          </Button>
         </Space>
       </div>
 

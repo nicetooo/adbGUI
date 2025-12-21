@@ -69,6 +69,8 @@ export function RunAdbCommand(arg1:Array<string>):Promise<string>;
 
 export function SelectRecordPath(arg1:string):Promise<string>;
 
+export function SelectScreenshotPath(arg1:string):Promise<string>;
+
 export function Shutdown(arg1:context.Context):Promise<void>;
 
 export function StartActivity(arg1:string,arg2:string):Promise<string>;
@@ -90,5 +92,7 @@ export function StopRecording(arg1:string):Promise<void>;
 export function StopScrcpy(arg1:string):Promise<void>;
 
 export function SwitchToWireless(arg1:string):Promise<string>;
+
+export function TakeScreenshot(arg1:string,arg2:string):Promise<string>;
 
 export function UninstallApp(arg1:string,arg2:string):Promise<string>;

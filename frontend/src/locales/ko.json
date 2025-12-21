@@ -77,6 +77,7 @@
     "export_failed": "추출 실패",
     "recording_saved": "녹화 저장됨",
     "recording_saved_desc": "화면 녹화가 성공적으로 저장되었습니다.",
+    "screenshot_success": "스크린샷이 {{path}}에 저장되었습니다.",
     "show_in_folder": "폴더에서 보기",
     "about": "정보",
     "github": "GitHub 저장소",
@@ -238,6 +239,7 @@
   "mirror": {
     "title": "화면 미러링",
     "powered_by": "Scrcpy 기반",
+    "screenshot": "스크린샷",
     "start": "미러링 시작",
     "stop": "미러링 중지",
     "active_session": "활성 미러링 세션",

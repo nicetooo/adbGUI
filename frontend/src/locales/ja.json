@@ -238,6 +238,7 @@
   "mirror": {
     "title": "画面ミラーリング",
     "powered_by": "Scrcpy 提供",
+    "screenshot": "スクリーンショット",
     "start": "ミラーリング開始",
     "stop": "ミラーリング停止",
     "active_session": "アクティブなセッション",

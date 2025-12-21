@@ -1573,6 +1573,53 @@ func (a *App) GetDevices() ([]Device, error) {
 	return result, nil
 }
 
+// SelectScreenshotPath returns a default screenshot path in the Downloads folder
+func (a *App) SelectScreenshotPath(deviceModel string) (string, error) {
+	defaultDir, _ := os.UserHomeDir()
+	downloadsDir := filepath.Join(defaultDir, "Downloads")
+	if _, err := os.Stat(downloadsDir); err == nil {
+		defaultDir = downloadsDir
+	}
+
+	cleanModel := "Device"
+	if deviceModel != "" {
+		cleanModel = strings.ReplaceAll(deviceModel, " ", "_")
+		reg := regexp.MustCompile(`[^a-zA-Z0-9_-]`)
+		cleanModel = reg.ReplaceAllString(cleanModel, "")
+	}
+
+	filename := fmt.Sprintf("Screenshot_%s_%s.png", cleanModel, time.Now().Format("20060102_150405"))
+	fullPath := filepath.Join(defaultDir, filename)
+	return fullPath, nil
+}
+
+// TakeScreenshot captures a screenshot of the device and saves it to the host
+func (a *App) TakeScreenshot(deviceId, savePath string) (string, error) {
+	if deviceId == "" {
+		return "", fmt.Errorf("no device specified")
+	}
+
+	if savePath == "" {
+		return "", fmt.Errorf("no save path specified")
+	}
+
+	// 4. Capture screenshot via temp file on device then pull
+	// This is the most reliable way across all platforms
+	remotePath := "/sdcard/screenshot_tmp.png"
+	capCmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "screencap", "-p", remotePath)
+	if out, err := capCmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("failed to capture screenshot on device: %w, output: %s", err, string(out))
+	}
+	defer exec.Command(a.adbPath, "-s", deviceId, "shell", "rm", remotePath).Run()
+
+	pullCmd := exec.Command(a.adbPath, "-s", deviceId, "pull", remotePath, savePath)
+	if out, err := pullCmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("failed to pull screenshot: %w, output: %s", err, string(out))
+	}
+
+	return savePath, nil
+}
+
 // GetDeviceInfo returns detailed information about a device
 func (a *App) GetDeviceInfo(deviceId string) (DeviceInfo, error) {
 	var info DeviceInfo
