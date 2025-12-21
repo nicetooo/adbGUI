@@ -601,6 +601,37 @@ func (a *App) parseVersionFromAapt(output string) (versionName, versionCode stri
 	return
 }
 
+// OpenSettings opens a specific system settings page with optional data URI
+func (a *App) OpenSettings(deviceId string, action string, data string) (string, error) {
+	if deviceId == "" {
+		return "", fmt.Errorf("no device specified")
+	}
+
+	// Default to main settings if no specific action provided
+	if action == "" {
+		action = "android.settings.SETTINGS"
+	}
+
+	args := []string{"-s", deviceId, "shell", "am", "start", "-a", action}
+	if data != "" {
+		args = append(args, "-d", data)
+	}
+
+	cmd := exec.Command(a.adbPath, args...)
+	output, err := cmd.CombinedOutput()
+	outStr := string(output)
+
+	if err != nil {
+		return outStr, fmt.Errorf("failed to open settings: %w", err)
+	}
+
+	if strings.Contains(outStr, "Error:") || strings.Contains(outStr, "Exception") {
+		return outStr, fmt.Errorf("failed to open settings: %s", outStr)
+	}
+
+	return outStr, nil
+}
+
 // parseSdkVersionFromAapt parses sdkVersion or targetSdkVersion
 func (a *App) parseSdkVersionFromAapt(output, prefix string) string {
 	lines := strings.Split(output, "\n")

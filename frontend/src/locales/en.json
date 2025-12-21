@@ -103,7 +103,10 @@
     "disconnect_success": "Successfully disconnected",
     "disconnect_failed": "Failed to disconnect",
     "remove_success": "Successfully removed device from history",
-    "remove_failed": "Failed to remove device"
+    "remove_failed": "Failed to remove device",
+    "opening_settings": "Opening system settings...",
+    "open_settings_success": "Settings opened successfully",
+    "open_settings_failed": "Failed to open settings"
   },
   "app_info": {
     "title": "App Information",
@@ -145,7 +148,8 @@
     "uninstall": "Uninstall",
     "uninstall_confirm_title": "Uninstall App",
     "uninstall_confirm_content": "Are you sure you want to uninstall {{name}}?",
-    "export": "Export APK"
+    "export": "Export APK",
+    "app_settings": "App Settings"
   },
   "device_info": {
     "title": "Device Information",
@@ -183,6 +187,7 @@
     "wireless": "Wireless",
     "action": "Action",
     "mirror_screen": "Mirror Screen",
+    "system_settings": "System Settings",
     "connect_with_wireless": "Connect with Wireless",
     "disconnect_wireless": "Disconnect Wireless",
     "reconnect": "Reconnect",

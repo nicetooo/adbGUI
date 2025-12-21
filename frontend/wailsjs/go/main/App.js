@@ -110,6 +110,10 @@ export function OpenPath(arg1) {
   return window['go']['main']['App']['OpenPath'](arg1);
 }
 
+export function OpenSettings(arg1, arg2, arg3) {
+  return window['go']['main']['App']['OpenSettings'](arg1, arg2, arg3);
+}
+
 export function RemoveHistoryDevice(arg1) {
   return window['go']['main']['App']['RemoveHistoryDevice'](arg1);
 }

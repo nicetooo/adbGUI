@@ -56,6 +56,8 @@ export function OpenFileOnHost(arg1:string,arg2:string):Promise<void>;
 
 export function OpenPath(arg1:string):Promise<void>;
 
+export function OpenSettings(arg1:string,arg2:string,arg3:string):Promise<string>;
+
 export function RemoveHistoryDevice(arg1:string):Promise<void>;
 
 export function RunAdbCommand(arg1:Array<string>):Promise<string>;

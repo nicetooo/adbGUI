@@ -103,7 +103,10 @@
     "disconnect_success": "已成功断开连接",
     "disconnect_failed": "断开连接失败",
     "remove_success": "已成功移除历史设备",
-    "remove_failed": "移除失败"
+    "remove_failed": "移除失败",
+    "opening_settings": "正在打开系统设置...",
+    "open_settings_success": "成功打开设置",
+    "open_settings_failed": "打开设置失败"
   },
   "app_info": {
     "title": "应用信息",
@@ -145,7 +148,8 @@
     "uninstall": "卸载",
     "uninstall_confirm_title": "卸载应用",
     "uninstall_confirm_content": "您确定要卸载 {{name}} 吗？",
-    "export": "导出 APK"
+    "export": "导出 APK",
+    "app_settings": "应用设置"
   },
   "device_info": {
     "title": "设备信息",
@@ -183,6 +187,7 @@
     "wireless": "无线",
     "action": "操作",
     "mirror_screen": "投屏",
+    "system_settings": "系统设置",
     "connect_with_wireless": "无线连接",
     "disconnect_wireless": "断开无线连接",
     "reconnect": "重新连接",

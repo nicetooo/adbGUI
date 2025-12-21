@@ -14,6 +14,7 @@ import {
   ClearOutlined,
   DeleteOutlined,
   MoreOutlined,
+  SettingOutlined,
 } from "@ant-design/icons";
 import DeviceSelector from "./DeviceSelector";
 // @ts-ignore
@@ -48,6 +49,7 @@ interface AppsViewProps {
   handleToggleState: (packageName: string, currentState: string) => Promise<void>;
   handleClearData: (packageName: string) => Promise<void>;
   handleUninstall: (packageName: string) => Promise<void>;
+  handleOpenSettings: (deviceId: string, action?: string, data?: string) => Promise<void>;
 }
 
 const AppsView: React.FC<AppsViewProps> = ({
@@ -72,6 +74,7 @@ const AppsView: React.FC<AppsViewProps> = ({
   handleToggleState,
   handleClearData,
   handleUninstall,
+  handleOpenSettings,
 }) => {
   const { t } = useTranslation();
   const filteredPackages = packages.filter((p) => {
@@ -217,7 +220,7 @@ const AppsView: React.FC<AppsViewProps> = ({
     {
       title: t("apps.action"),
       key: "action",
-      width: 280,
+      width: 320,
       render: (_: any, record: main.AppPackage) => {
         return (
           <Space size={4}>
@@ -226,6 +229,13 @@ const AppsView: React.FC<AppsViewProps> = ({
                 size="small"
                 icon={<PlayCircleOutlined />}
                 onClick={() => handleStartApp(record.name)}
+              />
+            </Tooltip>
+            <Tooltip title={t("apps.app_settings")}>
+              <Button
+                size="small"
+                icon={<SettingOutlined />}
+                onClick={() => handleOpenSettings(selectedDevice, "android.settings.APPLICATION_DETAILS_SETTINGS", `package:${record.name}`)}
               />
             </Tooltip>
             <Tooltip title={t("menu.logcat")}>

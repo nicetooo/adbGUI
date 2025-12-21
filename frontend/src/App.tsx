@@ -75,6 +75,7 @@ import {
   SwitchToWireless,
   GetHistoryDevices,
   RemoveHistoryDevice,
+  OpenSettings,
 } from "../wailsjs/go/main/App";
 // @ts-ignore
 import { main } from "../wailsjs/go/models";
@@ -788,6 +789,18 @@ function App() {
     }
   };
 
+  const handleOpenSettings = async (deviceId: string, action: string = "", data: string = "") => {
+    const hide = message.loading(t("app.opening_settings"), 0);
+    try {
+      await OpenSettings(deviceId, action, data);
+      message.success(t("app.open_settings_success"));
+    } catch (err) {
+      message.error(t("app.open_settings_failed") + ": " + String(err));
+    } finally {
+      hide();
+    }
+  };
+
   const handleToggleState = async (
     packageName: string,
     currentState: string
@@ -1040,6 +1053,7 @@ function App() {
             handleAdbDisconnect={handleAdbDisconnect}
             handleAdbConnect={handleAdbConnect}
             handleRemoveHistoryDevice={handleRemoveHistoryDevice}
+            handleOpenSettings={handleOpenSettings}
           />
         );
       case "6":
@@ -1085,6 +1099,7 @@ function App() {
             handleToggleState={handleToggleState}
             handleClearData={handleClearData}
             handleUninstall={handleUninstall}
+            handleOpenSettings={handleOpenSettings}
           />
         );
       case "3":

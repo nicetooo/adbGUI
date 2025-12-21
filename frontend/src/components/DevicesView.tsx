@@ -17,6 +17,7 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   StopOutlined,
+  SettingOutlined,
 } from "@ant-design/icons";
 
 interface Device {
@@ -56,6 +57,7 @@ interface DevicesViewProps {
   handleAdbDisconnect: (address: string) => Promise<void>;
   handleAdbConnect: (address: string) => Promise<void>;
   handleRemoveHistoryDevice: (id: string) => Promise<void>;
+  handleOpenSettings: (id: string, action?: string, data?: string) => Promise<void>;
   busyDevices?: Set<string>;
 }
 
@@ -75,6 +77,7 @@ const DevicesView: React.FC<DevicesViewProps> = ({
   handleAdbDisconnect,
   handleAdbConnect,
   handleRemoveHistoryDevice,
+  handleOpenSettings,
   busyDevices = new Set(),
 }) => {
   const { t } = useTranslation();
@@ -260,6 +263,13 @@ const DevicesView: React.FC<DevicesViewProps> = ({
                   icon={<DesktopOutlined />}
                   size="small"
                   onClick={() => handleStartScrcpy(record.id)}
+                />
+              </Tooltip>
+              <Tooltip title={t("devices.system_settings")}>
+                <Button
+                  icon={<SettingOutlined />}
+                  size="small"
+                  onClick={() => handleOpenSettings(record.id)}
                 />
               </Tooltip>
               {record.type === "wired" && (
