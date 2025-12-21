@@ -1122,6 +1122,7 @@ function App() {
         <div
           style={{ display: "flex", flexDirection: "column", height: "100%" }}
         >
+          <div style={{ height: "40px", WebkitAppRegion: "drag", flexShrink: 0 } as any} />
           <div style={{ flex: 1, overflowY: "auto" }}>
             <Menu
               theme="dark"
