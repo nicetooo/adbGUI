@@ -10,34 +10,42 @@ Uma ferramenta de gerenciamento Android poderosa, moderna e independente, constr
 ## ✨ Recursos
 
 ### 📱 Gerenciamento de Dispositivos
-- Monitoramento em tempo real de dispositivos conectados.
-- Visualização do ID do dispositivo, modelo e estado da conexão.
-- Acesso com um clique a Apps, Shell, Logcat e Espelhamento.
+- **Lista Unificada de Dispositivos**: Gerencie dispositivos físicos e sem fio em uma visualização unificada.
+- **Conexão Sem Fio**: Conecte-se facilmente via emparelhamento IP/Porta.
+- **Histórico de Dispositivos**: Acesso rápido a dispositivos offline conectados anteriormente.
+- **Informações Detalhadas**: Veja estatísticas do dispositivo, modelo e ID em tempo real.
 
 ### 📦 Gerenciamento de Apps
-- Listagem de todos os pacotes instalados (apps de sistema e usuário).
-- Filtragem e busca de apps por nome ou tipo.
-- **Ações**: Forçar Parada, Limpar Dados, Ativar/Desativar e Desinstalar.
-- **Logcat Rápido**: Salte para os logs de um app específico diretamente da lista de apps.
+- **Controle Total de Pacotes**: Instalar (Arrastar e Soltar), Desinstalar, Ativar, Desativar, Forçar Parada, Limpar Dados.
+- **Gerenciamento de APK**: Exportar APKs instalados, Instalação em lote.
+- **Filtragem Inteligente**: Busque e filtre por apps do sistema/usuário.
+- **Ações Rápidas**: Inicie aplicativos ou pule diretamente para seus logs.
 
 ### 🖥️ Espelhamento de Tela (Scrcpy)
-- **Scrcpy Integrado**: Não é necessário instalar nada externamente.
-- Controle detalhado sobre:
-  - Taxa de bits de vídeo e FPS máximo.
-  - Resolução (Tamanho Máximo).
-  - Opções de manter acordado e desligar a tela.
-  - Janela sempre no topo.
-  - Alternar transmissão de áudio.
+- **Alto Desempenho**: Espelhamento de baixa latência impulsionado pelo Scrcpy.
+- **Gravação**: Gravação em segundo plano independente com acesso à pasta em um clique.
+- **Encaminhamento de Áudio**: Transmita o áudio do dispositivo para o seu computador (Android 11+).
+- **Personalização**: Ajuste resolução, taxa de bits, FPS e codec (H.264/H.265).
+- **Controle**: Suporte multitoque, Manter acordado, Modo tela desligada.
+
+### 📂 Gerenciamento de Arquivos
+- **Explorador Completo**: Navegar, Copiar, Recortar, Colar, Renomear, Excluir e Criar Pastas.
+- **Arrastar e Soltar**: Carregue arquivos simplesmente arrastando-os para a janela.
+- **Downloads**: Transferência fácil de arquivos do dispositivo para o computador.
+- **Visualização**: Abra arquivos diretamente na máquina host usando aplicativos padrão.
 
 ### 📜 Logcat Avançado
-- Streaming de logs em tempo real com rolagem automática.
-- **Filtragem por app**: Filtre logs por um nome de pacote específico.
-- **Monitoramento Automático**: Comece a logar antes de um app abrir; a ferramenta detectará automaticamente o PID e começará a filtrar assim que o app for iniciado.
-- Busca/filtragem por palavras-chave.
+- **Streaming em Tempo Real**: Visualizador de logs ao vivo com controle de rolagem automática.
+- **Filtragem Poderosa**: Filtre por Nível de Log, Tag, PID ou Regex personalizado.
+- **Centrado no App**: Filtre automaticamente logs para um aplicativo específico.
 
 ### 💻 ADB Shell
-- Terminal integrado para executar comandos ADB.
-- Execução rápida de comandos com histórico de saída.
+- **Console Integrado**: Execute comandos ADB brutos diretamente no aplicativo.
+- **Histórico de Comandos**: Acesso rápido a comandos executados anteriormente.
+
+### 🔌 Bandeja do Sistema
+- **Acesso Rápido**: Controle o espelhamento e veja o status do dispositivo na barra de menu/bandeja do sistema.
+- **Operação em Segundo Plano**: Mantenha o aplicativo rodando em segundo plano para acesso instantâneo.
 
 ---
 

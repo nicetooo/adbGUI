@@ -12,34 +12,42 @@ A powerful, modern, and self-contained Android management tool built with **Wail
 ## ✨ Features
 
 ### 📱 Device Management
-- Real-time monitoring of connected devices.
-- View device ID, model, and connection state.
-- One-click access to Apps, Shell, Logcat, and Mirroring.
+- **Unified Device List**: Seamlessly manage unified physical and wireless devices.
+- **Wireless Connection**: Connect effortlessly via IP/Port pairing.
+- **Device History**: Quick access to previously connected offline devices.
+- **Detailed Info**: View real-time device stats, model, and ID.
 
 ### 📦 App Management
-- List all installed packages (System & User apps).
-- Filter and search apps by name or type.
-- **Actions**: Force Stop, Clear Data, Enable/Disable, and Uninstall.
-- **Quick Logcat**: Jump to logs for a specific app directly from the app list.
+- **Full Package Control**: Install (Drag & Drop), Uninstall, Enable, Disable, Force Stop, Clear Data.
+- **APK Management**: Export installed APKs, Batch Install.
+- **Smart Filtering**: Search and filter by System/User apps.
+- **Quick Actions**: Launch apps or jump directly to their logs.
 
 ### 🖥️ Screen Mirroring (Scrcpy)
-- **Built-in Scrcpy**: No need to install anything externally.
-- Fine-grained control over:
-  - Video Bitrate & Max FPS.
-  - Resolution (Max Size).
-  - Stay Awake & Turn Screen Off options.
-  - Always-on-top window.
-  - Audio streaming toggle.
+- **High Performance**: Low-latency mirroring powered by Scrcpy.
+- **Recording**: Independent background recording with one-click folder access.
+- **Audio Forwarding**: Stream device audio to your computer (Android 11+).
+- **Customization**: Adjust Resolution, Bitrate, FPS, and Codec (H.264/H.265).
+- **Control**: Multi-touch support, Keep Awake, Screen Off mode.
+
+### 📂 File Management
+- **Full-Featured Explorer**: Browse, Copy, Cut, Paste, Rename, Delete, and Create Folders.
+- **Drag & Drop**: Upload files by simply dragging them to the window.
+- **Downloads**: Easy file transfer from device to computer.
+- **Preview**: Open files directly on the host machine.
 
 ### 📜 Advanced Logcat
-- Real-time log streaming with auto-scroll.
-- **App-specific filtering**: Filter logs by a specific package name.
-- **Auto-Monitoring**: Start logging before an app opens; the tool will automatically detect the PID and start filtering once the app launches.
-- Keyword search/filtering.
+- **Real-time Streaming**: Live log viewer with auto-scroll control.
+- **Powerful Filtering**: Filter by Log Level, Tag, PID, or custom Regex.
+- **App-Centric**: Auto-filter logs for a specific application.
 
 ### 💻 ADB Shell
-- Integrated terminal for running ADB commands.
-- Quick command execution with output history.
+- **Integrated Console**: Run raw ADB commands directly within the app.
+- **Command History**: Quick access to previously executed commands.
+
+### 🔌 System Tray
+- **Quick Access**: Control mirroring and view device status from the menu bar/system tray.
+- **Background Operation**: Keep the app running in the background for instant access.
 
 ---
 

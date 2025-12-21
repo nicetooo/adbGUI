@@ -10,34 +10,42 @@ Una herramienta de gestión de Android potente, moderna y autónoma construida c
 ## ✨ Características
 
 ### 📱 Gestión de Dispositivos
-- Monitoreo en tiempo real de dispositivos conectados.
-- Ver ID del dispositivo, modelo y estado de conexión.
-- Acceso con un solo clic a Apps, Shell, Logcat y Mirroring.
+- **Lista Unificada de Dispositivos**: Gestiona dispositivos físicos e inalámbricos sin problemas en una vista unificada.
+- **Conexión Inalámbrica**: Conéctese sin esfuerzo mediante emparejamiento IP/Puerto.
+- **Historial de Dispositivos**: Acceso rápido a dispositivos fuera de línea conectados anteriormente.
+- **Información Detallada**: Vea estadísticas del dispositivo, modelo e ID en tiempo real.
 
 ### 📦 Gestión de Aplicaciones
-- Listar todos los paquetes instalados (aplicaciones del sistema y de usuario).
-- Filtrar y buscar aplicaciones por nombre o tipo.
-- **Acciones**: Forzar detención, borrar datos, habilitar/deshabilitar y desinstalar.
-- **Logcat rápido**: Saltar a los registros de una aplicación específica directamente desde la lista de aplicaciones.
+- **Control Total de Paquetes**: Instalar (Arrastrar y Soltar), Desinstalar, Habilitar, Deshabilitar, Forzar Detención, Borrar Datos.
+- **Gestión de APK**: Exportar APKs instalados, Instalación por Lotes.
+- **Filtrado Inteligente**: Buscar y filtrar por aplicaciones del sistema/usuario.
+- **Acciones Rápidas**: Inicie aplicaciones o salte directamente a sus registros.
 
-### 🖥️ Espejo de Pantalla (Scrcpy)
-- **Scrcpy integrado**: No es necesario instalar nada externamente.
-- Control detallado sobre:
-  - Tasa de bits de video y FPS máximos.
-  - Resolución (tamaño máximo).
-  - Opciones de mantener despierto y apagar pantalla.
-  - Ventana siempre al frente.
-  - Alternar transmisión de audio.
+### 🖥️ Duplicación de Pantalla (Scrcpy)
+- **Alto Rendimiento**: Duplicación de baja latencia impulsada por Scrcpy.
+- **Grabación**: Grabación en segundo plano independiente con acceso a carpeta con un clic.
+- **Reenvío de Audio**: Transmita el audio del dispositivo a su computadora (Android 11+).
+- **Personalización**: Ajuste resolución, tasa de bits, FPS y códec (H.264/H.265).
+- **Control**: Soporte multitáctil, Mantener despierto, Modo pantalla apagada.
+
+### 📂 Gestión de Archivos
+- **Explorador con Funciones Completas**: Navegar, Copiar, Cortar, Pegar, Renombrar, Eliminar y Crear Carpetas.
+- **Arrastrar y Soltar**: Cargue archivos simplemente arrastrándolos a la ventana.
+- **Descargas**: Transferencia de archivos fácil del dispositivo a la computadora.
+- **Vista Previa**: Abrir archivos directamente en la máquina host.
 
 ### 📜 Logcat Avanzado
-- Transmisión de registros en tiempo real con desplazamiento automático.
-- **Filtrado específico de la aplicación**: Filtrar registros por un nombre de paquete específico.
-- **Monitoreo automático**: Iniciar el registro antes de que se abra una aplicación; la herramienta detectará automáticamente el PID y comenzará a filtrar una vez que la aplicación se inicie.
-- Búsqueda/filtrado por palabras clave.
+- **Transmisión en Tiempo Real**: Visor de registros en vivo con control de desplazamiento automático.
+- **Filtrado Potente**: Filtrar por Nivel de Registro, Etiqueta, PID o Regex personalizado.
+- **Centrado en la Aplicación**: Filtrar automáticamente registros para una aplicación específica.
 
 ### 💻 ADB Shell
-- Terminal integrada para ejecutar comandos ADB.
-- Ejecución rápida de comandos con historial de salida.
+- **Consola Integrada**: Ejecute comandos ADB sin procesar directamente dentro de la aplicación.
+- **Historial de Comandos**: Acceso rápido a comandos ejecutados anteriormente.
+
+### 🔌 Bandeja del Sistema
+- **Acceso Rápido**: Controle la duplicación y vea el estado del dispositivo desde la barra de menú/bandeja del sistema.
+- **Operación en Segundo Plano**: Mantenga la aplicación ejecutándose en segundo plano para un acceso instantáneo.
 
 ---
 

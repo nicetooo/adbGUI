@@ -10,34 +10,42 @@ Ein leistungsstarkes, modernes und eigenständiges Android-Verwaltungstool, entw
 ## ✨ Funktionen
 
 ### 📱 Geräteverwaltung
-- Echtzeit-Überwachung verbundener Geräte.
-- Anzeige von Geräte-ID, Modell und Verbindungsstatus.
-- Ein-Klick-Zugriff auf Apps, Shell, Logcat und Spiegelung.
+- **Einheitliche Geräteliste**: Verwalten Sie physische und drahtlose Geräte nahtlos in einer einzigen Ansicht.
+- **Drahtlose Verbindung**: Verbinden Sie sich mühelos per IP/Port-Pairing.
+- **Gerätehistorie**: Schneller Zugriff auf zuvor verbundene Offline-Geräte.
+- **Detaillierte Infos**: Sehen Sie Gerätestatus, Modell und ID in Echtzeit ein.
 
 ### 📦 App-Verwaltung
-- Auflistung aller installierten Pakete (System- & Benutzer-Apps).
-- Filtern und Suchen von Apps nach Name oder Typ.
-- **Aktionen**: Stoppen erzwingen, Daten löschen, Aktivieren/Deaktivieren und Deinstallieren.
-- **Schnell-Logcat**: Direkt aus der App-Liste zu den Protokollen einer bestimmten App springen.
+- **Volle Paketkontrolle**: Installieren (Drag & Drop), Deinstallieren, Aktivieren, Deaktivieren, Stoppen erzwingen, Daten löschen.
+- **APK-Verwaltung**: Exportieren installierter APKs, Batch-Installation.
+- **Intelligente Filterung**: Suchen und Filtern nach System-/Benutzer-Apps.
+- **Schnellaktionen**: Starten Sie Apps oder springen Sie direkt zu deren Protokollen.
 
 ### 🖥️ Bildschirmspiegelung (Scrcpy)
-- **Integriertes Scrcpy**: Keine externe Installation erforderlich.
-- Detaillierte Kontrolle über:
-  - Video-Bitrate & maximale FPS.
-  - Auflösung (maximale Größe).
-  - Optionen für "Wach bleiben" & "Bildschirm ausschalten".
-  - Fenster immer im Vordergrund.
-  - Audio-Streaming umschalten.
+- **Hohe Leistung**: Spiegelung mit geringer Latenz powered by Scrcpy.
+- **Aufnahme**: Unabhängige Hintergrundaufnahme mit Ein-Klick-Ordnerzugriff.
+- **Audio-Weiterleitung**: Streamen Sie Geräteaudio auf Ihren Computer (Android 11+).
+- **Anpassung**: Passen Sie Auflösung, Bitrate, FPS und Codec (H.264/H.265) an.
+- **Steuerung**: Multi-Touch-Unterstützung, Wach bleiben, Bildschirm-Aus-Modus.
+
+### 📂 Dateiverwaltung
+- **Voll ausgestatteter Explorer**: Durchsuchen, Kopieren, Ausschneiden, Einfügen, Umbenennen, Löschen und Erstellen von Ordnern.
+- **Drag & Drop**: Laden Sie Dateien hoch, indem Sie sie einfach in das Fenster ziehen.
+- **Downloads**: Einfache Dateiübertragung vom Gerät auf den Computer.
+- **Vorschau**: Öffnen Sie Dateien direkt auf dem Host-Computer mit Standardanwendungen.
 
 ### 📜 Erweitertes Logcat
-- Echtzeit-Protokoll-Streaming mit automatischem Scrollen.
-- **App-spezifische Filterung**: Protokolle nach einem bestimmten Paketnamen filtern.
-- **Automatische Überwachung**: Protokollierung starten, bevor eine App geöffnet wird; das Tool erkennt automatisch die PID und beginnt mit der Filterung, sobald die App startet.
-- Stichwortsuche/-filterung.
+- **Echtzeit-Streaming**: Live-Protokollansicht mit automatischer Scroll-Steuerung.
+- **Leistungsstarke Filterung**: Filtern nach Protokollebene, Tag, PID oder benutzerdefiniertem Regex.
+- **App-Zentriert**: Automatisches Filtern von Protokollen für eine bestimmte Anwendung.
 
 ### 💻 ADB Shell
-- Integriertes Terminal zum Ausführen von ADB-Befehlen.
-- Schnelle Befehlsausführung mit Ausgabeverlauf.
+- **Integrierte Konsole**: Führen Sie rohe ADB-Befehle direkt in der App aus.
+- **Befehlsverlauf**: Schneller Zugriff auf zuvor ausgeführte Befehle.
+
+### 🔌 Systemablage
+- **Schnellzugriff**: Steuern Sie die Spiegelung und sehen Sie den Gerätestatus über die Menüleiste / Systemablage.
+- **Hintergrundbetrieb**: Lassen Sie die App im Hintergrund laufen, um sofortigen Zugriff zu erhalten.
 
 ---
 

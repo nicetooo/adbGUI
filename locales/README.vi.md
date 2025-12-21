@@ -10,34 +10,42 @@ Một công cụ quản lý Android mạnh mẽ, hiện đại và độc lập 
 ## ✨ Tính năng
 
 ### 📱 Quản lý thiết bị
-- Theo dõi thời gian thực các thiết bị đã kết nối.
-- Xem ID thiết bị, kiểu máy và trạng thái kết nối.
-- Truy cập một lần nhấp vào Ứng dụng, Shell, Logcat và Phản chiếu màn hình.
+- **Danh sách thiết bị hợp nhất**: Quản lý liền mạch các thiết bị vật lý và không dây trong một chế độ xem hợp nhất.
+- **Kết nối không dây**: Kết nối dễ dàng thông qua ghép nối IP/Cổng.
+- **Lịch sử thiết bị**: Truy cập nhanh vào các thiết bị ngoại tuyến đã kết nối trước đó.
+- **Thông tin chi tiết**: Xem số liệu thống kê, kiểu máy và ID thiết bị theo thời gian thực.
 
 ### 📦 Quản lý ứng dụng
-- Liệt kê tất cả các gói đã cài đặt (ứng dụng hệ thống & người dùng).
-- Lọc và tìm kiếm ứng dụng theo tên hoặc loại.
-- **Hành động**: Buộc dừng, Xóa dữ liệu, Bật/Tắt và Gỡ cài đặt.
-- **Logcat nhanh**: Chuyển đến nhật ký của một ứng dụng cụ thể trực tiếp từ danh sách ứng dụng.
+- **Kiểm soát gói đầy đủ**: Cài đặt (Kéo & Thả), Gỡ cài đặt, Bật, Tắt, Buộc dừng, Xóa dữ liệu.
+- **Quản lý APK**: Xuất APK đã cài đặt, Cài đặt hàng loạt.
+- **Lọc thông minh**: Tìm kiếm và lọc theo ứng dụng hệ thống/người dùng.
+- **Hành động nhanh**: Khởi chạy ứng dụng hoặc chuyển trực tiếp đến nhật ký của chúng.
 
 ### 🖥️ Phản chiếu màn hình (Scrcpy)
-- **Tích hợp sẵn Scrcpy**: Không cần cài đặt thêm bất cứ thứ gì bên ngoài.
-- Kiểm soát chi tiết về:
-  - Tốc độ bit video & FPS tối đa.
-  - Độ phân giải (Kích thước tối đa).
-  - Tùy chọn Luôn bật & Tắt màn hình.
-  - Cửa sổ luôn ở trên cùng.
-  - Chuyển đổi phát trực tuyến âm thanh.
+- **Hiệu suất cao**: Phản chiếu độ trễ thấp được hỗ trợ bởi Scrcpy.
+- **Ghi màn hình**: Ghi nền độc lập với quyền truy cập thư mục bằng một cú nhấp chuột.
+- **Chuyển tiếp âm thanh**: Truyền phát âm thanh thiết bị đến máy tính của bạn (Android 11+).
+- **Tùy chỉnh**: Điều chỉnh Độ phân giải, Tốc độ bit, FPS và Codec (H.264/H.265).
+- **Điều khiển**: Hỗ trợ cảm ứng đa điểm, Giữ màn hình bật, Chế độ tắt màn hình.
+
+### 📂 Quản lý tệp
+- **Trình khám phá đầy đủ tính năng**: Duyệt, Sao chép, Cắt, Dán, Đổi tên, Xóa và Tạo thư mục.
+- **Kéo & Thả**: Tải tệp lên bằng cách kéo chúng vào cửa sổ.
+- **Tải xuống**: Dễ dàng chuyển tệp từ thiết bị sang máy tính.
+- **Xem trước**: Mở tệp trực tiếp trên máy chủ bằng các ứng dụng mặc định.
 
 ### 📜 Logcat nâng cao
-- Luồng nhật ký thời gian thực với tính năng tự động cuộn.
-- **Lọc theo ứng dụng cụ thể**: Lọc nhật ký theo tên gói cụ thể.
-- **Tự động giám sát**: Bắt đầu ghi nhật ký trước khi ứng dụng mở; công cụ sẽ tự động phát hiện PID và bắt đầu lọc sau khi ứng dụng khởi chạy.
-- Tìm kiếm/lọc theo từ khóa.
+- **Phát trực tuyến thời gian thực**: Trình xem nhật ký trực tiếp với điều khiển tự động cuộn.
+- **Lọc mạnh mẽ**: Lọc theo Mức nhật ký, Thẻ, PID hoặc Regex tùy chỉnh.
+- **Tập trung vào ứng dụng**: Tự động lọc nhật ký cho một ứng dụng cụ thể.
 
 ### 💻 ADB Shell
-- Terminal tích hợp để chạy các lệnh ADB.
-- Thực thi lệnh nhanh chóng với lịch sử đầu ra.
+- **Bảng điều khiển tích hợp**: Chạy các lệnh ADB thô trực tiếp trong ứng dụng.
+- **Lịch sử lệnh**: Truy cập nhanh vào các lệnh đã thực thi trước đó.
+
+### 🔌 Khay hệ thống
+- **Truy cập nhanh**: Kiểm soát phản chiếu và xem trạng thái thiết bị từ thanh menu/khay hệ thống.
+- **Hoạt động nền**: Giữ ứng dụng chạy trong nền để truy cập tức thì.
 
 ---
 

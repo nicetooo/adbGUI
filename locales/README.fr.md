@@ -10,34 +10,42 @@ Un outil de gestion Android puissant, moderne et autonome, construit avec **Wail
 ## ✨ Caractéristiques
 
 ### 📱 Gestion des Appareils
-- Surveillance en temps réel des appareils connectés.
-- Affichage de l'ID de l'appareil, du modèle et de l'état de la connexion.
-- Accès en un clic aux applications, au Shell, au Logcat et au Mirroring.
+- **Liste Unifiée des Appareils**: Gérez de manière transparente les appareils physiques et sans fil dans une vue unifiée.
+- **Connexion Sans Fil**: Connectez-vous sans effort via l'appariement IP/Port.
+- **Historique des Appareils**: Accès rapide aux appareils hors ligne précédemment connectés.
+- **Infos Détaillées**: Visualisez les statistiques, le modèle et l'ID de l'appareil en temps réel.
 
 ### 📦 Gestion des Applications
-- Liste de tous les paquets installés (applications système et utilisateur).
-- Filtrage et recherche d'applications par nom ou par type.
-- **Actions** : Arrêt forcé, effacement des données, activation/désactivation et désinstallation.
-- **Logcat rapide** : Accédez directement aux journaux d'une application spécifique depuis la liste des applications.
+- **Contrôle Total des Paquets**: Installation (Drag & Drop), désinstallation, activation, désactivation, arrêt forcé, effacement des données.
+- **Gestion des APK**: Exportation des APK installés, installation par lots.
+- **Filtrage Intelligent**: Recherchez et filtrez par applications système/utilisateur.
+- **Actions Rapides**: Lancez des applications ou accédez directement à leurs journaux.
 
 ### 🖥️ Recopie d'écran (Scrcpy)
-- **Scrcpy intégré** : Pas besoin d'installer quoi que ce soit d'externe.
-- Contrôle précis sur :
-  - Le débit binaire vidéo et le FPS maximum.
-  - La résolution (taille maximale).
-  - Les options de maintien en éveil et d'extinction de l'écran.
-  - Fenêtre toujours au-dessus.
-  - Activation/désactivation du streaming audio.
+- **Haute Performance**: Recopie d'écran à faible latence propulsée par Scrcpy.
+- **Enregistrement**: Enregistrement en arrière-plan indépendant avec accès au dossier en un clic.
+- **Transfert Audio**: Diffusez l'audio de l'appareil vers votre ordinateur (Android 11+).
+- **Personnalisation**: Ajustez la résolution, le débit binaire, les FPS et le codec (H.264/H.265).
+- **Contrôle**: Prise en charge multi-touch, Maintien en éveil, Mode écran éteint.
+
+### 📂 Gestion de Fichiers
+- **Explorateur Complet**: Parcourir, copier, couper, coller, renommer, supprimer et créer des dossiers.
+- **Drag & Drop**: Téléchargez des fichiers en les faisant simplement glisser vers la fenêtre.
+- **Téléchargements**: Transfert de fichiers facile de l'appareil vers l'ordinateur.
+- **Aperçu**: Ouvrez des fichiers directement sur la machine hôte en utilisant les applications par défaut.
 
 ### 📜 Logcat Avancé
-- Flux de journaux en temps réel avec défilement automatique.
-- **Filtrage par application** : Filtrez les journaux par nom de paquet spécifique.
-- **Surveillance automatique** : Commencez la journalisation avant l'ouverture d'une application ; l'outil détectera automatiquement le PID et commencera le filtrage une fois l'application lancée.
-- Recherche/filtrage par mots-clés.
+- **Streaming en Temps Réel**: Visualiseur de journaux en direct avec contrôle du défilement automatique.
+- **Filtrage Puissant**: Filtrer par niveau de journal, Tag, PID ou Regex personnalisé.
+- **Centré sur l'Application**: Filtrez automatiquement les journaux pour une application spécifique.
 
 ### 💻 ADB Shell
-- Terminal intégré pour exécuter des commandes ADB.
-- Exécution rapide des commandes avec historique des sorties.
+- **Console Intégrée**: Exécutez des commandes ADB brutes directement dans l'application.
+- **Historique des Commandes**: Accès rapide aux commandes précédemment exécutées.
+
+### 🔌 Barre d'état système
+- **Accès Rapide**: Contrôlez la recopie et affichez l'état de l'appareil depuis la barre de menu / barre d'état système.
+- **Fonctionnement en Arrière-plan**: Gardez l'application en cours d'exécution en arrière-plan pour un accès instantané.
 
 ---
 
