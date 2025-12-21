@@ -107,7 +107,7 @@ const AppsView: React.FC<AppsViewProps> = ({
             Math.abs(
               record.name
                 .split("")
-                .reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0)
+                .reduce((a: number, b: string) => (a << 5) - a + b.charCodeAt(0), 0)
             ) % colors.length
           ];
 
