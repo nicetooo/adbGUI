@@ -1644,7 +1644,7 @@ func (a *App) RunAdbCommand(args []string) (string, error) {
 	return string(output), nil
 }
 
-// SelectRecordPath opens a file dialog to select a path for scrcpy recording
+// SelectRecordPath returns a default recording path in the Downloads folder
 func (a *App) SelectRecordPath() (string, error) {
 	defaultDir, _ := os.UserHomeDir()
 	downloadsDir := filepath.Join(defaultDir, "Downloads")
@@ -1652,15 +1652,9 @@ func (a *App) SelectRecordPath() (string, error) {
 		defaultDir = downloadsDir
 	}
 
-	return wailsRuntime.SaveFileDialog(a.ctx, wailsRuntime.SaveDialogOptions{
-		DefaultFilename: "recording_" + time.Now().Format("20060102_150405") + ".mp4",
-		Title:           "Select Recording Save Path",
-		Filters: []wailsRuntime.FileFilter{
-			{DisplayName: "MP4 Video (*.mp4)", Pattern: "*.mp4"},
-			{DisplayName: "MKV Video (*.mkv)", Pattern: "*.mkv"},
-		},
-		DefaultDirectory: defaultDir,
-	})
+	filename := "recording_" + time.Now().Format("20060102_150405") + ".mp4"
+	fullPath := filepath.Join(defaultDir, filename)
+	return fullPath, nil
 }
 
 // StartRecording starts a separate scrcpy process just for recording without a window
@@ -1760,16 +1754,35 @@ func (a *App) IsRecording(deviceId string) bool {
 
 // OpenPath opens a file or directory in the default system browser
 func (a *App) OpenPath(path string) error {
+	if path == "::recordings::" {
+		home, _ := os.UserHomeDir()
+		path = filepath.Join(home, "Downloads")
+	}
+
+	// Check if path is a directory
+	info, err := os.Stat(path)
+	isDir := err == nil && info.IsDir()
+
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		cmd = exec.Command("explorer", "/select,", filepath.Clean(path))
+		if isDir {
+			cmd = exec.Command("explorer", filepath.Clean(path))
+		} else {
+			cmd = exec.Command("explorer", "/select,", filepath.Clean(path))
+		}
 	case "darwin":
-		cmd = exec.Command("open", "-R", path)
+		if isDir {
+			cmd = exec.Command("open", path)
+		} else {
+			cmd = exec.Command("open", "-R", path)
+		}
 	default: // Linux
-		// On linux, opening and selecting is not standardized across file managers
-		// We'll just open the parent directory
-		cmd = exec.Command("xdg-open", filepath.Dir(path))
+		if isDir {
+			cmd = exec.Command("xdg-open", path)
+		} else {
+			cmd = exec.Command("xdg-open", filepath.Dir(path))
+		}
 	}
 	return cmd.Start()
 }

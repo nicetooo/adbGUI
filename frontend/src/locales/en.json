@@ -250,6 +250,8 @@
     "powered_by": "Powered by Scrcpy",
     "start": "Start Mirroring",
     "stop": "Stop Mirroring",
+    "record_start": "Start Record",
+    "record_stop": "Stop Record",
     "active_session": "Active mirror session",
     "recording": "Recording",
     "record_screen": "Record Screen",

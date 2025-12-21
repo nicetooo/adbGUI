@@ -9,10 +9,11 @@ import {
   FileTextOutlined,
   SettingOutlined,
   MobileOutlined,
+  FolderOpenOutlined,
 } from "@ant-design/icons";
 import DeviceSelector from "./DeviceSelector";
-// @ts-ignore
-import { main } from "../wailsjs/go/models";
+import { main } from "../../wailsjs/go/models";
+import { OpenPath } from "../../wailsjs/go/main/App";
 
 const { Option } = Select;
 
@@ -173,6 +174,16 @@ const MirrorView: React.FC<MirrorViewProps> = ({
                   {t("mirror.recording")}
                 </Space>
               }
+              extra={
+                <Tooltip title={t("app.show_in_folder")}>
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<FolderOpenOutlined />}
+                    onClick={() => OpenPath("::recordings::")}
+                  />
+                </Tooltip>
+              }
               size="small"
               style={{
                 border:
@@ -206,24 +217,32 @@ const MirrorView: React.FC<MirrorViewProps> = ({
                       : t("mirror.independent_desc")}
                   </div>
                 </Space>
-                <Switch
-                  size="small"
-                  checked={shouldRecord || isRecording}
-                  onChange={async (v) => {
-                    setShouldRecord(v);
-                    if (isMirroring) {
-                      if (v) {
-                        await handleStartMidSessionRecord();
-                      } else {
-                        await handleStopMidSessionRecord();
-                      }
-                    }
-                  }}
-                  style={{
-                    backgroundColor:
-                      shouldRecord || isRecording ? "#ff4d4f" : undefined,
-                  }}
-                />
+                {shouldRecord || isRecording ? (
+                  <Button
+                    type="primary"
+                    danger
+                    size="small"
+                    icon={<StopOutlined />}
+                    onClick={async () => {
+                      setShouldRecord(false);
+                      await handleStopMidSessionRecord();
+                    }}
+                  >
+                    {t("mirror.record_stop")}
+                  </Button>
+                ) : (
+                  <Button
+                    type="primary"
+                    size="small"
+                    icon={<PlayCircleOutlined />}
+                    onClick={async () => {
+                      setShouldRecord(true);
+                      await handleStartMidSessionRecord();
+                    }}
+                  >
+                    {t("mirror.record_start")}
+                  </Button>
+                )}
               </div>
 
               {isRecording && (
