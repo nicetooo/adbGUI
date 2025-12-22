@@ -23,7 +23,7 @@ Una herramienta de gestión de Android potente, moderna y autónoma construida c
 
 ### 🖥️ Duplicación de Pantalla (Scrcpy)
 - **Alto Rendimiento**: Duplicación de baja latencia impulsada por Scrcpy.
-- **Grabación**: Grabación en segundo plano independiente con acceso a carpeta con un clic.
+- **Grabación**: Grabación en segundo plano independiente con soporte para múltiples dispositivos simultáneamente y acceso a carpeta con un solo clic.
 - **Reenvío de Audio**: Transmita el audio del dispositivo a su computadora (Android 11+).
 - **Personalización**: Ajuste resolución, tasa de bits, FPS y códec (H.264/H.265).
 - **Control**: Soporte multitáctil, Mantener despierto, Modo pantalla apagada.

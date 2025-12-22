@@ -23,7 +23,7 @@ Ein leistungsstarkes, modernes und eigenständiges Android-Verwaltungstool, entw
 
 ### 🖥️ Bildschirmspiegelung (Scrcpy)
 - **Hohe Leistung**: Spiegelung mit geringer Latenz powered by Scrcpy.
-- **Aufnahme**: Unabhängige Hintergrundaufnahme mit Ein-Klick-Ordnerzugriff.
+- **Aufnahme**: Unabhängige Hintergrundaufnahme mit Unterstützung für mehrere Geräte gleichzeitig und Ein-Klick-Ordnerzugriff.
 - **Audio-Weiterleitung**: Streamen Sie Geräteaudio auf Ihren Computer (Android 11+).
 - **Anpassung**: Passen Sie Auflösung, Bitrate, FPS und Codec (H.264/H.265) an.
 - **Steuerung**: Multi-Touch-Unterstützung, Wach bleiben, Bildschirm-Aus-Modus.

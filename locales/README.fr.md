@@ -23,7 +23,7 @@ Un outil de gestion Android puissant, moderne et autonome, construit avec **Wail
 
 ### 🖥️ Recopie d'écran (Scrcpy)
 - **Haute Performance**: Recopie d'écran à faible latence propulsée par Scrcpy.
-- **Enregistrement**: Enregistrement en arrière-plan indépendant avec accès au dossier en un clic.
+- **Enregistrement**: Enregistrement en arrière-plan indépendant avec prise en charge de plusieurs appareils simultanément et accès au dossier en un clic.
 - **Transfert Audio**: Diffusez l'audio de l'appareil vers votre ordinateur (Android 11+).
 - **Personnalisation**: Ajustez la résolution, le débit binaire, les FPS et le codec (H.264/H.265).
 - **Contrôle**: Prise en charge multi-touch, Maintien en éveil, Mode écran éteint.

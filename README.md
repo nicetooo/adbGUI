@@ -39,7 +39,7 @@ A powerful, modern, and self-contained Android management tool built with **Wail
 
 ### 🖥️ Screen Mirroring (Scrcpy)
 - **High Performance**: Low-latency mirroring powered by Scrcpy.
-- **Recording**: Independent background recording with one-click folder access.
+- **Recording**: Independent background recording with support for multiple devices simultaneously and one-click folder access.
 - **Audio Forwarding**: Stream device audio to your computer (Android 11+).
 - **Customization**: Adjust Resolution, Bitrate, FPS, and Codec (H.264/H.265).
 - **Control**: Multi-touch support, Keep Awake, Screen Off mode.

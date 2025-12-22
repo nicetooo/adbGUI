@@ -23,7 +23,7 @@ Một công cụ quản lý Android mạnh mẽ, hiện đại và độc lập 
 
 ### 🖥️ Phản chiếu màn hình (Scrcpy)
 - **Hiệu suất cao**: Phản chiếu độ trễ thấp được hỗ trợ bởi Scrcpy.
-- **Ghi màn hình**: Ghi nền độc lập với quyền truy cập thư mục bằng một cú nhấp chuột.
+- **Ghi màn hình**: Ghi nền độc lập, hỗ trợ ghi đồng thời nhiều thiết bị và truy cập thư mục bằng một cú nhấp chuột.
 - **Chuyển tiếp âm thanh**: Truyền phát âm thanh thiết bị đến máy tính của bạn (Android 11+).
 - **Tùy chỉnh**: Điều chỉnh Độ phân giải, Tốc độ bit, FPS và Codec (H.264/H.265).
 - **Điều khiển**: Hỗ trợ cảm ứng đa điểm, Giữ màn hình bật, Chế độ tắt màn hình.

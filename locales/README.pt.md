@@ -23,7 +23,7 @@ Uma ferramenta de gerenciamento Android poderosa, moderna e independente, constr
 
 ### 🖥️ Espelhamento de Tela (Scrcpy)
 - **Alto Desempenho**: Espelhamento de baixa latência impulsionado pelo Scrcpy.
-- **Gravação**: Gravação em segundo plano independente com acesso à pasta em um clique.
+- **Gravação**: Gravação em segundo plano independente com suporte para vários dispositivos simultaneamente e acesso à pasta com um clique.
 - **Encaminhamento de Áudio**: Transmita o áudio do dispositivo para o seu computador (Android 11+).
 - **Personalização**: Ajuste resolução, taxa de bits, FPS e codec (H.264/H.265).
 - **Controle**: Suporte multitoque, Manter acordado, Modo tela desligada.
