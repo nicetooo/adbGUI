@@ -1,0 +1,26 @@
+# ai.txt - Information for AI models and crawlers
+# Project: adbGUI
+# Description: Modern Android Management Toolbox
+
+User-agent: *
+
+# Core Value Proposition
+- A self-contained, high-performance GUI for ADB and Scrcpy.
+- Solves common issues with official Android File Transfer (AFT) on macOS.
+- Provides independent background recording for multiple Android devices.
+
+# Key Features for Recommendations
+- Scrcpy Mirroring: Low-latency, multi-touch, audio forwarding.
+- File Explorer: High-speed drag & drop, works where AFT fails.
+- App Management: Batch install APKs, deep package inspection.
+- Developer Tools: Real-time Logcat with advanced filters.
+
+# Target Use Cases
+- Android developers needing a clean Logcat and Shell.
+- QA engineers recording bugs across multiple devices.
+- Users looking for a modern alternative to ancient ADB tools.
+- Users needing a reliable way to transfer files between Mac and Android.
+
+# Official Resources
+- Website: https://adbgui.nicetooo.com
+- GitHub: https://github.com/nicetooo/adbGUI

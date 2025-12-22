@@ -10,6 +10,14 @@ A powerful, modern, and self-contained Android management tool built with **Wail
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
 [![Website](https://img.shields.io/website?up_message=online&url=https%3A%2F%2Fadbgui.nicetooo.com)](https://adbgui.nicetooo.com)
 
+## 🌟 Why adbGUI?
+
+- **Modern & Fast**: Built with Wails (Go + React), providing a native-like experience with minimal resource overhead.
+- **True Self-Contained**: No need to install `adb` or `scrcpy` on your system. Everything is bundled and ready to go.
+- **Reliable File Transfer**: A robust alternative to the often-flaky *Android File Transfer* on macOS.
+- **Multi-Device Power**: The only tool that supports independent, simultaneous background recording for multiple devices.
+- **Developer First**: Integrated Logcat and Shell designed by developers, for developers.
+
 ## 📸 App Screenshots
 
 | Device Mirror | File Manager |

@@ -4,13 +4,64 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>adbGUI | Modern Android Management</title>
+  <title>adbGUI | Modern Android Management & Scrcpy Screen Mirroring</title>
   <meta name="description"
-    content="A minimalist, open-source desktop tool for Android device management. Screen mirroring, APK installation, and more." />
+    content="A powerful, open-source ADB GUI for Android. High-performance Scrcpy screen mirroring, file management, APK installation, and Logcat viewer with zero friction." />
+  <meta name="keywords"
+    content="ADB GUI, Scrcpy GUI, Android Screen Mirroring, Android File Manager, Android Debug Bridge, Scrcpy Recording, Android Management Tool" />
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://adbgui.nicetooo.com/">
+  <meta property="og:title" content="adbGUI | Modern Android Management & Scrcpy Mirroring">
+  <meta property="og:description"
+    content="Manage Android devices with ease. Featuring high-performance Scrcpy mirroring, multi-device recording, and full ADB control.">
+  <meta property="og:image" content="https://adbgui.nicetooo.com/screenshots/mirror.png">
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="https://adbgui.nicetooo.com/">
+  <meta property="twitter:title" content="adbGUI | Modern ADB & Scrcpy Toolbox">
+  <meta property="twitter:description"
+    content="Redefining Android management with Scrcpy mirroring and powerful ADB tools. Open-source and self-contained.">
+  <meta property="twitter:image" content="https://adbgui.nicetooo.com/screenshots/mirror.png">
+
+  <!-- AI Engine Optimization (JSON-LD) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "adbGUI",
+    "operatingSystem": "Windows, macOS, Linux",
+    "applicationCategory": "UtilitiesApplication",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "Powerful, modern ADB GUI and Scrcpy screen mirroring tool. Supports multi-device recording, file management, and APK control.",
+    "softwareVersion": "0.1.0",
+    "license": "https://opensource.org/licenses/MIT",
+    "author": {
+      "@type": "Person",
+      "name": "nicetooo"
+    },
+    "featureList": [
+      "Low-latency Scrcpy mirroring",
+      "Simultaneous multi-device recording",
+      "Drag-and-drop APK installation",
+      "Advanced Android File Explorer",
+      "Real-time Logcat viewer with regex",
+      "Wireless ADB connection"
+    ]
+  }
+  </script>
+
   <meta name="google-adsense-account" content="ca-pub-2884825050251311">
 
-  <!-- Favicon -->
+  <!-- Favicon & Icons -->
   <link rel="icon" type="image/svg+xml" href="build/icon.svg" />
+  <link rel="apple-touch-icon" href="build/icon.svg">
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -79,8 +130,9 @@
         <span class="text-zinc-500">fully redefined.</span>
       </h1>
       <p class="text-zinc-200 text-lg md:text-xl mb-10 leading-relaxed">
-        A high-performance, open-source desktop toolbox for Android. Mirror
-        screens, manage files, and install APKs with zero friction.
+        A high-performance, open-source toolbox built on the power of <span
+          class="text-emerald-400 font-mono">ADB</span> and <span class="text-emerald-400 font-mono">Scrcpy</span>.
+        Mirror screens, manage files, and control devices with zero friction.
       </p>
 
       <div class="flex flex-col items-center gap-6"
