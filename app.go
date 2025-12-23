@@ -63,8 +63,9 @@ type App struct {
 	localAddr  string
 
 	// History
-	historyPath string
-	historyMu   sync.Mutex
+	historyPath  string
+	settingsPath string
+	historyMu    sync.Mutex
 
 	version string
 
@@ -179,19 +180,23 @@ func (a *App) updateLastActive(deviceId string) {
 	a.idToSerialMu.RUnlock()
 
 	a.lastActiveMu.Lock()
-	defer a.lastActiveMu.Unlock()
 	a.lastActive[serial] = time.Now().Unix()
+	a.lastActiveMu.Unlock()
+
+	go a.saveSettings()
 }
 
 // TogglePinDevice pins/unpins a device by its serial. Only one device can be pinned.
 func (a *App) TogglePinDevice(serial string) {
 	a.pinnedMu.Lock()
-	defer a.pinnedMu.Unlock()
 	if a.pinnedSerial == serial {
 		a.pinnedSerial = ""
 	} else {
 		a.pinnedSerial = serial
 	}
+	a.pinnedMu.Unlock()
+
+	go a.saveSettings()
 }
 
 // GetAppVersion returns the application version
@@ -249,8 +254,67 @@ func (a *App) initPersistentCache() {
 	_ = os.MkdirAll(appConfigDir, 0755)
 	a.cachePath = filepath.Join(appConfigDir, "aapt_cache.json")
 	a.historyPath = filepath.Join(appConfigDir, "history.json")
+	a.settingsPath = filepath.Join(appConfigDir, "settings.json")
 
 	a.loadCache()
+	a.loadSettings()
+}
+
+type AppSettings struct {
+	LastActive   map[string]int64 `json:"lastActive"`
+	PinnedSerial string           `json:"pinnedSerial"`
+}
+
+func (a *App) loadSettings() {
+	if a.settingsPath == "" {
+		return
+	}
+	data, err := os.ReadFile(a.settingsPath)
+	if err != nil {
+		return
+	}
+	var settings AppSettings
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return
+	}
+
+	a.lastActiveMu.Lock()
+	if settings.LastActive != nil {
+		a.lastActive = settings.LastActive
+	}
+	a.lastActiveMu.Unlock()
+
+	a.pinnedMu.Lock()
+	a.pinnedSerial = settings.PinnedSerial
+	a.pinnedMu.Unlock()
+}
+
+func (a *App) saveSettings() {
+	if a.settingsPath == "" {
+		return
+	}
+
+	a.lastActiveMu.RLock()
+	lastActive := make(map[string]int64)
+	for k, v := range a.lastActive {
+		lastActive[k] = v
+	}
+	a.lastActiveMu.RUnlock()
+
+	a.pinnedMu.RLock()
+	pinnedSerial := a.pinnedSerial
+	a.pinnedMu.RUnlock()
+
+	settings := AppSettings{
+		LastActive:   lastActive,
+		PinnedSerial: pinnedSerial,
+	}
+
+	data, err := json.Marshal(settings)
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(a.settingsPath, data, 0644)
 }
 
 func (a *App) loadHistoryInternal() []HistoryDevice {
