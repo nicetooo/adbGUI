@@ -226,48 +226,34 @@ export default function LogcatView({
 
     const { regex, invalid } = filterInfo;
     const hasLevelFilter = levelFilter.length > 0;
-    const isRegexMode = useRegex && !invalid && !!regex;
-    const simpleFlags = matchCase ? "" : "i";
-
-    const orParts =
-      isRegexMode && logFilter.includes("|")
-        ? (logFilter
-            .split("|")
-            .map((p) => {
-              const t = p.trim();
-              if (!t) return null;
-              try {
-                return new RegExp(
-                  matchWholeWord ? `\\b(?:${t})\\b` : t,
-                  simpleFlags
-                );
-              } catch {
-                return null;
-              }
-            })
-            .filter(Boolean) as RegExp[])
-        : [];
+    
+    // Always prefer using the pre-calculated regex if it's valid.
+    // This ensures 'Match Case' and 'Whole Word' are respected.
+    const useRegexEngine = !invalid && !!regex;
 
     return logs.filter((log) => {
-      // A. 级别过滤
+      // A. Level Filtering
       if (hasLevelFilter) {
         const level = getLogLevel(log);
         if (!levelFilter.includes(level)) return false;
       }
 
-      // B. 文本/正则过滤
+      // B. Text/Regex Filtering
       if (logFilter && !invalid) {
         const line = String(log).replace(/\u001b\[[0-9;]*m/g, "");
 
-        if (isRegexMode) {
-          if (line.match(regex!)) return true;
-          if (orParts.length > 0) {
-            for (const r of orParts) {
-              if (line.match(r)) return true;
-            }
+        if (useRegexEngine) {
+          // Use the unified regex engine (handles Case and Whole Word correctly)
+          if (regex!.test(line)) return true;
+          
+          // Support for legacy |-separated segments if user explicitly typed | in regex mode
+          if (useRegex && logFilter.includes("|")) {
+             // Already handled by the combined regex usually, but keeping for robustness
+             // Actually, the main regex already contains the | if user typed it.
           }
           return false;
         } else {
+          // Fallback to simple include (should rarely be hit if filterInfo is working)
           return line.toLowerCase().includes(logFilter.toLowerCase());
         }
       }
