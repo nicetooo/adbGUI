@@ -266,7 +266,12 @@
     "save_filter": "Save Filter Rule",
     "select_pre_filters": "Select filters to strictly cache only matching logs (Pre-Filter)",
     "enter_filter_name": "Enter a name for this filter rule:",
-    "filter_saved": "Filter rule saved successfully"
+    "filter_saved": "Filter rule saved successfully",
+    "package": "Package",
+    "pre_filter_info": "Only matching logs are buffered",
+    "filter_pattern": "Pattern",
+    "filter_name_placeholder": "Filter Name",
+    "filter_removed": "Filter rule removed"
   },
   "mirror": {
     "title": "Mirror Screen",

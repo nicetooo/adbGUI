@@ -266,7 +266,12 @@
     "save_filter": "필터 규칙 저장",
     "select_pre_filters": "일치하는 로그만 엄격하게 캐시하려면 필터를 선택하십시오 (사전 필터)",
     "enter_filter_name": "이 필터 규칙의 이름을 입력하십시오:",
-    "filter_saved": "필터 규칙이 성공적으로 저장되었습니다"
+    "filter_saved": "필터 규칙이 성공적으로 저장되었습니다",
+    "package": "패키지",
+    "pre_filter_info": "일치하는 로그만 캐싱됩니다",
+    "filter_pattern": "패턴",
+    "filter_name_placeholder": "필터 이름",
+    "filter_removed": "필터 규칙이 제거되었습니다"
   },
   "mirror": {
     "title": "화면 미러링",

@@ -266,7 +266,12 @@
     "save_filter": "保存过滤规则",
     "select_pre_filters": "选择预过滤规则 (仅缓存匹配日志)",
     "enter_filter_name": "请输入过滤规则名称：",
-    "filter_saved": "过滤规则已保存"
+    "filter_saved": "过滤规则已保存",
+    "package": "应用",
+    "pre_filter_info": "仅缓冲匹配规则的日志",
+    "filter_pattern": "模式",
+    "filter_name_placeholder": "规则名称",
+    "filter_removed": "过滤规则已移除"
   },
   "mirror": {
     "title": "屏幕投屏",

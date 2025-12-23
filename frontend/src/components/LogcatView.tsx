@@ -376,7 +376,7 @@ export default function LogcatView({
   const handleRemovePreset = (id: string) => {
     setSavedFilters(prev => prev.filter(p => p.id !== id));
     setSelectedPresetIds(prev => prev.filter(pid => pid !== id));
-    message.success("Filter rule removed");
+    message.success(t("logcat.filter_removed") || "Filter rule removed");
   };
 
   return (
@@ -488,7 +488,7 @@ export default function LogcatView({
             />
           </div>
           <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, fontSize: "11px", color: "#666" }}>
-             <InfoCircleOutlined /> <span>Only matching logs are buffered</span>
+             <InfoCircleOutlined /> <span>{t("logcat.pre_filter_info") || "Only matching logs are buffered"}</span>
           </div>
         </div>
 
@@ -593,7 +593,7 @@ export default function LogcatView({
                 >
                   {filterInfo.invalid
                     ? t("logcat.invalid_regex")
-                    : `Pattern: /${filterInfo.pattern}/${matchCase ? "" : "i"}`}
+                    : `${t("logcat.filter_pattern") || "Pattern"}: /${filterInfo.pattern}/${matchCase ? "" : "i"}`}
                 </div>
               )}
           </div>
@@ -676,7 +676,7 @@ export default function LogcatView({
         <Input 
           value={newFilterName} 
           onChange={e => setNewFilterName(e.target.value)} 
-          placeholder="Filter Name"
+          placeholder={t("logcat.filter_name_placeholder") || "Filter Name"}
           autoFocus
           onPressEnter={confirmSaveFilter}
         />

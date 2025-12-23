@@ -266,7 +266,12 @@
     "save_filter": "保存過濾規則",
     "select_pre_filters": "選擇預過濾規則 (僅快取匹配日誌)",
     "enter_filter_name": "請輸入過濾規則名稱：",
-    "filter_saved": "過濾規則已保存"
+    "filter_saved": "過濾規則已保存",
+    "package": "應用",
+    "pre_filter_info": "僅快取匹配日誌",
+    "filter_pattern": "模式",
+    "filter_name_placeholder": "規則名稱",
+    "filter_removed": "過濾規則已移除"
   },
   "mirror": {
     "title": "螢幕投屏",

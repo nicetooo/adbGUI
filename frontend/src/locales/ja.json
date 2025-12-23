@@ -266,7 +266,12 @@
     "save_filter": "フィルタルールを保存",
     "select_pre_filters": "一致するログのみを厳密にキャッシュするためにフィルタを選択してください (プリフィルタ)",
     "enter_filter_name": "このフィルタルールの名前を入力してください：",
-    "filter_saved": "フィルタルールが正常に保存されました"
+    "filter_saved": "フィルタルールが正常に保存されました",
+    "package": "パッケージ",
+    "pre_filter_info": "一致するログのみがキャッシュされます",
+    "filter_pattern": "パターン",
+    "filter_name_placeholder": "フィルタ名",
+    "filter_removed": "フィルタルールが削除されました"
   },
   "mirror": {
     "title": "画面ミラーリング",
