@@ -331,6 +331,14 @@
   "shell": {
     "title": "ADB 终端",
     "placeholder": "输入 ADB 命令 (例如 shell ls -l)",
-    "run": "运行"
+    "run": "运行",
+    "presets": {
+      "current_activity": "当前 Activity",
+      "battery_info": "电池信息",
+      "list_packages": "应用列表",
+      "device_info": "系统版本",
+      "screen_size": "屏幕分辨率",
+      "ip_address": "IP 地址"
+    }
   }
 }

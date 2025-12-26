@@ -331,6 +331,14 @@
   "shell": {
     "title": "ADB シェル",
     "placeholder": "ADB コマンドを入力 (例: shell ls -l)",
-    "run": "実行"
+    "run": "実行",
+    "presets": {
+      "current_activity": "現在の Activity",
+      "battery_info": "バッテリー情報",
+      "list_packages": "アプリ一覧",
+      "device_info": "システムバージョン",
+      "screen_size": "画面解像度",
+      "ip_address": "IP アドレス"
+    }
   }
 }

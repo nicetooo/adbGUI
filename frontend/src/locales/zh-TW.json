@@ -331,6 +331,14 @@
   "shell": {
     "title": "ADB 終端",
     "placeholder": "輸入 ADB 命令 (例如 shell ls -l)",
-    "run": "執行"
+    "run": "執行",
+    "presets": {
+      "current_activity": "當前 Activity",
+      "battery_info": "電池資訊",
+      "list_packages": "應用列表",
+      "device_info": "系統版本",
+      "screen_size": "螢幕解析度",
+      "ip_address": "IP 位址"
+    }
   }
 }

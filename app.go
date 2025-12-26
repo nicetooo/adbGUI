@@ -2116,17 +2116,36 @@ func (a *App) GetDeviceInfo(deviceId string) (DeviceInfo, error) {
 	return info, nil
 }
 
-// RunAdbCommand executes an arbitrary ADB command
-func (a *App) RunAdbCommand(args []string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+// RunAdbCommand executes an arbitrary ADB command as a single string
+func (a *App) RunAdbCommand(deviceId string, fullCmd string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
+	fullCmd = strings.TrimSpace(fullCmd)
+	if fullCmd == "" {
+		return "", nil
+	}
+
+	var args []string
+	args = append(args, "-s", deviceId)
+
+	// If it's a shell command, we pass the rest as ONE argument to preserve quotes and pipes
+	if strings.HasPrefix(fullCmd, "shell ") {
+		shellArgs := strings.TrimPrefix(fullCmd, "shell ")
+		args = append(args, "shell", shellArgs)
+	} else {
+		// For non-shell commands (like push/pull), fallback to simple space split
+		// But usually users use shell in the UI
+		args = append(args, strings.Fields(fullCmd)...)
+	}
 
 	cmd := a.newAdbCommand(ctx, args...)
 	output, err := cmd.CombinedOutput()
+	res := string(output)
 	if err != nil {
-		return string(output), fmt.Errorf("command failed: %w, output: %s", err, string(output))
+		return res, fmt.Errorf("command failed: %w, output: %s", err, res)
 	}
-	return string(output), nil
+	return strings.TrimSpace(res), nil
 }
 
 // SelectRecordPath returns a default recording path in the Downloads folder
@@ -2430,10 +2449,10 @@ func (a *App) StartScrcpy(deviceId string, config ScrcpyConfig) error {
 	if config.ShowTouches && !isCamera {
 		args = append(args, "--show-touches")
 		// Manually set system setting via ADB to ensure mouse clicks from scrcpy are also visible
-		go a.RunAdbCommand([]string{"-s", deviceId, "shell", "settings", "put", "system", "show_touches", "1"})
+		go a.RunAdbCommand(deviceId, "shell settings put system show_touches 1")
 	} else if !isCamera {
 		// Ensure it's off if explicitly requested to be off
-		go a.RunAdbCommand([]string{"-s", deviceId, "shell", "settings", "put", "system", "show_touches", "0"})
+		go a.RunAdbCommand(deviceId, "shell settings put system show_touches 0")
 	}
 	if config.Fullscreen {
 		args = append(args, "--fullscreen")

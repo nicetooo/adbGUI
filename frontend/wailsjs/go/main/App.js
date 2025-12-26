@@ -150,8 +150,8 @@ export function RestartAdbServer() {
   return window['go']['main']['App']['RestartAdbServer']();
 }
 
-export function RunAdbCommand(arg1) {
-  return window['go']['main']['App']['RunAdbCommand'](arg1);
+export function RunAdbCommand(arg1, arg2) {
+  return window['go']['main']['App']['RunAdbCommand'](arg1, arg2);
 }
 
 export function SelectRecordPath(arg1) {

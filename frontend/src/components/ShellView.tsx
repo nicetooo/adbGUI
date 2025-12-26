@@ -31,16 +31,58 @@ const ShellView: React.FC<ShellViewProps> = ({
   const { t } = useTranslation();
   const [shellCmd, setShellCmd] = useState("");
   const [shellOutput, setShellOutput] = useState("");
+  const [history, setHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
 
-  const handleShellCommand = async () => {
-    if (!shellCmd) return;
+  const presets = [
+    { label: t("shell.presets.current_activity"), cmd: "shell dumpsys window | grep mCurrentFocus" },
+    { label: t("shell.presets.battery_info"), cmd: "shell dumpsys battery" },
+    { label: t("shell.presets.list_packages"), cmd: "shell pm list packages" },
+    { label: t("shell.presets.device_info"), cmd: "shell getprop ro.build.version.release" },
+    { label: t("shell.presets.screen_size"), cmd: "shell wm size" },
+    { label: t("shell.presets.ip_address"), cmd: "shell ip addr show wlan0 | grep inet" },
+  ];
+
+  const handleShellCommand = async (command?: string) => {
+    const cmdToRun = command || shellCmd;
+    if (!cmdToRun) return;
+
+    // Add to history if it's a new unique command
+    setHistory((prev) => {
+      const newHist = [cmdToRun, ...prev.filter((c) => c !== cmdToRun)].slice(0, 50);
+      return newHist;
+    });
+    setHistoryIndex(-1);
+
     try {
-      const args = shellCmd.trim().split(/\s+/);
-      const res = await RunAdbCommand(args);
+      const res = await RunAdbCommand(selectedDevice, cmdToRun.trim());
       setShellOutput(res);
+      // Keep the command in the input field so user can tweak it or see what was run
+      // if (!command) setShellCmd(""); 
     } catch (err) {
       message.error(t("app.command_failed"));
       setShellOutput(String(err));
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (historyIndex < history.length - 1) {
+        const newIndex = historyIndex + 1;
+        setHistoryIndex(newIndex);
+        setShellCmd(history[newIndex]);
+      }
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (historyIndex > 0) {
+        const newIndex = historyIndex - 1;
+        setHistoryIndex(newIndex);
+        setShellCmd(history[newIndex]);
+      } else if (historyIndex === 0) {
+        setHistoryIndex(-1);
+        setShellCmd("");
+      }
     }
   };
 
@@ -77,28 +119,51 @@ const ShellView: React.FC<ShellViewProps> = ({
           </Button>
         </Space>
       </div>
+
+      <div style={{ marginBottom: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {presets.map((p) => (
+          <Button
+            key={p.label}
+            size="small"
+            onClick={() => {
+              setShellCmd(p.cmd);
+              handleShellCommand(p.cmd);
+            }}
+          >
+            {p.label}
+          </Button>
+        ))}
+      </div>
+
       <Space.Compact style={{ width: "100%", marginBottom: 16 }}>
         <Input
           placeholder={t("shell.placeholder")}
           value={shellCmd}
           onChange={(e) => setShellCmd(e.target.value)}
-          onPressEnter={handleShellCommand}
+          onPressEnter={() => handleShellCommand()}
+          onKeyDown={handleKeyDown}
+          autoFocus
         />
-        <Button type="primary" onClick={handleShellCommand}>
+        <Button type="primary" onClick={() => handleShellCommand()}>
           {t("shell.run")}
         </Button>
       </Space.Compact>
+
       <Input.TextArea
-        rows={15}
         value={shellOutput}
         readOnly
         className="selectable"
         style={{
-          fontFamily: "monospace",
-          backgroundColor: "#fff",
+          fontFamily: "'Fira Code', 'Roboto Mono', monospace",
+          backgroundColor: "#1e1e1e",
+          color: "#d4d4d4",
           flex: 1,
           resize: "none",
           userSelect: "text",
+          padding: "12px",
+          borderRadius: "4px",
+          fontSize: "13px",
+          lineHeight: "1.5",
         }}
       />
     </div>

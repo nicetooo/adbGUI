@@ -331,6 +331,14 @@
   "shell": {
     "title": "ADB Shell",
     "placeholder": "Enter ADB command (e.g. shell ls -l)",
-    "run": "Run"
+    "run": "Run",
+    "presets": {
+      "current_activity": "Current Activity",
+      "battery_info": "Battery Info",
+      "list_packages": "List Packages",
+      "device_info": "Device Info",
+      "screen_size": "Screen Size",
+      "ip_address": "IP Address"
+    }
   }
 }

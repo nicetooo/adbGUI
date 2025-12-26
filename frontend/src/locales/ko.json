@@ -331,6 +331,14 @@
   "shell": {
     "title": "ADB 쉘",
     "placeholder": "ADB 명령 입력 (예: shell ls -l)",
-    "run": "실행"
+    "run": "실행",
+    "presets": {
+      "current_activity": "현재 Activity",
+      "battery_info": "배터리 정보",
+      "list_packages": "앱 목록",
+      "device_info": "시스템 버전",
+      "screen_size": "화면 해상도",
+      "ip_address": "IP 주소"
+    }
   }
 }
