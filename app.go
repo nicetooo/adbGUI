@@ -2601,21 +2601,31 @@ func (a *App) IsAppRunning(deviceId, packageName string) (bool, error) {
 	return false, nil
 }
 
-// StartLogcat starts the logcat stream for a device, optionally filtering by package name
-func (a *App) StartLogcat(deviceId, packageName string) error {
+// StartLogcat starts the logcat stream for a device, optionally filtering by package name and pre-filter
+func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex bool) error {
 	a.updateLastActive(deviceId)
 	// If logcat is already running, stop it first to ensure a clean state
 	if a.logcatCmd != nil {
 		a.StopLogcat()
 	}
 
-	// Don't clear buffer by default, users usually want to see recent logs (history)
-	// exec.Command(a.adbPath, "-s", deviceId, "logcat", "-c").Run()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	a.logcatCancel = cancel
 
-	cmd := exec.CommandContext(ctx, a.adbPath, "-s", deviceId, "logcat", "-v", "time")
+	// Use grep on device for better performance if preFilter is provided
+	var cmd *exec.Cmd
+	if preFilter != "" {
+		grepCmd := "grep -i"
+		if preUseRegex {
+			grepCmd += "E"
+		}
+		// Escape single quotes for shell
+		safeFilter := strings.ReplaceAll(preFilter, "'", "'\\''")
+		shellCmd := fmt.Sprintf("logcat -v time | %s '%s'", grepCmd, safeFilter)
+		cmd = exec.CommandContext(ctx, a.adbPath, "-s", deviceId, "shell", shellCmd)
+	} else {
+		cmd = exec.CommandContext(ctx, a.adbPath, "-s", deviceId, "logcat", "-v", "time")
+	}
 	a.logcatCmd = cmd
 
 	stdout, err := cmd.StdoutPipe()
@@ -2728,6 +2738,15 @@ func (a *App) StartLogcat(deviceId, packageName string) error {
 
 	go func() {
 		reader := bufio.NewReader(stdout)
+
+		// Chunking variables
+		var (
+			chunk      []string
+			maxChunk   = 200
+			flushInter = 100 * time.Millisecond
+			lastFlush  = time.Now()
+		)
+
 		for {
 			line, err := reader.ReadString('\n')
 			if err != nil {
@@ -2744,30 +2763,21 @@ func (a *App) StartLogcat(deviceId, packageName string) error {
 				if len(pids) > 0 {
 					found := false
 					for _, pid := range pids {
-						// Extremely robust PID matching using substring checks for common surrounding patterns
-						// This addresses the " ( 9672):" case where there is leading/trailing whitespace
-
-						// Check for (PID), [PID], /PID, or PID: with optional spaces
 						if strings.Contains(line, "("+pid+")") ||
 							strings.Contains(line, "( "+pid+")") ||
 							strings.Contains(line, "("+pid+" )") ||
 							strings.Contains(line, "["+pid+"]") ||
 							strings.Contains(line, "[ "+pid+"]") ||
 							strings.Contains(line, " "+pid+":") ||
-							strings.Contains(line, "/"+pid+"(") || // For some tag(PID) formats
-							strings.Contains(line, " "+pid+" ") {
-							found = true
-							break
-						}
-
-						// Fallback: search for just " PID)" or " PID:" which is very common in logcat
-						if !found && (strings.Contains(line, " "+pid+"):") || strings.Contains(line, " "+pid+":")) {
+							strings.Contains(line, "/"+pid+"(") ||
+							strings.Contains(line, " "+pid+" ") ||
+							strings.Contains(line, " "+pid+"):") ||
+							strings.Contains(line, " "+pid+":") {
 							found = true
 							break
 						}
 					}
 
-					// Also match by UID if present in the log line (some formats include it)
 					if !found && uid != "" && strings.Contains(line, " "+uid+" ") {
 						found = true
 					}
@@ -2779,9 +2789,22 @@ func (a *App) StartLogcat(deviceId, packageName string) error {
 					continue
 				}
 			}
-			wailsRuntime.EventsEmit(a.ctx, "logcat-data", line)
+
+			// Add to chunk instead of immediate emit
+			chunk = append(chunk, line)
+
+			// Emit if chunk is full or enough time has passed
+			if len(chunk) >= maxChunk || (len(chunk) > 0 && time.Since(lastFlush) >= flushInter) {
+				wailsRuntime.EventsEmit(a.ctx, "logcat-data", chunk)
+				chunk = nil
+				lastFlush = time.Now()
+			}
 		}
-		// Cleanup is handled by StopLogcat or process exit
+
+		// Final flush
+		if len(chunk) > 0 {
+			wailsRuntime.EventsEmit(a.ctx, "logcat-data", chunk)
+		}
 	}()
 
 	return nil

@@ -321,43 +321,42 @@ function App() {
           logBufferRef.current = [];
           
           setLogs((prev) => {
-            // Apply filtering here for persistent storage if needed, but typically
-            // UI filtering is separate. However, for "only log matches", we need to filter BEFORE adding.
-            // Since we cannot easily access the *latest* state inside setInterval without refs, 
-            // we will handle filtering in the event listener instead.
             const next = [...prev, ...chunk];
             return next.length > 50000 ? next.slice(-50000) : next;
           });
         }
       }, 100);
 
-      EventsOn("logcat-data", (line: string) => {
+      EventsOn("logcat-data", (data: string | string[]) => {
+        const lines = Array.isArray(data) ? data : [data];
+        
         // Check filtering conditions using Refs to access latest state
-        let shouldKeep = true;
         const currentFilter = preFilterRef.current; // Use Pre-Filter for buffering
         const isRegex = preUseRegexRef.current;
 
-        if (currentFilter.trim()) {
-           try {
-             if (isRegex) {
-               const regex = new RegExp(currentFilter, "i");
+        for (const line of lines) {
+          let shouldKeep = true;
+          if (currentFilter.trim()) {
+            try {
+              if (isRegex) {
+                const regex = new RegExp(currentFilter, "i");
                 if (!regex.test(line)) shouldKeep = false;
-             } else {
-               if (!line.toLowerCase().includes(currentFilter.toLowerCase())) shouldKeep = false;
-             }
-           } catch (e) {
-             // If regex is invalid, treat as text or ignore
-             if (!line.toLowerCase().includes(currentFilter.toLowerCase())) shouldKeep = false;
-           }
-        }
+              } else {
+                if (!line.toLowerCase().includes(currentFilter.toLowerCase())) shouldKeep = false;
+              }
+            } catch (e) {
+              if (!line.toLowerCase().includes(currentFilter.toLowerCase())) shouldKeep = false;
+            }
+          }
 
-        if (shouldKeep) {
-          logBufferRef.current.push(line);
+          if (shouldKeep) {
+            logBufferRef.current.push(line);
+          }
         }
       });
 
       try {
-        await StartLogcat(selectedDevice, pkg);
+        await StartLogcat(selectedDevice, pkg, preFilter, preUseRegex);
       } catch (err) {
         message.error(t("app.logcat_failed") + ": " + String(err));
         setIsLogging(false);
