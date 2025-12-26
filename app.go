@@ -483,26 +483,21 @@ func (a *App) setupBinaries() {
 		return path
 	}
 
-	a.adbPath = extract("adb", adbBinary)
-	a.scrcpyPath = extract("scrcpy", scrcpyBinary)
-	a.serverPath = extract("scrcpy-server", scrcpyServerBinary)
-
-	// Fallback for adb: if bundled one doesn't work or isn't extracted, try system adb
-	if a.adbPath != "" {
-		cmd := exec.Command(a.adbPath, "version")
-		if err := cmd.Run(); err != nil {
-			fmt.Printf("Bundled adb failed, looking for system adb...\n")
-			if path, err := exec.LookPath("adb"); err == nil {
-				a.adbPath = path
-				fmt.Printf("Using system adb at: %s\n", a.adbPath)
-			}
-		}
+	// Prefer system ADB if available to avoid version conflicts with other installed tools (like Android Studio)
+	if path, err := exec.LookPath("adb"); err == nil {
+		a.adbPath = path
+		fmt.Printf("Using system adb found in PATH: %s\n", a.adbPath)
 	} else {
-		if path, err := exec.LookPath("adb"); err == nil {
-			a.adbPath = path
-			fmt.Printf("Using system adb as bundled adb is missing: %s\n", a.adbPath)
+		// Fallback to bundled adb
+		a.adbPath = extract("adb", adbBinary)
+		if a.adbPath != "" {
+			fmt.Printf("Using bundled adb at: %s\n", a.adbPath)
 		}
 	}
+
+	// For scrcpy and server, we still use our optimized bundled versions
+	a.scrcpyPath = extract("scrcpy", scrcpyBinary)
+	a.serverPath = extract("scrcpy-server", scrcpyServerBinary)
 
 	// Extract aapt if available (may be empty placeholder)
 	if len(aaptBinary) > 0 {
@@ -1255,6 +1250,11 @@ func (a *App) AdbConnect(address string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	// 1. Force a disconnect first to clear any stale/zombie connection for this address
+	disconnectCmd := exec.CommandContext(ctx, a.adbPath, "disconnect", address)
+	_ = disconnectCmd.Run()
+
+	// 2. Now attempt the connection
 	cmd := exec.CommandContext(ctx, a.adbPath, "connect", address)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -1491,6 +1491,40 @@ func (a *App) AdbDisconnect(address string) (string, error) {
 	return "disconnected", nil
 }
 
+// RestartAdbServer kills and restarts the ADB server to fix ghost connections or binary conflicts
+func (a *App) RestartAdbServer() (string, error) {
+	a.Log("Restarting ADB server...")
+
+	// 1. Kill scrcpy processes first as they might hold ADB sockets
+	a.scrcpyMu.Lock()
+	for id, cmd := range a.scrcpyCmds {
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		delete(a.scrcpyCmds, id)
+	}
+	a.scrcpyMu.Unlock()
+
+	// 2. Kill ADB processes by name for total cleanup
+	if runtime.GOOS == "windows" {
+		_ = exec.Command("taskkill", "/F", "/IM", "adb.exe", "/T").Run()
+	} else {
+		_ = exec.Command("killall", "adb").Run()
+		// Also standard kill-server just in case
+		_ = exec.Command(a.adbPath, "kill-server").Run()
+	}
+	time.Sleep(500 * time.Millisecond)
+
+	// 3. Start ADB server using the current prioritized path
+	startCmd := exec.Command(a.adbPath, "start-server")
+	output, err := startCmd.CombinedOutput()
+	if err != nil {
+		return string(output), fmt.Errorf("failed to start adb server: %w", err)
+	}
+
+	return "ADB server restarted successfully", nil
+}
+
 // newAdbCommand creates an exec.Cmd with a clean environment to avoid proxy issues
 func (a *App) newAdbCommand(ctx context.Context, args ...string) *exec.Cmd {
 	var cmd *exec.Cmd
@@ -1523,7 +1557,11 @@ func (a *App) newAdbCommand(ctx context.Context, args ...string) *exec.Cmd {
 
 // newScrcpyCommand creates an exec.Cmd for scrcpy with a clean environment
 func (a *App) newScrcpyCommand(args ...string) *exec.Cmd {
-	cmd := exec.Command(a.scrcpyPath, args...)
+	return a.newScrcpyCommandContext(context.Background(), args...)
+}
+
+func (a *App) newScrcpyCommandContext(ctx context.Context, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, a.scrcpyPath, args...)
 
 	// Sanitize environment: remove proxies
 	env := os.Environ()
@@ -1846,7 +1884,7 @@ func (a *App) GetDevices(forceLog bool) ([]Device, error) {
 			wg.Add(1)
 			go func(d *Device) {
 				defer wg.Done()
-				pCtx, pCancel := context.WithTimeout(ctx, 3*time.Second) // Shorter timeout for properties
+				pCtx, pCancel := context.WithTimeout(ctx, 5*time.Second) // Increased timeout for properties
 				defer pCancel()
 				cmd := exec.CommandContext(pCtx, a.adbPath, "-s", d.ID, "shell", "getprop ro.product.manufacturer; getprop ro.product.model")
 				out, err := cmd.Output()
@@ -2004,8 +2042,19 @@ func (a *App) GetDeviceInfo(deviceId string) (DeviceInfo, error) {
 		return info, fmt.Errorf("no device specified")
 	}
 
-	// 1. Get properties
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "getprop")
+	// Helper to run quick shell commands with local timeouts
+	runQuickCmd := func(args ...string) string {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		cmd := a.newAdbCommand(ctx, append([]string{"-s", deviceId, "shell"}, args...)...)
+		out, _ := cmd.Output()
+		return strings.TrimSpace(string(out))
+	}
+
+	// 1. Get properties (Essential)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := a.newAdbCommand(ctx, "-s", deviceId, "shell", "getprop")
 	output, err := cmd.Output()
 	if err == nil {
 		lines := strings.Split(string(output), "\n")
@@ -2014,7 +2063,6 @@ func (a *App) GetDeviceInfo(deviceId string) (DeviceInfo, error) {
 			if line == "" {
 				continue
 			}
-			// Format: [prop.name]: [prop.value]
 			parts := strings.SplitN(line, "]: [", 2)
 			if len(parts) == 2 {
 				key := strings.TrimPrefix(parts[0], "[")
@@ -2042,40 +2090,27 @@ func (a *App) GetDeviceInfo(deviceId string) (DeviceInfo, error) {
 	}
 
 	// 2. Get resolution
-	cmd = exec.Command(a.adbPath, "-s", deviceId, "shell", "wm", "size")
-	out, err := cmd.Output()
-	if err == nil {
-		info.Resolution = strings.TrimSpace(strings.TrimPrefix(string(out), "Physical size: "))
-	}
+	info.Resolution = strings.TrimPrefix(runQuickCmd("wm", "size"), "Physical size: ")
 
 	// 3. Get density
-	cmd = exec.Command(a.adbPath, "-s", deviceId, "shell", "wm", "density")
-	out, err = cmd.Output()
-	if err == nil {
-		info.Density = strings.TrimSpace(strings.TrimPrefix(string(out), "Physical density: "))
-	}
+	info.Density = strings.TrimPrefix(runQuickCmd("wm", "density"), "Physical density: ")
 
 	// 4. Get CPU info (brief)
-	cmd = exec.Command(a.adbPath, "-s", deviceId, "shell", "cat /proc/cpuinfo | grep 'Hardware' | head -1")
-	out, err = cmd.Output()
-	if err == nil && len(out) > 0 {
-		info.CPU = strings.TrimSpace(strings.TrimPrefix(string(out), "Hardware\t: "))
+	cpu := runQuickCmd("cat /proc/cpuinfo | grep 'Hardware' | head -1")
+	if cpu != "" {
+		info.CPU = strings.TrimSpace(strings.TrimPrefix(cpu, "Hardware\t: "))
 	}
 	if info.CPU == "" {
-		// Try another way to get processor info
-		cmd = exec.Command(a.adbPath, "-s", deviceId, "shell", "cat /proc/cpuinfo | grep 'processor' | wc -l")
-		out, err = cmd.Output()
-		if err == nil {
-			cores := strings.TrimSpace(string(out))
+		cores := runQuickCmd("cat /proc/cpuinfo | grep 'processor' | wc -l")
+		if cores != "" {
 			info.CPU = fmt.Sprintf("%s Core(s)", cores)
 		}
 	}
 
 	// 5. Get Memory info
-	cmd = exec.Command(a.adbPath, "-s", deviceId, "shell", "cat /proc/meminfo | grep 'MemTotal'")
-	out, err = cmd.Output()
-	if err == nil {
-		info.Memory = strings.TrimSpace(strings.TrimPrefix(string(out), "MemTotal:"))
+	mem := runQuickCmd("cat /proc/meminfo | grep 'MemTotal'")
+	if mem != "" {
+		info.Memory = strings.TrimSpace(strings.TrimPrefix(mem, "MemTotal:"))
 	}
 
 	return info, nil
@@ -2211,10 +2246,17 @@ func (a *App) StopRecording(deviceId string) error {
 
 	if cmd, exists := a.scrcpyRecordCmd[deviceId]; exists && cmd.Process != nil {
 		// On Unix-like systems, send SIGINT for graceful shutdown (finalizes MP4/MKV)
+		var err error
 		if runtime.GOOS != "windows" {
-			return cmd.Process.Signal(os.Interrupt)
+			err = cmd.Process.Signal(os.Interrupt)
+		} else {
+			err = cmd.Process.Kill()
 		}
-		return cmd.Process.Kill()
+
+		if err != nil && (strings.Contains(err.Error(), "process already finished") || strings.Contains(err.Error(), "already finished")) {
+			return nil
+		}
+		return err
 	}
 	return nil
 }
@@ -2232,7 +2274,10 @@ func (a *App) ListCameras(deviceId string) ([]string, error) {
 	if deviceId == "" {
 		return nil, fmt.Errorf("no device specified")
 	}
-	cmd := a.newScrcpyCommand("-s", deviceId, "--list-cameras")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	cmd := a.newScrcpyCommandContext(ctx, "-s", deviceId, "--list-cameras")
 	output, err := cmd.CombinedOutput()
 	a.Log("ListCameras for %s: err=%v, output=%s", deviceId, err, string(output))
 
@@ -2252,7 +2297,10 @@ func (a *App) ListDisplays(deviceId string) ([]string, error) {
 	if deviceId == "" {
 		return nil, fmt.Errorf("no device specified")
 	}
-	cmd := a.newScrcpyCommand("-s", deviceId, "--list-displays")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	cmd := a.newScrcpyCommandContext(ctx, "-s", deviceId, "--list-displays")
 	output, err := cmd.CombinedOutput()
 	a.Log("ListDisplays for %s: err=%v, output=%s", deviceId, err, string(output))
 
@@ -2521,9 +2569,36 @@ func (a *App) StopScrcpy(deviceId string) error {
 
 	if cmd, exists := a.scrcpyCmds[deviceId]; exists && cmd.Process != nil {
 		// Mirroring windows can be killed immediately for better responsiveness
-		return cmd.Process.Kill()
+		err := cmd.Process.Kill()
+		if err != nil && (strings.Contains(err.Error(), "process already finished") || strings.Contains(err.Error(), "already finished")) {
+			// If it's already dead, treat as success
+			return nil
+		}
+		return err
 	}
 	return nil
+}
+
+// IsAppRunning checks if the given package is currently running on the device
+func (a *App) IsAppRunning(deviceId, packageName string) (bool, error) {
+	if deviceId == "" || packageName == "" {
+		return false, nil
+	}
+	// Try pidof first (fastest)
+	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "pidof", packageName)
+	out, _ := cmd.Output()
+	if len(strings.TrimSpace(string(out))) > 0 {
+		return true, nil
+	}
+
+	// Fallback to pgrep -f for more comprehensive check (handles modified process names)
+	cmd2 := exec.Command(a.adbPath, "-s", deviceId, "shell", "pgrep", "-f", packageName)
+	out2, _ := cmd2.Output()
+	if len(strings.TrimSpace(string(out2))) > 0 {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // StartLogcat starts the logcat stream for a device, optionally filtering by package name

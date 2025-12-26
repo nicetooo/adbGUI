@@ -49,6 +49,7 @@ import {
   StartLogcat,
   GetAppVersion,
   TogglePinDevice,
+  RestartAdbServer,
 } from "../wailsjs/go/main/App";
 // @ts-ignore
 import { main } from "../wailsjs/go/models";
@@ -101,6 +102,7 @@ function App() {
   const [logs, setLogs] = useState<string[]>([]);
   const [isLogging, setIsLogging] = useState(false);
   const [logFilter, setLogFilter] = useState("");
+  const [selectedLogcatPackage, setSelectedLogcatPackage] = useState<string>("");
   const [useRegex, setUseRegex] = useState(false);
   const [preFilter, setPreFilter] = useState("");
   const [preUseRegex, setPreUseRegex] = useState(false);
@@ -368,6 +370,23 @@ function App() {
     }
   };
 
+  const handleJumpToLogcat = async (pkg: string) => {
+    // 1. Set the dropdown package state first
+    setSelectedLogcatPackage(pkg);
+    // 2. Clear general text filter to avoid double filtering
+    setLogFilter(""); 
+    // 3. Switch tab
+    setSelectedKey("4");
+    
+    // 4. Restart logging for the specific package
+    if (isLogging) {
+      await toggleLogcat(""); 
+      setTimeout(() => toggleLogcat(pkg), 300);
+    } else {
+      setTimeout(() => toggleLogcat(pkg), 100);
+    }
+  };
+
   useEffect(() => {
     fetchDevices();
 
@@ -610,6 +629,8 @@ function App() {
             setSelectedDevice={setSelectedDevice}
             fetchDevices={fetchDevices}
             loading={loading}
+            setSelectedKey={setSelectedKey}
+            handleJumpToLogcat={handleJumpToLogcat}
           />
         );
       case "3":
@@ -631,6 +652,8 @@ function App() {
             fetchDevices={fetchDevices}
             isLogging={isLogging}
             toggleLogcat={toggleLogcat}
+            selectedPackage={selectedLogcatPackage}
+            setSelectedPackage={setSelectedLogcatPackage}
             logs={logs}
             setLogs={setLogs}
             logFilter={logFilter}

@@ -59,6 +59,8 @@ interface AppsViewProps {
   setSelectedDevice: (id: string) => void;
   fetchDevices: () => Promise<void>;
   loading: boolean;
+  setSelectedKey: (key: string) => void;
+  handleJumpToLogcat: (pkg: string) => void;
 }
 
 const AppsView: React.FC<AppsViewProps> = ({
@@ -67,6 +69,8 @@ const AppsView: React.FC<AppsViewProps> = ({
   setSelectedDevice,
   fetchDevices,
   loading,
+  setSelectedKey,
+  handleJumpToLogcat,
 }) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -344,13 +348,20 @@ const AppsView: React.FC<AppsViewProps> = ({
             <Tooltip title={t("apps.launch_app")}>
               <Button size="small" icon={<PlayCircleOutlined />} onClick={() => handleStartApp(record.name)} />
             </Tooltip>
+            <Tooltip title={t("menu.logcat")}>
+               <Button 
+                size="small" 
+                icon={<FileTextOutlined />} 
+                onClick={() => handleJumpToLogcat(record.name)} 
+              />
+            </Tooltip>
             <Tooltip title={t("apps.force_stop")}>
-              <Button size="small" icon={<StopOutlined />} onClick={() => handleForceStop(record.name)} />
+              <Button size="small" icon={<CloseCircleOutlined />} onClick={() => handleForceStop(record.name)} />
             </Tooltip>
             <Tooltip title={record.state === "enabled" ? t("apps.disable") : t("apps.enable")}>
               <Button 
                 size="small" 
-                icon={record.state === "enabled" ? <CloseCircleOutlined /> : <CheckCircleOutlined />} 
+                icon={record.state === "enabled" ? <StopOutlined /> : <CheckCircleOutlined />} 
                 onClick={() => handleToggleState(record.name, record.state)} 
               />
             </Tooltip>

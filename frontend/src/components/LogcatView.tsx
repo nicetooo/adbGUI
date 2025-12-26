@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useMemo } from "react";
-import { Button, Input, Select, Space, Checkbox, message, Modal } from "antd";
+import { Button, Input, Select, Space, Checkbox, message, Modal, Tooltip, Tag } from "antd";
 import { useTranslation } from "react-i18next";
 import {
   PauseOutlined,
@@ -8,13 +8,14 @@ import {
   DownOutlined,
   InfoCircleOutlined,
   DeleteOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import DeviceSelector from "./DeviceSelector";
 // @ts-ignore
 import { main } from "../../wailsjs/go/models";
 // @ts-ignore
-import { ListPackages } from "../../wailsjs/go/main/App";
+import { ListPackages, StartApp, ForceStopApp, IsAppRunning } from "../../wailsjs/go/main/App";
 
 const { Option } = Select;
 
@@ -42,6 +43,8 @@ interface LogcatViewProps {
   setPreFilter?: (filter: string) => void;
   preUseRegex?: boolean;
   setPreUseRegex?: (use: boolean) => void;
+  selectedPackage?: string;
+  setSelectedPackage?: (pkg: string) => void;
 }
 
 export default function LogcatView({
@@ -61,6 +64,8 @@ export default function LogcatView({
   setPreFilter,
   preUseRegex,
   setPreUseRegex,
+  selectedPackage: propSelectedPackage,
+  setSelectedPackage: propSetSelectedPackage,
 }: LogcatViewProps) {
   const { t } = useTranslation();
   const parentRef = useRef<HTMLDivElement>(null);
@@ -68,16 +73,18 @@ export default function LogcatView({
 
   // Logcat local state
   const [packages, setPackages] = useState<main.AppPackage[]>([]);
-  const [selectedPackage, setSelectedPackage] = useState<string>("");
-  
+  const [appRunningStatus, setAppRunningStatus] = useState<boolean>(false);
   // Use props if available, otherwise local state
   const [localLogFilter, setLocalLogFilter] = useState("");
   const [localUseRegex, setLocalUseRegex] = useState(false);
+  const [localSelectedPackage, setLocalSelectedPackage] = useState<string>("");
   
   const logFilter = propLogFilter !== undefined ? propLogFilter : localLogFilter;
   const setLogFilter = propSetLogFilter || setLocalLogFilter;
   const useRegex = propUseRegex !== undefined ? propUseRegex : localUseRegex;
   const setUseRegex = propSetUseRegex || setLocalUseRegex;
+  const selectedPackage = propSelectedPackage !== undefined ? propSelectedPackage : localSelectedPackage;
+  const setSelectedPackage = propSetSelectedPackage || setLocalSelectedPackage;
 
   const [autoScroll, setAutoScroll] = useState(true);
   const [levelFilter, setLevelFilter] = useState<string[]>([]);
@@ -96,6 +103,39 @@ export default function LogcatView({
     };
     fetchPackageList();
   }, [selectedDevice]);
+
+  useEffect(() => {
+    let timer: number;
+    const checkRunning = async () => {
+      if (selectedDevice && selectedPackage) {
+        try {
+          const running = await IsAppRunning(selectedDevice, selectedPackage);
+          setAppRunningStatus(running);
+        } catch {}
+      } else {
+        setAppRunningStatus(false);
+      }
+    };
+
+    checkRunning();
+    // Poll every 5 seconds for status updates
+    timer = window.setInterval(checkRunning, 5000);
+    return () => clearInterval(timer);
+  }, [selectedDevice, selectedPackage]);
+
+  const handleStartApp = async () => {
+    if (!selectedPackage || !selectedDevice) return;
+    const hide = message.loading(t("app.launching", { name: selectedPackage }), 0);
+    try {
+      await ForceStopApp(selectedDevice, selectedPackage);
+      await StartApp(selectedDevice, selectedPackage);
+      message.success(t("app.start_app_success", { name: selectedPackage }));
+    } catch (err) {
+      message.error(t("app.start_app_failed") + ": " + String(err));
+    } finally {
+      hide();
+    }
+  };
 
   const getLogLevel = (text: string) => {
     if (text.includes(" E/") || text.includes(" F/") || text.startsWith("E/"))
@@ -425,10 +465,28 @@ export default function LogcatView({
           >
             {packages.map((p) => (
               <Option key={p.name} value={p.name}>
-                {p.name}
+                <Space>
+                  {p.name}
+                  {p.name === selectedPackage && appRunningStatus && (
+                    <Tag color="success" style={{ fontSize: '10px', height: '16px', lineHeight: '14px', margin: 0, padding: '0 4px' }}>
+                      RUNNING
+                    </Tag>
+                  )}
+                </Space>
               </Option>
             ))}
           </Select>
+          {selectedPackage && (
+            <Tooltip title={appRunningStatus ? t("apps.force_stop") : t("apps.launch_app")}>
+              <Button 
+                icon={appRunningStatus ? <StopOutlined /> : <PlayCircleOutlined />} 
+                onClick={appRunningStatus ? () => {
+                  ForceStopApp(selectedDevice, selectedPackage).then(() => setAppRunningStatus(false));
+                } : handleStartApp}
+                style={{ color: appRunningStatus ? "#ff4d4f" : "#52c41a" }}
+              />
+            </Tooltip>
+          )}
           <Button
             type={isLogging ? "primary" : "default"}
             danger={isLogging}

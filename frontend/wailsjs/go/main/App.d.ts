@@ -49,6 +49,8 @@ export function Greet(arg1:string):Promise<string>;
 
 export function InstallAPK(arg1:string,arg2:string):Promise<string>;
 
+export function IsAppRunning(arg1:string,arg2:string):Promise<boolean>;
+
 export function IsRecording(arg1:string):Promise<boolean>;
 
 export function ListCameras(arg1:string):Promise<Array<string>>;
@@ -72,6 +74,8 @@ export function OpenPath(arg1:string):Promise<void>;
 export function OpenSettings(arg1:string,arg2:string,arg3:string):Promise<string>;
 
 export function RemoveHistoryDevice(arg1:string):Promise<void>;
+
+export function RestartAdbServer():Promise<string>;
 
 export function RunAdbCommand(arg1:Array<string>):Promise<string>;
 

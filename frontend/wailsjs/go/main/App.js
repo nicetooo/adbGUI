@@ -94,6 +94,10 @@ export function InstallAPK(arg1, arg2) {
   return window['go']['main']['App']['InstallAPK'](arg1, arg2);
 }
 
+export function IsAppRunning(arg1, arg2) {
+  return window['go']['main']['App']['IsAppRunning'](arg1, arg2);
+}
+
 export function IsRecording(arg1) {
   return window['go']['main']['App']['IsRecording'](arg1);
 }
@@ -140,6 +144,10 @@ export function OpenSettings(arg1, arg2, arg3) {
 
 export function RemoveHistoryDevice(arg1) {
   return window['go']['main']['App']['RemoveHistoryDevice'](arg1);
+}
+
+export function RestartAdbServer() {
+  return window['go']['main']['App']['RestartAdbServer']();
 }
 
 export function RunAdbCommand(arg1) {

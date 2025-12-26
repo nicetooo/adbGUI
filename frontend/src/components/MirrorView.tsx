@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button, Space, Tag, Card, Switch, Tooltip, Slider, Select, message } from "antd";
 import { useTranslation } from "react-i18next";
 import {
@@ -111,6 +111,8 @@ const MirrorView: React.FC<MirrorViewProps> = ({
   const [availableCameras, setAvailableCameras] = useState<string[]>([]);
   const [availableDisplays, setAvailableDisplays] = useState<string[]>([]);
   const [deviceAndroidVer, setDeviceAndroidVer] = useState<number>(0);
+  const fetchingRef = useRef<string | null>(null);
+  const lastFetchedDeviceRef = useRef<string>("");
 
   // Helper to get current device's config
   const currentConfig = deviceConfigs[selectedDevice] || defaultConfig;
@@ -143,7 +145,14 @@ const MirrorView: React.FC<MirrorViewProps> = ({
 
   const fetchDeviceCapabilities = async () => {
     if (!selectedDevice) return;
+    // Prevent redundant fetches for the same device during this component lifecycle
+    // This also handles React Strict Mode double-invocations in development
+    if (fetchingRef.current === selectedDevice || lastFetchedDeviceRef.current === selectedDevice) {
+      return;
+    }
+
     try {
+      fetchingRef.current = selectedDevice;
       // Fetch in parallel for better performance and isolation
       const [info, cameras, displays] = await Promise.all([
         GetDeviceInfo(selectedDevice).catch(err => {
@@ -160,13 +169,33 @@ const MirrorView: React.FC<MirrorViewProps> = ({
         })
       ]);
 
-      if (info && info.androidVer) {
-        setDeviceAndroidVer(parseInt(info.androidVer));
+      if (info) {
+        if (info.androidVer) {
+          const ver = parseInt(info.androidVer);
+          if (!isNaN(ver) && ver > 0) {
+            setDeviceAndroidVer(ver);
+          } else if (info.sdk) {
+            // Fallback to SDK version if release version is non-numeric (e.g. preview)
+            const sdk = parseInt(info.sdk);
+            if (!isNaN(sdk)) {
+              // Android 12 is SDK 31
+              setDeviceAndroidVer(sdk >= 31 ? 12 : 11);
+            }
+          }
+        } else if (info.sdk) {
+          const sdk = parseInt(info.sdk);
+          if (!isNaN(sdk)) {
+            setDeviceAndroidVer(sdk >= 31 ? 12 : 11);
+          }
+        }
       }
       setAvailableCameras(cameras || []);
       setAvailableDisplays(displays || []);
+      lastFetchedDeviceRef.current = selectedDevice;
     } catch (err) {
       console.error("Failed to fetch device capabilities:", err);
+    } finally {
+      fetchingRef.current = null;
     }
   };
 
@@ -870,7 +899,7 @@ const MirrorView: React.FC<MirrorViewProps> = ({
 
                 {currentConfig.videoSource === "camera" && (
                    <>
-                    {deviceAndroidVer < 12 && (
+                    {deviceAndroidVer > 0 && deviceAndroidVer < 12 && (
                        <div style={{ color: "#ff4d4f", fontSize: "11px", marginBottom: 8 }}>
                          ⚠️ {t("mirror.camera_version_warning")}
                        </div>

@@ -44,6 +44,7 @@ interface HistoryDevice {
   type: string;
   wifiAddr: string;
   lastSeen: string;
+  isPinned?: boolean;
 }
 
 interface DevicesViewProps {
@@ -126,7 +127,8 @@ const DevicesView: React.FC<DevicesViewProps> = ({
         brand: hd.brand,
         type: hd.type,
         ids: [hd.id],
-        wifiAddr: hd.wifiAddr || (hd.type === "wireless" ? hd.id : "")
+        wifiAddr: hd.wifiAddr || (hd.type === "wireless" ? hd.id : ""),
+        isPinned: hd.isPinned,
       });
     }
   });
@@ -184,12 +186,20 @@ const DevicesView: React.FC<DevicesViewProps> = ({
         <Space>
           {(type === "wired" || type === "both") && (
             <Tooltip title={t("devices.wired")}>
-              <Tag icon={<UsbOutlined />} color="orange" style={{ marginRight: 0, paddingInline: 8 }} />
+              <Tag 
+                icon={<UsbOutlined />} 
+                color={record.state === 'device' ? "orange" : "default"} 
+                style={{ marginRight: 0, paddingInline: 8, opacity: record.state === 'device' ? 1 : 0.6 }} 
+              />
             </Tooltip>
           )}
           {(type === "wireless" || type === "both") && (
             <Tooltip title={t("devices.wireless")}>
-              <Tag icon={<WifiOutlined />} color="blue" style={{ marginRight: 0, paddingInline: 8 }} />
+              <Tag 
+                icon={<WifiOutlined />} 
+                color={record.state === 'device' ? "blue" : "default"} 
+                style={{ marginRight: 0, paddingInline: 8, opacity: record.state === 'device' ? 1 : 0.6 }} 
+              />
             </Tooltip>
           )}
         </Space>
