@@ -89,7 +89,7 @@ export function StartActivity(arg1:string,arg2:string):Promise<string>;
 
 export function StartApp(arg1:string,arg2:string):Promise<string>;
 
-export function StartLogcat(arg1:string,arg2:string,arg3:string,arg4:boolean):Promise<void>;
+export function StartLogcat(arg1:string,arg2:string,arg3:string,arg4:boolean,arg5:string,arg6:boolean):Promise<void>;
 
 export function StartRecording(arg1:string,arg2:main.ScrcpyConfig):Promise<void>;
 

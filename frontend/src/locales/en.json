@@ -269,6 +269,9 @@
     "filter_saved": "Filter rule saved successfully",
     "package": "Package",
     "pre_filter_info": "Only matching logs are buffered",
+    "exclude_filter": "Exclude Filter",
+    "select_exclude_filters": "Select filters to exclude matching logs",
+    "exclude_filter_info": "Matching logs will be dropped",
     "filter_pattern": "Pattern",
     "filter_name_placeholder": "Filter Name",
     "filter_removed": "Filter rule removed"

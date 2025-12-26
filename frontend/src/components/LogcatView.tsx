@@ -43,6 +43,10 @@ interface LogcatViewProps {
   setPreFilter?: (filter: string) => void;
   preUseRegex?: boolean;
   setPreUseRegex?: (use: boolean) => void;
+  excludeFilter?: string;
+  setExcludeFilter?: (filter: string) => void;
+  excludeUseRegex?: boolean;
+  setExcludeUseRegex?: (use: boolean) => void;
   selectedPackage?: string;
   setSelectedPackage?: (pkg: string) => void;
 }
@@ -64,6 +68,10 @@ export default function LogcatView({
   setPreFilter,
   preUseRegex,
   setPreUseRegex,
+  excludeFilter,
+  setExcludeFilter,
+  excludeUseRegex,
+  setExcludeUseRegex,
   selectedPackage: propSelectedPackage,
   setSelectedPackage: propSetSelectedPackage,
 }: LogcatViewProps) {
@@ -203,6 +211,8 @@ export default function LogcatView({
 
   // Selected presets for Pre-Filter
   const [selectedPresetIds, setSelectedPresetIds] = useState<string[]>([]);
+  // Selected presets for Exclude Filter
+  const [selectedExcludePresetIds, setSelectedExcludePresetIds] = useState<string[]>([]);
 
   // Update pre-filter when presets selection changes
   useEffect(() => {
@@ -214,22 +224,35 @@ export default function LogcatView({
     const selected = savedFilters.filter(f => selectedPresetIds.includes(f.id));
     if (selected.length === 0) return;
 
-    // Combine filters. If multiple, we must use Regex OR.
-    // Even if one, if it is regex, we use regex.
-    // If we mix text and regex, we treat text as regex (escaped).
-    
     const parts = selected.map(f => {
        if (f.isRegex) return `(${f.pattern})`;
-       // Escape special regex chars for plain text to treat it as literal in a regex
        return `(${f.pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`;
     });
     
     const combinedPattern = parts.join("|");
-    
     if (setPreFilter) setPreFilter(combinedPattern);
-    if (setPreUseRegex) setPreUseRegex(true); // Always regex for combined
-
+    if (setPreUseRegex) setPreUseRegex(true);
   }, [selectedPresetIds, savedFilters, setPreFilter, setPreUseRegex]);
+
+  // Update exclude-filter when presets selection changes
+  useEffect(() => {
+    if (selectedExcludePresetIds.length === 0) {
+      if (setExcludeFilter) setExcludeFilter("");
+      return;
+    }
+
+    const selected = savedFilters.filter(f => selectedExcludePresetIds.includes(f.id));
+    if (selected.length === 0) return;
+
+    const parts = selected.map(f => {
+       if (f.isRegex) return `(${f.pattern})`;
+       return `(${f.pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`;
+    });
+    
+    const combinedPattern = parts.join("|");
+    if (setExcludeFilter) setExcludeFilter(combinedPattern);
+    if (setExcludeUseRegex) setExcludeUseRegex(true);
+  }, [selectedExcludePresetIds, savedFilters, setExcludeFilter, setExcludeUseRegex]);
 
   // Save Filter Modal state
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
@@ -416,6 +439,7 @@ export default function LogcatView({
   const handleRemovePreset = (id: string) => {
     setSavedFilters(prev => prev.filter(p => p.id !== id));
     setSelectedPresetIds(prev => prev.filter(pid => pid !== id));
+    setSelectedExcludePresetIds(prev => prev.filter(pid => pid !== id));
     message.success(t("logcat.filter_removed") || "Filter rule removed");
   };
 
@@ -511,8 +535,8 @@ export default function LogcatView({
         }}
       >
         {/* Row 1: Fixed Pre-Filter (Advanced) - Moved up */}
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <span style={{ color: "#ccc", fontSize: "12px", fontWeight: "bold", width: 80, textAlign: "right" }}>{t("logcat.pre_filter") || "Pre-Filter"}:</span>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", whiteSpace: "nowrap" }}>
+          <span style={{ color: "#ccc", fontSize: "12px", fontWeight: "bold", width: 80, minWidth: 80, textAlign: "right" }}>{t("logcat.pre_filter") || "Pre-Filter"}:</span>
           <div style={{ flex: 1 }}>
             <Select
               mode="multiple"
@@ -545,14 +569,54 @@ export default function LogcatView({
               allowClear
             />
           </div>
-          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, fontSize: "11px", color: "#666" }}>
+          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, fontSize: "11px", color: "#666", minWidth: 150 }}>
              <InfoCircleOutlined /> <span>{t("logcat.pre_filter_info") || "Only matching logs are buffered"}</span>
           </div>
         </div>
 
+        {/* Row 1.5: Exclude Filter (New) */}
+        <div style={{ display: "flex", gap: 12, alignItems: "center", whiteSpace: "nowrap" }}>
+          <span style={{ color: "#ff4d4f", fontSize: "12px", fontWeight: "bold", width: 80, minWidth: 80, textAlign: "right" }}>{t("logcat.exclude_filter") || "Exclude"}:</span>
+          <div style={{ flex: 1 }}>
+            <Select
+              mode="multiple"
+              style={{ width: "100%" }}
+              placeholder={t("logcat.select_exclude_filters") || "Select filters to exclude matching logs"}
+              value={selectedExcludePresetIds}
+              onChange={setSelectedExcludePresetIds}
+              optionLabelProp="filterName"
+              options={savedFilters.map(f => ({ 
+                label: (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>{f.name}</span>
+                    <DeleteOutlined 
+                      className="delete-preset-icon"
+                      style={{ color: "#999", fontSize: '12px' }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = "#ff4d4f"}
+                      onMouseLeave={(e) => e.currentTarget.style.color = "#999"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        handleRemovePreset(f.id);
+                      }}
+                    />
+                  </div>
+                ), 
+                value: f.id,
+                filterName: f.name
+              }))}
+              maxTagCount="responsive"
+              allowClear
+            />
+          </div>
+          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, fontSize: "11px", color: "#ff7875", minWidth: 150 }}>
+             <StopOutlined /> <span>{t("logcat.exclude_filter_info") || "Matching logs will be dropped"}</span>
+          </div>
+        </div>
+
         {/* Row 2: Real-time View Filter (Most used) - Moved down */}
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-          <span style={{ color: "#ccc", fontSize: "12px", fontWeight: "bold", width: 80, textAlign: "right" }}>{t("logcat.view_filter")}:</span>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", whiteSpace: "nowrap" }}>
+          <span style={{ color: "#ccc", fontSize: "12px", fontWeight: "bold", width: 80, minWidth: 80, textAlign: "right" }}>{t("logcat.view_filter")}:</span>
           <div style={{ flex: 1, position: "relative" }}>
             <Input
               id="logcat-filter-input"
@@ -564,15 +628,15 @@ export default function LogcatView({
               status={filterInfo.invalid ? "error" : ""}
               suffix={
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  {logFilter && !filterInfo.invalid && (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        marginRight: 4,
-                      }}
-                    >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      marginRight: 4,
+                    }}
+                  >
+                    {logFilter && !filterInfo.invalid && (
                       <span
                         style={{
                           fontSize: "9px",
@@ -586,11 +650,11 @@ export default function LogcatView({
                       >
                         {useRegex ? "REG" : "TXT"}
                       </span>
-                      <span style={{ fontSize: "11px", color: "#888" }}>
-                        {filteredLogs.length} / {logs.length}
-                      </span>
-                    </div>
-                  )}
+                    )}
+                    <span style={{ fontSize: "11px", color: "#888" }}>
+                      {logFilter ? `${filteredLogs.length} / ${logs.length}` : logs.length}
+                    </span>
+                  </div>
                   <Space size={2} style={{ marginRight: -7 }}>
                     <Button
                       size="small"

@@ -2601,8 +2601,8 @@ func (a *App) IsAppRunning(deviceId, packageName string) (bool, error) {
 	return false, nil
 }
 
-// StartLogcat starts the logcat stream for a device, optionally filtering by package name and pre-filter
-func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex bool) error {
+// StartLogcat starts the logcat stream for a device, optionally filtering by package name, pre-filter and exclude-filter
+func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex bool, excludeFilter string, excludeUseRegex bool) error {
 	a.updateLastActive(deviceId)
 	// If logcat is already running, stop it first to ensure a clean state
 	if a.logcatCmd != nil {
@@ -2612,8 +2612,10 @@ func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex b
 	ctx, cancel := context.WithCancel(context.Background())
 	a.logcatCancel = cancel
 
-	// Use grep on device for better performance if preFilter is provided
+	// Use grep on device for better performance
 	var cmd *exec.Cmd
+	shellCmd := "logcat -v time"
+
 	if preFilter != "" {
 		grepCmd := "grep -i"
 		if preUseRegex {
@@ -2621,7 +2623,20 @@ func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex b
 		}
 		// Escape single quotes for shell
 		safeFilter := strings.ReplaceAll(preFilter, "'", "'\\''")
-		shellCmd := fmt.Sprintf("logcat -v time | %s '%s'", grepCmd, safeFilter)
+		shellCmd += fmt.Sprintf(" | %s '%s'", grepCmd, safeFilter)
+	}
+
+	if excludeFilter != "" {
+		grepCmd := "grep -iv" // -v for invert match
+		if excludeUseRegex {
+			grepCmd += "E"
+		}
+		// Escape single quotes for shell
+		safeExclude := strings.ReplaceAll(excludeFilter, "'", "'\\''")
+		shellCmd += fmt.Sprintf(" | %s '%s'", grepCmd, safeExclude)
+	}
+
+	if preFilter != "" || excludeFilter != "" {
 		cmd = exec.CommandContext(ctx, a.adbPath, "-s", deviceId, "shell", shellCmd)
 	} else {
 		cmd = exec.CommandContext(ctx, a.adbPath, "-s", deviceId, "logcat", "-v", "time")

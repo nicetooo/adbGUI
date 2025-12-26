@@ -106,6 +106,8 @@ function App() {
   const [useRegex, setUseRegex] = useState(false);
   const [preFilter, setPreFilter] = useState("");
   const [preUseRegex, setPreUseRegex] = useState(false);
+  const [excludeFilter, setExcludeFilter] = useState("");
+  const [excludeUseRegex, setExcludeUseRegex] = useState(false);
   
   // Multi-device mirror status
   const [mirrorStatuses, setMirrorStatuses] = useState<Record<string, {
@@ -142,6 +144,8 @@ function App() {
 
   const preFilterRef = useRef("");
   const preUseRegexRef = useRef(false);
+  const excludeFilterRef = useRef("");
+  const excludeUseRegexRef = useRef(false);
 
   useEffect(() => {
     preFilterRef.current = preFilter;
@@ -150,6 +154,14 @@ function App() {
   useEffect(() => {
     preUseRegexRef.current = preUseRegex;
   }, [preUseRegex]);
+
+  useEffect(() => {
+    excludeFilterRef.current = excludeFilter;
+  }, [excludeFilter]);
+
+  useEffect(() => {
+    excludeUseRegexRef.current = excludeUseRegex;
+  }, [excludeUseRegex]);
 
   const fetchDevices = async (silent: boolean = false) => {
     if (isFetchingRef.current) return;
@@ -322,7 +334,7 @@ function App() {
           
           setLogs((prev) => {
             const next = [...prev, ...chunk];
-            return next.length > 50000 ? next.slice(-50000) : next;
+            return next.length > 200000 ? next.slice(-200000) : next;
           });
         }
       }, 100);
@@ -333,9 +345,13 @@ function App() {
         // Check filtering conditions using Refs to access latest state
         const currentFilter = preFilterRef.current; // Use Pre-Filter for buffering
         const isRegex = preUseRegexRef.current;
+        const currentExclude = excludeFilterRef.current;
+        const isExcludeRegex = excludeUseRegexRef.current;
 
         for (const line of lines) {
           let shouldKeep = true;
+          
+          // 1. Pre-filter (Include)
           if (currentFilter.trim()) {
             try {
               if (isRegex) {
@@ -349,6 +365,20 @@ function App() {
             }
           }
 
+          // 2. Exclude filter (Negative)
+          if (shouldKeep && currentExclude.trim()) {
+            try {
+              if (isExcludeRegex) {
+                const regex = new RegExp(currentExclude, "i");
+                if (regex.test(line)) shouldKeep = false;
+              } else {
+                if (line.toLowerCase().includes(currentExclude.toLowerCase())) shouldKeep = false;
+              }
+            } catch (e) {
+              if (line.toLowerCase().includes(currentExclude.toLowerCase())) shouldKeep = false;
+            }
+          }
+
           if (shouldKeep) {
             logBufferRef.current.push(line);
           }
@@ -356,7 +386,7 @@ function App() {
       });
 
       try {
-        await StartLogcat(selectedDevice, pkg, preFilter, preUseRegex);
+        await StartLogcat(selectedDevice, pkg, preFilter, preUseRegex, excludeFilter, excludeUseRegex);
       } catch (err) {
         message.error(t("app.logcat_failed") + ": " + String(err));
         setIsLogging(false);
@@ -663,6 +693,10 @@ function App() {
             setPreFilter={setPreFilter}
             preUseRegex={preUseRegex}
             setPreUseRegex={setPreUseRegex}
+            excludeFilter={excludeFilter}
+            setExcludeFilter={setExcludeFilter}
+            excludeUseRegex={excludeUseRegex}
+            setExcludeUseRegex={setExcludeUseRegex}
           />
         );
       case "5":

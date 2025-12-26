@@ -269,6 +269,9 @@
     "filter_saved": "過濾規則已保存",
     "package": "應用",
     "pre_filter_info": "僅快取匹配日誌",
+    "exclude_filter": "反選排除",
+    "select_exclude_filters": "選擇要從日誌流中排除的規則",
+    "exclude_filter_info": "匹配的日誌將被直接丟棄",
     "filter_pattern": "模式",
     "filter_name_placeholder": "規則名稱",
     "filter_removed": "過濾規則已移除"

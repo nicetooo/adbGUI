@@ -269,6 +269,9 @@
     "filter_saved": "フィルタルールが正常に保存されました",
     "package": "パッケージ",
     "pre_filter_info": "一致するログのみがキャッシュされます",
+    "exclude_filter": "除外フィルター",
+    "select_exclude_filters": "ログから除外するルールを選択",
+    "exclude_filter_info": "一致するログは破棄されます",
     "filter_pattern": "パターン",
     "filter_name_placeholder": "フィルタ名",
     "filter_removed": "フィルタルールが削除されました"

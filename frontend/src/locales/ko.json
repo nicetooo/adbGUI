@@ -269,6 +269,9 @@
     "filter_saved": "필터 규칙이 성공적으로 저장되었습니다",
     "package": "패키지",
     "pre_filter_info": "일치하는 로그만 캐싱됩니다",
+    "exclude_filter": "제외 필터",
+    "select_exclude_filters": "로그에서 제외할 규칙 선택",
+    "exclude_filter_info": "일치하는 로그는 삭제됩니다",
     "filter_pattern": "패턴",
     "filter_name_placeholder": "필터 이름",
     "filter_removed": "필터 규칙이 제거되었습니다"
