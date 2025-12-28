@@ -1,4 +1,4 @@
-# ADB GUI 🚀
+# Gaze 🚀
 
 Uma ferramenta de gerenciamento Android poderosa, moderna e independente, construída com **Wails**, **React** e **Ant Design**.
 
@@ -107,13 +107,13 @@ A GitHub Action irá buildar automaticamente para macOS, Windows e Linux, e far�
 ## 🔧 Solução de Problemas
 
 ### macOS: "A aplicação está danificada e não pode ser aberta"
-Se você baixar o aplicativo do GitHub e vir o erro *"adbGUI.app está danificado e não pode ser aberto"*, isso se deve à quarentena do macOS Gatekeeper.
+Se você baixar o aplicativo do GitHub e vir o erro *"Gaze.app está danificado e não pode ser aberto"*, isso se deve à quarentena do macOS Gatekeeper.
 
 Para corrigir isso, execute o seguinte comando no seu terminal:
 ```bash
-sudo xattr -cr /path/to/adbGUI.app
+sudo xattr -cr /path/to/Gaze.app
 ```
-*(Substitua `/path/to/adbGUI.app` pelo caminho real da aplicação baixada)*
+*(Substitua `/path/to/Gaze.app` pelo caminho real da aplicação baixada)*
 
 > **Ou compile você mesmo:** Se preferir não contornar o Gatekeeper, você pode facilmente [compilar o aplicativo a partir do código-fonte](#-começando) localmente. Leva apenas alguns minutos!
 

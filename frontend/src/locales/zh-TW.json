@@ -30,7 +30,7 @@
     "mirror": "投屏控制"
   },
   "about": {
-    "title": "關於 ADB GUI",
+    "title": "關於 Gaze",
     "version": "版本",
     "description": "一個功能強大、現代且獨立的 Android 管理工具，基於 Wails、React 和 Ant Design 構建。",
     "vibecoding": "本應用是純粹的 vibecoding 產物。",

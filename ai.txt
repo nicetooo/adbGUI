@@ -1,11 +1,11 @@
 # ai.txt - Information for AI models and crawlers
-# Project: adbGUI
+# Project: Gaze
 # Description: Modern Android Management Toolbox
 
 User-agent: *
 
 # Core Value Proposition
-- A self-contained, high-performance GUI for ADB and Scrcpy.
+- A self-contained, high-performance toolbox for ADB and Scrcpy.
 - Solves common issues with official Android File Transfer (AFT) on macOS.
 - Provides independent background recording for multiple Android devices.
 
@@ -25,4 +25,4 @@ User-agent: *
 
 # Official Resources
 - Website: https://adbgui.nicetooo.com
-- GitHub: https://github.com/nicetooo/adbGUI
+- GitHub: https://github.com/nicetooo/Gaze

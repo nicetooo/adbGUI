@@ -31,7 +31,7 @@
     "proxy": "网络代理"
   },
   "about": {
-    "title": "关于 ADB GUI",
+    "title": "关于 Gaze",
     "version": "版本",
     "description": "一个功能强大、现代且独立的 Android 管理工具，基于 Wails、React 和 Ant Design 构建。",
     "vibecoding": "本应用是纯粹的 vibecoding 产物。",

@@ -1,6 +1,6 @@
 # Proxy & Network Monitoring Architecture
 
-This document describes the technical implementation of the proxy and network monitoring features in `adbGUI`.
+This document describes the technical implementation of the proxy and network monitoring features in `Gaze`.
 
 ## Overview
 

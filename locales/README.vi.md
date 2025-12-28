@@ -1,4 +1,4 @@
-# ADB GUI 🚀
+# Gaze 🚀
 
 Một công cụ quản lý Android mạnh mẽ, hiện đại và độc lập được xây dựng bằng **Wails**, **React** và **Ant Design**.
 
@@ -107,13 +107,13 @@ GitHub Action sẽ tự động biên dịch cho macOS, Windows và Linux, và t
 ## 🔧 Khắc phục sự cố
 
 ### macOS: "Ứng dụng bị hỏng và không thể mở được"
-Nếu bạn tải xuống ứng dụng từ GitHub và gặp lỗi *"adbGUI.app bị hỏng và không thể mở được"*, điều này là do tính năng cách ly Gatekeeper của macOS.
+Nếu bạn tải xuống ứng dụng từ GitHub và gặp lỗi *"Gaze.app bị hỏng và không thể mở được"*, điều này là do tính năng cách ly Gatekeeper của macOS.
 
 Để khắc phục điều này, hãy chạy lệnh sau trong terminal của bạn:
 ```bash
-sudo xattr -cr /path/to/adbGUI.app
+sudo xattr -cr /path/to/Gaze.app
 ```
-*(Thay thế `/path/to/adbGUI.app` bằng đường dẫn thực tế đến ứng dụng đã tải xuống của bạn)*
+*(Thay thế `/path/to/Gaze.app` bằng đường dẫn thực tế đến ứng dụng đã tải xuống của bạn)*
 
 > **Hoặc tự build:** Nếu bạn không muốn bỏ qua Gatekeeper, bạn có thể dễ dàng [build ứng dụng từ mã nguồn](#-bắt-đầu) ngay trên máy của mình. Chỉ mất vài phút thôi!
 

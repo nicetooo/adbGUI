@@ -1,4 +1,4 @@
-# ADB GUI 🚀
+# Gaze 🚀
 
 **Wails**、**React**、**Ant Design** で構築された、強力でモダンな自己完結型の Android 管理ツールです。
 
@@ -116,13 +116,13 @@ GitHub Action は macOS、Windows、Linux 用に自動的にビルドし、ア�
 ## 🔧 トラブルシューティング
 
 ### macOS: "Appが壊れているため開けません"
-GitHubからダウンロードした際に *"adbGUI.app は壊れているため開けません"* というエラーが表示される場合、これは macOS Gatekeeper の隔離機能によるものです。
+GitHubからダウンロードした際に *"Gaze.app は壊れているため開けません"* というエラーが表示される場合、これは macOS Gatekeeper の隔離機能によるものです。
 
 これを解決するには、ターミナルで以下のコマンドを実行してください：
 ```bash
-sudo xattr -cr /path/to/adbGUI.app
+sudo xattr -cr /path/to/Gaze.app
 ```
-*(`/path/to/adbGUI.app` はダウンロードしたアプリケーションの実際のパスに置き換えてください)*
+*(`/path/to/Gaze.app` はダウンロードしたアプリケーションの実際のパスに置き換えてください)*
 
 > **または自分でビルドする：** Gatekeeperを回避したくない場合は、ローカルで[ソースからアプリをビルド](#-はじめる)することができます。数分で終わります！
 

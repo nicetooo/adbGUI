@@ -1,4 +1,4 @@
-# ADB GUI 🚀
+# Gaze 🚀
 
 一个强大、现代且自包含的 Android 管理工具，基于 **Wails**、**React** 和 **Ant Design** 构建。
 
@@ -114,13 +114,13 @@ GitHub Action 将自动为 macOS、Windows 和 Linux 构建，并将产物上传
 ## 🔧 故障排除
 
 ### macOS: "应用已损坏，无法打开"
-如果您从 GitHub 下载应用并看到 *"adbGUI.app 已损坏，无法打开"* 的错误提示，这是由于 macOS Gatekeeper 的隔离机制导致的。
+如果您从 GitHub 下载应用并看到 *"Gaze.app 已损坏，无法打开"* 的错误提示，这是由于 macOS Gatekeeper 的隔离机制导致的。
 
 要解决此问题，请在终端中运行以下命令：
 ```bash
-sudo xattr -cr /path/to/adbGUI.app
+sudo xattr -cr /path/to/Gaze.app
 ```
-*(请将 `/path/to/adbGUI.app` 替换为您下载应用的实际路径)*
+*(请将 `/path/to/Gaze.app` 替换为您下载应用的实际路径)*
 
 > **或者选择自己构建：** 如果您不想绕过 Gatekeeper，您可以轻松地[从源码构建应用](#-开始使用)。只需几分钟即可完成！
 

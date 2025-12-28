@@ -31,7 +31,7 @@
     "proxy": "Proxy"
   },
   "about": {
-    "title": "About ADB GUI",
+    "title": "About Gaze",
     "version": "Version",
     "description": "A powerful, modern, and self-contained Android management tool built with Wails, React, and Ant Design.",
     "vibecoding": "This application is a product of pure vibecoding.",

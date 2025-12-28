@@ -1,4 +1,4 @@
-# ADB GUI 🚀
+# Gaze 🚀
 
 A powerful, modern, and self-contained Android management tool built with **Wails**, **React**, and **Ant Design**.
 
@@ -10,7 +10,7 @@ A powerful, modern, and self-contained Android management tool built with **Wail
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
 [![Website](https://img.shields.io/website?up_message=online&url=https%3A%2F%2Fadbgui.nicetooo.com)](https://adbgui.nicetooo.com)
 
-## 🌟 Why adbGUI?
+## 🌟 Why Gaze?
 
 - **Modern & Fast**: Built with Wails (Go + React), providing a native-like experience with minimal resource overhead.
 - **True Self-Contained**: No need to install `adb` or `scrcpy` on your system. Everything is bundled and ready to go.
@@ -144,13 +144,13 @@ The GitHub Action will automatically build for macOS, Windows, and Linux, and up
 ## 🔧 Troubleshooting
 
 ### macOS: "App is damaged and can't be opened"
-If you download the app from GitHub and see the error *"adbGUI.app is damaged and can't be opened"*, this is due to macOS Gatekeeper quarantine.
+If you download the app from GitHub and see the error *"Gaze.app is damaged and can't be opened"*, this is due to macOS Gatekeeper quarantine.
 
 To fix this, run the following command in your terminal:
 ```bash
-sudo xattr -cr /path/to/adbGUI.app
+sudo xattr -cr /path/to/Gaze.app
 ```
-*(Replace `/path/to/adbGUI.app` with the actual path to your downloaded application)*
+*(Replace `/path/to/Gaze.app` with the actual path to your downloaded application)*
 
 > **Or build it yourself:** If you prefer not to bypass Gatekeeper, you can easily [build the app from source](#-getting-started) locally. It only takes a few minutes!
 

@@ -1,4 +1,4 @@
-# ADB GUI 🚀
+# Gaze 🚀
 
 一個強大、現代且自包含的 Android 管理工具，基於 **Wails**、**React** 和 **Ant Design** 構建。
 
@@ -114,13 +114,13 @@ wails build
 ## 🔧 疑難排解
 
 ### macOS: "應用程式已損毀，無法打開"
-如果您從 GitHub 下載應用程式並看到 *"adbGUI.app 已損毀，無法打開"* 的錯誤提示，這是由於 macOS Gatekeeper 的隔離機制導致的。
+如果您從 GitHub 下載應用程式並看到 *"Gaze.app 已損毀，無法打開"* 的錯誤提示，這是由於 macOS Gatekeeper 的隔離機制導致的。
 
 要解決此問題，請在終端機中執行以下指令：
 ```bash
-sudo xattr -cr /path/to/adbGUI.app
+sudo xattr -cr /path/to/Gaze.app
 ```
-*(請將 `/path/to/adbGUI.app` 替換為您下載應用程式的實際路徑)*
+*(請將 `/path/to/Gaze.app` 替換為您下載應用程式的實際路徑)*
 
 > **或是選擇自己構建：** 如果您不想繞過 Gatekeeper，您可以輕鬆地[從源碼構建應用](#-開始使用)。只需幾分鐘即可完成！
 

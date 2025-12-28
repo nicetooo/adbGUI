@@ -30,7 +30,7 @@
     "mirror": "画面ミラーリング"
   },
   "about": {
-    "title": "ADB GUI について",
+    "title": "Gaze について",
     "version": "バージョン",
     "description": "Wails、React、Ant Design で構築された、強力でモダンな独立した Android 管理ツールです。",
     "vibecoding": "このアプリケーションは純粋な vibecoding の産物です。",

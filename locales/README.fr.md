@@ -1,4 +1,4 @@
-# ADB GUI 🚀
+# Gaze 🚀
 
 Un outil de gestion Android puissant, moderne et autonome, construit avec **Wails**, **React** et **Ant Design**.
 
@@ -107,13 +107,13 @@ La GitHub Action construira automatiquement pour macOS, Windows et Linux, et té
 ## 🔧 Dépannage
 
 ### macOS: "L'application est endommagée et ne peut pas être ouverte"
-Si vous téléchargez l'application depuis GitHub et que vous voyez l'erreur *"adbGUI.app est endommagé et ne peut pas être ouvert"*, cela est dû à la quarantaine macOS Gatekeeper.
+Si vous téléchargez l'application depuis GitHub et que vous voyez l'erreur *"Gaze.app est endommagé et ne peut pas être ouvert"*, cela est dû à la quarantaine macOS Gatekeeper.
 
 Pour corriger cela, exécutez la commande suivante dans votre terminal :
 ```bash
-sudo xattr -cr /path/to/adbGUI.app
+sudo xattr -cr /path/to/Gaze.app
 ```
-*(Remplacez `/path/to/adbGUI.app` par le chemin réel de votre application téléchargée)*
+*(Remplacez `/path/to/Gaze.app` par le chemin réel de votre application téléchargée)*
 
 > **Ou compilez-le vous-même :** Si vous préférez ne pas contourner Gatekeeper, vous pouvez facilement [compiler l'application à partir du code source](#-commencer) localement. Cela ne prend que quelques minutes !
 

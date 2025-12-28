@@ -30,7 +30,7 @@ import (
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"adbGUI/proxy"
+	"Gaze/proxy"
 )
 
 // Binaries are embedded in platform-specific files (bin_*.go) and bin_common.go
@@ -261,7 +261,7 @@ func (a *App) initPersistentCache() {
 	if err != nil {
 		configDir = os.TempDir()
 	}
-	appConfigDir := filepath.Join(configDir, "adbGUI")
+	appConfigDir := filepath.Join(configDir, "Gaze")
 	_ = os.MkdirAll(appConfigDir, 0755)
 	a.cachePath = filepath.Join(appConfigDir, "aapt_cache.json")
 	a.historyPath = filepath.Join(appConfigDir, "history.json")
@@ -460,7 +460,7 @@ func (a *App) setupBinaries() {
 	if err != nil {
 		configDir = os.TempDir()
 	}
-	appBinDir := filepath.Join(configDir, "adbGUI", "bin")
+	appBinDir := filepath.Join(configDir, "Gaze", "bin")
 	_ = os.MkdirAll(appBinDir, 0755)
 
 	extract := func(name string, data []byte) string {
@@ -2175,7 +2175,7 @@ func (a *App) SelectRecordPath(deviceModel string) (string, error) {
 		cleanModel = reg.ReplaceAllString(cleanModel, "")
 	}
 
-	filename := fmt.Sprintf("adbGUI_%s_%s.mp4", cleanModel, time.Now().Format("20060102_150405"))
+	filename := fmt.Sprintf("Gaze_%s_%s.mp4", cleanModel, time.Now().Format("20060102_150405"))
 	fullPath := filepath.Join(defaultDir, filename)
 	return fullPath, nil
 }
@@ -3513,7 +3513,7 @@ func (a *App) GetThumbnail(deviceId, remotePath, modTime string) (string, error)
 
 	// 1. Check cache
 	configDir, _ := os.UserConfigDir()
-	thumbDir := filepath.Join(configDir, "adbGUI", "thumbnails")
+	thumbDir := filepath.Join(configDir, "Gaze", "thumbnails")
 	_ = os.MkdirAll(thumbDir, 0755)
 
 	cacheKey := fmt.Sprintf("%x", md5.Sum([]byte(deviceId+remotePath+modTime+"v2")))
@@ -3743,7 +3743,7 @@ func (a *App) InstallProxyCert(deviceId string) (string, error) {
 		return "", fmt.Errorf("certificate not generated")
 	}
 
-	dest := "/sdcard/Download/adbGUI-CA.crt" // Use .crt for Android recognition
+	dest := "/sdcard/Download/Gaze-CA.crt" // Use .crt for Android recognition
 
 	// Push file
 	cmd := exec.Command(a.adbPath, "-s", deviceId, "push", certPath, dest)

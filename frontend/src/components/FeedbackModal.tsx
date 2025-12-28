@@ -65,7 +65,7 @@ const FeedbackModal = ({ visible, onCancel, appVersion, deviceInfo }: FeedbackMo
     }
 
     const body = encodeURIComponent(feedbackText);
-    const url = `https://github.com/nicetooo/adbGUI/issues/new?body=${body}`;
+    const url = `https://github.com/nicetooo/Gaze/issues/new?body=${body}`;
     // @ts-ignore
     window.runtime.BrowserOpenURL(url);
     onCancel();

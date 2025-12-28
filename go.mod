@@ -1,4 +1,4 @@
-module adbGUI
+module Gaze
 
 go 1.21
 

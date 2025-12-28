@@ -1,4 +1,4 @@
-# ADB GUI 🚀
+# Gaze 🚀
 
 **Wails**, **React**, **Ant Design**으로 구축된 강력하고 현대적인 독립형 Android 관리 도구입니다.
 
@@ -116,13 +116,13 @@ GitHub Action은 macOS, Windows 및 Linux용으로 자동 빌드하고 아티팩
 ## 🔧 문제 해결
 
 ### macOS: "앱이 손상되었기 때문에 열 수 없습니다"
-GitHub에서 앱을 다운로드할 때 *"adbGUI.app이(가) 손상되었기 때문에 열 수 없습니다"* 오류가 표시된다면, 이는 macOS Gatekeeper 격리 기능 때문입니다.
+GitHub에서 앱을 다운로드할 때 *"Gaze.app이(가) 손상되었기 때문에 열 수 없습니다"* 오류가 표시된다면, 이는 macOS Gatekeeper 격리 기능 때문입니다.
 
 이 문제를 해결하려면 터미널에서 다음 명령어를 실행하세요:
 ```bash
-sudo xattr -cr /path/to/adbGUI.app
+sudo xattr -cr /path/to/Gaze.app
 ```
-*(`/path/to/adbGUI.app`을 실제 다운로드한 애플리케이션 경로로 변경하세요)*
+*(`/path/to/Gaze.app`을 실제 다운로드한 애플리케이션 경로로 변경하세요)*
 
 > **직접 빌드하기:** Gatekeeper를 우회하고 싶지 않다면, 로컬에서 [소스 코드로 앱을 빌드](#-시작하기)할 수 있습니다. 몇 분이면 충분합니다!
 

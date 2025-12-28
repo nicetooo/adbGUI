@@ -30,7 +30,7 @@
     "mirror": "화면 미러링"
   },
   "about": {
-    "title": "ADB GUI 정보",
+    "title": "Gaze 정보",
     "version": "버전",
     "description": "Wails, React, Ant Design으로 구축된 강력하고 현대적인 독립형 Android 관리 도구입니다.",
     "vibecoding": "이 애플리케이션은 순수한 vibecoding의 산물입니다.",
