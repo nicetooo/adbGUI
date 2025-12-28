@@ -14,10 +14,12 @@ User-agent: *
 - File Explorer: High-speed drag & drop, works where AFT fails.
 - App Management: Batch install APKs, deep package inspection.
 - Developer Tools: Real-time Logcat with advanced filters.
+- Network & Proxy: Automated HTTP/HTTPS capture (MITM), WebSocket inspection, and traffic shaping (bandwidth/latency).
 
 # Target Use Cases
 - Android developers needing a clean Logcat and Shell.
 - QA engineers recording bugs across multiple devices.
+- Network engineers and security researchers analyzing app traffic via MITM proxy.
 - Users looking for a modern alternative to ancient ADB tools.
 - Users needing a reliable way to transfer files between Mac and Android.
 

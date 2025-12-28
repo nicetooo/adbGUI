@@ -32,6 +32,10 @@ A powerful, modern, and self-contained Android management tool built with **Wail
 |:---:|:---:|
 | <img src="screenshots/shell.png" width="400" /> | <img src="screenshots/tray.png" width="400" /> |
 
+| Proxy & Network |
+|:---:|
+| <img src="screenshots/proxy.png" width="820" /> |
+
 
 ### 📱 Device Management
 - **Unified Device List**: Seamlessly manage unified physical and wireless devices (USB/Wi-Fi merging).

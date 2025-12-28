@@ -6,16 +6,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>adbGUI | Modern Android Management & Scrcpy Screen Mirroring</title>
   <meta name="description"
-    content="A powerful, open-source ADB GUI for Android. High-performance Scrcpy screen mirroring, file management, APK installation, and Logcat viewer with zero friction." />
+    content="Modern ADB GUI for Android. Scrcpy screen mirroring, file management, Logcat viewer, and integrated HTTPS proxy (MITM) with zero friction." />
   <meta name="keywords"
-    content="ADB GUI, Scrcpy GUI, Android Screen Mirroring, Android File Manager, Android Debug Bridge, Scrcpy Recording, Android Management Tool" />
+    content="ADB GUI, Scrcpy GUI, Android Screen Mirroring, Android File Manager, Logcat Viewer, HTTPS Proxy, MITM Proxy, Android Traffic Capture" />
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://adbgui.nicetooo.com/">
   <meta property="og:title" content="adbGUI | Modern Android Management & Scrcpy Mirroring">
   <meta property="og:description"
-    content="Manage Android devices with ease. Featuring high-performance Scrcpy mirroring, multi-device recording, and full ADB control.">
+    content="Manage Android devices with ease. Scrcpy mirroring, multi-device recording, and integrated HTTPS/MITM proxy capture.">
   <meta property="og:image" content="https://adbgui.nicetooo.com/screenshots/mirror.png">
 
   <!-- Twitter -->
@@ -52,7 +52,8 @@
       "Drag-and-drop APK installation",
       "Advanced Android File Explorer",
       "Real-time Logcat viewer with regex",
-      "Wireless ADB connection"
+      "Wireless ADB connection",
+      "HTTP/HTTPS Proxy with MITM decryption"
     ]
   }
   </script>
@@ -342,6 +343,21 @@
               </p>
             </div>
           </li>
+          <li class="flex items-start gap-4">
+            <svg class="w-6 h-6 text-emerald-500 mt-1 flex-shrink-0" fill="none" stroke="currentColor"
+              viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9h18">
+              </path>
+            </svg>
+            <div>
+              <span class="text-zinc-100 font-bold block mb-1">Proxy & Network Sniffer</span>
+              <p class="text-zinc-400 text-sm">
+                Integrated HTTP/HTTPS proxy with MITM decryption, WebSocket support, and real-time traffic shaping
+                (bandwidth limiting & latency simulation).
+              </p>
+            </div>
+          </li>
         </ul>
       </div>
     </div>
@@ -414,6 +430,18 @@
             <p class="text-sm text-zinc-400">Quick access & background control</p>
           </div>
           <img src="screenshots/tray.png" alt="System Tray"
+            class="w-full h-auto transform transition-transform duration-500 group-hover:scale-105">
+        </div>
+      </div>
+      <!-- Row 4 -->
+      <div class="grid grid-cols-1 gap-8">
+        <div class="group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50">
+          <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10"></div>
+          <div class="absolute bottom-4 left-4 z-20">
+            <h3 class="text-lg font-bold text-white">Network & Proxy</h3>
+            <p class="text-sm text-zinc-400">HTTP/HTTPS capture with MITM & bandwidth control</p>
+          </div>
+          <img src="screenshots/proxy.png" alt="Network & Proxy"
             class="w-full h-auto transform transition-transform duration-500 group-hover:scale-105">
         </div>
       </div>
