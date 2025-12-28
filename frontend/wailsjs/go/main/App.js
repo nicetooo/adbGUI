@@ -82,6 +82,18 @@ export function GetLocalIP() {
   return window['go']['main']['App']['GetLocalIP']();
 }
 
+export function GetMITMBypassPatterns() {
+  return window['go']['main']['App']['GetMITMBypassPatterns']();
+}
+
+export function GetProxySettings() {
+  return window['go']['main']['App']['GetProxySettings']();
+}
+
+export function GetProxyStatus() {
+  return window['go']['main']['App']['GetProxyStatus']();
+}
+
 export function GetThumbnail(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetThumbnail'](arg1, arg2, arg3);
 }
@@ -92,6 +104,10 @@ export function Greet(arg1) {
 
 export function InstallAPK(arg1, arg2) {
   return window['go']['main']['App']['InstallAPK'](arg1, arg2);
+}
+
+export function InstallProxyCert(arg1) {
+  return window['go']['main']['App']['InstallProxyCert'](arg1);
 }
 
 export function IsAppRunning(arg1, arg2) {
@@ -162,6 +178,30 @@ export function SelectScreenshotPath(arg1) {
   return window['go']['main']['App']['SelectScreenshotPath'](arg1);
 }
 
+export function SetDeviceNetworkLimit(arg1, arg2) {
+  return window['go']['main']['App']['SetDeviceNetworkLimit'](arg1, arg2);
+}
+
+export function SetMITMBypassPatterns(arg1) {
+  return window['go']['main']['App']['SetMITMBypassPatterns'](arg1);
+}
+
+export function SetProxyLatency(arg1) {
+  return window['go']['main']['App']['SetProxyLatency'](arg1);
+}
+
+export function SetProxyLimit(arg1, arg2) {
+  return window['go']['main']['App']['SetProxyLimit'](arg1, arg2);
+}
+
+export function SetProxyMITM(arg1) {
+  return window['go']['main']['App']['SetProxyMITM'](arg1);
+}
+
+export function SetProxyWSEnabled(arg1) {
+  return window['go']['main']['App']['SetProxyWSEnabled'](arg1);
+}
+
 export function Shutdown(arg1) {
   return window['go']['main']['App']['Shutdown'](arg1);
 }
@@ -178,6 +218,14 @@ export function StartLogcat(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['main']['App']['StartLogcat'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
+export function StartNetworkMonitor(arg1) {
+  return window['go']['main']['App']['StartNetworkMonitor'](arg1);
+}
+
+export function StartProxy(arg1) {
+  return window['go']['main']['App']['StartProxy'](arg1);
+}
+
 export function StartRecording(arg1, arg2) {
   return window['go']['main']['App']['StartRecording'](arg1, arg2);
 }
@@ -190,8 +238,20 @@ export function StartWirelessServer() {
   return window['go']['main']['App']['StartWirelessServer']();
 }
 
+export function StopAllNetworkMonitors() {
+  return window['go']['main']['App']['StopAllNetworkMonitors']();
+}
+
 export function StopLogcat() {
   return window['go']['main']['App']['StopLogcat']();
+}
+
+export function StopNetworkMonitor(arg1) {
+  return window['go']['main']['App']['StopNetworkMonitor'](arg1);
+}
+
+export function StopProxy() {
+  return window['go']['main']['App']['StopProxy']();
 }
 
 export function StopRecording(arg1) {

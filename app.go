@@ -29,6 +29,8 @@ import (
 	"time"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
+
+	"adbGUI/proxy"
 )
 
 // Binaries are embedded in platform-specific files (bin_*.go) and bin_common.go
@@ -133,6 +135,15 @@ type FileInfo struct {
 	ModTime string `json:"modTime"`
 	IsDir   bool   `json:"isDir"`
 	Path    string `json:"path"`
+}
+
+type NetworkStats struct {
+	DeviceId string `json:"deviceId"`
+	RxBytes  uint64 `json:"rxBytes"`
+	TxBytes  uint64 `json:"txBytes"`
+	RxSpeed  uint64 `json:"rxSpeed"` // bytes per second
+	TxSpeed  uint64 `json:"txSpeed"` // bytes per second
+	Time     int64  `json:"time"`
 }
 
 type AppPackage struct {
@@ -3108,6 +3119,120 @@ func (a *App) DisableApp(deviceId, packageName string) (string, error) {
 	return string(output), nil
 }
 
+// Network Monitor State
+var (
+	monitorCancels = make(map[string]context.CancelFunc)
+	monitorMu      sync.Mutex
+)
+
+// StartNetworkMonitor starts a goroutine to poll /proc/net/dev for a specific device
+func (a *App) StartNetworkMonitor(deviceId string) {
+	a.StopNetworkMonitor(deviceId) // Stop existing if any
+
+	monitorMu.Lock()
+	ctx, cancel := context.WithCancel(context.Background())
+	monitorCancels[deviceId] = cancel
+	monitorMu.Unlock()
+
+	go func() {
+		var lastStats NetworkStats
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				stats, err := a.getNetworkStats(deviceId)
+				if err != nil {
+					continue
+				}
+				stats.DeviceId = deviceId
+
+				// Calculate speed
+				// Note: lastStats is initially empty (0), so first speed might be huge if not handled,
+				// but RxBytes usually > 0. We should check if lastStats.Time > 0.
+				if lastStats.Time > 0 && stats.Time > lastStats.Time {
+					duration := float64(stats.Time - lastStats.Time)
+					if duration > 0 {
+						if stats.RxBytes >= lastStats.RxBytes {
+							stats.RxSpeed = uint64(float64(stats.RxBytes-lastStats.RxBytes) / duration)
+						}
+						if stats.TxBytes >= lastStats.TxBytes {
+							stats.TxSpeed = uint64(float64(stats.TxBytes-lastStats.TxBytes) / duration)
+						}
+					}
+				}
+				lastStats = stats
+
+				// Emit event
+				wailsRuntime.EventsEmit(a.ctx, "network-stats", stats)
+			}
+		}
+	}()
+}
+
+// StopNetworkMonitor stops the monitoring goroutine for a specific device
+func (a *App) StopNetworkMonitor(deviceId string) {
+	monitorMu.Lock()
+	defer monitorMu.Unlock()
+	if cancel, ok := monitorCancels[deviceId]; ok {
+		cancel()
+		delete(monitorCancels, deviceId)
+	}
+}
+
+// StopAllNetworkMonitors stops all network monitoring
+func (a *App) StopAllNetworkMonitors() {
+	monitorMu.Lock()
+	defer monitorMu.Unlock()
+	for id, cancel := range monitorCancels {
+		cancel()
+		delete(monitorCancels, id)
+	}
+}
+
+// SetDeviceNetworkLimit sets the ingress rate limit (Android 13+)
+// bytesPerSecond: 0 to disable
+func (a *App) SetDeviceNetworkLimit(deviceId string, bytesPerSecond int) (string, error) {
+	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "settings", "put", "global", "ingress_rate_limit_bytes_per_second", fmt.Sprintf("%d", bytesPerSecond))
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("%s: %v", string(output), err)
+	}
+	return "Network limit set successfully", nil
+}
+
+func (a *App) getNetworkStats(deviceId string) (NetworkStats, error) {
+	var stats NetworkStats
+	stats.Time = time.Now().Unix()
+
+	// Read /proc/net/dev
+	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "cat", "/proc/net/dev")
+	output, err := cmd.Output()
+	if err != nil {
+		return stats, err
+	}
+
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "wlan0:") {
+			// Format: wlan0: rx_bytes rx_packets ... tx_bytes ...
+			fields := strings.Fields(strings.TrimPrefix(line, "wlan0:"))
+			if len(fields) >= 9 {
+				// Field 0: RxBytes
+				// Field 8: TxBytes (usually 9th field in standard net/dev after interface name)
+				fmt.Sscanf(fields[0], "%d", &stats.RxBytes)
+				fmt.Sscanf(fields[8], "%d", &stats.TxBytes)
+			}
+			break
+		}
+	}
+	return stats, nil
+}
+
 // InstallAPK installs an APK to the specified device
 func (a *App) InstallAPK(deviceId string, path string) (string, error) {
 	if deviceId == "" {
@@ -3553,4 +3678,86 @@ func (a *App) Mkdir(deviceId, pathStr string) error {
 		return fmt.Errorf("%w: %s", err, string(output))
 	}
 	return nil
+}
+
+// StartProxy starts the internal HTTP/HTTPS proxy
+func (a *App) StartProxy(port int) (string, error) {
+	err := proxy.GetProxy().Start(port, func(req proxy.RequestLog) {
+		wailsRuntime.EventsEmit(a.ctx, "proxy_request", req)
+	})
+	if err != nil {
+		return "", err
+	}
+	return "Proxy started successfully", nil
+}
+
+// StopProxy stops the internal proxy
+func (a *App) StopProxy() (string, error) {
+	err := proxy.GetProxy().Stop()
+	if err != nil {
+		return "", err
+	}
+	return "Proxy stopped successfully", nil
+}
+
+// GetProxyStatus returns true if the proxy is running
+func (a *App) GetProxyStatus() bool {
+	return proxy.GetProxy().IsRunning()
+}
+
+// SetProxyLimit sets the upload and download speed limits for the proxy server (bytes per second)
+// 0 means unlimited
+func (a *App) SetProxyLimit(uploadSpeed, downloadSpeed int) {
+	proxy.GetProxy().SetLimits(uploadSpeed, downloadSpeed)
+}
+
+// SetProxyWSEnabled enables or disables WebSocket support
+func (a *App) SetProxyWSEnabled(enabled bool) {
+	proxy.GetProxy().SetWSEnabled(enabled)
+}
+
+// SetProxyMITM enables or disables HTTPS Decryption (MITM)
+func (a *App) SetProxyMITM(enabled bool) {
+	proxy.GetProxy().SetProxyMITM(enabled)
+}
+
+// SetMITMBypassPatterns sets the keywords/domains to bypass MITM
+func (a *App) SetMITMBypassPatterns(patterns []string) {
+	proxy.GetProxy().SetMITMBypassPatterns(patterns)
+}
+
+// GetMITMBypassPatterns returns the current bypass patterns
+func (a *App) GetMITMBypassPatterns() []string {
+	return proxy.GetProxy().GetMITMBypassPatterns()
+}
+
+func (a *App) GetProxySettings() map[string]interface{} {
+	return map[string]interface{}{
+		"wsEnabled":      proxy.GetProxy().IsWSEnabled(),
+		"mitmEnabled":    proxy.GetProxy().IsMITMEnabled(),
+		"bypassPatterns": proxy.GetProxy().GetMITMBypassPatterns(),
+	}
+}
+
+// InstallProxyCert pushes the generated CA certificate to the device
+func (a *App) InstallProxyCert(deviceId string) (string, error) {
+	certPath := proxy.GetProxy().GetCertPath()
+	if certPath == "" {
+		return "", fmt.Errorf("certificate not generated")
+	}
+
+	dest := "/sdcard/Download/adbGUI-CA.crt" // Use .crt for Android recognition
+
+	// Push file
+	cmd := exec.Command(a.adbPath, "-s", deviceId, "push", certPath, dest)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("failed to push cert: %s", string(out))
+	}
+
+	return dest, nil
+}
+
+// SetProxyLatency sets the artificial latency in milliseconds
+func (a *App) SetProxyLatency(latencyMs int) {
+	proxy.GetProxy().SetLatency(latencyMs)
 }

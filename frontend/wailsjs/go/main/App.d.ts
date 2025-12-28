@@ -43,11 +43,19 @@ export function GetHistoryDevices():Promise<Array<main.HistoryDevice>>;
 
 export function GetLocalIP():Promise<string>;
 
+export function GetMITMBypassPatterns():Promise<Array<string>>;
+
+export function GetProxySettings():Promise<{[key: string]: any}>;
+
+export function GetProxyStatus():Promise<boolean>;
+
 export function GetThumbnail(arg1:string,arg2:string,arg3:string):Promise<string>;
 
 export function Greet(arg1:string):Promise<string>;
 
 export function InstallAPK(arg1:string,arg2:string):Promise<string>;
+
+export function InstallProxyCert(arg1:string):Promise<string>;
 
 export function IsAppRunning(arg1:string,arg2:string):Promise<boolean>;
 
@@ -83,6 +91,18 @@ export function SelectRecordPath(arg1:string):Promise<string>;
 
 export function SelectScreenshotPath(arg1:string):Promise<string>;
 
+export function SetDeviceNetworkLimit(arg1:string,arg2:number):Promise<string>;
+
+export function SetMITMBypassPatterns(arg1:Array<string>):Promise<void>;
+
+export function SetProxyLatency(arg1:number):Promise<void>;
+
+export function SetProxyLimit(arg1:number,arg2:number):Promise<void>;
+
+export function SetProxyMITM(arg1:boolean):Promise<void>;
+
+export function SetProxyWSEnabled(arg1:boolean):Promise<void>;
+
 export function Shutdown(arg1:context.Context):Promise<void>;
 
 export function StartActivity(arg1:string,arg2:string):Promise<string>;
@@ -91,13 +111,23 @@ export function StartApp(arg1:string,arg2:string):Promise<string>;
 
 export function StartLogcat(arg1:string,arg2:string,arg3:string,arg4:boolean,arg5:string,arg6:boolean):Promise<void>;
 
+export function StartNetworkMonitor(arg1:string):Promise<void>;
+
+export function StartProxy(arg1:number):Promise<string>;
+
 export function StartRecording(arg1:string,arg2:main.ScrcpyConfig):Promise<void>;
 
 export function StartScrcpy(arg1:string,arg2:main.ScrcpyConfig):Promise<void>;
 
 export function StartWirelessServer():Promise<string>;
 
+export function StopAllNetworkMonitors():Promise<void>;
+
 export function StopLogcat():Promise<void>;
+
+export function StopNetworkMonitor(arg1:string):Promise<void>;
+
+export function StopProxy():Promise<string>;
 
 export function StopRecording(arg1:string):Promise<void>;
 

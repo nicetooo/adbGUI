@@ -27,7 +27,8 @@
     "files": "Files",
     "shell": "Shell",
     "logcat": "Logcat",
-    "mirror": "Mirror"
+    "mirror": "Mirror",
+    "proxy": "Proxy"
   },
   "about": {
     "title": "About ADB GUI",
@@ -224,7 +225,8 @@
     "proxy_tip_title": "Proxy/VPN Stability Tip",
     "proxy_tip_desc": "If using a proxy or VPN on Android, please ensure 'Bypass Local Network' is enabled in your proxy app settings to prevent ADB disconnection.",
     "pin": "Pin to Top",
-    "unpin": "Unpin"
+    "unpin": "Unpin",
+    "network": "Network Speed"
   },
   "files": {
     "title": "Files",

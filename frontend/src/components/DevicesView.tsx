@@ -22,7 +22,14 @@ import {
   SettingOutlined,
   PushpinOutlined,
   PushpinFilled,
+  DashboardOutlined,
+  ArrowDownOutlined,
+  ArrowUpOutlined,
 } from "@ant-design/icons";
+// @ts-ignore
+import { StartNetworkMonitor, StopNetworkMonitor, StopAllNetworkMonitors } from "../../wailsjs/go/main/App";
+// @ts-ignore
+import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
 
 interface Device {
   id: string;
@@ -91,6 +98,57 @@ const DevicesView: React.FC<DevicesViewProps> = ({
 }) => {
 
   const { t } = useTranslation();
+  const [netStatsMap, setNetStatsMap] = React.useState<Record<string, { rxSpeed: number; txSpeed: number }>>({});
+  const monitoredIds = React.useRef<Set<string>>(new Set());
+
+  React.useEffect(() => {
+    // Subscribe to network stats updates
+    const unregister = EventsOn("network-stats", (stats: any) => {
+       if (stats.deviceId) {
+         setNetStatsMap(prev => ({
+           ...prev,
+           [stats.deviceId]: { rxSpeed: stats.rxSpeed, txSpeed: stats.txSpeed }
+         }));
+       }
+    });
+
+    return () => {
+      unregister();
+      StopAllNetworkMonitors();
+      monitoredIds.current.clear();
+    };
+  }, []);
+
+  // Update monitors when devices list changes
+  React.useEffect(() => {
+    const currentOnlineIds = new Set<string>();
+    
+    // Start monitors for new devices
+    devices.forEach(d => {
+       if (d.state === 'device') {
+         currentOnlineIds.add(d.id);
+         if (!monitoredIds.current.has(d.id)) {
+           StartNetworkMonitor(d.id);
+           monitoredIds.current.add(d.id);
+         }
+       }
+    });
+
+    // Stop monitors for removed/offline devices
+    monitoredIds.current.forEach(id => {
+      if (!currentOnlineIds.has(id)) {
+        StopNetworkMonitor(id);
+        monitoredIds.current.delete(id);
+      }
+    });
+  }, [devices]);
+
+  const formatSpeed = (bytes: number) => {
+      if (!bytes) return "0 B/s";
+      if (bytes < 1024) return bytes + " B/s";
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB/s";
+      return (bytes / (1024 * 1024)).toFixed(1) + " MB/s";
+  };
 
   // Merge history devices that are not currently active
   const allDevices = devices.map(d => {
@@ -138,6 +196,7 @@ const DevicesView: React.FC<DevicesViewProps> = ({
       title: t("devices.id"),
       dataIndex: "id",
       key: "id",
+      width: 170,
       render: (_: string, record: Device) => {
         const displayId = record.serial || record.id;
         return (
@@ -248,8 +307,26 @@ const DevicesView: React.FC<DevicesViewProps> = ({
         );
       },
     },
-
-
+    {
+      title: t("devices.network") || "Network",
+      key: "network",
+      width: 160,
+      render: (_: any, record: Device) => {
+        if (record.state !== 'device') return "-";
+        
+        const stats = netStatsMap[record.id] || { rxSpeed: 0, txSpeed: 0 };
+        return (
+          <Space direction="vertical" size={0} style={{ fontSize: '12px' }}>
+            <div style={{ color: '#52c41a', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <ArrowDownOutlined style={{ fontSize: '10px' }} /> {formatSpeed(stats.rxSpeed)}
+            </div>
+            <div style={{ color: '#1890ff', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <ArrowUpOutlined style={{ fontSize: '10px' }} /> {formatSpeed(stats.txSpeed)}
+            </div>
+          </Space>
+        );
+      }
+    },
     {
       title: t("devices.action"),
       key: "action",

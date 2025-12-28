@@ -14,6 +14,7 @@ import AppsView from "./components/AppsView";
 import FilesView from "./components/FilesView";
 import ShellView from "./components/ShellView";
 import MirrorView from "./components/MirrorView";
+import ProxyView from "./components/ProxyView";
 import DeviceInfoModal from "./components/DeviceInfoModal";
 import AboutModal from "./components/AboutModal";
 import WirelessConnectModal from "./components/WirelessConnectModal";
@@ -29,6 +30,7 @@ import {
   BugOutlined,
   InfoCircleOutlined,
   TranslationOutlined,
+  GlobalOutlined,
 } from "@ant-design/icons";
 import "./App.css";
 // @ts-ignore
@@ -499,7 +501,8 @@ function App() {
           "shell": "3",
           "logcat": "4",
           "mirror": "5",
-          "files": "6"
+          "files": "6",
+          "proxy": "7"
         };
         if (viewMap[data.view]) {
           setSelectedKey(viewMap[data.view]);
@@ -711,6 +714,16 @@ function App() {
             recordStatuses={recordStatuses}
           />
         );
+      case "7":
+        return (
+          <ProxyView
+            devices={devices}
+            selectedDevice={selectedDevice}
+            setSelectedDevice={setSelectedDevice}
+            fetchDevices={fetchDevices}
+            loading={loading}
+          />
+        );
 
       default:
         return <div style={{ padding: 24 }}>{t("app.select_option")}</div>;
@@ -749,6 +762,7 @@ function App() {
                 { key: "6", icon: <FolderOutlined />, label: t("menu.files") },
                 { key: "3", icon: <CodeOutlined />, label: t("menu.shell") },
                 { key: "4", icon: <FileTextOutlined />, label: t("menu.logcat") },
+                { key: "7", icon: <GlobalOutlined />, label: t("menu.proxy") || "Proxy" },
               ]}
             />
           </div>

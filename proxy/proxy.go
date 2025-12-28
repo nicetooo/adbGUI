@@ -1,0 +1,749 @@
+package proxy
+
+import (
+	"bytes"
+	"compress/gzip"
+	"context"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/elazarl/goproxy"
+	"golang.org/x/time/rate"
+)
+
+func copyHeader(h http.Header) http.Header {
+	if h == nil {
+		return nil
+	}
+	h2 := make(http.Header, len(h))
+	for k, vv := range h {
+		vv2 := make([]string, len(vv))
+		copy(vv2, vv)
+		h2[k] = vv2
+	}
+	return h2
+}
+
+// ProxyServer handles the HTTP/HTTPS logic using goproxy
+type ProxyServer struct {
+	server             *http.Server
+	proxy              *goproxy.ProxyHttpServer
+	listener           net.Listener
+	mu                 sync.Mutex
+	running            bool
+	OnRequest          func(RequestLog) // Callback for request logging
+	mitmEnabled        bool             // HTTPS Decrypt
+	wsEnabled          bool             // WebSocket support
+	mitmBypassPatterns []string
+	certMgr            *CertManager
+
+	upLimiter   *rate.Limiter
+	downLimiter *rate.Limiter
+	latency     time.Duration // Artificial latency
+}
+
+// SetLatency sets the artificial latency in milliseconds
+func (p *ProxyServer) SetLatency(latencyMs int) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.latency = time.Duration(latencyMs) * time.Millisecond
+}
+
+func (p *ProxyServer) simulateLatency() {
+	p.mu.Lock()
+	latency := p.latency
+	p.mu.Unlock()
+
+	if latency > 0 {
+		time.Sleep(latency)
+	}
+}
+
+func (p *ProxyServer) debugLog(format string, args ...interface{}) {
+	// Disk IO is slow. Perform it asynchronously to never block the proxy pipeline.
+	msg := fmt.Sprintf("[%s] ", time.Now().Format("15:04:05.000")) + fmt.Sprintf(format, args...) + "\n"
+	go func() {
+		_ = os.MkdirAll(".log", 0755)
+		logPath := filepath.Join(".log", "proxy_debug.log")
+		f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return
+		}
+		defer f.Close()
+		f.WriteString(msg)
+	}()
+}
+
+// RequestLog contains details about a proxied request
+type RequestLog struct {
+	Id            string              `json:"id"`
+	Time          string              `json:"time"`
+	ClientIP      string              `json:"clientIp"`
+	Method        string              `json:"method"`
+	URL           string              `json:"url"`
+	IsHTTPS       bool                `json:"isHttps"`
+	Headers       map[string][]string `json:"headers"`     // Request Headers
+	Body          string              `json:"previewBody"` // Request Body
+	RespHeaders   map[string][]string `json:"respHeaders"` // Response Headers
+	RespBody      string              `json:"respBody"`    // Response Body
+	StatusCode    int                 `json:"statusCode"`
+	ContentType   string              `json:"contentType"`
+	BodySize      int64               `json:"bodySize"`
+	IsWs          bool                `json:"isWs"`
+	PartialUpdate bool                `json:"partialUpdate"` // If true, only update specific fields in UI
+}
+
+var currentProxy *ProxyServer
+var proxyLock sync.Mutex
+
+func GetProxy() *ProxyServer {
+	proxyLock.Lock()
+	defer proxyLock.Unlock()
+	if currentProxy == nil {
+		currentProxy = &ProxyServer{
+			wsEnabled:   true, // Default ON
+			mitmEnabled: true, // Default ON to match UI
+			mitmBypassPatterns: []string{
+				"cdn", "static", "img", "image", "video", "asset",
+				"akamai", "byte", "tos-", "mon.", "snssdk",
+			},
+		}
+	}
+	return currentProxy
+}
+
+func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
+	p.mu.Lock()
+	if p.running {
+		p.mu.Unlock()
+		return fmt.Errorf("proxy already running")
+	}
+	p.OnRequest = onRequest
+
+	// Initialize CertManager
+	home, _ := os.UserHomeDir()
+	dataDir := filepath.Join(home, ".adbGUI")
+	_ = os.MkdirAll(dataDir, 0755)
+	p.certMgr = NewCertManager(dataDir)
+	if err := p.certMgr.EnsureCert(); err != nil {
+		fmt.Printf("Warning: Failed to ensure CA cert: %v\n", err)
+	}
+	if err := p.certMgr.LoadToGoproxy(); err != nil {
+		return fmt.Errorf("failed to load CA cert: %v", err)
+	}
+
+	// Initialize goproxy
+	p.proxy = goproxy.NewProxyHttpServer()
+	p.proxy.Verbose = false
+
+	// CRITICAL: Disable automatic decompression.
+	// Go's DefaultTransport automatically decompresses gzip, which breaks
+	// binary transparency for Apps that expect original compressed bytes.
+	// CRITICAL: Disable automatic decompression.
+	// This ensures the proxy is a transparent pipe. We handle decompression
+	// for UI display separately in the background to avoid interfering with
+	// the actual data stream.
+	p.proxy.Tr = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		DisableCompression:    true, // CRITICAL: Stop Go from decompressing and changing headers
+		ForceAttemptHTTP2:     true, // Support H2 to match modern app expectations
+	}
+
+	// Configure Connect Logic (MITM vs Tunnel)
+	p.proxy.OnRequest().HandleConnectFunc(func(host string, ctx *goproxy.ProxyCtx) (*goproxy.ConnectAction, string) {
+		p.debugLog("CONNECT: %s (Session: %d)", host, ctx.Session)
+		p.simulateLatency() // Simulate network RTT for connection
+
+		p.mu.Lock()
+		mitm := p.mitmEnabled
+		p.mu.Unlock()
+
+		if mitm {
+			// 🚀 DYNAMIC HEURISTIC:
+			// Use user-configurable patterns to bypass MITM for sensitive domains (CDNs, etc.)
+			hostLower := strings.ToLower(host)
+
+			p.mu.Lock()
+			patterns := p.mitmBypassPatterns
+			p.mu.Unlock()
+
+			shouldBypass := false
+			for _, pat := range patterns {
+				if strings.Contains(hostLower, pat) {
+					shouldBypass = true
+					break
+				}
+			}
+
+			if shouldBypass {
+				p.debugLog("  -> PASS-THROUGH (Bypassed by pattern %s)", host)
+				return goproxy.OkConnect, host
+			}
+
+			p.debugLog("  -> MITM (Decrypting %s)", host)
+			return goproxy.MitmConnect, host
+		}
+
+		// Fallback for non-MITM mode: Apply rate limits via Hijack
+		p.debugLog("  -> HIJACK (Tunneling %s with rate limit)", host)
+		return &goproxy.ConnectAction{
+			Action: goproxy.ConnectHijack,
+			Hijack: p.handleHijackConnect,
+		}, host
+	})
+
+	// Configure Request Handling (WS Check, Request Rate Limit)
+	p.proxy.OnRequest().DoFunc(func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+		id := fmt.Sprintf("%d-%d", ctx.Session, time.Now().UnixNano())
+		ctx.UserData = id // Sync ID to response
+
+		p.debugLog("REQ: %s %s (Session: %d, ID: %s)", r.Method, r.URL.String(), ctx.Session, id)
+		p.simulateLatency()
+
+		p.mu.Lock()
+		wsAllowed := p.wsEnabled
+		upLimiter := p.upLimiter
+		p.mu.Unlock()
+
+		// Log request immediately
+		p.logRequest(id, r, nil)
+
+		// 1. Transparent Request Body Copy
+		// Use a Tee-like wrapper to capture the request body as it's sent to the server.
+		if r.Body != nil && r.Body != http.NoBody {
+			r.Body = &TransparentReadCloser{
+				rc:       r.Body,
+				p:        p,
+				id:       id,
+				isReq:    true,
+				captured: new(bytes.Buffer),
+				limit:    100 * 1024 * 1024, // Full capture (100MB per request)
+			}
+		}
+
+		// Check WS Block
+		if strings.ToLower(r.Header.Get("Upgrade")) == "websocket" && !wsAllowed {
+			p.debugLog("  -> WS BLOCKED")
+			return r, goproxy.NewResponse(r, goproxy.ContentTypeText, http.StatusForbidden, "WebSocket disabled")
+		}
+
+		// Apply Upload Limit to Request Body
+		if upLimiter != nil && r.Body != nil {
+			p.debugLog("  -> APPLY UPLOAD LIMIT")
+			r.Body = &RateLimitedReadCloser{
+				rc:      r.Body,
+				limiter: upLimiter,
+			}
+		}
+
+		return r, nil
+	})
+
+	// Configure Response Handling (Logging, Download Rate Limit)
+	p.proxy.OnResponse().DoFunc(func(resp *http.Response, ctx *goproxy.ProxyCtx) *http.Response {
+		id, _ := ctx.UserData.(string)
+		if id == "" {
+			id = fmt.Sprintf("%d-%d", ctx.Session, time.Now().UnixNano())
+		}
+
+		req := resp.Request
+		if req == nil {
+			req = ctx.Req
+		}
+
+		p.debugLog("RESP: %d for %s (Proto: %s, Type: %s)", resp.StatusCode, id, resp.Proto, resp.Header.Get("Content-Type"))
+
+		// Update log with response headers
+		log := p.logRequest(id, req, resp)
+		_ = log // Ensure used if Body is nil
+
+		p.mu.Lock()
+		downLimiter := p.downLimiter
+		p.mu.Unlock()
+
+		if resp.Body != nil {
+			rc := resp.Body
+			isWS := resp.StatusCode == 101 || (req != nil && strings.ToLower(req.Header.Get("Upgrade")) == "websocket")
+
+			// 2. Universal Transparent Mirroring
+			// We wrap EVERYTHING to ensure we have size monitoring and logs.
+			// But we use a 'Shadow Capture' limit to avoid messing with heavy binaries.
+
+			contentType := resp.Header.Get("Content-Type")
+			isBinary := strings.Contains(contentType, "image/") ||
+				strings.Contains(contentType, "video/") ||
+				strings.Contains(contentType, "audio/")
+
+			captureLimit := 100 * 1024 * 1024 // 100MB: Practically full capture for API
+			if isBinary {
+				captureLimit = 0 // Mirrors the flow without storing any bytes
+			}
+
+			if !isWS && (req == nil || req.Method != "CONNECT") {
+				rc = &TransparentReadCloser{
+					rc:       rc,
+					p:        p,
+					id:       id,
+					isReq:    false,
+					log:      log,
+					captured: new(bytes.Buffer),
+					limit:    int64(captureLimit),
+				}
+			}
+
+			if downLimiter != nil {
+				rc = &RateLimitedReadCloser{
+					rc:      rc,
+					limiter: downLimiter,
+				}
+			}
+			resp.Body = rc
+		}
+
+		return resp
+	})
+
+	p.mu.Unlock()
+
+	addr := fmt.Sprintf(":%d", port)
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	p.listener = ln // Raw listener now
+
+	p.server = &http.Server{
+		Handler: p.proxy,
+	}
+
+	p.mu.Lock()
+	p.running = true
+	p.mu.Unlock()
+
+	go func() {
+		_ = p.server.Serve(p.listener)
+		p.mu.Lock()
+		p.running = false
+		p.mu.Unlock()
+	}()
+
+	return nil
+}
+
+// handleHijackConnect implements a custom TCP tunnel to support rate limiting without MITM
+func (p *ProxyServer) handleHijackConnect(req *http.Request, clientConn net.Conn, ctx *goproxy.ProxyCtx) {
+	// 1. Dial destination
+	destConn, err := net.DialTimeout("tcp", req.Host, 10*time.Second)
+	if err != nil {
+		clientConn.Write([]byte("HTTP/1.1 502 Bad Gateway\r\n\r\n"))
+		clientConn.Close()
+		return
+	}
+
+	// 2. Respond 200 OK to client to establish tunnel
+	clientConn.Write([]byte("HTTP/1.0 200 OK\r\n\r\n"))
+
+	// 3. Rate Limiters
+	p.mu.Lock()
+	up := p.upLimiter
+	down := p.downLimiter
+	p.mu.Unlock()
+
+	// 4. Bidirectional Copy
+	// Client -> Dest (Upload)
+	go p.transfer(destConn, clientConn, up)
+	// Dest -> Client (Download)
+	go p.transfer(clientConn, destConn, down)
+}
+
+func (p *ProxyServer) transfer(dst net.Conn, src net.Conn, limiter *rate.Limiter) {
+	defer dst.Close()
+	defer src.Close()
+
+	buf := make([]byte, 32*1024)
+	for {
+		n, err := src.Read(buf)
+		if n > 0 {
+			// Apply Limit
+			if limiter != nil {
+				ctx := context.Background()
+				burst := limiter.Burst()
+				remaining := n
+				for remaining > 0 {
+					take := remaining
+					if take > burst {
+						take = burst
+					}
+					if err := limiter.WaitN(ctx, take); err != nil {
+						// context canceled or error
+						return
+					}
+					remaining -= take
+				}
+			}
+			// Write
+			if _, wErr := dst.Write(buf[:n]); wErr != nil {
+				break
+			}
+		}
+		if err != nil {
+			break
+		}
+	}
+}
+
+func (p *ProxyServer) logRequest(id string, r *http.Request, resp *http.Response) RequestLog {
+	if p.OnRequest == nil || r == nil {
+		return RequestLog{}
+	}
+
+	host := ""
+	if r.RemoteAddr != "" {
+		h, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err == nil {
+			host = h
+		} else {
+			host = r.RemoteAddr
+		}
+	}
+
+	isHTTPS := false
+	if r.URL != nil {
+		isHTTPS = r.URL.Scheme == "https"
+	}
+
+	method := r.Method
+	if strings.ToLower(r.Header.Get("Upgrade")) == "websocket" {
+		method = "WS"
+	}
+
+	// Clone request headers to avoid data race
+	reqHeaders := copyHeader(r.Header)
+	urlStr := ""
+	if r.URL != nil {
+		urlStr = r.URL.String()
+	}
+
+	// Extract Response details
+	statusCode := 0
+	var contentType string
+	var bodySize int64
+	var respHeaders map[string][]string
+
+	if resp != nil {
+		statusCode = resp.StatusCode
+		contentType = resp.Header.Get("Content-Type")
+		bodySize = resp.ContentLength
+		respHeaders = copyHeader(resp.Header)
+		// Don't cap bodySize at 0 if it's -1 (chunked)
+	} else if method == "CONNECT" {
+		statusCode = 200 // Connection Established
+	}
+
+	log := RequestLog{
+		Id:          id,
+		Time:        time.Now().Format("2006-01-02 15:04:05"),
+		ClientIP:    host,
+		Method:      method,
+		URL:         urlStr,
+		IsHTTPS:     isHTTPS,
+		Headers:     reqHeaders,
+		RespHeaders: respHeaders,
+		StatusCode:  statusCode,
+		ContentType: contentType,
+		BodySize:    bodySize,
+		IsWs:        method == "WS",
+	}
+
+	// Always emit log to UI in background to never block network flow
+	go func() {
+		if p.OnRequest != nil {
+			p.OnRequest(log)
+		}
+	}()
+
+	return log
+}
+
+func (p *ProxyServer) Stop() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if !p.running || p.server == nil {
+		return nil
+	}
+	return p.server.Shutdown(context.Background())
+}
+
+func (p *ProxyServer) IsRunning() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.running
+}
+
+func (p *ProxyServer) SetLimits(uploadSpeed, downloadSpeed int) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// Low burst to ensure even small requests feel the throttle
+	// But enough to handle basic TCP headers/segments efficiently
+	// 4KB burst means we enforce check every 4KB
+	const burstSize = 4 * 1024
+
+	if uploadSpeed > 0 {
+		p.upLimiter = rate.NewLimiter(rate.Limit(uploadSpeed), burstSize)
+	} else {
+		p.upLimiter = nil
+	}
+
+	if downloadSpeed > 0 {
+		p.downLimiter = rate.NewLimiter(rate.Limit(downloadSpeed), burstSize)
+	} else {
+		p.downLimiter = nil
+	}
+}
+
+func (p *ProxyServer) SetWSEnabled(enabled bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.wsEnabled = enabled
+}
+
+func (p *ProxyServer) IsWSEnabled() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.wsEnabled
+}
+
+func (p *ProxyServer) SetProxyMITM(enabled bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.mitmEnabled = enabled
+	p.debugLog("PROXY MITM: %v", enabled)
+}
+
+func (p *ProxyServer) SetMITMBypassPatterns(patterns []string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.mitmBypassPatterns = patterns
+	p.debugLog("PROXY MITM Bypass Patterns Updated: %v", patterns)
+}
+
+func (p *ProxyServer) GetMITMBypassPatterns() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.mitmBypassPatterns
+}
+
+func (p *ProxyServer) IsMITMEnabled() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.mitmEnabled
+}
+
+func (p *ProxyServer) GetCertPath() string {
+	if p.certMgr != nil {
+		return p.certMgr.CertPath
+	}
+	return ""
+}
+
+// --- Helpers ---
+
+// RateLimitedReadCloser wraps an io.ReadCloser with rate limiting
+type RateLimitedReadCloser struct {
+	rc      io.ReadCloser
+	limiter *rate.Limiter
+}
+
+func (r *RateLimitedReadCloser) Read(p []byte) (n int, err error) {
+	n, err = r.rc.Read(p)
+	if n > 0 && r.limiter != nil {
+		ctx := context.Background()
+		burst := r.limiter.Burst()
+		remaining := n
+		for remaining > 0 {
+			take := remaining
+			if take > burst {
+				take = burst
+			}
+			if wErr := r.limiter.WaitN(ctx, take); wErr != nil {
+				// Should we fail? Yes, probably context canceled.
+				break
+			}
+			remaining -= take
+		}
+	}
+	return
+}
+
+func (r *RateLimitedReadCloser) Close() error {
+	return r.rc.Close()
+}
+
+// MultiReadCloser aids in restoring the body after peeking
+type MultiReadCloser struct {
+	io.Reader
+	Closer io.Closer
+}
+
+func (m *MultiReadCloser) Close() error {
+	return m.Closer.Close()
+}
+
+// TransparentReadCloser captures body and counts size during transfer without affecting the stream
+type TransparentReadCloser struct {
+	rc         io.ReadCloser
+	p          *ProxyServer
+	id         string
+	isReq      bool
+	log        RequestLog // Cached log metadata for response updates
+	captured   *bytes.Buffer
+	limit      int64
+	totalSize  int64
+	lastUpdate time.Time
+	mu         sync.Mutex
+}
+
+func (r *TransparentReadCloser) Read(p []byte) (n int, err error) {
+	n, err = r.rc.Read(p)
+	if n > 0 {
+		r.mu.Lock()
+		r.totalSize += int64(n)
+		// Capture copy for analysis (up to limit)
+		if r.limit > 0 && int64(r.captured.Len()) < r.limit {
+			toWrite := n
+			if int64(r.captured.Len())+int64(toWrite) > r.limit {
+				toWrite = int(r.limit - int64(r.captured.Len()))
+			}
+			r.captured.Write(p[:toWrite])
+		}
+
+		// Update UI infrequently (every 512KB) or on timer
+		shouldUpdate := r.totalSize%(512*1024) < int64(n) || time.Since(r.lastUpdate) > 2*time.Second
+		r.mu.Unlock()
+
+		if shouldUpdate {
+			r.update(false)
+		}
+	}
+	if err == io.EOF {
+		r.update(true)
+	}
+	return n, err
+}
+
+func (r *TransparentReadCloser) update(done bool) {
+	r.mu.Lock()
+	r.lastUpdate = time.Now()
+	size := r.totalSize
+
+	var capturedCopy []byte
+	// Only capture on final update or if limit reached
+	if (done || (r.limit > 0 && int64(r.captured.Len()) >= r.limit)) && r.captured.Len() > 0 {
+		capturedCopy = append([]byte(nil), r.captured.Bytes()...)
+	}
+	r.mu.Unlock()
+
+	// Update UI asynchronously in background
+	go func() {
+		if r.p.OnRequest == nil {
+			return
+		}
+
+		if r.isReq {
+			// Update Request Body Preview
+			if len(capturedCopy) > 0 {
+				preview := r.p.analyzeBody(capturedCopy, "", "")
+				r.p.OnRequest(RequestLog{
+					Id:            r.id,
+					Body:          preview,
+					BodySize:      size,
+					PartialUpdate: true,
+				})
+			}
+		} else {
+			// For Response:
+			// If not done, only send a PartialUpdate with the current size to avoid overwriting headers
+			if !done {
+				r.p.OnRequest(RequestLog{
+					Id:            r.id,
+					BodySize:      size,
+					PartialUpdate: true,
+				})
+				return
+			}
+
+			// Final update: Send the full log (or a meaningful subset)
+			logToSend := r.log
+			logToSend.BodySize = size
+			if len(capturedCopy) > 0 {
+				encoding := ""
+				if vv, ok := logToSend.RespHeaders["Content-Encoding"]; ok && len(vv) > 0 {
+					encoding = vv[0]
+				}
+				logToSend.RespBody = r.p.analyzeBody(capturedCopy, encoding, logToSend.ContentType)
+			}
+			r.p.OnRequest(logToSend)
+		}
+	}()
+}
+
+func (r *TransparentReadCloser) Close() error {
+	r.update(true)
+	return r.rc.Close()
+}
+
+// analyzeBody handles decompression and string conversion for UI display in a non-interfering way.
+func (p *ProxyServer) analyzeBody(data []byte, encoding string, contentType string) string {
+	if len(data) == 0 {
+		return ""
+	}
+
+	raw := data
+	// 1. Decompress if needed (Shadow copy only)
+	if strings.Contains(encoding, "gzip") {
+		gr, err := gzip.NewReader(bytes.NewReader(data))
+		if err == nil {
+			decompressed, err := io.ReadAll(gr)
+			if err == nil {
+				raw = decompressed
+			}
+			gr.Close()
+		}
+	}
+
+	// 2. Binary Detection
+	isBinary := false
+	limit := len(raw)
+	if limit > 512 {
+		limit = 512
+	}
+	for i := 0; i < limit; i++ {
+		if raw[i] == 0 {
+			isBinary = true
+			break
+		}
+	}
+
+	if isBinary {
+		return fmt.Sprintf("[Binary Data: %d bytes]", len(raw))
+	}
+
+	// 3. String Truncation removed: Send full string to UI as requested
+	return string(raw)
+}

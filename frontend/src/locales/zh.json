@@ -27,7 +27,8 @@
     "files": "文件管理",
     "shell": "终端模拟",
     "logcat": "日志查看",
-    "mirror": "投屏控制"
+    "mirror": "投屏控制",
+    "proxy": "网络代理"
   },
   "about": {
     "title": "关于 ADB GUI",
@@ -224,7 +225,8 @@
     "proxy_tip_title": "代理/VPN 稳定性提示",
     "proxy_tip_desc": "如果手机开启了代理或 VPN，请在代理软件中确保已开启“绕过局域网”或类似功能，否则无线连接可能会不稳定。",
     "pin": "置顶",
-    "unpin": "取消置顶"
+    "unpin": "取消置顶",
+    "network": "实时网速"
   },
   "files": {
     "title": "文件",
