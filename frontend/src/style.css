@@ -84,9 +84,4 @@ div[role="button"],
     background-color: rgba(0, 0, 0, 0.25) !important;
 }
 
-/* Smoother transitions */
-.ant-btn,
-.ant-input,
-.ant-select-selector {
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
+

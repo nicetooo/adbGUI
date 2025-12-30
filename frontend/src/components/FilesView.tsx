@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
 import {
-  Table,
   Button,
   Tag,
   Space,
@@ -13,6 +12,7 @@ import {
   theme,
 } from "antd";
 import { useTranslation } from "react-i18next";
+import VirtualTable from "./VirtualTable";
 import {
   ReloadOutlined,
   FolderOutlined,
@@ -28,16 +28,16 @@ import {
   VerticalAlignBottomOutlined,
 } from "@ant-design/icons";
 // @ts-ignore
-import { 
-  GetThumbnail, 
-  ListFiles, 
-  DeleteFile, 
-  MoveFile, 
-  CopyFile, 
-  Mkdir, 
-  OpenFileOnHost, 
-  CancelOpenFile, 
-  DownloadFile 
+import {
+  GetThumbnail,
+  ListFiles,
+  DeleteFile,
+  MoveFile,
+  CopyFile,
+  Mkdir,
+  OpenFileOnHost,
+  CancelOpenFile,
+  DownloadFile
 } from "../../wailsjs/go/main/App";
 import DeviceSelector from "./DeviceSelector";
 
@@ -80,7 +80,7 @@ const NameWithThumbnail = ({
         .then((res: string) => {
           setThumb(res);
         })
-        .catch(() => {})
+        .catch(() => { })
         .finally(() => setLoading(false));
     }
   }, [deviceId, record.path, record.modTime]);
@@ -198,7 +198,7 @@ const FilesView: React.FC<FilesViewProps> = ({
 }) => {
   const { t } = useTranslation();
   const { token } = theme.useToken();
-  
+
   // Files state
   const [currentPath, setCurrentPath] = useState(initialPath);
   const [fileList, setFileList] = useState<any[]>([]);
@@ -414,8 +414,8 @@ const FilesView: React.FC<FilesViewProps> = ({
         record.isDir
           ? "-"
           : size > 1024 * 1024
-          ? (size / (1024 * 1024)).toFixed(2) + " MB"
-          : (size / 1024).toFixed(2) + " KB",
+            ? (size / (1024 * 1024)).toFixed(2) + " MB"
+            : (size / 1024).toFixed(2) + " KB",
     },
     {
       title: t("files.time"),
@@ -584,8 +584,7 @@ const FilesView: React.FC<FilesViewProps> = ({
           >
             {t("files.paste")}{" "}
             {clipboard &&
-              `(${
-                clipboard.type === "copy" ? t("common.copy") : t("common.cut")
+              `(${clipboard.type === "copy" ? t("common.copy") : t("common.cut")
               })`}
           </Button>
         </Space>
@@ -604,15 +603,13 @@ const FilesView: React.FC<FilesViewProps> = ({
           userSelect: "text",
         }}
       >
-        <Table
+        <VirtualTable
           columns={fileColumns}
           dataSource={filteredFiles}
           rowKey="path"
           loading={filesLoading}
-          pagination={false}
-          size="small"
           scroll={{ y: "calc(100vh - 170px)" }}
-          onRow={(record) => ({
+          onRow={(record: any) => ({
             onDoubleClick: () => {
               if (record.isDir) {
                 fetchFiles(record.path);

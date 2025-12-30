@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Table,
   Button,
   Space,
   Tooltip,
@@ -12,6 +11,7 @@ import {
   Dropdown,
   theme,
 } from "antd";
+import VirtualTable from "./VirtualTable";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../ThemeContext";
 import {
@@ -32,16 +32,16 @@ import {
 import DeviceSelector from "./DeviceSelector";
 import AppInfoModal from "./AppInfoModal";
 // @ts-ignore
-import { 
-  GetAppInfo, 
-  StartActivity, 
-  ListPackages, 
-  UninstallApp, 
-  ClearAppData, 
-  ForceStopApp, 
-  StartApp, 
-  EnableApp, 
-  DisableApp, 
+import {
+  GetAppInfo,
+  StartActivity,
+  ListPackages,
+  UninstallApp,
+  ClearAppData,
+  ForceStopApp,
+  StartApp,
+  EnableApp,
+  DisableApp,
   ExportAPK,
   OpenSettings
 } from "../../wailsjs/go/main/App";
@@ -241,7 +241,7 @@ const AppsView: React.FC<AppsViewProps> = ({
   useEffect(() => {
     const updateHeight = () => {
       if (containerRef.current) {
-        const offset = 160; 
+        const offset = 160;
         const height = containerRef.current.clientHeight - offset;
         setTableHeight(height > 200 ? height : 400);
       }
@@ -277,8 +277,8 @@ const AppsView: React.FC<AppsViewProps> = ({
           "#52c41a", "#eb2f96", "#fadb14", "#fa541c", "#13c2c2",
         ];
         const color = colors[
-            Math.abs(record.name.split("").reduce((a: number, b: string) => (a << 5) - a + b.charCodeAt(0), 0)) % colors.length
-          ];
+          Math.abs(record.name.split("").reduce((a: number, b: string) => (a << 5) - a + b.charCodeAt(0), 0)) % colors.length
+        ];
 
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -291,21 +291,6 @@ const AppsView: React.FC<AppsViewProps> = ({
                 boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
               }}
             >
-              {record.icon ? (
-                <img
-                  src={record.icon}
-                  style={{ width: "100%", height: "100%", objectFit: "cover", position: "absolute", zIndex: 2 }}
-                  onError={(e) => { (e.target as HTMLImageElement).style.opacity = "0"; }}
-                  alt=""
-                />
-              ) : (
-                <img
-                  src={`https://play-lh.googleusercontent.com/i-p/get-icon?id=${record.name}&w=72`}
-                  style={{ width: "100%", height: "100%", objectFit: "cover", position: "absolute", zIndex: 2 }}
-                  onError={(e) => { (e.target as HTMLImageElement).style.opacity = "0"; }}
-                  alt=""
-                />
-              )}
               <span style={{ position: "relative", zIndex: 1 }}>{firstLetter}</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
@@ -349,35 +334,23 @@ const AppsView: React.FC<AppsViewProps> = ({
       render: (_: any, record: main.AppPackage) => {
         return (
           <Space size={4}>
-            <Tooltip title={t("apps.launch_app")}>
-              <Button size="small" icon={<PlayCircleOutlined />} onClick={() => handleStartApp(record.name)} />
-            </Tooltip>
-            <Tooltip title={t("menu.logcat")}>
-               <Button 
-                size="small" 
-                icon={<FileTextOutlined />} 
-                onClick={() => handleJumpToLogcat(record.name)} 
-              />
-            </Tooltip>
-            <Tooltip title={t("apps.force_stop")}>
-              <Button size="small" icon={<CloseCircleOutlined />} onClick={() => handleForceStop(record.name)} />
-            </Tooltip>
-            <Tooltip title={record.state === "enabled" ? t("apps.disable") : t("apps.enable")}>
-              <Button 
-                size="small" 
-                icon={record.state === "enabled" ? <StopOutlined /> : <CheckCircleOutlined />} 
-                onClick={() => handleToggleState(record.name, record.state)} 
-              />
-            </Tooltip>
-            <Tooltip title={t("apps.app_settings")}>
-              <Button size="small" icon={<SettingOutlined />} onClick={() => handleOpenSettings(selectedDevice, "android.settings.APPLICATION_DETAILS_SETTINGS", `package:${record.name}`)} />
-            </Tooltip>
-            <Tooltip title={t("apps.export")}>
-              <Button size="small" icon={<DownloadOutlined />} onClick={() => handleExportAPK(record.name)} />
-            </Tooltip>
-            <Tooltip title={t("app_info.title")}>
-              <Button size="small" icon={<InfoCircleOutlined />} onClick={() => handleFetchAppInfo(record.name)} />
-            </Tooltip>
+            <Button size="small" icon={<PlayCircleOutlined />} onClick={() => handleStartApp(record.name)} title={t("apps.launch_app")} />
+            <Button
+              size="small"
+              icon={<FileTextOutlined />}
+              onClick={() => handleJumpToLogcat(record.name)}
+              title={t("menu.logcat")}
+            />
+            <Button size="small" icon={<CloseCircleOutlined />} onClick={() => handleForceStop(record.name)} title={t("apps.force_stop")} />
+            <Button
+              size="small"
+              icon={record.state === "enabled" ? <StopOutlined /> : <CheckCircleOutlined />}
+              onClick={() => handleToggleState(record.name, record.state)}
+              title={record.state === "enabled" ? t("apps.disable") : t("apps.enable")}
+            />
+            <Button size="small" icon={<SettingOutlined />} onClick={() => handleOpenSettings(selectedDevice, "android.settings.APPLICATION_DETAILS_SETTINGS", `package:${record.name}`)} title={t("apps.app_settings")} />
+            <Button size="small" icon={<DownloadOutlined />} onClick={() => handleExportAPK(record.name)} title={t("apps.export")} />
+            <Button size="small" icon={<InfoCircleOutlined />} onClick={() => handleFetchAppInfo(record.name)} title={t("app_info.title")} />
 
             <Dropdown
               menu={{
@@ -474,8 +447,8 @@ const AppsView: React.FC<AppsViewProps> = ({
           <Radio.Button value="user">{t("apps.user")}</Radio.Button>
           <Radio.Button value="system">{t("apps.system")}</Radio.Button>
         </Radio.Group>
-        <Button 
-          icon={<ReloadOutlined />} 
+        <Button
+          icon={<ReloadOutlined />}
           onClick={() => fetchPackages()}
           loading={appsLoading}
         >
@@ -496,13 +469,11 @@ const AppsView: React.FC<AppsViewProps> = ({
           boxShadow: isDark ? "0 2px 8px rgba(0,0,0,0.2)" : "0 2px 8px rgba(0,0,0,0.05)",
         }}
       >
-        <Table
+        <VirtualTable
           columns={appColumns}
           dataSource={filteredPackages}
           rowKey="name"
           loading={appsLoading}
-          pagination={false}
-          size="small"
           scroll={{ y: tableHeight }}
           style={{ flex: 1 }}
         />

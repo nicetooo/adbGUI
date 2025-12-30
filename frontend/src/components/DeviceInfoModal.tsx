@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { Modal, Button, Descriptions, Card, Tabs, Table, Tag, Input } from "antd";
+import { Modal, Button, Descriptions, Card, Tabs, Tag, Input } from "antd";
 import { InfoCircleOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
+import VirtualTable from "./VirtualTable";
 import { useTranslation } from "react-i18next";
 // @ts-ignore
 import { main } from "../../wailsjs/go/models";
@@ -41,15 +42,15 @@ const DeviceInfoModal: React.FC<DeviceInfoModalProps> = ({
 
   const propData = deviceInfo?.props
     ? Object.entries(deviceInfo.props)
-        .map(([key, value]) => ({
-          key,
-          value: String(value),
-        }))
-        .filter(item => 
-          item.key.toLowerCase().includes(searchText.toLowerCase()) || 
-          item.value.toLowerCase().includes(searchText.toLowerCase())
-        )
-        .sort((a, b) => a.key.localeCompare(b.key))
+      .map(([key, value]) => ({
+        key,
+        value: String(value),
+      }))
+      .filter(item =>
+        item.key.toLowerCase().includes(searchText.toLowerCase()) ||
+        item.value.toLowerCase().includes(searchText.toLowerCase())
+      )
+      .sort((a, b) => a.key.localeCompare(b.key))
     : [];
 
   return (
@@ -60,9 +61,9 @@ const DeviceInfoModal: React.FC<DeviceInfoModalProps> = ({
             <InfoCircleOutlined style={{ marginRight: 8, color: "#1890ff" }} />
             {t("device_info.title")}
           </span>
-          <Button 
-            size="small" 
-            icon={<ReloadOutlined spin={loading} />} 
+          <Button
+            size="small"
+            icon={<ReloadOutlined spin={loading} />}
             onClick={onRefresh}
             disabled={loading}
           >
@@ -118,11 +119,9 @@ const DeviceInfoModal: React.FC<DeviceInfoModalProps> = ({
                     allowClear
                   />
                 </div>
-                <Table
+                <VirtualTable
                   dataSource={propData}
                   columns={propColumns}
-                  size="small"
-                  pagination={false}
                   scroll={{ y: 400 }}
                   rowKey="key"
                 />

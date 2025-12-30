@@ -1,5 +1,6 @@
 import React from "react";
-import { Table, Button, Tag, Space, Tooltip, theme } from "antd";
+import { Button, Tag, Space, Tooltip, theme } from "antd";
+import VirtualTable from "./VirtualTable";
 import { useTranslation } from "react-i18next";
 import {
   ReloadOutlined,
@@ -10,7 +11,6 @@ import {
   DesktopOutlined,
   DownloadOutlined,
   InfoCircleOutlined,
-
   WifiOutlined,
   UsbOutlined,
   DisconnectOutlined,
@@ -104,12 +104,12 @@ const DevicesView: React.FC<DevicesViewProps> = ({
   React.useEffect(() => {
     // Subscribe to network stats updates
     const unregister = EventsOn("network-stats", (stats: any) => {
-       if (stats.deviceId) {
-         setNetStatsMap(prev => ({
-           ...prev,
-           [stats.deviceId]: { rxSpeed: stats.rxSpeed, txSpeed: stats.txSpeed }
-         }));
-       }
+      if (stats.deviceId) {
+        setNetStatsMap(prev => ({
+          ...prev,
+          [stats.deviceId]: { rxSpeed: stats.rxSpeed, txSpeed: stats.txSpeed }
+        }));
+      }
     });
 
     return () => {
@@ -122,16 +122,16 @@ const DevicesView: React.FC<DevicesViewProps> = ({
   // Update monitors when devices list changes
   React.useEffect(() => {
     const currentOnlineIds = new Set<string>();
-    
+
     // Start monitors for new devices
     devices.forEach(d => {
-       if (d.state === 'device') {
-         currentOnlineIds.add(d.id);
-         if (!monitoredIds.current.has(d.id)) {
-           StartNetworkMonitor(d.id);
-           monitoredIds.current.add(d.id);
-         }
-       }
+      if (d.state === 'device') {
+        currentOnlineIds.add(d.id);
+        if (!monitoredIds.current.has(d.id)) {
+          StartNetworkMonitor(d.id);
+          monitoredIds.current.add(d.id);
+        }
+      }
     });
 
     // Stop monitors for removed/offline devices
@@ -144,10 +144,10 @@ const DevicesView: React.FC<DevicesViewProps> = ({
   }, [devices]);
 
   const formatSpeed = (bytes: number) => {
-      if (!bytes) return "0 B/s";
-      if (bytes < 1024) return bytes + " B/s";
-      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB/s";
-      return (bytes / (1024 * 1024)).toFixed(1) + " MB/s";
+    if (!bytes) return "0 B/s";
+    if (bytes < 1024) return bytes + " B/s";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB/s";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB/s";
   };
 
   // Merge history devices that are not currently active
@@ -175,7 +175,7 @@ const DevicesView: React.FC<DevicesViewProps> = ({
       if (hdIP && dWifiIP && hdIP === dWifiIP) return true;
       return false;
     });
-    
+
     if (!isActive) {
       allDevices.push({
         id: hd.id,
@@ -245,19 +245,19 @@ const DevicesView: React.FC<DevicesViewProps> = ({
         <Space>
           {(type === "wired" || type === "both") && (
             <Tooltip title={t("devices.wired")}>
-              <Tag 
-                icon={<UsbOutlined />} 
-                color={record.state === 'device' ? "orange" : "default"} 
-                style={{ marginRight: 0, paddingInline: 8, opacity: record.state === 'device' ? 1 : 0.6 }} 
+              <Tag
+                icon={<UsbOutlined />}
+                color={record.state === 'device' ? "orange" : "default"}
+                style={{ marginRight: 0, paddingInline: 8, opacity: record.state === 'device' ? 1 : 0.6 }}
               />
             </Tooltip>
           )}
           {(type === "wireless" || type === "both") && (
             <Tooltip title={t("devices.wireless")}>
-              <Tag 
-                icon={<WifiOutlined />} 
-                color={record.state === 'device' ? "blue" : "default"} 
-                style={{ marginRight: 0, paddingInline: 8, opacity: record.state === 'device' ? 1 : 0.6 }} 
+              <Tag
+                icon={<WifiOutlined />}
+                color={record.state === 'device' ? "blue" : "default"}
+                style={{ marginRight: 0, paddingInline: 8, opacity: record.state === 'device' ? 1 : 0.6 }}
               />
             </Tooltip>
           )}
@@ -274,13 +274,13 @@ const DevicesView: React.FC<DevicesViewProps> = ({
         const mirrorStatus = mirrorStatuses[record.id] || mirrorStatuses[record.serial];
         const recordStatus = recordStatuses[record.id] || recordStatuses[record.serial];
 
-        const config = isBusy 
+        const config = isBusy
           ? { color: "blue", icon: <ReloadOutlined spin />, text: t("common.loading") }
           : {
-              device: { color: "green", icon: <CheckCircleOutlined />, text: t("devices.online") },
-              offline: { color: "default", icon: <StopOutlined />, text: t("devices.offline") },
-              unauthorized: { color: "red", icon: <CloseCircleOutlined />, text: t("devices.unauthorized") },
-            }[state] || { color: "red", icon: <CloseCircleOutlined />, text: state };
+            device: { color: "green", icon: <CheckCircleOutlined />, text: t("devices.online") },
+            offline: { color: "default", icon: <StopOutlined />, text: t("devices.offline") },
+            unauthorized: { color: "red", icon: <CloseCircleOutlined />, text: t("devices.unauthorized") },
+          }[state] || { color: "red", icon: <CloseCircleOutlined />, text: state };
 
         const formatDuration = (seconds: number) => {
           return new Date(seconds * 1000).toISOString().substr(11, 8);
@@ -313,7 +313,7 @@ const DevicesView: React.FC<DevicesViewProps> = ({
       width: 160,
       render: (_: any, record: Device) => {
         if (record.state !== 'device') return "-";
-        
+
         const stats = netStatsMap[record.id] || { rxSpeed: 0, txSpeed: 0 };
         return (
           <Space direction="vertical" size={0} style={{ fontSize: '12px' }}>
@@ -334,117 +334,117 @@ const DevicesView: React.FC<DevicesViewProps> = ({
       render: (_: any, record: Device) => {
         const isBusy = busyDevices.has(record.id) || busyDevices.has(record.serial);
         return (
-        <Space size="small">
-          {(record.state === "device" || isBusy) ? (
-            <>
-              <Tooltip title={t("device_info.title")}>
-                <Button
-                  size="small"
-                  icon={<InfoCircleOutlined />}
-                  onClick={() => handleFetchDeviceInfo(record.id)}
-                />
-              </Tooltip>
-              <Tooltip title={t("menu.shell")}>
-                <Button
-                  size="small"
-                  icon={<CodeOutlined />}
-                  onClick={() => {
-                    setSelectedDevice(record.id);
-                    setSelectedKey("3");
-                  }}
-                />
-              </Tooltip>
-              <Tooltip title={t("menu.apps")}>
-                <Button
-                  size="small"
-                  icon={<AppstoreOutlined />}
-                  onClick={() => {
-                    setSelectedDevice(record.id);
-                    setSelectedKey("2");
-                  }}
-                />
-              </Tooltip>
-              <Tooltip title={t("menu.logcat")}>
-                <Button
-                  size="small"
-                  icon={<FileTextOutlined />}
-                  onClick={() => {
-                    setSelectedDevice(record.id);
-                    setSelectedKey("4");
-                  }}
-                />
-              </Tooltip>
-              <Tooltip title={t("menu.files")}>
-                <Button
-                  size="small"
-                  icon={<FolderOutlined />}
-                  onClick={() => {
-                    setSelectedDevice(record.id);
-                    setSelectedKey("6");
-                  }}
-                />
-              </Tooltip>
-              <Tooltip title={t("devices.mirror_screen")}>
-                <Button
-                  icon={<DesktopOutlined />}
-                  size="small"
-                  onClick={() => handleStartScrcpy(record.id)}
-                />
-              </Tooltip>
-              <Tooltip title={t("devices.system_settings")}>
-                <Button
-                  icon={<SettingOutlined />}
-                  size="small"
-                  onClick={() => handleOpenSettings(record.id)}
-                />
-              </Tooltip>
-              {record.type === "wired" && (
-                <Tooltip title={t("devices.connect_with_wireless")}>
+          <Space size="small">
+            {(record.state === "device" || isBusy) ? (
+              <>
+                <Tooltip title={t("device_info.title")}>
                   <Button
                     size="small"
-                    icon={<LinkOutlined />}
-                    onClick={() => handleSwitchToWireless(record.id)}
-                    style={{ color: "#1677ff" }}
+                    icon={<InfoCircleOutlined />}
+                    onClick={() => handleFetchDeviceInfo(record.id)}
                   />
                 </Tooltip>
-              )}
-              {(record.type === "wireless" || record.type === "both") && (
-                <Tooltip title={t("devices.disconnect_wireless")}>
+                <Tooltip title={t("menu.shell")}>
                   <Button
                     size="small"
-                    danger
-                    icon={<DisconnectOutlined />}
+                    icon={<CodeOutlined />}
                     onClick={() => {
-                      const wirelessIds = record.ids.filter(id => id.includes(":") || id.startsWith("adb-"));
-                      handleAdbDisconnect(wirelessIds.join(","));
+                      setSelectedDevice(record.id);
+                      setSelectedKey("3");
                     }}
                   />
                 </Tooltip>
-              )}
-            </>
-          ) : (
-            <>
-              {record.wifiAddr && (
-                <Tooltip title={t("devices.reconnect")}>
+                <Tooltip title={t("menu.apps")}>
                   <Button
                     size="small"
-                    type="primary"
-                    icon={<LinkOutlined />}
-                    onClick={() => handleAdbConnect(record.wifiAddr)}
+                    icon={<AppstoreOutlined />}
+                    onClick={() => {
+                      setSelectedDevice(record.id);
+                      setSelectedKey("2");
+                    }}
                   />
                 </Tooltip>
-              )}
-              <Tooltip title={t("devices.remove_history")}>
-                <Button
-                  size="small"
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={() => handleRemoveHistoryDevice(record.id)}
-                />
-              </Tooltip>
-            </>
-          )}
-        </Space>
+                <Tooltip title={t("menu.logcat")}>
+                  <Button
+                    size="small"
+                    icon={<FileTextOutlined />}
+                    onClick={() => {
+                      setSelectedDevice(record.id);
+                      setSelectedKey("4");
+                    }}
+                  />
+                </Tooltip>
+                <Tooltip title={t("menu.files")}>
+                  <Button
+                    size="small"
+                    icon={<FolderOutlined />}
+                    onClick={() => {
+                      setSelectedDevice(record.id);
+                      setSelectedKey("6");
+                    }}
+                  />
+                </Tooltip>
+                <Tooltip title={t("devices.mirror_screen")}>
+                  <Button
+                    icon={<DesktopOutlined />}
+                    size="small"
+                    onClick={() => handleStartScrcpy(record.id)}
+                  />
+                </Tooltip>
+                <Tooltip title={t("devices.system_settings")}>
+                  <Button
+                    icon={<SettingOutlined />}
+                    size="small"
+                    onClick={() => handleOpenSettings(record.id)}
+                  />
+                </Tooltip>
+                {record.type === "wired" && (
+                  <Tooltip title={t("devices.connect_with_wireless")}>
+                    <Button
+                      size="small"
+                      icon={<LinkOutlined />}
+                      onClick={() => handleSwitchToWireless(record.id)}
+                      style={{ color: "#1677ff" }}
+                    />
+                  </Tooltip>
+                )}
+                {(record.type === "wireless" || record.type === "both") && (
+                  <Tooltip title={t("devices.disconnect_wireless")}>
+                    <Button
+                      size="small"
+                      danger
+                      icon={<DisconnectOutlined />}
+                      onClick={() => {
+                        const wirelessIds = record.ids.filter(id => id.includes(":") || id.startsWith("adb-"));
+                        handleAdbDisconnect(wirelessIds.join(","));
+                      }}
+                    />
+                  </Tooltip>
+                )}
+              </>
+            ) : (
+              <>
+                {record.wifiAddr && (
+                  <Tooltip title={t("devices.reconnect")}>
+                    <Button
+                      size="small"
+                      type="primary"
+                      icon={<LinkOutlined />}
+                      onClick={() => handleAdbConnect(record.wifiAddr)}
+                    />
+                  </Tooltip>
+                )}
+                <Tooltip title={t("devices.remove_history")}>
+                  <Button
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleRemoveHistoryDevice(record.id)}
+                  />
+                </Tooltip>
+              </>
+            )}
+          </Space>
         );
       },
     },
@@ -498,13 +498,11 @@ const DevicesView: React.FC<DevicesViewProps> = ({
           userSelect: "text",
         }}
       >
-        <Table
+        <VirtualTable
           columns={deviceColumns}
           dataSource={allDevices}
           rowKey="id"
           loading={loading}
-          pagination={false}
-          size="small"
           scroll={{ y: "calc(100vh - 130px)" }}
           style={{ flex: 1 }}
         />
