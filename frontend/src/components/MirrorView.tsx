@@ -36,6 +36,18 @@ import {
 
 const { Option } = Select;
 
+// Quality Preset Types and Constants
+type QualityPreset = 'hd' | 'smooth' | 'low' | 'custom';
+
+const QUALITY_PRESETS: Record<Exclude<QualityPreset, 'custom'>, { maxSize: number; bitRate: number; maxFps: number }> = {
+  hd: { maxSize: 1920, bitRate: 16, maxFps: 60 },
+  smooth: { maxSize: 1280, bitRate: 8, maxFps: 60 },
+  low: { maxSize: 720, bitRate: 4, maxFps: 30 },
+};
+
+// Orientation Mode Types
+type OrientationMode = 'auto' | 'landscape' | 'portrait';
+
 const MirrorView: React.FC = () => {
   const { selectedDevice, devices, fetchDevices } = useDeviceStore();
   const { mirrorStatuses, recordStatuses } = useMirrorStore();
@@ -79,6 +91,26 @@ const MirrorView: React.FC = () => {
   const [deviceAndroidVer, setDeviceAndroidVer] = useState<number>(0);
   const fetchingRef = useRef<string | null>(null);
   const lastFetchedDeviceRef = useRef<string>("");
+
+  // Detect current preset based on config values
+  const detectPreset = (config: main.ScrcpyConfig): QualityPreset => {
+    for (const [key, preset] of Object.entries(QUALITY_PRESETS)) {
+      if (config.maxSize === preset.maxSize &&
+          config.bitRate === preset.bitRate &&
+          config.maxFps === preset.maxFps) {
+        return key as QualityPreset;
+      }
+    }
+    return 'custom';
+  };
+
+  // Get current orientation mode
+  const getCurrentOrientationMode = (config: main.ScrcpyConfig): OrientationMode => {
+    if (config.displayOrientation === "90" || config.displayOrientation === "270") {
+      return 'landscape';
+    }
+    return 'auto';
+  };
 
   // Helper to get current device's config
   const currentConfig = deviceConfigs[selectedDevice] || defaultConfig;
@@ -267,6 +299,39 @@ const MirrorView: React.FC = () => {
     if (currentMirrorStatus.isMirroring && selectedDevice) {
       await handleStartScrcpy(selectedDevice, newConfig);
     }
+  };
+
+  // Handle preset selection
+  const handlePresetChange = (preset: QualityPreset) => {
+    if (preset !== 'custom' && QUALITY_PRESETS[preset]) {
+      const newConfig = { ...currentConfig, ...QUALITY_PRESETS[preset] };
+      setScrcpyConfig(newConfig);
+    }
+  };
+
+  // Handle orientation mode change
+  const handleOrientationMode = async (mode: OrientationMode) => {
+    let displayOrientation = "0";
+    let captureOrientation = "0";
+
+    switch (mode) {
+      case 'landscape':
+        displayOrientation = "90";
+        captureOrientation = "90";
+        break;
+      case 'portrait':
+      case 'auto':
+      default:
+        displayOrientation = "0";
+        captureOrientation = "0";
+        break;
+    }
+
+    await updateScrcpyConfig({
+      ...currentConfig,
+      displayOrientation,
+      captureOrientation,
+    });
   };
 
   // Status for display
@@ -519,6 +584,39 @@ const MirrorView: React.FC = () => {
               size="small"
               className="mirror-card"
             >
+              {/* Quality Preset Buttons */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ marginBottom: 8 }}>
+                  <span style={{ fontSize: '12px', color: token.colorTextSecondary }}>{t("mirror.quality_preset")}</span>
+                </div>
+                <Space wrap>
+                  <Button
+                    type={detectPreset(currentConfig) === 'hd' ? 'primary' : 'default'}
+                    onClick={() => handlePresetChange('hd')}
+                    size="small"
+                  >
+                    {t("mirror.preset_hd")} (1080p)
+                  </Button>
+                  <Button
+                    type={detectPreset(currentConfig) === 'smooth' ? 'primary' : 'default'}
+                    onClick={() => handlePresetChange('smooth')}
+                    size="small"
+                  >
+                    {t("mirror.preset_smooth")} (720p)
+                  </Button>
+                  <Button
+                    type={detectPreset(currentConfig) === 'low' ? 'primary' : 'default'}
+                    onClick={() => handlePresetChange('low')}
+                    size="small"
+                  >
+                    {t("mirror.preset_low")}
+                  </Button>
+                  <Tag color={detectPreset(currentConfig) === 'custom' ? 'processing' : 'default'}>
+                    {detectPreset(currentConfig) === 'custom' ? t("mirror.preset_custom") : ''}
+                  </Tag>
+                </Space>
+              </div>
+
               <div style={{ marginBottom: 16 }}>
                 <div
                   style={{
@@ -710,6 +808,49 @@ const MirrorView: React.FC = () => {
                     }
                   />
                 </div>
+              </Space>
+            </Card>
+
+            {/* Screen Orientation */}
+            <Card
+              title={
+                <Space>
+                  <MobileOutlined />
+                  {t("mirror.orientation_control")}
+                </Space>
+              }
+              size="small"
+            >
+              <div style={{ marginBottom: 8 }}>
+                <span style={{ fontSize: '12px', color: token.colorTextSecondary }}>
+                  {t("mirror.orientation_desc")}
+                </span>
+              </div>
+              <Space wrap>
+                <Button
+                  type={getCurrentOrientationMode(currentConfig) === 'auto' ? 'primary' : 'default'}
+                  onClick={() => handleOrientationMode('auto')}
+                  icon={<MobileOutlined />}
+                  size="small"
+                >
+                  {t("mirror.orientation_auto")}
+                </Button>
+                <Button
+                  type={getCurrentOrientationMode(currentConfig) === 'landscape' ? 'primary' : 'default'}
+                  onClick={() => handleOrientationMode('landscape')}
+                  icon={<MobileOutlined style={{ transform: 'rotate(90deg)' }} />}
+                  size="small"
+                >
+                  {t("mirror.orientation_landscape")}
+                </Button>
+                <Button
+                  type={getCurrentOrientationMode(currentConfig) === 'portrait' ? 'primary' : 'default'}
+                  onClick={() => handleOrientationMode('portrait')}
+                  icon={<MobileOutlined />}
+                  size="small"
+                >
+                  {t("mirror.orientation_portrait")}
+                </Button>
               </Space>
             </Card>
 

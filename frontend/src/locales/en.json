@@ -335,7 +335,17 @@
     "mouse_mode": "Mouse Mode",
     "no_clipboard_sync": "No Clipboard Sync",
     "show_fps": "Show FPS (Logs)",
-    "camera_version_warning": "Camera mirroring requires Android 12 or higher."
+    "camera_version_warning": "Camera mirroring requires Android 12 or higher.",
+    "quality_preset": "Quality Preset",
+    "preset_hd": "HD",
+    "preset_smooth": "Smooth",
+    "preset_low": "Low Data",
+    "preset_custom": "Custom",
+    "orientation_control": "Screen Orientation",
+    "orientation_desc": "Force display orientation",
+    "orientation_auto": "Auto",
+    "orientation_landscape": "Landscape",
+    "orientation_portrait": "Portrait"
   },
   "shell": {
     "title": "ADB Shell",

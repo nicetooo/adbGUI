@@ -330,7 +330,17 @@
     "mouse_mode": "マウスモード",
     "no_clipboard_sync": "クリップボード同期を無効にする",
     "show_fps": "FPSを表示 (ログ)",
-    "camera_version_warning": "カメラミラーリングには Android 12 以降が必要です。"
+    "camera_version_warning": "カメラミラーリングには Android 12 以降が必要です。",
+    "quality_preset": "画質プリセット",
+    "preset_hd": "高画質",
+    "preset_smooth": "標準",
+    "preset_low": "データ節約",
+    "preset_custom": "カスタム",
+    "orientation_control": "画面の向き",
+    "orientation_desc": "表示方向を強制する",
+    "orientation_auto": "自動",
+    "orientation_landscape": "横向き",
+    "orientation_portrait": "縦向き"
   },
   "shell": {
     "title": "ADB シェル",

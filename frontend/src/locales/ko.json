@@ -330,7 +330,17 @@
     "mouse_mode": "마우스 모드",
     "no_clipboard_sync": "클립보드 동기화 비활성화",
     "show_fps": "FPS 표시 (로그)",
-    "camera_version_warning": "카메리 미러링은 Android 12 이상이 필요합니다。"
+    "camera_version_warning": "카메리 미러링은 Android 12 이상이 필요합니다。",
+    "quality_preset": "화질 프리셋",
+    "preset_hd": "고화질",
+    "preset_smooth": "부드럽게",
+    "preset_low": "데이터 절약",
+    "preset_custom": "사용자 정의",
+    "orientation_control": "화면 방향",
+    "orientation_desc": "표시 방향 강제 설정",
+    "orientation_auto": "자동",
+    "orientation_landscape": "가로",
+    "orientation_portrait": "세로"
   },
   "shell": {
     "title": "ADB 쉘",

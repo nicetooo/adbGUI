@@ -335,7 +335,17 @@
     "mouse_mode": "鼠标模式",
     "no_clipboard_sync": "禁用剪贴板同步",
     "show_fps": "显示 FPS (日志)",
-    "camera_version_warning": "摄像头投屏需要 Android 12 或更高版本。"
+    "camera_version_warning": "摄像头投屏需要 Android 12 或更高版本。",
+    "quality_preset": "画质预设",
+    "preset_hd": "高清",
+    "preset_smooth": "流畅",
+    "preset_low": "省流",
+    "preset_custom": "自定义",
+    "orientation_control": "屏幕方向",
+    "orientation_desc": "强制投屏显示方向",
+    "orientation_auto": "自动",
+    "orientation_landscape": "横屏",
+    "orientation_portrait": "竖屏"
   },
   "shell": {
     "title": "ADB 终端",
