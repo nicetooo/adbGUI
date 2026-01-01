@@ -14,15 +14,18 @@ import {
   ReloadOutlined,
 } from "@ant-design/icons";
 import DeviceSelector from "./DeviceSelector";
+import { useDeviceStore, useMirrorStore, Device } from "../stores";
 // @ts-ignore
 import { main } from "../../wailsjs/go/models";
 // @ts-ignore
-import { 
-  OpenPath, 
-  StartScrcpy, 
-  StopScrcpy, 
-  StartRecording, 
-  StopRecording, 
+import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
+// @ts-ignore
+import {
+  OpenPath,
+  StartScrcpy,
+  StopScrcpy,
+  StartRecording,
+  StopRecording,
   SelectRecordPath,
   SelectScreenshotPath,
   TakeScreenshot,
@@ -32,48 +35,10 @@ import {
 } from "../../wailsjs/go/main/App";
 
 const { Option } = Select;
-const EventsOn = (window as any).runtime.EventsOn;
-const EventsOff = (window as any).runtime.EventsOff;
 
-interface Device {
-  id: string;
-  state: string;
-  model: string;
-  brand: string;
-}
-
-interface MirrorStatus {
-  isMirroring: boolean;
-  startTime: number | null;
-  duration: number;
-}
-
-interface RecordStatus {
-  isRecording: boolean;
-  startTime: number | null;
-  duration: number;
-  recordPath: string;
-}
-
-interface MirrorViewProps {
-  devices: Device[];
-  selectedDevice: string;
-  setSelectedDevice: (id: string) => void;
-  fetchDevices: () => Promise<void>;
-  loading: boolean;
-  mirrorStatuses: Record<string, MirrorStatus>;
-  recordStatuses: Record<string, RecordStatus>;
-}
-
-const MirrorView: React.FC<MirrorViewProps> = ({
-  devices,
-  selectedDevice,
-  setSelectedDevice,
-  fetchDevices,
-  loading,
-  mirrorStatuses,
-  recordStatuses,
-}) => {
+const MirrorView: React.FC = () => {
+  const { selectedDevice, devices, fetchDevices } = useDeviceStore();
+  const { mirrorStatuses, recordStatuses } = useMirrorStore();
   const { t } = useTranslation();
   const { token } = theme.useToken();
   
@@ -140,7 +105,7 @@ const MirrorView: React.FC<MirrorViewProps> = ({
 
     EventsOn("scrcpy-failed", handleScrcpyFailed);
     return () => {
-      EventsOff("scrcpy-failed", handleScrcpyFailed);
+      EventsOff("scrcpy-failed");
     };
   }, [selectedDevice, t]);
 
@@ -222,7 +187,7 @@ const MirrorView: React.FC<MirrorViewProps> = ({
       await StartScrcpy(deviceId, config);
 
       if (currentShouldRecord && !currentRecordStatus.isRecording) {
-        const device = devices.find(d => d.id === deviceId);
+        const device = devices.find((d: Device) => d.id === deviceId);
         const path = await SelectRecordPath(device?.model || "");
         if (path) {
           const recordConfig = { ...config, recordPath: path };
@@ -256,7 +221,7 @@ const MirrorView: React.FC<MirrorViewProps> = ({
   const handleTakeScreenshot = async () => {
     if (!selectedDevice) return;
     try {
-      const device = devices.find(d => d.id === selectedDevice);
+      const device = devices.find((d: Device) => d.id === selectedDevice);
       const defaultPath = await SelectScreenshotPath(device?.model || "");
       if (!defaultPath) return;
 
@@ -272,7 +237,7 @@ const MirrorView: React.FC<MirrorViewProps> = ({
   const handleStartMidSessionRecord = async () => {
     if (!selectedDevice) return;
     try {
-      const device = devices.find(d => d.id === selectedDevice);
+      const device = devices.find((d: Device) => d.id === selectedDevice);
       const path = await SelectRecordPath(device?.model || "");
       if (!path) {
         setShouldRecord(false);
@@ -334,13 +299,7 @@ const MirrorView: React.FC<MirrorViewProps> = ({
           <Tag color="blue">{t("mirror.powered_by")}</Tag>
         </div>
         <Space>
-          <DeviceSelector
-            devices={devices}
-            selectedDevice={selectedDevice}
-            onDeviceChange={setSelectedDevice}
-            onRefresh={fetchDevices}
-            loading={loading}
-          />
+          <DeviceSelector />
           {isMirroring ? (
             <Button
               type="primary"

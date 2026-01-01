@@ -12,6 +12,7 @@ import {
 } from "@ant-design/icons";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import DeviceSelector from "./DeviceSelector";
+import { useDeviceStore, useLogcatStore } from "../stores";
 // @ts-ignore
 import { main } from "../../wailsjs/go/models";
 // @ts-ignore
@@ -19,81 +20,38 @@ import { ListPackages, StartApp, ForceStopApp, IsAppRunning } from "../../wailsj
 
 const { Option } = Select;
 
-interface Device {
-  id: string;
-  state: string;
-  model: string;
-  brand: string;
-}
-
-interface LogcatViewProps {
-  devices: Device[];
-  selectedDevice: string;
-  setSelectedDevice: (device: string) => void;
-  fetchDevices?: () => void;
-  isLogging: boolean;
-  toggleLogcat: (pkg: string) => void;
-  logs: string[];
-  setLogs: (logs: string[]) => void;
-  logFilter?: string;
-  setLogFilter?: (filter: string) => void;
-  useRegex?: boolean;
-  setUseRegex?: (use: boolean) => void;
-  preFilter?: string;
-  setPreFilter?: (filter: string) => void;
-  preUseRegex?: boolean;
-  setPreUseRegex?: (use: boolean) => void;
-  excludeFilter?: string;
-  setExcludeFilter?: (filter: string) => void;
-  excludeUseRegex?: boolean;
-  setExcludeUseRegex?: (use: boolean) => void;
-  selectedPackage?: string;
-  setSelectedPackage?: (pkg: string) => void;
-}
-
-export default function LogcatView({
-  devices,
-  selectedDevice,
-  setSelectedDevice,
-  fetchDevices,
-  isLogging,
-  toggleLogcat,
-  logs,
-  setLogs,
-  logFilter: propLogFilter,
-  setLogFilter: propSetLogFilter,
-  useRegex: propUseRegex,
-  setUseRegex: propSetUseRegex,
-  preFilter,
-  setPreFilter,
-  preUseRegex,
-  setPreUseRegex,
-  excludeFilter,
-  setExcludeFilter,
-  excludeUseRegex,
-  setExcludeUseRegex,
-  selectedPackage: propSelectedPackage,
-  setSelectedPackage: propSetSelectedPackage,
-}: LogcatViewProps) {
+export default function LogcatView() {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const parentRef = useRef<HTMLDivElement>(null);
   const scrollingRef = useRef(false);
 
+  const { selectedDevice } = useDeviceStore();
+  const {
+    logs,
+    isLogging,
+    selectedPackage,
+    logFilter,
+    useRegex,
+    preFilter,
+    preUseRegex,
+    excludeFilter,
+    excludeUseRegex,
+    setLogs,
+    clearLogs,
+    setSelectedPackage,
+    setLogFilter,
+    setUseRegex,
+    setPreFilter,
+    setPreUseRegex,
+    setExcludeFilter,
+    setExcludeUseRegex,
+    toggleLogcat,
+  } = useLogcatStore();
+
   // Logcat local state
   const [packages, setPackages] = useState<main.AppPackage[]>([]);
   const [appRunningStatus, setAppRunningStatus] = useState<boolean>(false);
-  // Use props if available, otherwise local state
-  const [localLogFilter, setLocalLogFilter] = useState("");
-  const [localUseRegex, setLocalUseRegex] = useState(false);
-  const [localSelectedPackage, setLocalSelectedPackage] = useState<string>("");
-  
-  const logFilter = propLogFilter !== undefined ? propLogFilter : localLogFilter;
-  const setLogFilter = propSetLogFilter || setLocalLogFilter;
-  const useRegex = propUseRegex !== undefined ? propUseRegex : localUseRegex;
-  const setUseRegex = propSetUseRegex || setLocalUseRegex;
-  const selectedPackage = propSelectedPackage !== undefined ? propSelectedPackage : localSelectedPackage;
-  const setSelectedPackage = propSetSelectedPackage || setLocalSelectedPackage;
 
   const [autoScroll, setAutoScroll] = useState(true);
   const [levelFilter, setLevelFilter] = useState<string[]>([]);
@@ -466,13 +424,7 @@ export default function LogcatView({
       >
         <h2 style={{ margin: 0, color: token.colorText }}>{t("logcat.title")}</h2>
         <Space>
-          <DeviceSelector
-            devices={devices}
-            selectedDevice={selectedDevice}
-            onDeviceChange={setSelectedDevice}
-            onRefresh={fetchDevices || (() => {})}
-            loading={false}
-          />
+          <DeviceSelector />
           <span style={{ color: "#888", fontSize: "12px", marginLeft: 8 }}>{t("logcat.package") || "Package"}:</span>
           <Select
             showSearch
@@ -516,11 +468,11 @@ export default function LogcatView({
             type={isLogging ? "primary" : "default"}
             danger={isLogging}
             icon={isLogging ? <PauseOutlined /> : <PlayCircleOutlined />}
-            onClick={() => toggleLogcat(selectedPackage)}
+            onClick={() => toggleLogcat(selectedDevice, selectedPackage)}
           >
             {isLogging ? t("logcat.stop") : t("logcat.start")}
           </Button>
-          <Button icon={<ClearOutlined />} onClick={() => setLogs([])}>
+          <Button icon={<ClearOutlined />} onClick={clearLogs}>
             {t("logcat.clear")}
           </Button>
         </Space>

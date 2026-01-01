@@ -3,33 +3,14 @@ import { Button, Space, Input, message, theme } from "antd";
 import { ClearOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import DeviceSelector from "./DeviceSelector";
+import { useDeviceStore } from "../stores";
 // @ts-ignore
 import { RunAdbCommand } from "../../wailsjs/go/main/App";
 
-interface Device {
-  id: string;
-  state: string;
-  model: string;
-  brand: string;
-}
-
-interface ShellViewProps {
-  devices: Device[];
-  selectedDevice: string;
-  setSelectedDevice: (id: string) => void;
-  fetchDevices: () => Promise<void>;
-  loading: boolean;
-}
-
-const ShellView: React.FC<ShellViewProps> = ({
-  devices,
-  selectedDevice,
-  setSelectedDevice,
-  fetchDevices,
-  loading,
-}) => {
+const ShellView: React.FC = () => {
   const { t } = useTranslation();
   const { token } = theme.useToken();
+  const { selectedDevice } = useDeviceStore();
   const [shellCmd, setShellCmd] = useState("");
   const [shellOutput, setShellOutput] = useState("");
   const [history, setHistory] = useState<string[]>([]);
@@ -48,7 +29,6 @@ const ShellView: React.FC<ShellViewProps> = ({
     const cmdToRun = command || shellCmd;
     if (!cmdToRun) return;
 
-    // Add to history if it's a new unique command
     setHistory((prev) => {
       const newHist = [cmdToRun, ...prev.filter((c) => c !== cmdToRun)].slice(0, 50);
       return newHist;
@@ -58,8 +38,6 @@ const ShellView: React.FC<ShellViewProps> = ({
     try {
       const res = await RunAdbCommand(selectedDevice, cmdToRun.trim());
       setShellOutput(res);
-      // Keep the command in the input field so user can tweak it or see what was run
-      // if (!command) setShellCmd(""); 
     } catch (err) {
       message.error(t("app.command_failed"));
       setShellOutput(String(err));
@@ -108,13 +86,7 @@ const ShellView: React.FC<ShellViewProps> = ({
       >
         <h2 style={{ margin: 0, color: token.colorText }}>{t("shell.title")}</h2>
         <Space>
-          <DeviceSelector
-            devices={devices}
-            selectedDevice={selectedDevice}
-            onDeviceChange={setSelectedDevice}
-            onRefresh={fetchDevices}
-            loading={loading}
-          />
+          <DeviceSelector />
           <Button icon={<ClearOutlined />} onClick={() => setShellOutput("")}>
             {t("common.clear") || "Clear"}
           </Button>
@@ -172,5 +144,3 @@ const ShellView: React.FC<ShellViewProps> = ({
 };
 
 export default ShellView;
-
-

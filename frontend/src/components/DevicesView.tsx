@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, Tag, Space, Tooltip, theme } from "antd";
+import { Button, Tag, Space, Tooltip, theme, message } from "antd";
 import VirtualTable from "./VirtualTable";
 import { useTranslation } from "react-i18next";
 import {
@@ -9,7 +9,6 @@ import {
   FileTextOutlined,
   FolderOutlined,
   DesktopOutlined,
-  DownloadOutlined,
   InfoCircleOutlined,
   WifiOutlined,
   UsbOutlined,
@@ -26,78 +25,113 @@ import {
   ArrowDownOutlined,
   ArrowUpOutlined,
 } from "@ant-design/icons";
+import { useDeviceStore, useMirrorStore, useUIStore, VIEW_KEYS, Device } from "../stores";
 // @ts-ignore
 import { StartNetworkMonitor, StopNetworkMonitor, StopAllNetworkMonitors } from "../../wailsjs/go/main/App";
 // @ts-ignore
-import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
-
-interface Device {
-  id: string;
-  serial: string;
-  state: string;
-  model: string;
-  brand: string;
-  type: string;
-  ids: string[];
-  wifiAddr: string;
-  isPinned?: boolean;
-}
-
-interface HistoryDevice {
-  id: string;
-  serial: string;
-  model: string;
-  brand: string;
-  type: string;
-  wifiAddr: string;
-  lastSeen: string;
-  isPinned?: boolean;
-}
+import { EventsOn } from "../../wailsjs/runtime/runtime";
 
 interface DevicesViewProps {
-  devices: Device[];
-  historyDevices: HistoryDevice[];
-  loading: boolean;
-  fetchDevices: (silent?: boolean) => Promise<void>;
-  setSelectedKey: (key: string) => void;
-  setSelectedDevice: (id: string) => void;
-  handleStartScrcpy: (id: string) => Promise<void>;
-  handleFetchDeviceInfo: (id: string) => Promise<void>;
   onShowWirelessConnect: () => void;
-  handleSwitchToWireless: (id: string) => Promise<void>;
-  handleAdbDisconnect: (address: string) => Promise<void>;
-  handleAdbConnect: (address: string) => Promise<void>;
-  handleRemoveHistoryDevice: (id: string) => Promise<void>;
-  handleOpenSettings: (id: string, action?: string, data?: string) => Promise<void>;
-  handleTogglePin: (serial: string) => Promise<void>;
-  busyDevices?: Set<string>;
-  mirrorStatuses?: Record<string, { isMirroring: boolean; duration: number }>;
-  recordStatuses?: Record<string, { isRecording: boolean; duration: number }>;
 }
 
-
 const DevicesView: React.FC<DevicesViewProps> = ({
-  devices,
-  historyDevices,
-  loading,
-  fetchDevices,
-  setSelectedKey,
-  setSelectedDevice,
-  handleStartScrcpy,
-  handleFetchDeviceInfo,
   onShowWirelessConnect,
-  handleSwitchToWireless,
-  handleAdbDisconnect,
-  handleAdbConnect,
-  handleRemoveHistoryDevice,
-  handleOpenSettings,
-  handleTogglePin,
-  busyDevices = new Set(),
-  mirrorStatuses = {},
-  recordStatuses = {},
 }) => {
-
   const { t } = useTranslation();
+  const { token } = theme.useToken();
+
+  const {
+    devices,
+    historyDevices,
+    loading,
+    busyDevices,
+    fetchDevices,
+    setSelectedDevice,
+    handleFetchDeviceInfo,
+    handleSwitchToWireless,
+    handleAdbConnect,
+    handleAdbDisconnect,
+    handleRemoveHistoryDevice,
+    handleOpenSettings,
+    handleTogglePin,
+  } = useDeviceStore();
+
+  const { mirrorStatuses, recordStatuses } = useMirrorStore();
+  const { setSelectedKey } = useUIStore();
+
+  // Wrapper functions with message feedback
+  const handleFetchDeviceInfoWithFeedback = async (deviceId: string) => {
+    try {
+      await handleFetchDeviceInfo(deviceId);
+    } catch (err) {
+      message.error(t("app.fetch_device_info_failed") + ": " + String(err));
+    }
+  };
+
+  const handleSwitchToWirelessWithFeedback = async (deviceId: string) => {
+    const hide = message.loading(t("app.switching_to_wireless"), 0);
+    try {
+      await handleSwitchToWireless(deviceId);
+      message.success(t("app.switch_success"));
+    } catch (err) {
+      message.error(t("app.switch_failed") + ": " + String(err));
+    } finally {
+      hide();
+    }
+  };
+
+  const handleAdbConnectWithFeedback = async (address: string) => {
+    try {
+      await handleAdbConnect(address);
+    } catch (err) {
+      message.error(t("app.connect_failed") + ": " + String(err));
+    }
+  };
+
+  const handleAdbDisconnectWithFeedback = async (deviceId: string) => {
+    try {
+      await handleAdbDisconnect(deviceId);
+      message.success(t("app.disconnect_success"));
+    } catch (err) {
+      message.error(t("app.disconnect_failed") + ": " + String(err));
+    }
+  };
+
+  const handleRemoveHistoryDeviceWithFeedback = async (deviceId: string) => {
+    try {
+      await handleRemoveHistoryDevice(deviceId);
+      message.success(t("app.remove_success"));
+    } catch (err) {
+      message.error(t("app.remove_failed") + ": " + String(err));
+    }
+  };
+
+  const handleOpenSettingsWithFeedback = async (deviceId: string, action?: string, data?: string) => {
+    const hide = message.loading(t("app.opening_settings"), 0);
+    try {
+      await handleOpenSettings(deviceId, action, data);
+      message.success(t("app.open_settings_success"));
+    } catch (err) {
+      message.error(t("app.open_settings_failed") + ": " + String(err));
+    } finally {
+      hide();
+    }
+  };
+
+  const handleTogglePinWithFeedback = async (serial: string) => {
+    try {
+      await handleTogglePin(serial);
+    } catch (err) {
+      message.error(String(err));
+    }
+  };
+
+  const handleStartScrcpy = async (deviceId: string) => {
+    setSelectedDevice(deviceId);
+    setSelectedKey(VIEW_KEYS.MIRROR);
+  };
+
   const [netStatsMap, setNetStatsMap] = React.useState<Record<string, { rxSpeed: number; txSpeed: number }>>({});
   const monitoredIds = React.useRef<Set<string>>(new Set());
 
@@ -186,7 +220,7 @@ const DevicesView: React.FC<DevicesViewProps> = ({
         type: hd.type,
         ids: [hd.id],
         wifiAddr: hd.wifiAddr || (hd.type === "wireless" ? hd.id : ""),
-        isPinned: hd.isPinned,
+        isPinned: hd.isPinned || false,
       });
     }
   });
@@ -206,7 +240,7 @@ const DevicesView: React.FC<DevicesViewProps> = ({
                 type="text"
                 size="small"
                 icon={record.isPinned ? <PushpinFilled style={{ color: '#1677ff' }} /> : <PushpinOutlined />}
-                onClick={() => handleTogglePin(record.serial || record.id)}
+                onClick={() => handleTogglePinWithFeedback(record.serial || record.id)}
                 style={{ padding: 0, width: '20px' }}
               />
             </Tooltip>
@@ -341,7 +375,7 @@ const DevicesView: React.FC<DevicesViewProps> = ({
                   <Button
                     size="small"
                     icon={<InfoCircleOutlined />}
-                    onClick={() => handleFetchDeviceInfo(record.id)}
+                    onClick={() => handleFetchDeviceInfoWithFeedback(record.id)}
                   />
                 </Tooltip>
                 <Tooltip title={t("menu.shell")}>
@@ -395,7 +429,7 @@ const DevicesView: React.FC<DevicesViewProps> = ({
                   <Button
                     icon={<SettingOutlined />}
                     size="small"
-                    onClick={() => handleOpenSettings(record.id)}
+                    onClick={() => handleOpenSettingsWithFeedback(record.id)}
                   />
                 </Tooltip>
                 {record.type === "wired" && (
@@ -403,7 +437,7 @@ const DevicesView: React.FC<DevicesViewProps> = ({
                     <Button
                       size="small"
                       icon={<LinkOutlined />}
-                      onClick={() => handleSwitchToWireless(record.id)}
+                      onClick={() => handleSwitchToWirelessWithFeedback(record.id)}
                       style={{ color: "#1677ff" }}
                     />
                   </Tooltip>
@@ -415,8 +449,8 @@ const DevicesView: React.FC<DevicesViewProps> = ({
                       danger
                       icon={<DisconnectOutlined />}
                       onClick={() => {
-                        const wirelessIds = record.ids.filter(id => id.includes(":") || id.startsWith("adb-"));
-                        handleAdbDisconnect(wirelessIds.join(","));
+                        const wirelessIds = record.ids.filter((id: string) => id.includes(":") || id.startsWith("adb-"));
+                        handleAdbDisconnectWithFeedback(wirelessIds.join(","));
                       }}
                     />
                   </Tooltip>
@@ -430,7 +464,7 @@ const DevicesView: React.FC<DevicesViewProps> = ({
                       size="small"
                       type="primary"
                       icon={<LinkOutlined />}
-                      onClick={() => handleAdbConnect(record.wifiAddr)}
+                      onClick={() => handleAdbConnectWithFeedback(record.wifiAddr)}
                     />
                   </Tooltip>
                 )}
@@ -439,7 +473,7 @@ const DevicesView: React.FC<DevicesViewProps> = ({
                     size="small"
                     danger
                     icon={<DeleteOutlined />}
-                    onClick={() => handleRemoveHistoryDevice(record.id)}
+                    onClick={() => handleRemoveHistoryDeviceWithFeedback(record.id)}
                   />
                 </Tooltip>
               </>
@@ -449,8 +483,6 @@ const DevicesView: React.FC<DevicesViewProps> = ({
       },
     },
   ];
-
-  const { token } = theme.useToken();
 
   return (
     <div

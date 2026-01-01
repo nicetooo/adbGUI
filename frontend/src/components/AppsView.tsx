@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Button,
   Space,
-  Tooltip,
   Input,
   Radio,
   message,
@@ -18,7 +17,6 @@ import {
   ReloadOutlined,
   PlayCircleOutlined,
   FileTextOutlined,
-  FolderOpenOutlined,
   DownloadOutlined,
   InfoCircleOutlined,
   StopOutlined,
@@ -31,6 +29,7 @@ import {
 } from "@ant-design/icons";
 import DeviceSelector from "./DeviceSelector";
 import AppInfoModal from "./AppInfoModal";
+import { useDeviceStore, useLogcatStore, useUIStore, VIEW_KEYS } from "../stores";
 // @ts-ignore
 import {
   GetAppInfo,
@@ -48,37 +47,28 @@ import {
 // @ts-ignore
 import { main } from "../../wailsjs/go/models";
 
-interface Device {
-  id: string;
-  state: string;
-  model: string;
-  brand: string;
-}
-
-interface AppsViewProps {
-  devices: Device[];
-  selectedDevice: string;
-  setSelectedDevice: (id: string) => void;
-  fetchDevices: () => Promise<void>;
-  loading: boolean;
-  setSelectedKey: (key: string) => void;
-  handleJumpToLogcat: (pkg: string) => void;
-}
-
-const AppsView: React.FC<AppsViewProps> = ({
-  devices,
-  selectedDevice,
-  setSelectedDevice,
-  fetchDevices,
-  loading,
-  setSelectedKey,
-  handleJumpToLogcat,
-}) => {
+const AppsView: React.FC = () => {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const { isDark } = useTheme();
+  const { selectedDevice } = useDeviceStore();
+  const { setSelectedPackage, setLogFilter, toggleLogcat, stopLogcat, isLogging } = useLogcatStore();
+  const { setSelectedKey } = useUIStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const [tableHeight, setTableHeight] = useState<number>(400);
+
+  const handleJumpToLogcat = async (pkg: string) => {
+    setSelectedPackage(pkg);
+    setLogFilter("");
+    setSelectedKey(VIEW_KEYS.LOGCAT);
+
+    if (isLogging) {
+      stopLogcat();
+      setTimeout(() => toggleLogcat(selectedDevice, pkg), 300);
+    } else {
+      setTimeout(() => toggleLogcat(selectedDevice, pkg), 100);
+    }
+  };
 
   // Apps state
   const [packages, setPackages] = useState<main.AppPackage[]>([]);
@@ -420,13 +410,7 @@ const AppsView: React.FC<AppsViewProps> = ({
         }}
       >
         <h2 style={{ margin: 0 }}>{t("apps.title")}</h2>
-        <DeviceSelector
-          devices={devices}
-          selectedDevice={selectedDevice}
-          onDeviceChange={setSelectedDevice}
-          onRefresh={fetchDevices}
-          loading={loading}
-        />
+        <DeviceSelector />
       </div>
       <Space style={{ marginBottom: 16, flexShrink: 0 }}>
         <Input

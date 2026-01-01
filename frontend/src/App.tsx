@@ -39,10 +39,8 @@ import { useTheme } from "./ThemeContext";
 import {
   useDeviceStore,
   useMirrorStore,
-  useLogcatStore,
   useUIStore,
   VIEW_KEYS,
-  openRecordPath,
 } from "./stores";
 // @ts-ignore
 import { OpenPath } from "../wailsjs/go/main/App";
@@ -51,8 +49,6 @@ import { OpenPath } from "../wailsjs/go/main/App";
 const BrowserOpenURL = (window as any).runtime.BrowserOpenURL;
 // @ts-ignore
 const EventsOn = (window as any).runtime.EventsOn;
-// @ts-ignore
-const EventsOff = (window as any).runtime.EventsOff;
 
 const { Content, Sider } = Layout;
 
@@ -63,10 +59,7 @@ function App() {
   // Device store
   const {
     devices,
-    historyDevices,
     selectedDevice,
-    loading,
-    busyDevices,
     deviceInfoVisible,
     deviceInfoLoading,
     selectedDeviceInfo,
@@ -76,38 +69,10 @@ function App() {
     closeDeviceInfo,
     handleAdbConnect,
     handleAdbPair,
-    handleSwitchToWireless,
-    handleAdbDisconnect,
-    handleRemoveHistoryDevice,
-    handleOpenSettings,
-    handleTogglePin,
   } = useDeviceStore();
 
   // Mirror store
-  const { mirrorStatuses, recordStatuses, subscribeToEvents: subscribeMirrorEvents, updateDurations } = useMirrorStore();
-
-  // Logcat store
-  const {
-    logs,
-    isLogging,
-    selectedPackage,
-    logFilter,
-    useRegex,
-    preFilter,
-    preUseRegex,
-    excludeFilter,
-    excludeUseRegex,
-    setLogs,
-    setSelectedPackage,
-    setLogFilter,
-    setUseRegex,
-    setPreFilter,
-    setPreUseRegex,
-    setExcludeFilter,
-    setExcludeUseRegex,
-    toggleLogcat,
-    stopLogcat,
-  } = useLogcatStore();
+  const { subscribeToEvents: subscribeMirrorEvents, updateDurations } = useMirrorStore();
 
   // UI store
   const {
@@ -147,64 +112,6 @@ function App() {
     }
   };
 
-  const handleSwitchToWirelessWithFeedback = async (deviceId: string) => {
-    const hide = message.loading(t("app.switching_to_wireless"), 0);
-    try {
-      await handleSwitchToWireless(deviceId);
-      message.success(t("app.switch_success"));
-    } catch (err) {
-      message.error(t("app.switch_failed") + ": " + String(err));
-    } finally {
-      hide();
-    }
-  };
-
-  const handleAdbDisconnectWithFeedback = async (deviceId: string) => {
-    try {
-      await handleAdbDisconnect(deviceId);
-      message.success(t("app.disconnect_success"));
-    } catch (err) {
-      message.error(t("app.disconnect_failed") + ": " + String(err));
-    }
-  };
-
-  const handleRemoveHistoryDeviceWithFeedback = async (deviceId: string) => {
-    try {
-      await handleRemoveHistoryDevice(deviceId);
-      message.success(t("app.remove_success"));
-    } catch (err) {
-      message.error(t("app.remove_failed") + ": " + String(err));
-    }
-  };
-
-  const handleOpenSettingsWithFeedback = async (deviceId: string, action?: string, data?: string) => {
-    const hide = message.loading(t("app.opening_settings"), 0);
-    try {
-      await handleOpenSettings(deviceId, action, data);
-      message.success(t("app.open_settings_success"));
-    } catch (err) {
-      message.error(t("app.open_settings_failed") + ": " + String(err));
-    } finally {
-      hide();
-    }
-  };
-
-  const handleTogglePinWithFeedback = async (serial: string) => {
-    try {
-      await handleTogglePin(serial);
-    } catch (err) {
-      message.error(String(err));
-    }
-  };
-
-  const handleFetchDeviceInfoWithFeedback = async (deviceId: string) => {
-    try {
-      await handleFetchDeviceInfo(deviceId);
-    } catch (err) {
-      message.error(t("app.fetch_device_info_failed") + ": " + String(err));
-    }
-  };
-
   const fetchDevicesWithFeedback = async (silent: boolean = false) => {
     try {
       await fetchDevices(silent);
@@ -212,31 +119,6 @@ function App() {
       if (!silent) {
         message.error(t("app.fetch_devices_failed") + ": " + String(err));
       }
-    }
-  };
-
-  const toggleLogcatWithFeedback = async (pkg: string) => {
-    if (!selectedDevice) {
-      message.error(t("app.no_device_selected"));
-      return;
-    }
-    try {
-      await toggleLogcat(selectedDevice, pkg);
-    } catch (err) {
-      message.error(t("app.logcat_failed") + ": " + String(err));
-    }
-  };
-
-  const handleJumpToLogcat = async (pkg: string) => {
-    setSelectedPackage(pkg);
-    setLogFilter("");
-    setSelectedKey(VIEW_KEYS.LOGCAT);
-
-    if (isLogging) {
-      stopLogcat();
-      setTimeout(() => toggleLogcatWithFeedback(pkg), 300);
-    } else {
-      setTimeout(() => toggleLogcatWithFeedback(pkg), 100);
     }
   };
 
@@ -255,9 +137,7 @@ function App() {
             type="primary"
             size="small"
             onClick={() => {
-              if (path) {
-                OpenPath(path);
-              }
+              if (path) OpenPath(path);
               notification.destroy();
             }}
           >
@@ -277,7 +157,6 @@ function App() {
     return () => {
       unsubMirror();
       unsubUI();
-      stopLogcat();
     };
   }, []);
 
@@ -299,7 +178,6 @@ function App() {
           message.loading({ content: t(`app.${stepKey}`), key: msgKey, duration: 0 });
       }
     });
-
     return () => unregister();
   }, [t]);
 
@@ -311,9 +189,7 @@ function App() {
 
   // Poll devices when on devices view
   useEffect(() => {
-    if (selectedKey !== VIEW_KEYS.DEVICES) {
-      return;
-    }
+    if (selectedKey !== VIEW_KEYS.DEVICES) return;
 
     let timeoutId: any;
     let isActive = true;
@@ -321,13 +197,10 @@ function App() {
     const poll = async () => {
       if (!isActive) return;
       await fetchDevicesWithFeedback(true);
-      if (isActive) {
-        timeoutId = setTimeout(poll, 3000);
-      }
+      if (isActive) timeoutId = setTimeout(poll, 3000);
     };
 
     timeoutId = setTimeout(poll, 3000);
-
     return () => {
       isActive = false;
       clearTimeout(timeoutId);
@@ -337,113 +210,19 @@ function App() {
   const renderContent = () => {
     switch (selectedKey) {
       case VIEW_KEYS.DEVICES:
-        return (
-          <DevicesView
-            devices={devices}
-            historyDevices={historyDevices}
-            loading={loading}
-            fetchDevices={fetchDevicesWithFeedback}
-            busyDevices={busyDevices}
-            setSelectedKey={setSelectedKey}
-            setSelectedDevice={setSelectedDevice}
-            handleStartScrcpy={async (deviceId) => {
-              setSelectedDevice(deviceId);
-              setSelectedKey(VIEW_KEYS.MIRROR);
-            }}
-            handleFetchDeviceInfo={handleFetchDeviceInfoWithFeedback}
-            onShowWirelessConnect={showWirelessConnect}
-            handleSwitchToWireless={handleSwitchToWirelessWithFeedback}
-            handleAdbConnect={handleAdbConnectWithFeedback}
-            handleAdbDisconnect={handleAdbDisconnectWithFeedback}
-            handleRemoveHistoryDevice={handleRemoveHistoryDeviceWithFeedback}
-            handleOpenSettings={handleOpenSettingsWithFeedback}
-            handleTogglePin={handleTogglePinWithFeedback}
-            mirrorStatuses={mirrorStatuses}
-            recordStatuses={recordStatuses}
-          />
-        );
+        return <DevicesView onShowWirelessConnect={showWirelessConnect} />;
       case VIEW_KEYS.FILES:
-        return (
-          <FilesView
-            devices={devices}
-            selectedDevice={selectedDevice}
-            setSelectedDevice={setSelectedDevice}
-            fetchDevices={fetchDevicesWithFeedback}
-            loading={loading}
-          />
-        );
+        return <FilesView />;
       case VIEW_KEYS.APPS:
-        return (
-          <AppsView
-            devices={devices}
-            selectedDevice={selectedDevice}
-            setSelectedDevice={setSelectedDevice}
-            fetchDevices={fetchDevicesWithFeedback}
-            loading={loading}
-            setSelectedKey={setSelectedKey}
-            handleJumpToLogcat={handleJumpToLogcat}
-          />
-        );
+        return <AppsView />;
       case VIEW_KEYS.SHELL:
-        return (
-          <ShellView
-            devices={devices}
-            selectedDevice={selectedDevice}
-            setSelectedDevice={setSelectedDevice}
-            fetchDevices={fetchDevicesWithFeedback}
-            loading={loading}
-          />
-        );
+        return <ShellView />;
       case VIEW_KEYS.LOGCAT:
-        return (
-          <LogcatView
-            devices={devices}
-            selectedDevice={selectedDevice}
-            setSelectedDevice={setSelectedDevice}
-            fetchDevices={fetchDevicesWithFeedback}
-            isLogging={isLogging}
-            toggleLogcat={toggleLogcatWithFeedback}
-            selectedPackage={selectedPackage}
-            setSelectedPackage={setSelectedPackage}
-            logs={logs}
-            setLogs={setLogs}
-            logFilter={logFilter}
-            setLogFilter={setLogFilter}
-            useRegex={useRegex}
-            setUseRegex={setUseRegex}
-            preFilter={preFilter}
-            setPreFilter={setPreFilter}
-            preUseRegex={preUseRegex}
-            setPreUseRegex={setPreUseRegex}
-            excludeFilter={excludeFilter}
-            setExcludeFilter={setExcludeFilter}
-            excludeUseRegex={excludeUseRegex}
-            setExcludeUseRegex={setExcludeUseRegex}
-          />
-        );
+        return <LogcatView />;
       case VIEW_KEYS.MIRROR:
-        return (
-          <MirrorView
-            devices={devices}
-            selectedDevice={selectedDevice}
-            setSelectedDevice={setSelectedDevice}
-            fetchDevices={fetchDevicesWithFeedback}
-            loading={loading}
-            mirrorStatuses={mirrorStatuses}
-            recordStatuses={recordStatuses}
-          />
-        );
+        return <MirrorView />;
       case VIEW_KEYS.PROXY:
-        return (
-          <ProxyView
-            devices={devices}
-            selectedDevice={selectedDevice}
-            setSelectedDevice={setSelectedDevice}
-            fetchDevices={fetchDevicesWithFeedback}
-            loading={loading}
-          />
-        );
-
+        return <ProxyView />;
       default:
         return <div style={{ padding: 24 }}>{t("app.select_option")}</div>;
     }
@@ -466,9 +245,7 @@ function App() {
           borderRight: isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,0,0,0.06)",
         }}
       >
-        <div
-          style={{ display: "flex", flexDirection: "column", height: "100%" }}
-        >
+        <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
           <div className="drag-handle" style={{ height: 38, width: "100%", flexShrink: 0 }} />
           <div style={{ flex: 1, overflowY: "auto", padding: "0 8px" }}>
             <Menu
@@ -476,10 +253,7 @@ function App() {
               selectedKeys={[selectedKey]}
               mode="inline"
               onClick={({ key }) => setSelectedKey(key as any)}
-              style={{
-                backgroundColor: "transparent",
-                borderRight: "none",
-              }}
+              style={{ backgroundColor: "transparent", borderRight: "none" }}
               items={[
                 { key: VIEW_KEYS.DEVICES, icon: <MobileOutlined />, label: t("menu.devices") },
                 { key: VIEW_KEYS.MIRROR, icon: <DesktopOutlined />, label: t("menu.mirror") },
@@ -504,24 +278,9 @@ function App() {
             <Dropdown
               menu={{
                 items: [
-                  {
-                    key: "light",
-                    label: t("app.theme_light") || "Light",
-                    icon: <SunOutlined />,
-                    onClick: () => setMode("light")
-                  },
-                  {
-                    key: "dark",
-                    label: t("app.theme_dark") || "Dark",
-                    icon: <MoonOutlined />,
-                    onClick: () => setMode("dark")
-                  },
-                  {
-                    key: "system",
-                    label: t("app.theme_system") || "System",
-                    icon: <DesktopOutlined />,
-                    onClick: () => setMode("system")
-                  },
+                  { key: "light", label: t("app.theme_light") || "Light", icon: <SunOutlined />, onClick: () => setMode("light") },
+                  { key: "dark", label: t("app.theme_dark") || "Dark", icon: <MoonOutlined />, onClick: () => setMode("dark") },
+                  { key: "system", label: t("app.theme_system") || "System", icon: <DesktopOutlined />, onClick: () => setMode("system") },
                 ],
                 selectedKeys: [mode],
               }}
@@ -559,27 +318,9 @@ function App() {
                 title={t("app.change_language")}
               />
             </Dropdown>
-            <Button
-              type="text"
-              size="small"
-              icon={<InfoCircleOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />}
-              onClick={showAbout}
-              title={t("app.about")}
-            />
-            <Button
-              type="text"
-              size="small"
-              icon={<GithubOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />}
-              onClick={() => BrowserOpenURL && BrowserOpenURL("https://github.com/niceto0/gaze")}
-              title={t("app.github")}
-            />
-            <Button
-              type="text"
-              size="small"
-              icon={<BugOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />}
-              onClick={showFeedback}
-              title={t("app.feedback")}
-            />
+            <Button type="text" size="small" icon={<InfoCircleOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />} onClick={showAbout} title={t("app.about")} />
+            <Button type="text" size="small" icon={<GithubOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />} onClick={() => BrowserOpenURL && BrowserOpenURL("https://github.com/niceto0/gaze")} title={t("app.github")} />
+            <Button type="text" size="small" icon={<BugOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />} onClick={showFeedback} title={t("app.feedback")} />
           </div>
         </div>
       </Sider>
@@ -595,7 +336,7 @@ function App() {
         onCancel={closeDeviceInfo}
         deviceInfo={selectedDeviceInfo}
         loading={deviceInfoLoading}
-        onRefresh={() => selectedDeviceInfo && handleFetchDeviceInfoWithFeedback(selectedDeviceInfo.serial || selectedDevice)}
+        onRefresh={() => selectedDeviceInfo && handleFetchDeviceInfo(selectedDeviceInfo.serial || selectedDevice)}
       />
 
       <AboutModal visible={aboutVisible} onCancel={hideAbout} />

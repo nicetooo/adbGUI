@@ -1,23 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, Button, InputNumber, Space, Typography, Tag, message, Table, Modal, Divider, Switch, Tooltip, Radio, Input, Drawer, Tabs, theme } from 'antd';
-import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, DashboardOutlined, ThunderboltOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined } from '@ant-design/icons';
+import { Card, Button, InputNumber, Space, Typography, Tag, message, Modal, Divider, Switch, Tooltip, Radio, Input, Drawer, Tabs, theme } from 'antd';
+import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined } from '@ant-design/icons';
 import DeviceSelector from './DeviceSelector';
+import { useDeviceStore } from '../stores';
 // @ts-ignore
-import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetDeviceNetworkLimit, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns } from '../../wailsjs/go/main/App';
+import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns } from '../../wailsjs/go/main/App';
 // @ts-ignore
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTranslation } from 'react-i18next';
 
 const { Title, Text } = Typography;
-
-interface ProxyViewProps {
-  devices: any[];
-  selectedDevice: string;
-  setSelectedDevice: (id: string) => void;
-  fetchDevices: () => Promise<void>;
-  loading: boolean;
-}
 
 interface NetworkStats {
   rxSpeed: number;
@@ -47,11 +40,10 @@ interface RequestLog {
   isWs?: boolean;
 }
 
-const ProxyView: React.FC<ProxyViewProps> = ({
-  devices, selectedDevice, setSelectedDevice, fetchDevices, loading
-}) => {
+const ProxyView: React.FC = () => {
   const { t } = useTranslation();
   const { token } = theme.useToken();
+  const { selectedDevice } = useDeviceStore();
   const [isRunning, setIsRunning] = useState(false);
   const [port, setPort] = useState(8080);
   const [localIP, setLocalIP] = useState("");
@@ -392,15 +384,7 @@ const formatBody = (body: string) => {
             <GlobalOutlined style={{ fontSize: '18px' }} />
             <Title level={4} style={{ margin: 0 }}>{t('proxy.title')}</Title>
         </Space>
-        <Space>
-             <DeviceSelector
-                devices={devices}
-                selectedDevice={selectedDevice}
-                onDeviceChange={setSelectedDevice}
-                onRefresh={fetchDevices}
-                loading={loading}
-            />
-        </Space>
+        <DeviceSelector />
       </div>
 
       <Card size="small" bodyStyle={{ padding: '12px' }}>

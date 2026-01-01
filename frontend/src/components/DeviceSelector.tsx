@@ -1,38 +1,31 @@
 import React from 'react';
-import { Select, Button, Space, Tooltip, Divider } from 'antd';
+import { Select, Button, Divider } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { useDeviceStore } from '../stores';
 
 const { Option } = Select;
 
-interface Device {
-  id: string;
-  model: string;
-  brand: string;
-}
-
 interface DeviceSelectorProps {
-  devices: Device[];
-  selectedDevice: string;
-  onDeviceChange: (value: string) => void;
-  onRefresh: () => void;
-  loading?: boolean;
   style?: React.CSSProperties;
 }
 
-const DeviceSelector: React.FC<DeviceSelectorProps> = ({
-  devices,
-  selectedDevice,
-  onDeviceChange,
-  onRefresh,
-  loading = false,
-  style = {}
-}) => {
+const DeviceSelector: React.FC<DeviceSelectorProps> = ({ style = {} }) => {
   const { t } = useTranslation();
+  const { devices, selectedDevice, loading, setSelectedDevice, fetchDevices } = useDeviceStore();
+
+  const handleRefresh = async () => {
+    try {
+      await fetchDevices();
+    } catch {
+      // Error handled by store
+    }
+  };
+
   return (
     <Select
       value={selectedDevice || undefined}
-      onChange={onDeviceChange}
+      onChange={setSelectedDevice}
       style={{ width: 220, ...style }}
       placeholder={t("device_selector.placeholder")}
       dropdownRender={(menu) => (
@@ -43,7 +36,7 @@ const DeviceSelector: React.FC<DeviceSelectorProps> = ({
             <Button
               type="text"
               icon={<ReloadOutlined />}
-              onClick={onRefresh}
+              onClick={handleRefresh}
               loading={loading}
               style={{ width: '100%', textAlign: 'left' }}
             >
@@ -63,4 +56,3 @@ const DeviceSelector: React.FC<DeviceSelectorProps> = ({
 };
 
 export default DeviceSelector;
-

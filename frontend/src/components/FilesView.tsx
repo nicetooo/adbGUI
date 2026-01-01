@@ -1,7 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import {
   Button,
-  Tag,
   Space,
   Tooltip,
   Input,
@@ -14,7 +13,6 @@ import {
 import { useTranslation } from "react-i18next";
 import VirtualTable from "./VirtualTable";
 import {
-  ReloadOutlined,
   FolderOutlined,
   FileOutlined,
   CopyOutlined,
@@ -40,13 +38,7 @@ import {
   DownloadFile
 } from "../../wailsjs/go/main/App";
 import DeviceSelector from "./DeviceSelector";
-
-interface Device {
-  id: string;
-  state: string;
-  model: string;
-  brand: string;
-}
+import { useDeviceStore } from "../stores";
 
 const NameWithThumbnail = ({
   deviceId,
@@ -146,11 +138,6 @@ const NameWithThumbnail = ({
 };
 
 interface FilesViewProps {
-  devices: Device[];
-  selectedDevice: string;
-  setSelectedDevice: (id: string) => void;
-  fetchDevices: () => Promise<void>;
-  loading: boolean;
   initialPath?: string;
 }
 
@@ -189,15 +176,11 @@ const FocusInput = ({
 };
 
 const FilesView: React.FC<FilesViewProps> = ({
-  devices,
-  selectedDevice,
-  setSelectedDevice,
-  fetchDevices,
-  loading,
   initialPath = "/",
 }) => {
   const { t } = useTranslation();
   const { token } = theme.useToken();
+  const { selectedDevice } = useDeviceStore();
 
   // Files state
   const [currentPath, setCurrentPath] = useState(initialPath);
@@ -524,16 +507,7 @@ const FilesView: React.FC<FilesViewProps> = ({
         }}
       >
         <h2 style={{ margin: 0, color: token.colorText }}>{t("files.title")}</h2>
-        <DeviceSelector
-          devices={devices}
-          selectedDevice={selectedDevice}
-          onDeviceChange={(val) => {
-            setSelectedDevice(val);
-            fetchFiles(currentPath);
-          }}
-          onRefresh={fetchDevices}
-          loading={loading}
-        />
+        <DeviceSelector />
       </div>
 
       <div
