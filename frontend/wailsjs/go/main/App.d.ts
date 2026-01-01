@@ -140,3 +140,5 @@ export function TakeScreenshot(arg1:string,arg2:string):Promise<string>;
 export function TogglePinDevice(arg1:string):Promise<void>;
 
 export function UninstallApp(arg1:string,arg2:string):Promise<string>;
+
+export function UploadFile(arg1:string,arg2:string,arg3:string):Promise<void>;
