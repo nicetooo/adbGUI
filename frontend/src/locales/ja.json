@@ -19,7 +19,8 @@
     "new_directory": "新規フォルダ",
     "folder_name": "フォルダ名",
     "enter_new_name": "新しい名前を入力",
-    "clear": "クリア"
+    "clear": "クリア",
+    "browse": "参照"
   },
   "menu": {
     "devices": "デバイス一覧",
@@ -224,7 +225,10 @@
     "proxy_tip_title": "プロキシ/VPN の安定性に関するヒント",
     "proxy_tip_desc": "Android でプロキシまたは VPN を使用している場合、ADB の切断を防ぐために、プロキシ アプリの設定で「ローカル ネットワークをバイパス」が有効になっていることを確認してください。",
     "pin": "最前面に固定",
-    "unpin": "固定解除"
+    "unpin": "固定解除",
+    "network": "ネットワーク速度",
+    "selected_count": "{{count}} 台のデバイスを選択中",
+    "batch_operation": "一括操作"
   },
   "files": {
     "title": "ファイル",
@@ -410,5 +414,30 @@
     "theme_light": "ライトモード",
     "theme_dark": "ダークモード",
     "theme_system": "システム設定"
+  },
+  "batch": {
+    "title": "一括操作",
+    "target_devices": "対象デバイス: {{count}} 台",
+    "execute": "実行",
+    "shell": "シェルコマンド",
+    "install": "APK をインストール",
+    "uninstall": "アプリをアンインストール",
+    "clear": "データを消去",
+    "stop": "強制停止",
+    "push": "ファイルを転送",
+    "reboot": "再起動",
+    "select_apk": "APK ファイルを選択してください",
+    "enter_package": "パッケージ名を入力してください",
+    "enter_command": "コマンドを入力してください",
+    "enter_paths": "ファイルを選択し、リモートパスを入力してください",
+    "apk_path": "APK ファイルのパス",
+    "local_path": "ローカルファイルのパス",
+    "remote": "リモート",
+    "reboot_warning": "選択したすべてのデバイスが再起動されます",
+    "succeeded": "成功",
+    "failed": "失敗",
+    "all_success": "すべての {{count}} 件の操作が正常に完了しました",
+    "all_failed": "すべての {{count}} 件の操作が失敗しました",
+    "partial_success": "{{success}} 件成功、{{failed}} 件失敗"
   }
 }

@@ -19,7 +19,8 @@
     "new_directory": "새 폴더",
     "folder_name": "폴더 이름",
     "enter_new_name": "새 이름 입력",
-    "clear": "지우기"
+    "clear": "지우기",
+    "browse": "찾아보기"
   },
   "menu": {
     "devices": "장치 목록",
@@ -224,7 +225,10 @@
     "proxy_tip_title": "프록시/VPN 안정성 팁",
     "proxy_tip_desc": "Android에서 프록시 또는 VPN을 사용하는 경우 ADB 연결 끊김을 방지하기 위해 프록시 앱 설정에서 '로컬 네트워크 바이패스'가 활성화되어 있는지 확인하십시오.",
     "pin": "상단 고정",
-    "unpin": "고정 해제"
+    "unpin": "고정 해제",
+    "network": "네트워크 속도",
+    "selected_count": "{{count}}개 장치 선택됨",
+    "batch_operation": "일괄 작업"
   },
   "files": {
     "title": "파일",
@@ -410,5 +414,30 @@
     "theme_light": "라이트 모드",
     "theme_dark": "다크 모드",
     "theme_system": "시스템 설정"
+  },
+  "batch": {
+    "title": "일괄 작업",
+    "target_devices": "대상 장치: {{count}}개",
+    "execute": "실행",
+    "shell": "Shell 명령",
+    "install": "APK 설치",
+    "uninstall": "앱 제거",
+    "clear": "데이터 삭제",
+    "stop": "강제 중지",
+    "push": "파일 전송",
+    "reboot": "재부팅",
+    "select_apk": "APK 파일을 선택하세요",
+    "enter_package": "패키지 이름을 입력하세요",
+    "enter_command": "명령을 입력하세요",
+    "enter_paths": "파일을 선택하고 원격 경로를 입력하세요",
+    "apk_path": "APK 파일 경로",
+    "local_path": "로컬 파일 경로",
+    "remote": "원격",
+    "reboot_warning": "선택한 모든 장치가 재부팅됩니다",
+    "succeeded": "성공",
+    "failed": "실패",
+    "all_success": "모든 {{count}}개 작업이 성공적으로 완료되었습니다",
+    "all_failed": "모든 {{count}}개 작업이 실패했습니다",
+    "partial_success": "{{success}}개 성공, {{failed}}개 실패"
   }
 }

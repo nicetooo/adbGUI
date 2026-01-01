@@ -63,3 +63,28 @@ export const VIEW_NAME_MAP: Record<string, ViewKey> = {
   files: VIEW_KEYS.FILES,
   proxy: VIEW_KEYS.PROXY,
 };
+
+// Batch operation types
+export interface BatchOperation {
+  type: string;
+  deviceIds: string[];
+  packageName: string;
+  apkPath: string;
+  command: string;
+  localPath: string;
+  remotePath: string;
+}
+
+export interface BatchResult {
+  deviceId: string;
+  success: boolean;
+  output: string;
+  error: string;
+}
+
+export interface BatchOperationResult {
+  totalDevices: number;
+  successCount: number;
+  failureCount: number;
+  results: BatchResult[];
+}

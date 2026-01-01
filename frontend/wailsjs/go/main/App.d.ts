@@ -23,6 +23,8 @@ export function DownloadFile(arg1:string,arg2:string):Promise<string>;
 
 export function EnableApp(arg1:string,arg2:string):Promise<string>;
 
+export function ExecuteBatchOperation(arg1:main.BatchOperation):Promise<main.BatchOperationResult>;
+
 export function ExportAPK(arg1:string,arg2:string):Promise<string>;
 
 export function ForceStopApp(arg1:string,arg2:string):Promise<string>;
@@ -86,6 +88,10 @@ export function RemoveHistoryDevice(arg1:string):Promise<void>;
 export function RestartAdbServer():Promise<string>;
 
 export function RunAdbCommand(arg1:string,arg2:string):Promise<string>;
+
+export function SelectAPKForBatch():Promise<string>;
+
+export function SelectFileForBatch():Promise<string>;
 
 export function SelectRecordPath(arg1:string):Promise<string>;
 

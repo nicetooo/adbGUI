@@ -19,7 +19,8 @@
     "new_directory": "New Directory",
     "folder_name": "Folder name",
     "enter_new_name": "Enter new name",
-    "clear": "Clear"
+    "clear": "Clear",
+    "browse": "Browse"
   },
   "menu": {
     "devices": "Devices",
@@ -230,7 +231,9 @@
     "proxy_tip_desc": "If using a proxy or VPN on Android, please ensure 'Bypass Local Network' is enabled in your proxy app settings to prevent ADB disconnection.",
     "pin": "Pin to Top",
     "unpin": "Unpin",
-    "network": "Network Speed"
+    "network": "Network Speed",
+    "selected_count": "{{count}} device(s) selected",
+    "batch_operation": "Batch Operation"
   },
   "files": {
     "title": "Files",
@@ -410,5 +413,30 @@
     "col_url": "URL",
     "col_type": "Type",
     "col_size": "Size"
+  },
+  "batch": {
+    "title": "Batch Operation",
+    "target_devices": "Target: {{count}} device(s)",
+    "execute": "Execute",
+    "shell": "Shell Command",
+    "install": "Install APK",
+    "uninstall": "Uninstall App",
+    "clear": "Clear App Data",
+    "stop": "Force Stop App",
+    "push": "Push File",
+    "reboot": "Reboot",
+    "select_apk": "Please select an APK file",
+    "enter_package": "Please enter a package name",
+    "enter_command": "Please enter a command",
+    "enter_paths": "Please select a file and enter remote path",
+    "apk_path": "APK file path",
+    "local_path": "Local file path",
+    "remote": "Remote",
+    "reboot_warning": "This will reboot all selected devices",
+    "succeeded": "succeeded",
+    "failed": "failed",
+    "all_success": "All {{count}} operations completed successfully",
+    "all_failed": "All {{count}} operations failed",
+    "partial_success": "{{success}} succeeded, {{failed}} failed"
   }
 }

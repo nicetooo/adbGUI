@@ -19,7 +19,8 @@
     "new_directory": "新建目錄",
     "folder_name": "資料夾名稱",
     "enter_new_name": "輸入新名稱",
-    "clear": "清除"
+    "clear": "清除",
+    "browse": "瀏覽"
   },
   "menu": {
     "devices": "裝置列表",
@@ -224,7 +225,10 @@
     "proxy_tip_title": "代理/VPN 穩定性提示",
     "proxy_tip_desc": "如果手機開啟了代理或 VPN，請在代理軟體中確保已開啟“繞過區域網路”或類似功能，否則無線連接可能會不穩定。",
     "pin": "置頂",
-    "unpin": "取消置頂"
+    "unpin": "取消置頂",
+    "network": "即時網速",
+    "selected_count": "已選擇 {{count}} 台裝置",
+    "batch_operation": "批次操作"
   },
   "files": {
     "title": "檔案",
@@ -410,5 +414,30 @@
     "theme_light": "淺色模式",
     "theme_dark": "深色模式",
     "theme_system": "跟隨系統"
+  },
+  "batch": {
+    "title": "批次操作",
+    "target_devices": "目標裝置：{{count}} 台",
+    "execute": "執行",
+    "shell": "Shell 命令",
+    "install": "安裝 APK",
+    "uninstall": "解除安裝應用",
+    "clear": "清除資料",
+    "stop": "強制停止",
+    "push": "推送檔案",
+    "reboot": "重新開機",
+    "select_apk": "請選擇 APK 檔案",
+    "enter_package": "請輸入套件名稱",
+    "enter_command": "請輸入命令",
+    "enter_paths": "請選擇檔案並輸入遠端路徑",
+    "apk_path": "APK 檔案路徑",
+    "local_path": "本機檔案路徑",
+    "remote": "遠端路徑",
+    "reboot_warning": "這將重新開機所有選取的裝置",
+    "succeeded": "成功",
+    "failed": "失敗",
+    "all_success": "全部 {{count}} 個操作執行成功",
+    "all_failed": "全部 {{count}} 個操作執行失敗",
+    "partial_success": "{{success}} 個成功，{{failed}} 個失敗"
   }
 }

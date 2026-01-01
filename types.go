@@ -115,3 +115,30 @@ type AppSettings struct {
 	LastActive   map[string]int64 `json:"lastActive"`
 	PinnedSerial string           `json:"pinnedSerial"`
 }
+
+// BatchOperation represents a batch operation to execute on multiple devices
+type BatchOperation struct {
+	Type        string            `json:"type"`        // "install", "uninstall", "clear", "stop", "shell", "push"
+	DeviceIDs   []string          `json:"deviceIds"`   // List of device IDs to operate on
+	PackageName string            `json:"packageName"` // For app operations
+	APKPath     string            `json:"apkPath"`     // For install operation
+	Command     string            `json:"command"`     // For shell operation
+	LocalPath   string            `json:"localPath"`   // For push operation
+	RemotePath  string            `json:"remotePath"`  // For push operation
+}
+
+// BatchResult represents the result of a batch operation for a single device
+type BatchResult struct {
+	DeviceID string `json:"deviceId"`
+	Success  bool   `json:"success"`
+	Output   string `json:"output"`
+	Error    string `json:"error"`
+}
+
+// BatchOperationResult represents the complete result of a batch operation
+type BatchOperationResult struct {
+	TotalDevices   int           `json:"totalDevices"`
+	SuccessCount   int           `json:"successCount"`
+	FailureCount   int           `json:"failureCount"`
+	Results        []BatchResult `json:"results"`
+}

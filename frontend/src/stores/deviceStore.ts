@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Device, HistoryDevice } from './types';
+import { Device, HistoryDevice, BatchOperation, BatchResult, BatchOperationResult } from './types';
 import {
   GetDevices,
   GetDeviceInfo,
@@ -12,6 +12,9 @@ import {
   OpenSettings,
   TogglePinDevice,
   RestartAdbServer,
+  ExecuteBatchOperation,
+  SelectAPKForBatch,
+  SelectFileForBatch,
 } from '../../wailsjs/go/main/App';
 // @ts-ignore
 import { main } from '../../wailsjs/go/models';
@@ -26,6 +29,12 @@ interface DeviceState {
   loading: boolean;
   busyDevices: Set<string>;
   isFetching: boolean;
+
+  // Multi-select state for batch operations
+  selectedDevices: Set<string>;
+  batchModalVisible: boolean;
+  batchOperationInProgress: boolean;
+  batchResults: BatchResult[];
 
   // Device info modal state
   deviceInfoVisible: boolean;
@@ -46,6 +55,17 @@ interface DeviceState {
   handleTogglePin: (serial: string) => Promise<void>;
   handleRestartAdbServer: () => Promise<void>;
   subscribeToDeviceEvents: () => () => void;
+
+  // Batch operation actions
+  toggleDeviceSelection: (deviceId: string) => void;
+  selectAllDevices: () => void;
+  clearSelection: () => void;
+  openBatchModal: () => void;
+  closeBatchModal: () => void;
+  executeBatchOperation: (op: BatchOperation) => Promise<BatchOperationResult>;
+  selectAPKForBatch: () => Promise<string>;
+  selectFileForBatch: () => Promise<string>;
+  subscribeToBatchEvents: () => () => void;
 }
 
 export const useDeviceStore = create<DeviceState>((set, get) => ({
@@ -56,6 +76,12 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
   loading: false,
   busyDevices: new Set(),
   isFetching: false,
+
+  // Multi-select state
+  selectedDevices: new Set(),
+  batchModalVisible: false,
+  batchOperationInProgress: false,
+  batchResults: [],
 
   deviceInfoVisible: false,
   deviceInfoLoading: false,
@@ -201,6 +227,69 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
     EventsOn('devices-changed', handler);
     return () => {
       EventsOff('devices-changed');
+    };
+  },
+
+  // Batch operation actions
+  toggleDeviceSelection: (deviceId: string) => {
+    set(state => {
+      const next = new Set(state.selectedDevices);
+      if (next.has(deviceId)) {
+        next.delete(deviceId);
+      } else {
+        next.add(deviceId);
+      }
+      return { selectedDevices: next };
+    });
+  },
+
+  selectAllDevices: () => {
+    const { devices } = get();
+    const onlineDevices = devices.filter(d => d.state === 'device');
+    set({ selectedDevices: new Set(onlineDevices.map(d => d.id)) });
+  },
+
+  clearSelection: () => {
+    set({ selectedDevices: new Set(), batchResults: [] });
+  },
+
+  openBatchModal: () => {
+    set({ batchModalVisible: true, batchResults: [] });
+  },
+
+  closeBatchModal: () => {
+    set({ batchModalVisible: false, batchOperationInProgress: false });
+  },
+
+  executeBatchOperation: async (op: BatchOperation): Promise<BatchOperationResult> => {
+    set({ batchOperationInProgress: true, batchResults: [] });
+    try {
+      const result = await ExecuteBatchOperation(op);
+      set({ batchResults: result.results || [] });
+      return result;
+    } finally {
+      set({ batchOperationInProgress: false });
+    }
+  },
+
+  selectAPKForBatch: async (): Promise<string> => {
+    return await SelectAPKForBatch();
+  },
+
+  selectFileForBatch: async (): Promise<string> => {
+    return await SelectFileForBatch();
+  },
+
+  subscribeToBatchEvents: () => {
+    const handler = (result: BatchResult) => {
+      set(state => ({
+        batchResults: [...state.batchResults, result]
+      }));
+    };
+
+    EventsOn('batch-progress', handler);
+    return () => {
+      EventsOff('batch-progress');
     };
   },
 }));

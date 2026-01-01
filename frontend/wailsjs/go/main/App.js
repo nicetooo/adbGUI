@@ -42,6 +42,10 @@ export function EnableApp(arg1, arg2) {
   return window['go']['main']['App']['EnableApp'](arg1, arg2);
 }
 
+export function ExecuteBatchOperation(arg1) {
+  return window['go']['main']['App']['ExecuteBatchOperation'](arg1);
+}
+
 export function ExportAPK(arg1, arg2) {
   return window['go']['main']['App']['ExportAPK'](arg1, arg2);
 }
@@ -168,6 +172,14 @@ export function RestartAdbServer() {
 
 export function RunAdbCommand(arg1, arg2) {
   return window['go']['main']['App']['RunAdbCommand'](arg1, arg2);
+}
+
+export function SelectAPKForBatch() {
+  return window['go']['main']['App']['SelectAPKForBatch']();
+}
+
+export function SelectFileForBatch() {
+  return window['go']['main']['App']['SelectFileForBatch']();
 }
 
 export function SelectRecordPath(arg1) {

@@ -19,7 +19,8 @@
     "new_directory": "新建目录",
     "folder_name": "文件夹名称",
     "enter_new_name": "输入新名称",
-    "clear": "清除"
+    "clear": "清除",
+    "browse": "浏览"
   },
   "menu": {
     "devices": "设备列表",
@@ -230,7 +231,9 @@
     "proxy_tip_desc": "如果手机开启了代理或 VPN，请在代理软件中确保已开启“绕过局域网”或类似功能，否则无线连接可能会不稳定。",
     "pin": "置顶",
     "unpin": "取消置顶",
-    "network": "实时网速"
+    "network": "实时网速",
+    "selected_count": "已选择 {{count}} 台设备",
+    "batch_operation": "批量操作"
   },
   "files": {
     "title": "文件",
@@ -410,5 +413,30 @@
     "col_url": "URL / 域名",
     "col_type": "类型",
     "col_size": "大小"
+  },
+  "batch": {
+    "title": "批量操作",
+    "target_devices": "目标设备：{{count}} 台",
+    "execute": "执行",
+    "shell": "Shell 命令",
+    "install": "安装 APK",
+    "uninstall": "卸载应用",
+    "clear": "清除数据",
+    "stop": "强制停止",
+    "push": "推送文件",
+    "reboot": "重启设备",
+    "select_apk": "请选择 APK 文件",
+    "enter_package": "请输入包名",
+    "enter_command": "请输入命令",
+    "enter_paths": "请选择文件并输入远程路径",
+    "apk_path": "APK 文件路径",
+    "local_path": "本地文件路径",
+    "remote": "远程路径",
+    "reboot_warning": "这将重启所有选中的设备",
+    "succeeded": "成功",
+    "failed": "失败",
+    "all_success": "全部 {{count}} 个操作执行成功",
+    "all_failed": "全部 {{count}} 个操作执行失败",
+    "partial_success": "{{success}} 个成功，{{failed}} 个失败"
   }
 }

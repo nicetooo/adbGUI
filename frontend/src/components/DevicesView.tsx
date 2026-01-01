@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, Tag, Space, Tooltip, theme, message } from "antd";
+import { Button, Tag, Space, Tooltip, theme, message, Checkbox } from "antd";
 import VirtualTable from "./VirtualTable";
 import { useTranslation } from "react-i18next";
 import {
@@ -24,8 +24,10 @@ import {
   DashboardOutlined,
   ArrowDownOutlined,
   ArrowUpOutlined,
+  ThunderboltOutlined,
 } from "@ant-design/icons";
 import { useDeviceStore, useMirrorStore, useUIStore, VIEW_KEYS, Device } from "../stores";
+import BatchOperationModal from "./BatchOperationModal";
 // @ts-ignore
 import { StartNetworkMonitor, StopNetworkMonitor, StopAllNetworkMonitors } from "../../wailsjs/go/main/App";
 // @ts-ignore
@@ -55,6 +57,14 @@ const DevicesView: React.FC<DevicesViewProps> = ({
     handleRemoveHistoryDevice,
     handleOpenSettings,
     handleTogglePin,
+    // Batch operations
+    selectedDevices,
+    batchModalVisible,
+    toggleDeviceSelection,
+    selectAllDevices,
+    clearSelection,
+    openBatchModal,
+    closeBatchModal,
   } = useDeviceStore();
 
   const { mirrorStatuses, recordStatuses } = useMirrorStore();
@@ -225,7 +235,38 @@ const DevicesView: React.FC<DevicesViewProps> = ({
     }
   });
 
+  // Get online devices for select all functionality
+  const onlineDevices = allDevices.filter(d => d.state === 'device');
+  const allOnlineSelected = onlineDevices.length > 0 && onlineDevices.every(d => selectedDevices.has(d.id));
+  const someSelected = onlineDevices.some(d => selectedDevices.has(d.id));
+
   const deviceColumns = [
+    {
+      title: (
+        <Checkbox
+          checked={allOnlineSelected}
+          indeterminate={someSelected && !allOnlineSelected}
+          onChange={() => {
+            if (allOnlineSelected) {
+              clearSelection();
+            } else {
+              selectAllDevices();
+            }
+          }}
+        />
+      ),
+      key: "select",
+      width: 50,
+      render: (_: any, record: Device) => {
+        if (record.state !== 'device') return null;
+        return (
+          <Checkbox
+            checked={selectedDevices.has(record.id)}
+            onChange={() => toggleDeviceSelection(record.id)}
+          />
+        );
+      }
+    },
     {
       title: t("devices.id"),
       dataIndex: "id",
@@ -505,6 +546,23 @@ const DevicesView: React.FC<DevicesViewProps> = ({
       >
         <h2 style={{ margin: 0, color: token.colorText }}>{t("devices.title")}</h2>
         <Space>
+          {selectedDevices.size > 0 && (
+            <>
+              <span style={{ color: token.colorTextSecondary }}>
+                {t("devices.selected_count", { count: selectedDevices.size }) || `${selectedDevices.size} selected`}
+              </span>
+              <Button
+                type="primary"
+                icon={<ThunderboltOutlined />}
+                onClick={openBatchModal}
+              >
+                {t("devices.batch_operation") || "Batch Operation"}
+              </Button>
+              <Button onClick={clearSelection}>
+                {t("common.clear") || "Clear"}
+              </Button>
+            </>
+          )}
           <Button icon={<WifiOutlined />} onClick={onShowWirelessConnect}>
             {t("devices.wireless_connect")}
           </Button>
@@ -539,6 +597,13 @@ const DevicesView: React.FC<DevicesViewProps> = ({
           style={{ flex: 1 }}
         />
       </div>
+
+      <BatchOperationModal
+        visible={batchModalVisible}
+        onClose={closeBatchModal}
+        selectedDeviceIds={Array.from(selectedDevices)}
+        devices={devices}
+      />
     </div>
   );
 };
