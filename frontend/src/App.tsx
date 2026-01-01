@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect } from "react";
 import {
   Layout,
   Menu,
@@ -36,29 +36,19 @@ import {
 } from "@ant-design/icons";
 import "./App.css";
 import { useTheme } from "./ThemeContext";
+import {
+  useDeviceStore,
+  useMirrorStore,
+  useLogcatStore,
+  useUIStore,
+  VIEW_KEYS,
+  openRecordPath,
+} from "./stores";
+// @ts-ignore
+import { OpenPath } from "../wailsjs/go/main/App";
+
 // @ts-ignore
 const BrowserOpenURL = (window as any).runtime.BrowserOpenURL;
-// @ts-ignore
-import {
-  GetDevices,
-  StopLogcat,
-  OpenPath,
-  GetDeviceInfo,
-  AdbPair,
-  AdbConnect,
-  AdbDisconnect,
-  SwitchToWireless,
-  GetHistoryDevices,
-  RemoveHistoryDevice,
-  OpenSettings,
-  StartLogcat,
-  GetAppVersion,
-  TogglePinDevice,
-  RestartAdbServer,
-} from "../wailsjs/go/main/App";
-// @ts-ignore
-import { main } from "../wailsjs/go/models";
-
 // @ts-ignore
 const EventsOn = (window as any).runtime.EventsOn;
 // @ts-ignore
@@ -66,236 +56,131 @@ const EventsOff = (window as any).runtime.EventsOff;
 
 const { Content, Sider } = Layout;
 
-interface Device {
-  id: string;
-  serial: string;
-  state: string;
-  model: string;
-  brand: string;
-  type: string;
-  ids: string[];
-  wifiAddr: string;
-  isPinned: boolean;
-}
-
 function App() {
   const { mode, setMode, isDark } = useTheme();
   const { t, i18n } = useTranslation();
-  const [selectedKey, setSelectedKey] = useState("1");
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [historyDevices, setHistoryDevices] = useState<any[]>([]);
-  const [busyDevices, setBusyDevices] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(false);
 
-  // Device Info state
-  const [deviceInfoVisible, setDeviceInfoVisible] = useState(false);
-  const [deviceInfoLoading, setDeviceInfoLoading] = useState(false);
-  const [selectedDeviceInfo, setSelectedDeviceInfo] =
-    useState<main.DeviceInfo | null>(null);
+  // Device store
+  const {
+    devices,
+    historyDevices,
+    selectedDevice,
+    loading,
+    busyDevices,
+    deviceInfoVisible,
+    deviceInfoLoading,
+    selectedDeviceInfo,
+    fetchDevices,
+    setSelectedDevice,
+    handleFetchDeviceInfo,
+    closeDeviceInfo,
+    handleAdbConnect,
+    handleAdbPair,
+    handleSwitchToWireless,
+    handleAdbDisconnect,
+    handleRemoveHistoryDevice,
+    handleOpenSettings,
+    handleTogglePin,
+  } = useDeviceStore();
 
-  // About state
-  const [aboutVisible, setAboutVisible] = useState(false);
-  const [appVersion, setAppVersion] = useState<string>("");
+  // Mirror store
+  const { mirrorStatuses, recordStatuses, subscribeToEvents: subscribeMirrorEvents, updateDurations } = useMirrorStore();
 
-  // Wireless Connect state
-  const [wirelessConnectVisible, setWirelessConnectVisible] = useState(false);
+  // Logcat store
+  const {
+    logs,
+    isLogging,
+    selectedPackage,
+    logFilter,
+    useRegex,
+    preFilter,
+    preUseRegex,
+    excludeFilter,
+    excludeUseRegex,
+    setLogs,
+    setSelectedPackage,
+    setLogFilter,
+    setUseRegex,
+    setPreFilter,
+    setPreUseRegex,
+    setExcludeFilter,
+    setExcludeUseRegex,
+    toggleLogcat,
+    stopLogcat,
+  } = useLogcatStore();
 
-  // Feedback state
-  const [feedbackVisible, setFeedbackVisible] = useState(false);
+  // UI store
+  const {
+    selectedKey,
+    aboutVisible,
+    wirelessConnectVisible,
+    feedbackVisible,
+    appVersion,
+    setSelectedKey,
+    showAbout,
+    hideAbout,
+    showWirelessConnect,
+    hideWirelessConnect,
+    showFeedback,
+    hideFeedback,
+    init: initUI,
+    subscribeToEvents: subscribeUIEvents,
+  } = useUIStore();
 
-  // Global state for views that need background synchronization
-  const [selectedDevice, setSelectedDevice] = useState<string>("");
-  const [logs, setLogs] = useState<string[]>([]);
-  const [isLogging, setIsLogging] = useState(false);
-  const [logFilter, setLogFilter] = useState("");
-  const [selectedLogcatPackage, setSelectedLogcatPackage] = useState<string>("");
-  const [useRegex, setUseRegex] = useState(false);
-  const [preFilter, setPreFilter] = useState("");
-  const [preUseRegex, setPreUseRegex] = useState(false);
-  const [excludeFilter, setExcludeFilter] = useState("");
-  const [excludeUseRegex, setExcludeUseRegex] = useState(false);
-  
-  // Multi-device mirror status
-  const [mirrorStatuses, setMirrorStatuses] = useState<Record<string, {
-    isMirroring: boolean;
-    startTime: number | null;
-    duration: number;
-  }>>({});
-
-  // Multi-device record status
-  const [recordStatuses, setRecordStatuses] = useState<Record<string, {
-    isRecording: boolean;
-    startTime: number | null;
-    duration: number;
-    recordPath: string;
-  }>>({});
-
-  const recordPathRefs = useRef<Record<string, string>>({});
-  // Refs for event listeners
-  const loadingRef = useRef(false);
-  const isFetchingRef = useRef(false);
-  const logBufferRef = useRef<string[]>([]);
-  const logFlushTimerRef = useRef<number | null>(null);
-
-  const logFilterRef = useRef("");
-  const useRegexRef = useRef(false);
-
-  useEffect(() => {
-    logFilterRef.current = logFilter;
-  }, [logFilter]);
-
-  useEffect(() => {
-    useRegexRef.current = useRegex;
-  }, [useRegex]);
-
-  const preFilterRef = useRef("");
-  const preUseRegexRef = useRef(false);
-  const excludeFilterRef = useRef("");
-  const excludeUseRegexRef = useRef(false);
-
-  useEffect(() => {
-    preFilterRef.current = preFilter;
-  }, [preFilter]);
-
-  useEffect(() => {
-    preUseRegexRef.current = preUseRegex;
-  }, [preUseRegex]);
-
-  useEffect(() => {
-    excludeFilterRef.current = excludeFilter;
-  }, [excludeFilter]);
-
-  useEffect(() => {
-    excludeUseRegexRef.current = excludeUseRegex;
-  }, [excludeUseRegex]);
-
-  const fetchDevices = async (silent: boolean = false) => {
-    if (isFetchingRef.current) return;
-    isFetchingRef.current = true;
-    
-    const isSilent = silent === true;
-    if (!isSilent) {
-      setLoading(true);
-    }
+  // Wrap store actions with message feedback
+  const handleAdbConnectWithFeedback = async (address: string) => {
     try {
-      // Pass !isSilent as forceLog to backend
-      const res = await GetDevices(!isSilent);
-      setDevices(res || []);
-      
-      try {
-        const history = await GetHistoryDevices();
-        setHistoryDevices(history || []);
-      } catch (historyErr) {
-        console.warn("Failed to load device history:", historyErr);
-        setHistoryDevices([]);
-      }
-
-      if (res && res.length > 0) {
-        if (!selectedDevice) {
-          setSelectedDevice(res[0].id);
-        }
-      }
-    } catch (err) {
-      if (!isSilent) {
-        message.error(t("app.fetch_devices_failed") + ": " + String(err));
-      }
-    } finally {
-      if (!isSilent) {
-        setLoading(false);
-      }
-      isFetchingRef.current = false;
-    }
-  };
-
-  const handleFetchDeviceInfo = async (deviceId: string) => {
-    setDeviceInfoVisible(true);
-    setDeviceInfoLoading(true);
-    try {
-      const res = await GetDeviceInfo(deviceId);
-      setSelectedDeviceInfo(res);
-    } catch (err) {
-      message.error(t("app.fetch_device_info_failed") + ": " + String(err));
-    } finally {
-      setDeviceInfoLoading(false);
-    }
-  };
-
-  const handleAdbConnect = async (address: string) => {
-    try {
-      const res = await AdbConnect(address);
-      if (res.includes("connected to")) {
-        fetchDevices();
-      } else {
-        throw new Error(res);
-      }
+      await handleAdbConnect(address);
     } catch (err) {
       message.error(t("app.connect_failed") + ": " + String(err));
       throw err;
     }
   };
 
-  const handleAdbPair = async (address: string, code: string) => {
+  const handleAdbPairWithFeedback = async (address: string, code: string) => {
     try {
-      const res = await AdbPair(address, code);
-      if (res.includes("Successfully paired")) {
-        message.success(t("app.pairing_success"));
-        fetchDevices();
-      } else {
-        throw new Error(res);
-      }
+      await handleAdbPair(address, code);
+      message.success(t("app.pairing_success"));
     } catch (err) {
       message.error(t("app.pairing_failed") + ": " + String(err));
       throw err;
     }
   };
 
-  const handleSwitchToWireless = async (deviceId: string) => {
+  const handleSwitchToWirelessWithFeedback = async (deviceId: string) => {
     const hide = message.loading(t("app.switching_to_wireless"), 0);
-    setBusyDevices(prev => new Set(prev).add(deviceId));
     try {
-      const res = await SwitchToWireless(deviceId);
-      if (res.includes("connected to")) {
-        message.success(t("app.switch_success"));
-        await fetchDevices(true);
-      } else {
-        throw new Error(res);
-      }
+      await handleSwitchToWireless(deviceId);
+      message.success(t("app.switch_success"));
     } catch (err) {
       message.error(t("app.switch_failed") + ": " + String(err));
     } finally {
-      setBusyDevices(prev => {
-        const next = new Set(prev);
-        next.delete(deviceId);
-        return next;
-      });
       hide();
     }
   };
 
-  const handleAdbDisconnect = async (deviceId: string) => {
+  const handleAdbDisconnectWithFeedback = async (deviceId: string) => {
     try {
-      await AdbDisconnect(deviceId);
+      await handleAdbDisconnect(deviceId);
       message.success(t("app.disconnect_success"));
-      fetchDevices();
     } catch (err) {
       message.error(t("app.disconnect_failed") + ": " + String(err));
     }
   };
 
-  const handleRemoveHistoryDevice = async (deviceId: string) => {
+  const handleRemoveHistoryDeviceWithFeedback = async (deviceId: string) => {
     try {
-      await RemoveHistoryDevice(deviceId);
+      await handleRemoveHistoryDevice(deviceId);
       message.success(t("app.remove_success"));
-      fetchDevices();
     } catch (err) {
       message.error(t("app.remove_failed") + ": " + String(err));
     }
   };
 
-  const handleOpenSettings = async (deviceId: string, action: string = "", data: string = "") => {
+  const handleOpenSettingsWithFeedback = async (deviceId: string, action?: string, data?: string) => {
     const hide = message.loading(t("app.opening_settings"), 0);
     try {
-      await OpenSettings(deviceId, action, data);
+      await handleOpenSettings(deviceId, action, data);
       message.success(t("app.open_settings_success"));
     } catch (err) {
       message.error(t("app.open_settings_failed") + ": " + String(err));
@@ -303,174 +188,65 @@ function App() {
       hide();
     }
   };
-  
-  const handleTogglePin = async (serial: string) => {
+
+  const handleTogglePinWithFeedback = async (serial: string) => {
     try {
-      await TogglePinDevice(serial);
-      await fetchDevices(true);
+      await handleTogglePin(serial);
     } catch (err) {
       message.error(String(err));
     }
   };
 
-    const toggleLogcat = async (pkg: string) => {
+  const handleFetchDeviceInfoWithFeedback = async (deviceId: string) => {
+    try {
+      await handleFetchDeviceInfo(deviceId);
+    } catch (err) {
+      message.error(t("app.fetch_device_info_failed") + ": " + String(err));
+    }
+  };
+
+  const fetchDevicesWithFeedback = async (silent: boolean = false) => {
+    try {
+      await fetchDevices(silent);
+    } catch (err) {
+      if (!silent) {
+        message.error(t("app.fetch_devices_failed") + ": " + String(err));
+      }
+    }
+  };
+
+  const toggleLogcatWithFeedback = async (pkg: string) => {
     if (!selectedDevice) {
       message.error(t("app.no_device_selected"));
       return;
     }
-    if (isLogging) {
-      await StopLogcat();
-      setIsLogging(false);
-      EventsOff("logcat-data");
-      if (logFlushTimerRef.current) {
-        clearInterval(logFlushTimerRef.current);
-        logFlushTimerRef.current = null;
-      }
-      logBufferRef.current = [];
-    } else {
-      setLogs([]);
-      setIsLogging(true);
-      logBufferRef.current = [];
-      
-      // Flush logs every 100ms to avoid React state flood and improve performance
-      logFlushTimerRef.current = window.setInterval(() => {
-        if (logBufferRef.current.length > 0) {
-          const chunk = [...logBufferRef.current];
-          logBufferRef.current = [];
-          
-          setLogs((prev) => {
-            const next = [...prev, ...chunk];
-            return next.length > 200000 ? next.slice(-200000) : next;
-          });
-        }
-      }, 100);
-
-      EventsOn("logcat-data", (data: string | string[]) => {
-        const lines = Array.isArray(data) ? data : [data];
-        
-        // Check filtering conditions using Refs to access latest state
-        const currentFilter = preFilterRef.current; // Use Pre-Filter for buffering
-        const isRegex = preUseRegexRef.current;
-        const currentExclude = excludeFilterRef.current;
-        const isExcludeRegex = excludeUseRegexRef.current;
-
-        for (const line of lines) {
-          let shouldKeep = true;
-          
-          // 1. Pre-filter (Include)
-          if (currentFilter.trim()) {
-            try {
-              if (isRegex) {
-                const regex = new RegExp(currentFilter, "i");
-                if (!regex.test(line)) shouldKeep = false;
-              } else {
-                if (!line.toLowerCase().includes(currentFilter.toLowerCase())) shouldKeep = false;
-              }
-            } catch (e) {
-              if (!line.toLowerCase().includes(currentFilter.toLowerCase())) shouldKeep = false;
-            }
-          }
-
-          // 2. Exclude filter (Negative)
-          if (shouldKeep && currentExclude.trim()) {
-            try {
-              if (isExcludeRegex) {
-                const regex = new RegExp(currentExclude, "i");
-                if (regex.test(line)) shouldKeep = false;
-              } else {
-                if (line.toLowerCase().includes(currentExclude.toLowerCase())) shouldKeep = false;
-              }
-            } catch (e) {
-              if (line.toLowerCase().includes(currentExclude.toLowerCase())) shouldKeep = false;
-            }
-          }
-
-          if (shouldKeep) {
-            logBufferRef.current.push(line);
-          }
-        }
-      });
-
-      try {
-        await StartLogcat(selectedDevice, pkg, preFilter, preUseRegex, excludeFilter, excludeUseRegex);
-      } catch (err) {
-        message.error(t("app.logcat_failed") + ": " + String(err));
-        setIsLogging(false);
-        EventsOff("logcat-data");
-        if (logFlushTimerRef.current) {
-          clearInterval(logFlushTimerRef.current);
-          logFlushTimerRef.current = null;
-        }
-      }
+    try {
+      await toggleLogcat(selectedDevice, pkg);
+    } catch (err) {
+      message.error(t("app.logcat_failed") + ": " + String(err));
     }
   };
 
   const handleJumpToLogcat = async (pkg: string) => {
-    // 1. Set the dropdown package state first
-    setSelectedLogcatPackage(pkg);
-    // 2. Clear general text filter to avoid double filtering
-    setLogFilter(""); 
-    // 3. Switch tab
-    setSelectedKey("4");
-    
-    // 4. Restart logging for the specific package
+    setSelectedPackage(pkg);
+    setLogFilter("");
+    setSelectedKey(VIEW_KEYS.LOGCAT);
+
     if (isLogging) {
-      await toggleLogcat(""); 
-      setTimeout(() => toggleLogcat(pkg), 300);
+      stopLogcat();
+      setTimeout(() => toggleLogcatWithFeedback(pkg), 300);
     } else {
-      setTimeout(() => toggleLogcat(pkg), 100);
+      setTimeout(() => toggleLogcatWithFeedback(pkg), 100);
     }
   };
 
+  // Initialize stores and subscribe to events
   useEffect(() => {
-    fetchDevices();
+    fetchDevicesWithFeedback();
+    initUI();
 
-    EventsOn("scrcpy-started", (data: any) => {
-      const deviceId = data.deviceId;
-      setMirrorStatuses(prev => ({
-        ...prev,
-        [deviceId]: {
-          isMirroring: true,
-          startTime: data.startTime,
-          duration: 0
-        }
-      }));
-    });
-
-    EventsOn("scrcpy-stopped", (deviceId: string) => {
-      setMirrorStatuses(prev => {
-        const next = { ...prev };
-        if (next[deviceId]) {
-          next[deviceId] = { ...next[deviceId], isMirroring: false, startTime: null };
-        }
-        return next;
-      });
-    });
-
-    EventsOn("scrcpy-record-started", (data: any) => {
-      const deviceId = data.deviceId;
-      setRecordStatuses(prev => ({
-        ...prev,
-        [deviceId]: {
-          isRecording: true,
-          startTime: data.startTime,
-          duration: 0,
-          recordPath: data.recordPath
-        }
-      }));
-      recordPathRefs.current[deviceId] = data.recordPath;
-    });
-
-    EventsOn("scrcpy-record-stopped", (deviceId: string) => {
-      const path = recordPathRefs.current[deviceId];
-      setRecordStatuses(prev => {
-        const next = { ...prev };
-        if (next[deviceId]) {
-          next[deviceId] = { ...next[deviceId], isRecording: false, startTime: null };
-        }
-        return next;
-      });
-
+    // Mirror events subscription with notification
+    const unsubMirror = subscribeMirrorEvents((deviceId, path) => {
       notification.success({
         message: t("app.recording_saved"),
         description: t("app.recording_saved_desc"),
@@ -493,105 +269,49 @@ function App() {
       });
     });
 
-
-    EventsOn("tray:navigate", (data: any) => {
-      if (data.deviceId) {
-        setSelectedDevice(data.deviceId);
-      }
-      if (data.view) {
-        const viewMap: Record<string, string> = {
-          "devices": "1",
-          "apps": "2",
-          "shell": "3",
-          "logcat": "4",
-          "mirror": "5",
-          "files": "6",
-          "proxy": "7"
-        };
-        if (viewMap[data.view]) {
-          setSelectedKey(viewMap[data.view]);
-        }
-      }
+    // UI events subscription
+    const unsubUI = subscribeUIEvents((deviceId) => {
+      setSelectedDevice(deviceId);
     });
 
-    GetAppVersion().then(v => setAppVersion(v)).catch(() => {});
-
     return () => {
-      EventsOff("scrcpy-started");
-      EventsOff("scrcpy-stopped");
-      EventsOff("scrcpy-record-started");
-      EventsOff("scrcpy-record-stopped");
-      EventsOff("tray:navigate");
-      StopLogcat();
-      if (logFlushTimerRef.current) {
-        clearInterval(logFlushTimerRef.current);
-      }
+      unsubMirror();
+      unsubUI();
+      stopLogcat();
     };
   }, []);
 
-  useEffect(() => {
-    fetchDevices();
-  }, []);
-
-  // Global screenshot progress listener
+  // Screenshot progress listener
   useEffect(() => {
     const msgKey = "screenshot-msg";
     const unregister = EventsOn("screenshot-progress", (stepKey: string, data?: any) => {
       switch (stepKey) {
         case "screenshot_success":
-           message.success({ content: t("app.screenshot_success", { path: data }), key: msgKey });
-           break;
+          message.success({ content: t("app.screenshot_success", { path: data }), key: msgKey });
+          break;
         case "screenshot_error":
-           message.error({ content: t("app.command_failed") + ": " + String(data), key: msgKey });
-           break;
+          message.error({ content: t("app.command_failed") + ": " + String(data), key: msgKey });
+          break;
         case "screenshot_off":
-           message.warning({ content: t("app.screenshot_off"), key: msgKey });
-           break;
+          message.warning({ content: t("app.screenshot_off"), key: msgKey });
+          break;
         default:
-           // progress steps: waking, capturing, pulling
-           message.loading({ content: t(`app.${stepKey}`), key: msgKey, duration: 0 });
+          message.loading({ content: t(`app.${stepKey}`), key: msgKey, duration: 0 });
       }
     });
 
     return () => unregister();
   }, [t]);
 
-  // Poll devices list sequentially after each fetch completes
+  // Duration update timer
   useEffect(() => {
-    const timer = setInterval(() => {
-      const now = Math.floor(Date.now() / 1000);
-      
-      setMirrorStatuses(prev => {
-        let changed = false;
-        const next = { ...prev };
-        Object.keys(next).forEach(id => {
-          if (next[id].isMirroring && next[id].startTime) {
-            next[id].duration = now - next[id].startTime!;
-            changed = true;
-          }
-        });
-        return changed ? next : prev;
-      });
-
-      setRecordStatuses(prev => {
-        let changed = false;
-        const next = { ...prev };
-        Object.keys(next).forEach(id => {
-          if (next[id].isRecording && next[id].startTime) {
-            next[id].duration = now - next[id].startTime!;
-            changed = true;
-          }
-        });
-        return changed ? next : prev;
-      });
-    }, 1000);
+    const timer = setInterval(updateDurations, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [updateDurations]);
 
-
-  // Poll devices list sequentially after each fetch completes
+  // Poll devices when on devices view
   useEffect(() => {
-    if (selectedKey !== "1") {
+    if (selectedKey !== VIEW_KEYS.DEVICES) {
       return;
     }
 
@@ -600,14 +320,9 @@ function App() {
 
     const poll = async () => {
       if (!isActive) return;
-      
-      // Use silent=true to avoid showing loading state
-      if (!loadingRef.current) {
-        await fetchDevices(true);
-      }
-      
+      await fetchDevicesWithFeedback(true);
       if (isActive) {
-        timeoutId = setTimeout(poll, 3000); // Wait 3s after the previous one finishes
+        timeoutId = setTimeout(poll, 3000);
       }
     };
 
@@ -621,75 +336,75 @@ function App() {
 
   const renderContent = () => {
     switch (selectedKey) {
-      case "1":
+      case VIEW_KEYS.DEVICES:
         return (
           <DevicesView
             devices={devices}
             historyDevices={historyDevices}
             loading={loading}
-            fetchDevices={fetchDevices}
+            fetchDevices={fetchDevicesWithFeedback}
             busyDevices={busyDevices}
             setSelectedKey={setSelectedKey}
             setSelectedDevice={setSelectedDevice}
             handleStartScrcpy={async (deviceId) => {
               setSelectedDevice(deviceId);
-              setSelectedKey("5");
+              setSelectedKey(VIEW_KEYS.MIRROR);
             }}
-            handleFetchDeviceInfo={handleFetchDeviceInfo}
-            onShowWirelessConnect={() => setWirelessConnectVisible(true)}
-            handleSwitchToWireless={handleSwitchToWireless}
-            handleAdbConnect={handleAdbConnect}
-            handleAdbDisconnect={handleAdbDisconnect}
-            handleRemoveHistoryDevice={handleRemoveHistoryDevice}
-            handleOpenSettings={handleOpenSettings}
-            handleTogglePin={handleTogglePin}
+            handleFetchDeviceInfo={handleFetchDeviceInfoWithFeedback}
+            onShowWirelessConnect={showWirelessConnect}
+            handleSwitchToWireless={handleSwitchToWirelessWithFeedback}
+            handleAdbConnect={handleAdbConnectWithFeedback}
+            handleAdbDisconnect={handleAdbDisconnectWithFeedback}
+            handleRemoveHistoryDevice={handleRemoveHistoryDeviceWithFeedback}
+            handleOpenSettings={handleOpenSettingsWithFeedback}
+            handleTogglePin={handleTogglePinWithFeedback}
             mirrorStatuses={mirrorStatuses}
             recordStatuses={recordStatuses}
           />
         );
-      case "6":
+      case VIEW_KEYS.FILES:
         return (
           <FilesView
             devices={devices}
             selectedDevice={selectedDevice}
             setSelectedDevice={setSelectedDevice}
-            fetchDevices={fetchDevices}
+            fetchDevices={fetchDevicesWithFeedback}
             loading={loading}
           />
         );
-      case "2":
+      case VIEW_KEYS.APPS:
         return (
           <AppsView
             devices={devices}
             selectedDevice={selectedDevice}
             setSelectedDevice={setSelectedDevice}
-            fetchDevices={fetchDevices}
+            fetchDevices={fetchDevicesWithFeedback}
             loading={loading}
             setSelectedKey={setSelectedKey}
             handleJumpToLogcat={handleJumpToLogcat}
           />
         );
-      case "3":
+      case VIEW_KEYS.SHELL:
         return (
           <ShellView
             devices={devices}
             selectedDevice={selectedDevice}
             setSelectedDevice={setSelectedDevice}
-            fetchDevices={fetchDevices}
+            fetchDevices={fetchDevicesWithFeedback}
             loading={loading}
           />
         );
-      case "4":
+      case VIEW_KEYS.LOGCAT:
         return (
           <LogcatView
             devices={devices}
             selectedDevice={selectedDevice}
             setSelectedDevice={setSelectedDevice}
-            fetchDevices={fetchDevices}
+            fetchDevices={fetchDevicesWithFeedback}
             isLogging={isLogging}
-            toggleLogcat={toggleLogcat}
-            selectedPackage={selectedLogcatPackage}
-            setSelectedPackage={setSelectedLogcatPackage}
+            toggleLogcat={toggleLogcatWithFeedback}
+            selectedPackage={selectedPackage}
+            setSelectedPackage={setSelectedPackage}
             logs={logs}
             setLogs={setLogs}
             logFilter={logFilter}
@@ -706,25 +421,25 @@ function App() {
             setExcludeUseRegex={setExcludeUseRegex}
           />
         );
-      case "5":
+      case VIEW_KEYS.MIRROR:
         return (
           <MirrorView
             devices={devices}
             selectedDevice={selectedDevice}
             setSelectedDevice={setSelectedDevice}
-            fetchDevices={fetchDevices}
+            fetchDevices={fetchDevicesWithFeedback}
             loading={loading}
             mirrorStatuses={mirrorStatuses}
             recordStatuses={recordStatuses}
           />
         );
-      case "7":
+      case VIEW_KEYS.PROXY:
         return (
           <ProxyView
             devices={devices}
             selectedDevice={selectedDevice}
             setSelectedDevice={setSelectedDevice}
-            fetchDevices={fetchDevices}
+            fetchDevices={fetchDevicesWithFeedback}
             loading={loading}
           />
         );
@@ -747,7 +462,7 @@ function App() {
           bottom: 0,
           display: "flex",
           flexDirection: "column",
-          backgroundColor: isDark ? '#2C2C2E' : "#F5F5F7", 
+          backgroundColor: isDark ? '#2C2C2E' : "#F5F5F7",
           borderRight: isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,0,0,0.06)",
         }}
       >
@@ -760,19 +475,19 @@ function App() {
               theme={isDark ? "dark" : "light"}
               selectedKeys={[selectedKey]}
               mode="inline"
-              onClick={({ key }) => setSelectedKey(key)}
+              onClick={({ key }) => setSelectedKey(key as any)}
               style={{
                 backgroundColor: "transparent",
                 borderRight: "none",
               }}
               items={[
-                { key: "1", icon: <MobileOutlined />, label: t("menu.devices") },
-                { key: "5", icon: <DesktopOutlined />, label: t("menu.mirror") },
-                { key: "2", icon: <AppstoreOutlined />, label: t("menu.apps") },
-                { key: "6", icon: <FolderOutlined />, label: t("menu.files") },
-                { key: "3", icon: <CodeOutlined />, label: t("menu.shell") },
-                { key: "4", icon: <FileTextOutlined />, label: t("menu.logcat") },
-                { key: "7", icon: <GlobalOutlined />, label: t("menu.proxy") || "Proxy" },
+                { key: VIEW_KEYS.DEVICES, icon: <MobileOutlined />, label: t("menu.devices") },
+                { key: VIEW_KEYS.MIRROR, icon: <DesktopOutlined />, label: t("menu.mirror") },
+                { key: VIEW_KEYS.APPS, icon: <AppstoreOutlined />, label: t("menu.apps") },
+                { key: VIEW_KEYS.FILES, icon: <FolderOutlined />, label: t("menu.files") },
+                { key: VIEW_KEYS.SHELL, icon: <CodeOutlined />, label: t("menu.shell") },
+                { key: VIEW_KEYS.LOGCAT, icon: <FileTextOutlined />, label: t("menu.logcat") },
+                { key: VIEW_KEYS.PROXY, icon: <GlobalOutlined />, label: t("menu.proxy") || "Proxy" },
               ]}
             />
           </div>
@@ -782,30 +497,30 @@ function App() {
               borderTop: isDark ? "1px solid rgba(255, 255, 255, 0.06)" : "1px solid rgba(0, 0, 0, 0.06)",
               display: "flex",
               justifyContent: "center",
-              gap: "4px", // Reduced gap to fit more icons
+              gap: "4px",
               flexWrap: "wrap",
             }}
           >
-             <Dropdown
+            <Dropdown
               menu={{
                 items: [
-                  { 
-                    key: "light", 
-                    label: t("app.theme_light") || "Light", 
+                  {
+                    key: "light",
+                    label: t("app.theme_light") || "Light",
                     icon: <SunOutlined />,
-                    onClick: () => setMode("light") 
+                    onClick: () => setMode("light")
                   },
-                  { 
-                    key: "dark", 
-                    label: t("app.theme_dark") || "Dark", 
+                  {
+                    key: "dark",
+                    label: t("app.theme_dark") || "Dark",
                     icon: <MoonOutlined />,
-                    onClick: () => setMode("dark") 
+                    onClick: () => setMode("dark")
                   },
-                  { 
-                    key: "system", 
-                    label: t("app.theme_system") || "System", 
+                  {
+                    key: "system",
+                    label: t("app.theme_system") || "System",
                     icon: <DesktopOutlined />,
-                    onClick: () => setMode("system") 
+                    onClick: () => setMode("system")
                   },
                 ],
                 selectedKeys: [mode],
@@ -848,21 +563,21 @@ function App() {
               type="text"
               size="small"
               icon={<InfoCircleOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />}
-              onClick={() => setAboutVisible(true)}
+              onClick={showAbout}
               title={t("app.about")}
             />
             <Button
               type="text"
               size="small"
               icon={<GithubOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />}
-              onClick={() => BrowserOpenURL && BrowserOpenURL("https://github.com/nicetooo/adbGUI")}
+              onClick={() => BrowserOpenURL && BrowserOpenURL("https://github.com/niceto0/gaze")}
               title={t("app.github")}
             />
             <Button
               type="text"
               size="small"
               icon={<BugOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />}
-              onClick={() => setFeedbackVisible(true)}
+              onClick={showFeedback}
               title={t("app.feedback")}
             />
           </div>
@@ -877,24 +592,24 @@ function App() {
 
       <DeviceInfoModal
         visible={deviceInfoVisible}
-        onCancel={() => setDeviceInfoVisible(false)}
+        onCancel={closeDeviceInfo}
         deviceInfo={selectedDeviceInfo}
         loading={deviceInfoLoading}
-        onRefresh={() => selectedDeviceInfo && handleFetchDeviceInfo(selectedDeviceInfo.serial || selectedDevice)}
+        onRefresh={() => selectedDeviceInfo && handleFetchDeviceInfoWithFeedback(selectedDeviceInfo.serial || selectedDevice)}
       />
 
-      <AboutModal visible={aboutVisible} onCancel={() => setAboutVisible(false)} />
+      <AboutModal visible={aboutVisible} onCancel={hideAbout} />
 
       <WirelessConnectModal
         visible={wirelessConnectVisible}
-        onCancel={() => setWirelessConnectVisible(false)}
-        onConnect={handleAdbConnect}
-        onPair={handleAdbPair}
+        onCancel={hideWirelessConnect}
+        onConnect={handleAdbConnectWithFeedback}
+        onPair={handleAdbPairWithFeedback}
       />
 
       <FeedbackModal
         visible={feedbackVisible}
-        onCancel={() => setFeedbackVisible(false)}
+        onCancel={hideFeedback}
         appVersion={appVersion}
         deviceInfo={devices.find(d => d.id === selectedDevice) ? `${devices.find(d => d.id === selectedDevice)?.brand} ${devices.find(d => d.id === selectedDevice)?.model} (ID: ${selectedDevice})` : "None"}
       />
