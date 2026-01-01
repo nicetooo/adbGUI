@@ -74,6 +74,10 @@ type App struct {
 	// Wireless stability
 	reconnectCooldown map[string]time.Time
 	reconnectMu       sync.Mutex
+
+	// Device monitor
+	deviceMonitorCancel context.CancelFunc
+	deviceMonitorMu     sync.Mutex
 }
 
 // NewApp creates a new App instance
@@ -97,6 +101,7 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.setupBinaries()
 	a.initPersistentCache()
+	a.StartDeviceMonitor()
 }
 
 // Shutdown is called when the application is closing
@@ -116,6 +121,7 @@ func (a *App) Shutdown(ctx context.Context) {
 	}
 	a.scrcpyMu.Unlock()
 	a.StopLogcat()
+	a.StopDeviceMonitor()
 }
 
 // GetAppVersion returns the application version

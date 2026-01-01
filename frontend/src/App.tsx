@@ -69,6 +69,7 @@ function App() {
     closeDeviceInfo,
     handleAdbConnect,
     handleAdbPair,
+    subscribeToDeviceEvents,
   } = useDeviceStore();
 
   // Mirror store
@@ -187,25 +188,11 @@ function App() {
     return () => clearInterval(timer);
   }, [updateDurations]);
 
-  // Poll devices when on devices view
+  // Subscribe to device change events (push-based, replaces polling)
   useEffect(() => {
-    if (selectedKey !== VIEW_KEYS.DEVICES) return;
-
-    let timeoutId: any;
-    let isActive = true;
-
-    const poll = async () => {
-      if (!isActive) return;
-      await fetchDevicesWithFeedback(true);
-      if (isActive) timeoutId = setTimeout(poll, 3000);
-    };
-
-    timeoutId = setTimeout(poll, 3000);
-    return () => {
-      isActive = false;
-      clearTimeout(timeoutId);
-    };
-  }, [selectedKey]);
+    const unsubDevices = subscribeToDeviceEvents();
+    return () => unsubDevices();
+  }, []);
 
   const renderContent = () => {
     switch (selectedKey) {

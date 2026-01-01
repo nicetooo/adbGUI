@@ -864,3 +864,116 @@ func (a *App) TogglePinDevice(serial string) {
 
 	go a.saveSettings()
 }
+
+// StartDeviceMonitor starts monitoring device connections using adb track-devices
+// It emits "devices-changed" events when devices connect/disconnect
+func (a *App) StartDeviceMonitor() {
+	a.deviceMonitorMu.Lock()
+	defer a.deviceMonitorMu.Unlock()
+
+	// Stop existing monitor if running
+	if a.deviceMonitorCancel != nil {
+		a.deviceMonitorCancel()
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	a.deviceMonitorCancel = cancel
+
+	go a.runDeviceMonitor(ctx)
+}
+
+// StopDeviceMonitor stops the device monitor
+func (a *App) StopDeviceMonitor() {
+	a.deviceMonitorMu.Lock()
+	defer a.deviceMonitorMu.Unlock()
+
+	if a.deviceMonitorCancel != nil {
+		a.deviceMonitorCancel()
+		a.deviceMonitorCancel = nil
+	}
+}
+
+// runDeviceMonitor runs the device monitoring loop
+func (a *App) runDeviceMonitor(ctx context.Context) {
+	// Debounce timer to avoid rapid-fire events
+	var debounceTimer *time.Timer
+	var debounceMu sync.Mutex
+
+	emitDevicesChanged := func() {
+		debounceMu.Lock()
+		if debounceTimer != nil {
+			debounceTimer.Stop()
+		}
+		debounceTimer = time.AfterFunc(300*time.Millisecond, func() {
+			devices, err := a.GetDevices(false)
+			if err != nil {
+				a.Log("Device monitor: failed to get devices: %v", err)
+				return
+			}
+			wailsRuntime.EventsEmit(a.ctx, "devices-changed", devices)
+		})
+		debounceMu.Unlock()
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		// Start adb track-devices
+		cmd := exec.CommandContext(ctx, a.adbPath, "track-devices")
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			a.Log("Device monitor: failed to create pipe: %v", err)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		if err := cmd.Start(); err != nil {
+			a.Log("Device monitor: failed to start: %v", err)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+
+		a.Log("Device monitor started")
+
+		// Read the track-devices output
+		// Format: 4 hex chars (length) followed by device list
+		buf := make([]byte, 4)
+		for {
+			select {
+			case <-ctx.Done():
+				cmd.Process.Kill()
+				return
+			default:
+			}
+
+			// Read length prefix (4 hex chars)
+			_, err := stdout.Read(buf)
+			if err != nil {
+				break
+			}
+
+			var length int
+			fmt.Sscanf(string(buf), "%04x", &length)
+
+			if length > 0 {
+				// Read device data
+				data := make([]byte, length)
+				_, err := stdout.Read(data)
+				if err != nil {
+					break
+				}
+			}
+
+			// Emit event (debounced)
+			emitDevicesChanged()
+		}
+
+		cmd.Wait()
+		a.Log("Device monitor disconnected, restarting...")
+		time.Sleep(1 * time.Second)
+	}
+}

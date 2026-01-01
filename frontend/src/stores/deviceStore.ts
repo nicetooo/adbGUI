@@ -15,6 +15,8 @@ import {
 } from '../../wailsjs/go/main/App';
 // @ts-ignore
 import { main } from '../../wailsjs/go/models';
+// @ts-ignore
+import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 
 interface DeviceState {
   // State
@@ -43,6 +45,7 @@ interface DeviceState {
   handleOpenSettings: (deviceId: string, action?: string, data?: string) => Promise<void>;
   handleTogglePin: (serial: string) => Promise<void>;
   handleRestartAdbServer: () => Promise<void>;
+  subscribeToDeviceEvents: () => () => void;
 }
 
 export const useDeviceStore = create<DeviceState>((set, get) => ({
@@ -174,5 +177,30 @@ export const useDeviceStore = create<DeviceState>((set, get) => ({
   handleRestartAdbServer: async () => {
     await RestartAdbServer();
     await get().fetchDevices();
+  },
+
+  subscribeToDeviceEvents: () => {
+    const handler = async (devices: Device[]) => {
+      const { selectedDevice } = get();
+      set({ devices: devices || [] });
+
+      // Also fetch history devices
+      try {
+        const history = await GetHistoryDevices();
+        set({ historyDevices: history || [] });
+      } catch {
+        // Ignore history fetch errors
+      }
+
+      // Auto-select first device if none selected
+      if (devices && devices.length > 0 && !selectedDevice) {
+        set({ selectedDevice: devices[0].id });
+      }
+    };
+
+    EventsOn('devices-changed', handler);
+    return () => {
+      EventsOff('devices-changed');
+    };
   },
 }));

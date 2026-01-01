@@ -214,6 +214,10 @@ export function StartApp(arg1, arg2) {
   return window['go']['main']['App']['StartApp'](arg1, arg2);
 }
 
+export function StartDeviceMonitor() {
+  return window['go']['main']['App']['StartDeviceMonitor']();
+}
+
 export function StartLogcat(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['main']['App']['StartLogcat'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
@@ -240,6 +244,10 @@ export function StartWirelessServer() {
 
 export function StopAllNetworkMonitors() {
   return window['go']['main']['App']['StopAllNetworkMonitors']();
+}
+
+export function StopDeviceMonitor() {
+  return window['go']['main']['App']['StopDeviceMonitor']();
 }
 
 export function StopLogcat() {
