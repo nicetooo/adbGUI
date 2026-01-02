@@ -553,6 +553,17 @@
     "home": "主頁鍵",
     "recent": "多任務",
     "input": "模擬鍵盤輸入",
-    "input_placeholder": "輸入要發送的内容..."
+    "input_placeholder": "輸入要發送的内容...",
+    "ui_updated": "UI 結構已更新",
+    "search_modes": "搜尋模式",
+    "xpath_mode": "XPath 模式",
+    "advanced_mode": "進階模式",
+    "search_auto": "自動",
+    "search_advanced": "進階",
+    "search_operators": "運算符",
+    "op_contains": "包含",
+    "op_equals": "等於",
+    "op_starts": "開頭",
+    "op_ends": "結尾"
   }
 }

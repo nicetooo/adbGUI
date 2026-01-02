@@ -1432,6 +1432,336 @@ func (a *App) GetElementsWithText(deviceId string, text string) ([]map[string]in
 	return results, nil
 }
 
+// SearchResult represents a search result with path information
+type SearchResult struct {
+	Node   *UINode  `json:"node"`
+	Path   string   `json:"path"`
+	Depth  int      `json:"depth"`
+	Index  int      `json:"index"`
+}
+
+// SearchElementsXPath searches elements using XPath-like syntax
+// Supports: //node[@attr='value'], //node[@attr], //ClassName, //node[contains(@attr,'value')]
+func (a *App) SearchElementsXPath(root *UINode, xpath string) []SearchResult {
+	var results []SearchResult
+	xpath = strings.TrimSpace(xpath)
+
+	if !strings.HasPrefix(xpath, "//") {
+		return results
+	}
+
+	query := strings.TrimPrefix(xpath, "//")
+
+	// Parse the XPath expression
+	var className string
+	var conditions []struct {
+		attr     string
+		op       string // "=" or "contains"
+		value    string
+		hasValue bool
+	}
+
+	// Check for predicate brackets
+	bracketIdx := strings.Index(query, "[")
+	if bracketIdx != -1 {
+		className = query[:bracketIdx]
+		predicate := query[bracketIdx+1 : len(query)-1] // Remove [ and ]
+
+		// Split by " and " (case insensitive)
+		parts := regexp.MustCompile(`(?i)\s+and\s+`).Split(predicate, -1)
+
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+
+			// contains(@attr, 'value')
+			if strings.HasPrefix(part, "contains(") {
+				re := regexp.MustCompile(`contains\(@(\w+),\s*['"]([^'"]*)['"]\)`)
+				if matches := re.FindStringSubmatch(part); len(matches) == 3 {
+					conditions = append(conditions, struct {
+						attr     string
+						op       string
+						value    string
+						hasValue bool
+					}{matches[1], "contains", matches[2], true})
+				}
+			} else if strings.HasPrefix(part, "@") {
+				// @attr='value' or @attr
+				part = strings.TrimPrefix(part, "@")
+				if strings.Contains(part, "=") {
+					eqParts := strings.SplitN(part, "=", 2)
+					attr := strings.TrimSpace(eqParts[0])
+					value := strings.Trim(strings.TrimSpace(eqParts[1]), "'\"")
+					conditions = append(conditions, struct {
+						attr     string
+						op       string
+						value    string
+						hasValue bool
+					}{attr, "=", value, true})
+				} else {
+					// Just @attr (check if attribute exists and is non-empty)
+					conditions = append(conditions, struct {
+						attr     string
+						op       string
+						value    string
+						hasValue bool
+					}{part, "exists", "", false})
+				}
+			}
+		}
+	} else {
+		className = query
+	}
+
+	// Recursive search
+	var search func(node *UINode, path string, depth int, index int)
+	search = func(node *UINode, path string, depth int, index int) {
+		if node == nil {
+			return
+		}
+
+		// Check class name match
+		classMatch := className == "" || className == "node" || className == "*"
+		if !classMatch {
+			// Check full class name or short name
+			shortName := node.Class
+			if idx := strings.LastIndex(node.Class, "."); idx != -1 {
+				shortName = node.Class[idx+1:]
+			}
+			classMatch = node.Class == className || shortName == className
+		}
+
+		// Check all conditions
+		conditionsMatch := true
+		for _, cond := range conditions {
+			attrValue := a.getNodeAttribute(node, cond.attr)
+
+			switch cond.op {
+			case "=":
+				if attrValue != cond.value {
+					conditionsMatch = false
+				}
+			case "contains":
+				if !strings.Contains(strings.ToLower(attrValue), strings.ToLower(cond.value)) {
+					conditionsMatch = false
+				}
+			case "exists":
+				if attrValue == "" {
+					conditionsMatch = false
+				}
+			}
+
+			if !conditionsMatch {
+				break
+			}
+		}
+
+		if classMatch && conditionsMatch {
+			results = append(results, SearchResult{
+				Node:  node,
+				Path:  path,
+				Depth: depth,
+				Index: index,
+			})
+		}
+
+		// Search children
+		for i := range node.Nodes {
+			childPath := fmt.Sprintf("%s/%s[%d]", path, node.Nodes[i].Class, i)
+			search(&node.Nodes[i], childPath, depth+1, i)
+		}
+	}
+
+	search(root, "/"+root.Class, 0, 0)
+	return results
+}
+
+// getNodeAttribute returns the value of a node attribute by name
+func (a *App) getNodeAttribute(node *UINode, attr string) string {
+	switch strings.ToLower(attr) {
+	case "text":
+		return node.Text
+	case "resource-id", "resourceid", "id":
+		return node.ResourceID
+	case "class":
+		return node.Class
+	case "package":
+		return node.Package
+	case "content-desc", "contentdesc", "description", "desc":
+		return node.ContentDesc
+	case "bounds":
+		return node.Bounds
+	case "clickable":
+		return node.Clickable
+	case "enabled":
+		return node.Enabled
+	case "focused":
+		return node.Focused
+	case "scrollable":
+		return node.Scrollable
+	case "checkable":
+		return node.Checkable
+	case "checked":
+		return node.Checked
+	case "focusable":
+		return node.Focusable
+	case "long-clickable", "longclickable":
+		return node.LongClickable
+	case "password":
+		return node.Password
+	case "selected":
+		return node.Selected
+	}
+	return ""
+}
+
+// SearchElementsAdvanced searches elements using combined conditions
+// Syntax: "attr:value AND attr:value OR attr:value"
+// Operators: = (exact), ~ (contains), ^ (starts with), $ (ends with)
+// Example: "clickable:true AND text~确定" or "class:Button OR class:ImageButton"
+func (a *App) SearchElementsAdvanced(root *UINode, query string) []SearchResult {
+	var results []SearchResult
+	query = strings.TrimSpace(query)
+
+	if query == "" {
+		return results
+	}
+
+	// Parse OR groups first (lower precedence)
+	orGroups := regexp.MustCompile(`(?i)\s+OR\s+`).Split(query, -1)
+
+	var search func(node *UINode, path string, depth int, index int)
+	search = func(node *UINode, path string, depth int, index int) {
+		if node == nil {
+			return
+		}
+
+		// Check if any OR group matches
+		anyGroupMatch := false
+		for _, orGroup := range orGroups {
+			// Parse AND conditions within each OR group
+			andParts := regexp.MustCompile(`(?i)\s+AND\s+`).Split(strings.TrimSpace(orGroup), -1)
+
+			allAndMatch := true
+			for _, part := range andParts {
+				part = strings.TrimSpace(part)
+				if part == "" {
+					continue
+				}
+
+				if !a.evaluateCondition(node, part) {
+					allAndMatch = false
+					break
+				}
+			}
+
+			if allAndMatch {
+				anyGroupMatch = true
+				break
+			}
+		}
+
+		if anyGroupMatch {
+			results = append(results, SearchResult{
+				Node:  node,
+				Path:  path,
+				Depth: depth,
+				Index: index,
+			})
+		}
+
+		// Search children
+		for i := range node.Nodes {
+			childPath := fmt.Sprintf("%s/%s[%d]", path, node.Nodes[i].Class, i)
+			search(&node.Nodes[i], childPath, depth+1, i)
+		}
+	}
+
+	search(root, "/"+root.Class, 0, 0)
+	return results
+}
+
+// evaluateCondition evaluates a single condition like "text:value" or "clickable=true"
+func (a *App) evaluateCondition(node *UINode, condition string) bool {
+	// Supported operators: : (contains), = (exact), ~ (contains), ^ (starts with), $ (ends with)
+	var attr, op, value string
+
+	// Try different operators in order of specificity
+	for _, operator := range []string{"~", "^", "$", "=", ":"} {
+		if idx := strings.Index(condition, operator); idx != -1 {
+			attr = strings.TrimSpace(condition[:idx])
+			op = operator
+			value = strings.TrimSpace(condition[idx+len(operator):])
+			break
+		}
+	}
+
+	if attr == "" {
+		// No operator found, treat as text contains search
+		lowerCond := strings.ToLower(condition)
+		return strings.Contains(strings.ToLower(node.Text), lowerCond) ||
+			strings.Contains(strings.ToLower(node.ContentDesc), lowerCond) ||
+			strings.Contains(strings.ToLower(node.ResourceID), lowerCond)
+	}
+
+	attrValue := a.getNodeAttribute(node, attr)
+	lowerAttrValue := strings.ToLower(attrValue)
+	lowerValue := strings.ToLower(value)
+
+	switch op {
+	case "=":
+		return lowerAttrValue == lowerValue
+	case ":", "~":
+		return strings.Contains(lowerAttrValue, lowerValue)
+	case "^":
+		return strings.HasPrefix(lowerAttrValue, lowerValue)
+	case "$":
+		return strings.HasSuffix(lowerAttrValue, lowerValue)
+	}
+
+	return false
+}
+
+// SearchUIElements is the unified search API exposed to frontend
+// Automatically detects query type: XPath (starts with //), Advanced (has :), or simple text
+func (a *App) SearchUIElements(deviceId string, query string) ([]map[string]interface{}, error) {
+	result, err := a.GetUIHierarchy(deviceId)
+	if err != nil {
+		return nil, err
+	}
+
+	var searchResults []SearchResult
+	query = strings.TrimSpace(query)
+
+	if strings.HasPrefix(query, "//") {
+		// XPath mode
+		searchResults = a.SearchElementsXPath(result.Root, query)
+	} else if strings.Contains(query, ":") || strings.Contains(query, "=") ||
+		regexp.MustCompile(`(?i)\s+(AND|OR)\s+`).MatchString(query) {
+		// Advanced mode
+		searchResults = a.SearchElementsAdvanced(result.Root, query)
+	} else {
+		// Simple text search (default)
+		searchResults = a.SearchElementsAdvanced(result.Root, query)
+	}
+
+	// Convert to frontend-friendly format
+	var output []map[string]interface{}
+	for _, sr := range searchResults {
+		output = append(output, map[string]interface{}{
+			"text":        sr.Node.Text,
+			"resourceId":  sr.Node.ResourceID,
+			"class":       sr.Node.Class,
+			"contentDesc": sr.Node.ContentDesc,
+			"bounds":      sr.Node.Bounds,
+			"clickable":   sr.Node.Clickable,
+			"path":        sr.Path,
+			"depth":       sr.Depth,
+		})
+	}
+
+	return output, nil
+}
+
 // PerformNodeAction executes a node-based action (click, long click, swipe, keys)
 func (a *App) PerformNodeAction(deviceId string, bounds string, actionType string) error {
 	// Bounds format: "[x1,y1][x2,y2]"

@@ -15,7 +15,8 @@ import FilesView from "./components/FilesView";
 import ShellView from "./components/ShellView";
 import MirrorView from "./components/MirrorView";
 import ProxyView from "./components/ProxyView";
-import AutomationView from "./components/AutomationView";
+import RecordingView from "./components/RecordingView";
+import WorkflowView from "./components/WorkflowView";
 import UIInspectorView from "./components/UIInspectorView";
 import DeviceInfoModal from "./components/DeviceInfoModal";
 import AboutModal from "./components/AboutModal";
@@ -37,6 +38,8 @@ import {
   MoonOutlined,
   RobotOutlined,
   BlockOutlined,
+  VideoCameraOutlined,
+  BranchesOutlined,
 } from "@ant-design/icons";
 import "./App.css";
 import { useTheme } from "./ThemeContext";
@@ -214,8 +217,10 @@ function App() {
         return <MirrorView />;
       case VIEW_KEYS.PROXY:
         return <ProxyView />;
-      case VIEW_KEYS.AUTOMATION:
-        return <AutomationView />;
+      case VIEW_KEYS.RECORDING:
+        return <RecordingView />;
+      case VIEW_KEYS.WORKFLOW:
+        return <WorkflowView />;
       case VIEW_KEYS.INSPECTOR:
         return <UIInspectorView />;
       default:
@@ -257,8 +262,9 @@ function App() {
                 { key: VIEW_KEYS.SHELL, icon: <CodeOutlined />, label: t("menu.shell") },
                 { key: VIEW_KEYS.LOGCAT, icon: <FileTextOutlined />, label: t("menu.logcat") },
                 { key: VIEW_KEYS.PROXY, icon: <GlobalOutlined />, label: t("menu.proxy") || "Proxy" },
+                { key: VIEW_KEYS.RECORDING, icon: <VideoCameraOutlined />, label: t("menu.recording") },
+                { key: VIEW_KEYS.WORKFLOW, icon: <BranchesOutlined />, label: t("menu.workflow") },
                 { key: VIEW_KEYS.INSPECTOR, icon: <BlockOutlined />, label: t("menu.inspector") || "UI Inspector" },
-                { key: VIEW_KEYS.AUTOMATION, icon: <RobotOutlined />, label: t("menu.automation") },
               ]}
             />
           </div>

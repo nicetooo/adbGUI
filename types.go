@@ -197,3 +197,32 @@ type ScriptTask struct {
 	Steps     []TaskStep `json:"steps"`
 	CreatedAt string     `json:"createdAt"`
 }
+
+// --- New Workflow Types ---
+
+type ElementSelector struct {
+	Type  string `json:"type"` // "text", "id", "xpath", "advanced"
+	Value string `json:"value"`
+	Index int    `json:"index,omitempty"`
+}
+
+type WorkflowStep struct {
+	ID        string           `json:"id"`
+	Type      string           `json:"type"`
+	Name      string           `json:"name,omitempty"`
+	Selector  *ElementSelector `json:"selector,omitempty"`
+	Value     string           `json:"value,omitempty"`
+	Timeout   int              `json:"timeout,omitempty"`
+	OnError   string           `json:"onError,omitempty"` // "stop", "continue"
+	Loop      int              `json:"loop,omitempty"`
+	PostDelay int              `json:"postDelay,omitempty"`
+}
+
+type Workflow struct {
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	Description string         `json:"description,omitempty"`
+	Steps       []WorkflowStep `json:"steps"`
+	CreatedAt   string         `json:"createdAt"`
+	UpdatedAt   string         `json:"updatedAt"`
+}

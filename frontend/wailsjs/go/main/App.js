@@ -38,6 +38,10 @@ export function DeleteTouchScript(arg1) {
   return window['go']['main']['App']['DeleteTouchScript'](arg1);
 }
 
+export function DeleteWorkflow(arg1) {
+  return window['go']['main']['App']['DeleteWorkflow'](arg1);
+}
+
 export function DisableApp(arg1, arg2) {
   return window['go']['main']['App']['DisableApp'](arg1, arg2);
 }
@@ -190,6 +194,10 @@ export function LoadTouchScripts() {
   return window['go']['main']['App']['LoadTouchScripts']();
 }
 
+export function LoadWorkflows() {
+  return window['go']['main']['App']['LoadWorkflows']();
+}
+
 export function Log(arg1, arg2) {
   return window['go']['main']['App']['Log'](arg1, arg2);
 }
@@ -250,12 +258,32 @@ export function RunScriptTask(arg1, arg2) {
   return window['go']['main']['App']['RunScriptTask'](arg1, arg2);
 }
 
+export function RunWorkflow(arg1, arg2) {
+  return window['go']['main']['App']['RunWorkflow'](arg1, arg2);
+}
+
 export function SaveScriptTask(arg1) {
   return window['go']['main']['App']['SaveScriptTask'](arg1);
 }
 
 export function SaveTouchScript(arg1) {
   return window['go']['main']['App']['SaveTouchScript'](arg1);
+}
+
+export function SaveWorkflow(arg1) {
+  return window['go']['main']['App']['SaveWorkflow'](arg1);
+}
+
+export function SearchElementsAdvanced(arg1, arg2) {
+  return window['go']['main']['App']['SearchElementsAdvanced'](arg1, arg2);
+}
+
+export function SearchElementsXPath(arg1, arg2) {
+  return window['go']['main']['App']['SearchElementsXPath'](arg1, arg2);
+}
+
+export function SearchUIElements(arg1, arg2) {
+  return window['go']['main']['App']['SearchUIElements'](arg1, arg2);
 }
 
 export function SelectAPKForBatch() {
@@ -380,6 +408,10 @@ export function StopTouchPlayback(arg1) {
 
 export function StopTouchRecording(arg1) {
   return window['go']['main']['App']['StopTouchRecording'](arg1);
+}
+
+export function StopWorkflow(arg1) {
+  return window['go']['main']['App']['StopWorkflow'](arg1);
 }
 
 export function SwitchToWireless(arg1) {

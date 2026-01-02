@@ -32,6 +32,8 @@ import {
   ArrowUpOutlined,
   ArrowDownOutlined,
   InfoCircleOutlined,
+  BranchesOutlined,
+  ForkOutlined,
 } from "@ant-design/icons";
 import { Tabs, Form, InputNumber, Select, Divider } from "antd";
 import DeviceSelector from "./DeviceSelector";
@@ -241,6 +243,81 @@ const AutomationView: React.FC = () => {
       setNewScriptName("");
     } catch (err) {
       message.error(String(err));
+    }
+  };
+
+  const handleConvertToWorkflow = async (script: TouchScript) => {
+    if (!script.events || script.events.length === 0) {
+      message.warning(t("automation.no_events_to_convert"));
+      return;
+    }
+
+    const steps: main.WorkflowStep[] = [];
+    let lastTimestamp = 0;
+
+    script.events.forEach((event, idx) => {
+      // Add wait step if there is a significant delay
+      const delay = event.timestamp - lastTimestamp;
+      if (delay > 50) { // 50ms threshold
+        steps.push({
+          id: `step_wait_${Date.now()}_${idx}`,
+          type: 'wait',
+          value: String(delay),
+          loop: 1,
+          postDelay: 0,
+        } as main.WorkflowStep);
+      }
+      lastTimestamp = event.timestamp;
+
+      // Add Action Step
+      const id = `step_action_${Date.now()}_${idx}`;
+      if (event.type === 'tap') {
+        steps.push({
+          id,
+          type: 'adb',
+          name: `Tap ${idx + 1}`,
+          value: `input tap ${event.x} ${event.y}`,
+          loop: 1,
+          postDelay: 0,
+          onError: 'stop'
+        } as main.WorkflowStep);
+      } else if (event.type === 'swipe') {
+        steps.push({
+          id,
+          type: 'adb',
+          name: `Swipe ${idx + 1}`,
+          value: `input swipe ${event.x} ${event.y} ${event.x2 || event.x} ${event.y2 || event.y} ${event.duration || 300}`,
+          loop: 1,
+          postDelay: 0,
+          onError: 'stop'
+        } as main.WorkflowStep);
+      } else if (event.type === 'wait') {
+        // Explicit wait event in script
+        steps.push({
+          id,
+          type: 'wait',
+          name: `Wait ${idx + 1}`,
+          value: String(event.duration || 1000),
+          loop: 1,
+          postDelay: 0,
+        } as main.WorkflowStep);
+      }
+    });
+
+    const newWorkflow = new main.Workflow({
+      id: `wf_converted_${Date.now()}`,
+      name: `${script.name} (Converted)`,
+      description: `Converted from recording on ${new Date().toLocaleString()}`,
+      steps: steps,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    try {
+      await (window as any).go.main.App.SaveWorkflow(newWorkflow);
+      message.success(t("automation.converted_success"));
+    } catch (err) {
+      message.error(t("automation.convert_failed") + ": " + String(err));
     }
   };
 
@@ -467,6 +544,16 @@ const AutomationView: React.FC = () => {
                             disabled={isPlaying || !selectedDevice}
                           >
                             {t("automation.test_script")}
+                          </Button>
+                        </Tooltip>
+                        <Tooltip title={t("automation.convert_to_workflow")}>
+                          <Button
+                            icon={<BranchesOutlined />}
+                            size="small"
+                            onClick={() => handleConvertToWorkflow(currentScript)}
+                            disabled={isRecording || isPlaying}
+                          >
+                            {t("workflow.convert")}
                           </Button>
                         </Tooltip>
                         <Button
@@ -700,6 +787,18 @@ const AutomationView: React.FC = () => {
                                       setEditingScriptName(script.name);
                                       setNewScriptName(script.name);
                                       setRenameModalVisible(true);
+                                    }}
+                                    disabled={isRecording || isPlaying}
+                                  />
+                                </Tooltip>,
+                                <Tooltip title={t("workflow.convert")} key="convert">
+                                  <Button
+                                    type="text"
+                                    size="small"
+                                    icon={<BranchesOutlined />}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleConvertToWorkflow(script);
                                     }}
                                     disabled={isRecording || isPlaying}
                                   />

@@ -22,6 +22,7 @@ import {
     CodeOutlined,
     PlayCircleOutlined,
     CopyOutlined,
+    QuestionCircleOutlined,
 } from "@ant-design/icons";
 import { useDeviceStore, useAutomationStore } from "../stores";
 
@@ -93,6 +94,44 @@ const UIInspectorView: React.FC = () => {
     const [autoExpandParent, setAutoExpandParent] = useState(true);
     const [selectedAction, setSelectedAction] = useState("click");
     const [inputText, setInputText] = useState("");
+    const [searchMode, setSearchMode] = useState<"auto" | "xpath" | "advanced">("auto");
+
+    // Detect search mode from query
+    const getEffectiveSearchMode = (query: string): string => {
+        if (searchMode !== "auto") return searchMode;
+        if (query.startsWith("//")) return "xpath";
+        if (query.includes(":") || query.includes("=") || /\s+(AND|OR)\s+/i.test(query)) return "advanced";
+        return "text";
+    };
+
+    const searchHelpContent = (
+        <div style={{ maxWidth: 320 }}>
+            <div style={{ marginBottom: 8 }}>
+                <strong>{t("automation.search_modes")}</strong>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+                <div style={{ color: token.colorPrimary, marginBottom: 4 }}>{t("automation.xpath_mode")}</div>
+                <code style={{ fontSize: 11, display: 'block', marginBottom: 2 }}>//Button[@text='OK']</code>
+                <code style={{ fontSize: 11, display: 'block', marginBottom: 2 }}>//node[contains(@text,'确定')]</code>
+                <code style={{ fontSize: 11, display: 'block' }}>//EditText[@clickable='true']</code>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+                <div style={{ color: token.colorPrimary, marginBottom: 4 }}>{t("automation.advanced_mode")}</div>
+                <code style={{ fontSize: 11, display: 'block', marginBottom: 2 }}>clickable:true AND text:确定</code>
+                <code style={{ fontSize: 11, display: 'block', marginBottom: 2 }}>class:Button OR class:ImageButton</code>
+                <code style={{ fontSize: 11, display: 'block' }}>id~login AND enabled=true</code>
+            </div>
+            <div>
+                <div style={{ color: token.colorTextSecondary, fontSize: 11 }}>
+                    {t("automation.search_operators")}:
+                    <span style={{ marginLeft: 4 }}><code>:</code> {t("automation.op_contains")}</span>
+                    <span style={{ marginLeft: 4 }}><code>=</code> {t("automation.op_equals")}</span>
+                    <span style={{ marginLeft: 4 }}><code>^</code> {t("automation.op_starts")}</span>
+                    <span style={{ marginLeft: 4 }}><code>$</code> {t("automation.op_ends")}</span>
+                </div>
+            </div>
+        </div>
+    );
 
     const generateStepJson = (node: any, type: "click" | "long_click") => {
         const step = {
@@ -114,6 +153,120 @@ const UIInspectorView: React.FC = () => {
         }
     }, [selectedDevice]);
 
+    // Helper to get node attribute by name
+    const getNodeAttr = (node: any, attr: string): string => {
+        const lowerAttr = attr.toLowerCase();
+        switch (lowerAttr) {
+            case "text": return node.text || "";
+            case "resource-id": case "resourceid": case "id": return node.resourceId || "";
+            case "class": return node.class || "";
+            case "package": return node.package || "";
+            case "content-desc": case "contentdesc": case "description": case "desc": return node.contentDesc || "";
+            case "bounds": return node.bounds || "";
+            case "clickable": return node.clickable || "";
+            case "enabled": return node.enabled || "";
+            case "focused": return node.focused || "";
+            case "scrollable": return node.scrollable || "";
+            case "checkable": return node.checkable || "";
+            case "checked": return node.checked || "";
+            case "focusable": return node.focusable || "";
+            case "long-clickable": case "longclickable": return node.longClickable || "";
+            case "password": return node.password || "";
+            case "selected": return node.selected || "";
+            default: return "";
+        }
+    };
+
+    // Evaluate a single condition like "text:value" or "clickable=true"
+    const evaluateCondition = (node: any, condition: string): boolean => {
+        const operators = ["~", "^", "$", "=", ":"];
+        let attr = "", op = "", value = "";
+
+        for (const operator of operators) {
+            const idx = condition.indexOf(operator);
+            if (idx !== -1) {
+                attr = condition.slice(0, idx).trim();
+                op = operator;
+                value = condition.slice(idx + 1).trim();
+                break;
+            }
+        }
+
+        if (!attr) {
+            // No operator, treat as text contains
+            const lowerCond = condition.toLowerCase();
+            return (node.text || "").toLowerCase().includes(lowerCond) ||
+                   (node.contentDesc || "").toLowerCase().includes(lowerCond) ||
+                   (node.resourceId || "").toLowerCase().includes(lowerCond);
+        }
+
+        const attrValue = getNodeAttr(node, attr).toLowerCase();
+        const lowerValue = value.toLowerCase();
+
+        switch (op) {
+            case "=": return attrValue === lowerValue;
+            case ":": case "~": return attrValue.includes(lowerValue);
+            case "^": return attrValue.startsWith(lowerValue);
+            case "$": return attrValue.endsWith(lowerValue);
+            default: return false;
+        }
+    };
+
+    // Match node against XPath query
+    const matchXPath = (node: any, query: string): boolean => {
+        if (!query.startsWith("//")) return false;
+        const expr = query.slice(2);
+
+        const bracketIdx = expr.indexOf("[");
+        let className = bracketIdx !== -1 ? expr.slice(0, bracketIdx) : expr;
+        let predicate = bracketIdx !== -1 ? expr.slice(bracketIdx + 1, -1) : "";
+
+        // Check class name
+        if (className && className !== "node" && className !== "*") {
+            const shortName = (node.class || "").split(".").pop();
+            if (node.class !== className && shortName !== className) return false;
+        }
+
+        // Check predicate conditions
+        if (predicate) {
+            const parts = predicate.split(/\s+and\s+/i);
+            for (const part of parts) {
+                const trimmed = part.trim();
+
+                // contains(@attr, 'value')
+                const containsMatch = trimmed.match(/contains\(@(\w+),\s*['"]([^'"]*)['"]\)/);
+                if (containsMatch) {
+                    const attrValue = getNodeAttr(node, containsMatch[1]).toLowerCase();
+                    if (!attrValue.includes(containsMatch[2].toLowerCase())) return false;
+                    continue;
+                }
+
+                // @attr='value' or @attr
+                if (trimmed.startsWith("@")) {
+                    const attrPart = trimmed.slice(1);
+                    if (attrPart.includes("=")) {
+                        const [attr, val] = attrPart.split("=");
+                        const cleanVal = val.replace(/['"]/g, "");
+                        if (getNodeAttr(node, attr.trim()).toLowerCase() !== cleanVal.toLowerCase()) return false;
+                    } else {
+                        if (!getNodeAttr(node, attrPart)) return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    };
+
+    // Match node against advanced query
+    const matchAdvanced = (node: any, query: string): boolean => {
+        const orGroups = query.split(/\s+OR\s+/i);
+        return orGroups.some(orGroup => {
+            const andParts = orGroup.split(/\s+AND\s+/i);
+            return andParts.every(part => evaluateCondition(node, part.trim()));
+        });
+    };
+
     // Memoize tree data to avoid unnecessary recursion on every render
     const treeData = React.useMemo(() => {
         if (!uiHierarchy) return [];
@@ -125,26 +278,39 @@ const UIInspectorView: React.FC = () => {
             const key = `${path}-${node.class}-${node.bounds}`;
             const children = (node.nodes || []).map((child: any, i: number) => processTreeData(child, `${path}-${i}`)).filter(Boolean);
 
-            const lowerSearch = searchText.toLowerCase().trim();
-            const match = lowerSearch && (
-                String(node.text || "").toLowerCase().includes(lowerSearch) ||
-                String(node.resourceId || "").toLowerCase().includes(lowerSearch) ||
-                String(node.class || "").toLowerCase().includes(lowerSearch) ||
-                String(node.contentDesc || "").toLowerCase().includes(lowerSearch)
-            );
+            const trimmedSearch = searchText.trim();
+            let match = false;
+
+            if (trimmedSearch) {
+                const effectiveMode = getEffectiveSearchMode(trimmedSearch);
+                if (effectiveMode === "xpath") {
+                    match = matchXPath(node, trimmedSearch);
+                } else if (effectiveMode === "advanced") {
+                    match = matchAdvanced(node, trimmedSearch);
+                } else {
+                    // Simple text search
+                    const lowerSearch = trimmedSearch.toLowerCase();
+                    match = (node.text || "").toLowerCase().includes(lowerSearch) ||
+                            (node.resourceId || "").toLowerCase().includes(lowerSearch) ||
+                            (node.class || "").toLowerCase().includes(lowerSearch) ||
+                            (node.contentDesc || "").toLowerCase().includes(lowerSearch);
+                }
+            }
 
             // If searching but no match and no matching children, prune this branch
-            if (lowerSearch && !match && children.length === 0) return null;
+            if (trimmedSearch && !match && children.length === 0) return null;
+
+            const lowerSearch = searchText.toLowerCase().trim();
 
             return {
                 key,
                 title: (
                     <Space size={4}>
-                        <span style={{ color: token.colorPrimary, fontSize: 11 }}>[{node.class.split('.').pop()}]</span>
+                        <span style={{ color: token.colorPrimary, fontSize: 11 }}>[{(node.class || "").split('.').pop()}]</span>
                         {node.text && (
                             <span style={{
                                 fontWeight: 500,
-                                backgroundColor: match && String(node.text).toLowerCase().includes(lowerSearch) ? token.colorWarningBg : 'transparent'
+                                backgroundColor: match ? token.colorWarningBg : 'transparent'
                             }}>
                                 "{node.text}"
                             </span>
@@ -153,7 +319,7 @@ const UIInspectorView: React.FC = () => {
                             <span style={{
                                 color: token.colorTextSecondary,
                                 fontSize: 10,
-                                backgroundColor: match && String(node.resourceId).toLowerCase().includes(lowerSearch) ? token.colorWarningBg : 'transparent'
+                                backgroundColor: match && !node.text ? token.colorWarningBg : 'transparent'
                             }}>
                                 #{node.resourceId.split('/').pop()}
                             </span>
@@ -167,7 +333,7 @@ const UIInspectorView: React.FC = () => {
 
         const processed = processTreeData(uiHierarchy);
         return processed ? [processed] : [];
-    }, [uiHierarchy, searchText, token]);
+    }, [uiHierarchy, searchText, searchMode, token]);
 
     // Automatically expand results when searching or on first load
     useEffect(() => {
@@ -213,13 +379,35 @@ const UIInspectorView: React.FC = () => {
                             {t("automation.ui_hierarchy")}
                         </Space>
                         <Space>
+                            <Select
+                                value={searchMode}
+                                onChange={setSearchMode}
+                                size="small"
+                                style={{ width: 90 }}
+                                options={[
+                                    { label: t("automation.search_auto"), value: "auto" },
+                                    { label: "XPath", value: "xpath" },
+                                    { label: t("automation.search_advanced"), value: "advanced" },
+                                ]}
+                            />
                             <Input
-                                placeholder={t("common.search")}
+                                placeholder={
+                                    searchMode === "xpath"
+                                        ? "//Button[@text='OK']"
+                                        : searchMode === "advanced"
+                                            ? "clickable:true AND text:确定"
+                                            : t("common.search")
+                                }
                                 prefix={<SearchOutlined />}
+                                suffix={
+                                    <Tooltip title={searchHelpContent} placement="bottomRight">
+                                        <QuestionCircleOutlined style={{ color: token.colorTextSecondary, cursor: 'help' }} />
+                                    </Tooltip>
+                                }
                                 size="small"
                                 value={searchText}
                                 onChange={e => setSearchText(e.target.value)}
-                                style={{ width: 200 }}
+                                style={{ width: 280 }}
                                 allowClear
                             />
                             <Button

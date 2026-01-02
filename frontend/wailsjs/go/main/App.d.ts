@@ -21,6 +21,8 @@ export function DeleteScriptTask(arg1:string):Promise<void>;
 
 export function DeleteTouchScript(arg1:string):Promise<void>;
 
+export function DeleteWorkflow(arg1:string):Promise<void>;
+
 export function DisableApp(arg1:string,arg2:string):Promise<string>;
 
 export function DownloadFile(arg1:string,arg2:string):Promise<string>;
@@ -97,6 +99,8 @@ export function LoadScriptTasks():Promise<Array<main.ScriptTask>>;
 
 export function LoadTouchScripts():Promise<Array<main.TouchScript>>;
 
+export function LoadWorkflows():Promise<Array<main.Workflow>>;
+
 export function Log(arg1:string,arg2:Array<any>):Promise<void>;
 
 export function Mkdir(arg1:string,arg2:string):Promise<void>;
@@ -127,9 +131,19 @@ export function RunAdbCommand(arg1:string,arg2:string):Promise<string>;
 
 export function RunScriptTask(arg1:string,arg2:main.ScriptTask):Promise<void>;
 
+export function RunWorkflow(arg1:main.Device,arg2:main.Workflow):Promise<void>;
+
 export function SaveScriptTask(arg1:main.ScriptTask):Promise<void>;
 
 export function SaveTouchScript(arg1:main.TouchScript):Promise<void>;
+
+export function SaveWorkflow(arg1:main.Workflow):Promise<void>;
+
+export function SearchElementsAdvanced(arg1:main.UINode,arg2:string):Promise<Array<main.SearchResult>>;
+
+export function SearchElementsXPath(arg1:main.UINode,arg2:string):Promise<Array<main.SearchResult>>;
+
+export function SearchUIElements(arg1:string,arg2:string):Promise<Array<{[key: string]: any}>>;
 
 export function SelectAPKForBatch():Promise<string>;
 
@@ -192,6 +206,8 @@ export function StopTask(arg1:string):Promise<void>;
 export function StopTouchPlayback(arg1:string):Promise<void>;
 
 export function StopTouchRecording(arg1:string):Promise<main.TouchScript>;
+
+export function StopWorkflow(arg1:main.Device):Promise<void>;
 
 export function SwitchToWireless(arg1:string):Promise<string>;
 
