@@ -38,7 +38,14 @@ import {
   PauseCircleOutlined,
   CaretRightOutlined,
   CopyOutlined,
-  SaveOutlined
+  SaveOutlined,
+  ArrowLeftOutlined,
+  HomeOutlined,
+  AppstoreOutlined,
+  PoweroffOutlined,
+  SoundOutlined,
+  ExpandOutlined,
+  LockOutlined,
 } from "@ant-design/icons";
 import {
   ReactFlow,
@@ -109,6 +116,16 @@ const STEP_TYPES = {
   SCRIPT_ACTIONS: [
     { key: 'script', icon: <PlayCircleOutlined />, color: 'geekblue' },
     { key: 'adb', icon: <RobotOutlined />, color: 'volcano' },
+  ],
+  SYSTEM_ACTIONS: [
+    { key: 'key_back', icon: <ArrowLeftOutlined />, color: 'default' },
+    { key: 'key_home', icon: <HomeOutlined />, color: 'default' },
+    { key: 'key_recent', icon: <AppstoreOutlined />, color: 'default' },
+    { key: 'key_power', icon: <PoweroffOutlined />, color: 'red' },
+    { key: 'key_volume_up', icon: <SoundOutlined />, color: 'default' },
+    { key: 'key_volume_down', icon: <SoundOutlined />, color: 'default' },
+    { key: 'screen_on', icon: <ExpandOutlined />, color: 'default' },
+    { key: 'screen_off', icon: <LockOutlined />, color: 'default' },
   ],
   NESTED: [
     { key: 'run_workflow', icon: <BranchesOutlined />, color: 'gold' },
@@ -806,7 +823,16 @@ const WorkflowView: React.FC = () => {
                         ))}
                       </Space>
                     </Collapse.Panel>
-                    <Collapse.Panel header={t("workflow.category.nested")} key="5">
+                    <Collapse.Panel header={t("workflow.category.system_actions")} key="5">
+                      <Space wrap size={[8, 8]}>
+                        {STEP_TYPES.SYSTEM_ACTIONS.map(s => (
+                          <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
+                            <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
+                          </Tooltip>
+                        ))}
+                      </Space>
+                    </Collapse.Panel>
+                    <Collapse.Panel header={t("workflow.category.nested")} key="6">
                       <Space wrap size={[8, 8]}>
                         {STEP_TYPES.NESTED.map(s => (
                           <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
@@ -874,6 +900,7 @@ const WorkflowView: React.FC = () => {
                   ...STEP_TYPES.WAIT_CONDITIONS.map(s => ({ label: t(`workflow.step_type.${s.key}`), value: s.key })),
                   ...STEP_TYPES.FLOW_CONTROL.map(s => ({ label: t(`workflow.step_type.${s.key}`), value: s.key })),
                   ...STEP_TYPES.SCRIPT_ACTIONS.map(s => ({ label: t(`workflow.step_type.${s.key}`), value: s.key })),
+                  ...STEP_TYPES.SYSTEM_ACTIONS.map(s => ({ label: t(`workflow.step_type.${s.key}`), value: s.key })),
                   ...STEP_TYPES.NESTED.map(s => ({ label: t(`workflow.step_type.${s.key}`), value: s.key })),
                 ]}
               />

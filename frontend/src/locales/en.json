@@ -652,6 +652,7 @@
       "wait_conditions": "Wait Conditions",
       "flow_control": "Flow Control",
       "script_actions": "Script Actions",
+      "system_actions": "System Actions",
       "nested": "Nested Workflows"
     },
     "step_type": {
@@ -667,7 +668,15 @@
       "assert_element": "Assert Element",
       "script": "Run Script",
       "adb": "ADB Command",
-      "run_workflow": "Run Workflow"
+      "run_workflow": "Run Workflow",
+      "key_back": "Back",
+      "key_home": "Home",
+      "key_recent": "Recent Apps",
+      "key_power": "Power",
+      "key_volume_up": "Volume Up",
+      "key_volume_down": "Volume Down",
+      "screen_on": "Screen On",
+      "screen_off": "Screen Off"
     },
     "element_picker": "Element Picker",
     "pick_element": "Pick Element from Screen",

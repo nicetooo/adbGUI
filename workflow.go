@@ -299,6 +299,34 @@ func (a *App) runWorkflowStep(ctx context.Context, deviceId string, step Workflo
 		// For now, treat as generic swipe if no selector?
 		return fmt.Errorf("swipe_element not fully implemented yet")
 
+	// System key events
+	case "key_back":
+		_, err := a.RunAdbCommand(deviceId, "shell input keyevent 4")
+		return err
+	case "key_home":
+		_, err := a.RunAdbCommand(deviceId, "shell input keyevent 3")
+		return err
+	case "key_recent":
+		_, err := a.RunAdbCommand(deviceId, "shell input keyevent 187")
+		return err
+	case "key_power":
+		_, err := a.RunAdbCommand(deviceId, "shell input keyevent 26")
+		return err
+	case "key_volume_up":
+		_, err := a.RunAdbCommand(deviceId, "shell input keyevent 24")
+		return err
+	case "key_volume_down":
+		_, err := a.RunAdbCommand(deviceId, "shell input keyevent 25")
+		return err
+	case "screen_on":
+		// Wake up screen
+		_, err := a.RunAdbCommand(deviceId, "shell input keyevent 224")
+		return err
+	case "screen_off":
+		// Turn off screen
+		_, err := a.RunAdbCommand(deviceId, "shell input keyevent 223")
+		return err
+
 	default:
 		return fmt.Errorf("unknown step type: %s", step.Type)
 	}
@@ -323,41 +351,40 @@ func (a *App) handleElementAction(ctx context.Context, deviceId string, step Wor
 		default:
 		}
 
-		// Dump UI
-		// Reuse GetUIHierarchy from automation.go
-		hierarchy, err := a.GetUIHierarchy(deviceId)
-		if err != nil {
-			// Retry if dump fails
-			time.Sleep(1 * time.Second)
-			if time.Since(startTime) > time.Duration(timeout)*time.Millisecond {
-				return fmt.Errorf("UI dump failed: %w", err)
-			}
-			continue
-		}
-
 		// Search content
 		var foundNode *UINode
 
 		if step.Selector != nil {
-			// Handle bounds selector specially - no need to search
+			// Handle bounds selector specially - no UI dump needed, execute immediately
 			if step.Selector.Type == "bounds" {
-				// Create a dummy node with just the bounds
+				// Create a dummy node with just the bounds - skip UI hierarchy fetch
 				foundNode = &UINode{Bounds: step.Selector.Value}
-			} else if step.Selector.Type == "xpath" {
-				// XPath search
-				results := a.SearchElementsXPath(hierarchy.Root, step.Selector.Value)
-				if len(results) > 0 {
-					// Use index if specified, else 0
-					idx := step.Selector.Index
-					if idx < len(results) {
-						foundNode = results[idx].Node
-					}
-				}
 			} else {
-				// Simple FindElement (recursive)
-				// Note: FindElement returns bool, we need the node.
-				// Let's make a helper that returns the node.
-				foundNode = a.findElementNode(hierarchy.Root, step.Selector.Type, step.Selector.Value)
+				// For other selectors, we need to dump UI first
+				hierarchy, err := a.GetUIHierarchy(deviceId)
+				if err != nil {
+					// Retry if dump fails
+					time.Sleep(1 * time.Second)
+					if time.Since(startTime) > time.Duration(timeout)*time.Millisecond {
+						return fmt.Errorf("UI dump failed: %w", err)
+					}
+					continue
+				}
+
+				if step.Selector.Type == "xpath" {
+					// XPath search
+					results := a.SearchElementsXPath(hierarchy.Root, step.Selector.Value)
+					if len(results) > 0 {
+						// Use index if specified, else 0
+						idx := step.Selector.Index
+						if idx < len(results) {
+							foundNode = results[idx].Node
+						}
+					}
+				} else {
+					// Simple FindElement (recursive)
+					foundNode = a.findElementNode(hierarchy.Root, step.Selector.Type, step.Selector.Value)
+				}
 			}
 		}
 
