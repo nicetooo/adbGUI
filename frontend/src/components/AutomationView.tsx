@@ -13,6 +13,8 @@ import {
   Empty,
   Popconfirm,
   Tooltip,
+  Checkbox,
+  Dropdown,
 } from "antd";
 import { useTranslation } from "react-i18next";
 import {
@@ -29,6 +31,7 @@ import {
   EditOutlined,
   ArrowUpOutlined,
   ArrowDownOutlined,
+  InfoCircleOutlined,
 } from "@ant-design/icons";
 import { Tabs, Form, InputNumber, Select, Divider } from "antd";
 import DeviceSelector from "./DeviceSelector";
@@ -43,6 +46,7 @@ const AutomationView: React.FC = () => {
     recordingDeviceId,
     playingDeviceId,
     recordingDuration,
+    recordedActionCount,
     currentScript,
     scripts,
     playbackProgress,
@@ -53,6 +57,7 @@ const AutomationView: React.FC = () => {
     loadScripts,
     saveScript,
     deleteScript,
+    deleteScripts,
     renameScript,
     setCurrentScript,
     updateRecordingDuration,
@@ -62,6 +67,7 @@ const AutomationView: React.FC = () => {
     loadTasks,
     saveTask,
     deleteTask,
+    deleteTasks,
     runTask,
     isTaskRunning,
     runningTaskName,
@@ -71,6 +77,9 @@ const AutomationView: React.FC = () => {
     resumeTask,
     stopTask,
   } = useAutomationStore();
+
+  const [selectedScriptNames, setSelectedScriptNames] = useState<string[]>([]);
+  const [selectedTaskNames, setSelectedTaskNames] = useState<string[]>([]);
 
   const { t } = useTranslation();
   const { token } = theme.useToken();
@@ -195,6 +204,28 @@ const AutomationView: React.FC = () => {
     try {
       await deleteScript(name);
       message.success(t("automation.script_deleted"));
+    } catch (err) {
+      message.error(String(err));
+    }
+  };
+
+  const handleBulkDeleteScripts = async () => {
+    if (selectedScriptNames.length === 0) return;
+    try {
+      await deleteScripts(selectedScriptNames);
+      message.success(t("automation.scripts_deleted_msg", { count: selectedScriptNames.length }));
+      setSelectedScriptNames([]);
+    } catch (err) {
+      message.error(String(err));
+    }
+  };
+
+  const handleBulkDeleteTasks = async () => {
+    if (selectedTaskNames.length === 0) return;
+    try {
+      await deleteTasks(selectedTaskNames);
+      message.success(t("automation.tasks_deleted_msg", { count: selectedTaskNames.length }));
+      setSelectedTaskNames([]);
     } catch (err) {
       message.error(String(err));
     }
@@ -397,7 +428,7 @@ const AutomationView: React.FC = () => {
                         {t("automation.recording")}
                       </Tag>
                       <span style={{ fontWeight: "bold", fontFamily: "monospace" }}>
-                        {formatDuration(recordingDuration)}
+                        {formatDuration(recordingDuration)} · {recordedActionCount} {t("automation.events")}
                       </span>
                     </div>
                     <div style={{ fontSize: 12, color: token.colorTextSecondary, marginTop: 8 }}>
@@ -419,14 +450,26 @@ const AutomationView: React.FC = () => {
                       <span>
                         {t("automation.events_count", { count: currentScript.events.length })}
                       </span>
-                      <Button
-                        type="primary"
-                        icon={<SaveOutlined />}
-                        size="small"
-                        onClick={() => setSaveModalVisible(true)}
-                      >
-                        {t("automation.save_script")}
-                      </Button>
+                      <Space>
+                        <Tooltip title={t("automation.test_tooltip")}>
+                          <Button
+                            icon={<CaretRightOutlined />}
+                            size="small"
+                            onClick={() => handlePlayScript(currentScript)}
+                            disabled={isPlaying || !selectedDevice}
+                          >
+                            {t("automation.test_script")}
+                          </Button>
+                        </Tooltip>
+                        <Button
+                          type="primary"
+                          icon={<SaveOutlined />}
+                          size="small"
+                          onClick={() => setSaveModalVisible(true)}
+                        >
+                          {t("automation.save_script")}
+                        </Button>
+                      </Space>
                     </div>
                   </div>
                 )}
@@ -576,10 +619,34 @@ const AutomationView: React.FC = () => {
                   children: (
                     <Card
                       title={
-                        <Space>
-                          <SaveOutlined />
-                          {t("automation.saved_scripts")}
-                        </Space>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Space>
+                            <Checkbox
+                              indeterminate={selectedScriptNames.length > 0 && selectedScriptNames.length < scripts.length}
+                              checked={scripts.length > 0 && selectedScriptNames.length === scripts.length}
+                              onChange={(e) => setSelectedScriptNames(e.target.checked ? scripts.map(s => s.name) : [])}
+                            />
+                            <SaveOutlined />
+                            {t("automation.saved_scripts")}
+                            {selectedScriptNames.length > 0 && (
+                              <Popconfirm
+                                title={t("automation.delete_selected_confirm", { count: selectedScriptNames.length })}
+                                onConfirm={handleBulkDeleteScripts}
+                                okText={t("common.ok")}
+                                cancelText={t("common.cancel")}
+                              >
+                                <Button danger size="small" icon={<DeleteOutlined />}>
+                                  {t("automation.delete_selected")} ({selectedScriptNames.length})
+                                </Button>
+                              </Popconfirm>
+                            )}
+                          </Space>
+                          <Tooltip title={t("automation.scaling_info")}>
+                            <Tag icon={<InfoCircleOutlined />} color="blue" style={{ margin: 0 }}>
+                              {t("automation.auto_scaling")}
+                            </Tag>
+                          </Tooltip>
+                        </div>
                       }
                       size="small"
                       bodyStyle={{ padding: 0, overflowY: "auto", maxHeight: "calc(100vh - 200px)" }}
@@ -648,14 +715,28 @@ const AutomationView: React.FC = () => {
                                 </Popconfirm>,
                               ]}
                             >
-                              <List.Item.Meta
-                                title={script.name}
-                                description={
-                                  <span style={{ fontSize: 11, color: token.colorTextSecondary }}>
-                                    {script.events?.length || 0} {t("automation.events")} · {script.resolution}
-                                  </span>
-                                }
-                              />
+                              <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                                <Checkbox
+                                  checked={selectedScriptNames.includes(script.name)}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    const name = script.name;
+                                    setSelectedScriptNames(prev =>
+                                      e.target.checked ? [...prev, name] : prev.filter(n => n !== name)
+                                    );
+                                  }}
+                                  style={{ marginRight: 12 }}
+                                />
+                                <List.Item.Meta
+                                  title={<span style={{ wordBreak: 'break-all' }}>{script.name}</span>}
+                                  description={
+                                    <span style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                                      {script.events?.length || 0} {t("automation.events")} · {script.resolution}
+                                      {(script as any).deviceModel ? ` · ${(script as any).deviceModel}` : null}
+                                    </span>
+                                  }
+                                />
+                              </div>
                             </List.Item>
                           )}
                         />
@@ -674,7 +755,26 @@ const AutomationView: React.FC = () => {
                     <Card
                       title={
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span>{t("automation.saved_tasks")}</span>
+                          <Space>
+                            <Checkbox
+                              indeterminate={selectedTaskNames.length > 0 && selectedTaskNames.length < tasks.length}
+                              checked={tasks.length > 0 && selectedTaskNames.length === tasks.length}
+                              onChange={(e) => setSelectedTaskNames(e.target.checked ? tasks.map(t => t.name) : [])}
+                            />
+                            <span>{t("automation.saved_tasks")}</span>
+                            {selectedTaskNames.length > 0 && (
+                              <Popconfirm
+                                title={t("automation.delete_selected_confirm", { count: selectedTaskNames.length })}
+                                onConfirm={handleBulkDeleteTasks}
+                                okText={t("common.ok")}
+                                cancelText={t("common.cancel")}
+                              >
+                                <Button danger size="small" icon={<DeleteOutlined />}>
+                                  {t("automation.delete_selected")} ({selectedTaskNames.length})
+                                </Button>
+                              </Popconfirm>
+                            )}
+                          </Space>
                           <Button
                             type="primary"
                             size="small"
@@ -737,14 +837,27 @@ const AutomationView: React.FC = () => {
                                 </Popconfirm>,
                               ]}
                             >
-                              <List.Item.Meta
-                                title={task.name}
-                                description={
-                                  <span style={{ fontSize: 11, color: token.colorTextSecondary }}>
-                                    {task.steps?.length || 0} {t("automation.steps_count")}
-                                  </span>
-                                }
-                              />
+                              <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                                <Checkbox
+                                  checked={selectedTaskNames.includes(task.name)}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    const name = task.name;
+                                    setSelectedTaskNames(prev =>
+                                      e.target.checked ? [...prev, name] : prev.filter(n => n !== name)
+                                    );
+                                  }}
+                                  style={{ marginRight: 12 }}
+                                />
+                                <List.Item.Meta
+                                  title={task.name}
+                                  description={
+                                    <span style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                                      {task.steps?.length || 0} {t("automation.steps_count")}
+                                    </span>
+                                  }
+                                />
+                              </div>
                             </List.Item>
                           )}
                         />
@@ -754,238 +867,237 @@ const AutomationView: React.FC = () => {
                 },
               ]}
             />
+
+            {/* Save Script Modal */}
+            <Modal
+              title={t("automation.save_script")}
+              open={saveModalVisible}
+              onOk={handleSaveScript}
+              onCancel={() => {
+                setSaveModalVisible(false);
+                setScriptName("");
+              }}
+              okText={t("common.ok")}
+              cancelText={t("common.cancel")}
+            >
+              <Input
+                placeholder={t("automation.script_name")}
+                value={scriptName}
+                onChange={(e) => setScriptName(e.target.value)}
+                onPressEnter={handleSaveScript}
+              />
+            </Modal>
+
+            {/* Rename Script Modal */}
+            <Modal
+              title={t("automation.rename_script")}
+              open={renameModalVisible}
+              onOk={handleRenameScript}
+              onCancel={() => {
+                setRenameModalVisible(false);
+                setEditingScriptName("");
+                setNewScriptName("");
+              }}
+              okText={t("common.ok")}
+              cancelText={t("common.cancel")}
+            >
+              <Input
+                placeholder={t("automation.new_script_name")}
+                value={newScriptName}
+                onChange={(e) => setNewScriptName(e.target.value)}
+                onPressEnter={handleRenameScript}
+              />
+            </Modal>
+
+            {/* New Task Modal */}
+            <Modal
+              title={editingTask ? t("automation.edit_task") : t("automation.create_task")}
+              open={taskModalVisible}
+              onOk={() => taskForm.submit()}
+              onCancel={() => {
+                setTaskModalVisible(false);
+                setEditingTask(null);
+                taskForm.resetFields();
+              }}
+              width={600}
+            >
+              <Form form={taskForm} layout="vertical" onFinish={handleCreateTask}>
+                <Form.Item
+                  name="name"
+                  label={t("automation.task_name")}
+                  rules={[{ required: true, message: t("automation.enter_name") }]}
+                >
+                  <Input placeholder={t("automation.task_name")} />
+                </Form.Item>
+
+                <Form.List name="steps">
+                  {(fields, { add, remove, move }) => (
+                    <>
+                      {fields.map(({ key, name, ...restField }, index) => (
+                        <Card
+                          key={key}
+                          size="small"
+                          style={{ marginBottom: 8, background: token.colorBgLayout }}
+                          bodyStyle={{ padding: 8 }}
+                        >
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                              <Form.Item
+                                {...restField}
+                                name={[name, "type"]}
+                                rules={[{ required: true }]}
+                                style={{ width: 130, marginBottom: 0 }}
+                              >
+                                <Select
+                                  options={[
+                                    { label: t("automation.step_type.script"), value: "script" },
+                                    { label: t("automation.step_type.wait"), value: "wait" },
+                                    { label: t("automation.step_type.adb"), value: "adb" },
+                                  ]}
+                                />
+                              </Form.Item>
+
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <Form.Item
+                                  noStyle
+                                  shouldUpdate={(prevValues, currentValues) =>
+                                    prevValues.steps?.[name]?.type !== currentValues.steps?.[name]?.type
+                                  }
+                                >
+                                  {({ getFieldValue }) => {
+                                    const type = getFieldValue(["steps", name, "type"]);
+                                    if (type === "wait") {
+                                      return (
+                                        <Form.Item
+                                          {...restField}
+                                          name={[name, "duration"]}
+                                          rules={[{ required: true }]}
+                                          style={{ marginBottom: 0 }}
+                                        >
+                                          <InputNumber
+                                            addonBefore={t("automation.duration")}
+                                            addonAfter="ms"
+                                            placeholder={t("automation.duration")}
+                                            min={100}
+                                            step={100}
+                                            style={{ width: "100%" }}
+                                          />
+                                        </Form.Item>
+                                      );
+                                    } else if (type === "adb") {
+                                      return (
+                                        <Form.Item
+                                          {...restField}
+                                          name={[name, "adbCommand"]}
+                                          rules={[{ required: true, message: t("common.required") }]}
+                                          style={{ marginBottom: 0 }}
+                                        >
+                                          <Input placeholder={t("automation.adb_placeholder")} />
+                                        </Form.Item>
+                                      );
+                                    } else {
+                                      return (
+                                        <Form.Item
+                                          {...restField}
+                                          name={[name, "scriptName"]}
+                                          rules={[{ required: true }]}
+                                          style={{ marginBottom: 0 }}
+                                        >
+                                          <Select
+                                            placeholder={t("automation.select_script")}
+                                            options={scripts.map((s) => ({ label: s.name, value: s.name }))}
+                                            style={{ width: "100%" }}
+                                          />
+                                        </Form.Item>
+                                      );
+                                    }
+                                  }}
+                                </Form.Item>
+                              </div>
+                            </div>
+
+                            <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%" }}>
+                              <div style={{ flex: 1, minWidth: 0, display: "flex", gap: 16 }}>
+                                <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+                                  <span style={{ whiteSpace: "nowrap" }}>{t("automation.loop")}</span>
+                                  <Form.Item
+                                    {...restField}
+                                    name={[name, "loop"]}
+                                    initialValue={1}
+                                    style={{ flex: 1, marginBottom: 0 }}
+                                  >
+                                    <InputNumber
+                                      min={1}
+                                      style={{ width: "100%", maxWidth: 100 }}
+                                    />
+                                  </Form.Item>
+                                </div>
+
+                                <div style={{ flex: 1.5, display: "flex", alignItems: "center", gap: 8 }}>
+                                  <span style={{ whiteSpace: "nowrap" }}>{t("automation.wait")}</span>
+                                  <Form.Item
+                                    {...restField}
+                                    name={[name, "postDelay"]}
+                                    initialValue={0}
+                                    style={{ flex: 1, marginBottom: 0 }}
+                                  >
+                                    <InputNumber
+                                      min={0}
+                                      step={100}
+                                      addonAfter="ms"
+                                      placeholder="0"
+                                      style={{ width: "100%", maxWidth: 160 }}
+                                    />
+                                  </Form.Item>
+                                </div>
+                              </div>
+
+                              <div style={{ display: 'flex', gap: 2, marginLeft: 8 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                  <Button
+                                    type="text"
+                                    size="small"
+                                    icon={<ArrowUpOutlined />}
+                                    disabled={index === 0}
+                                    onClick={() => move(index, index - 1)}
+                                    style={{ height: 16, lineHeight: 1 }}
+                                  />
+                                  <Button
+                                    type="text"
+                                    size="small"
+                                    icon={<ArrowDownOutlined />}
+                                    disabled={index === fields.length - 1}
+                                    onClick={() => move(index, index + 1)}
+                                    style={{ height: 16, lineHeight: 1 }}
+                                  />
+                                </div>
+
+                                <Button
+                                  type="text"
+                                  danger
+                                  icon={<DeleteOutlined />}
+                                  onClick={() => remove(name)}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+                      <Form.Item>
+                        <Button type="dashed" onClick={() => add({ type: "script", loop: 1 })} block icon={<PlusOutlined />}>
+                          {t("automation.add_step")}
+                        </Button>
+                      </Form.Item>
+                    </>
+                  )}
+                </Form.List>
+              </Form>
+            </Modal>
           </div>
         </div>
       </div>
-
-      {/* Save Script Modal */}
-      <Modal
-        title={t("automation.save_script")}
-        open={saveModalVisible}
-        onOk={handleSaveScript}
-        onCancel={() => {
-          setSaveModalVisible(false);
-          setScriptName("");
-        }}
-        okText={t("common.ok")}
-        cancelText={t("common.cancel")}
-      >
-        <Input
-          placeholder={t("automation.script_name")}
-          value={scriptName}
-          onChange={(e) => setScriptName(e.target.value)}
-          onPressEnter={handleSaveScript}
-        />
-      </Modal>
-
-      {/* Rename Script Modal */}
-      <Modal
-        title={t("automation.rename_script")}
-        open={renameModalVisible}
-        onOk={handleRenameScript}
-        onCancel={() => {
-          setRenameModalVisible(false);
-          setEditingScriptName("");
-          setNewScriptName("");
-        }}
-        okText={t("common.ok")}
-        cancelText={t("common.cancel")}
-      >
-        <Input
-          placeholder={t("automation.new_script_name")}
-          value={newScriptName}
-          onChange={(e) => setNewScriptName(e.target.value)}
-          onPressEnter={handleRenameScript}
-        />
-      </Modal>
-
-      {/* New Task Modal */}
-      <Modal
-        title={editingTask ? t("automation.edit_task") : t("automation.create_task")}
-        open={taskModalVisible}
-        onOk={() => taskForm.submit()}
-        onCancel={() => {
-          setTaskModalVisible(false);
-          setEditingTask(null);
-          taskForm.resetFields();
-        }}
-        width={600}
-      >
-        <Form form={taskForm} layout="vertical" onFinish={handleCreateTask}>
-          <Form.Item
-            name="name"
-            label={t("automation.task_name")}
-            rules={[{ required: true, message: t("automation.enter_name") }]}
-          >
-            <Input placeholder={t("automation.task_name")} />
-          </Form.Item>
-
-          <Form.List name="steps">
-            {(fields, { add, remove, move }) => (
-              <>
-                {fields.map(({ key, name, ...restField }, index) => (
-                  <Card
-                    key={key}
-                    size="small"
-                    style={{ marginBottom: 8, background: token.colorBgLayout }}
-                    bodyStyle={{ padding: 8 }}
-                  >
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {/* Row 1: Type and Content */}
-                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <Form.Item
-                          {...restField}
-                          name={[name, "type"]}
-                          rules={[{ required: true }]}
-                          style={{ width: 130, marginBottom: 0 }}
-                        >
-                          <Select
-                            options={[
-                              { label: t("automation.step_type.script"), value: "script" },
-                              { label: t("automation.step_type.wait"), value: "wait" },
-                              { label: t("automation.step_type.adb"), value: "adb" },
-                            ]}
-                          />
-                        </Form.Item>
-
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <Form.Item
-                            noStyle
-                            shouldUpdate={(prevValues, currentValues) =>
-                              prevValues.steps?.[name]?.type !== currentValues.steps?.[name]?.type
-                            }
-                          >
-                            {({ getFieldValue }) => {
-                              const type = getFieldValue(["steps", name, "type"]);
-                              if (type === "wait") {
-                                return (
-                                  <Form.Item
-                                    {...restField}
-                                    name={[name, "duration"]}
-                                    rules={[{ required: true }]}
-                                    style={{ marginBottom: 0 }}
-                                  >
-                                    <InputNumber
-                                      addonBefore={t("automation.duration")}
-                                      addonAfter="ms"
-                                      placeholder={t("automation.duration")}
-                                      min={100}
-                                      step={100}
-                                      style={{ width: "100%" }}
-                                    />
-                                  </Form.Item>
-                                );
-                              } else if (type === "adb") {
-                                return (
-                                  <Form.Item
-                                    {...restField}
-                                    name={[name, "adbCommand"]}
-                                    rules={[{ required: true, message: t("common.required") }]}
-                                    style={{ marginBottom: 0 }}
-                                  >
-                                    <Input placeholder={t("automation.adb_placeholder")} />
-                                  </Form.Item>
-                                );
-                              } else {
-                                return (
-                                  <Form.Item
-                                    {...restField}
-                                    name={[name, "scriptName"]}
-                                    rules={[{ required: true }]}
-                                    style={{ marginBottom: 0 }}
-                                  >
-                                    <Select
-                                      placeholder={t("automation.select_script")}
-                                      options={scripts.map((s) => ({ label: s.name, value: s.name }))}
-                                      style={{ width: "100%" }}
-                                    />
-                                  </Form.Item>
-                                );
-                              }
-                            }}
-                          </Form.Item>
-                        </div>
-                      </div>
-
-                      {/* Row 2: Parameters and Controls */}
-                      <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%" }}>
-                        <div style={{ flex: 1, minWidth: 0, display: "flex", gap: 16 }}>
-                          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ whiteSpace: "nowrap" }}>{t("automation.loop")}</span>
-                            <Form.Item
-                              {...restField}
-                              name={[name, "loop"]}
-                              initialValue={1}
-                              style={{ flex: 1, marginBottom: 0 }}
-                            >
-                              <InputNumber
-                                min={1}
-                                style={{ width: "100%", maxWidth: 100 }}
-                              />
-                            </Form.Item>
-                          </div>
-
-                          <div style={{ flex: 1.5, display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ whiteSpace: "nowrap" }}>{t("automation.wait")}</span>
-                            <Form.Item
-                              {...restField}
-                              name={[name, "postDelay"]}
-                              initialValue={0}
-                              style={{ flex: 1, marginBottom: 0 }}
-                            >
-                              <InputNumber
-                                min={0}
-                                step={100}
-                                addonAfter="ms"
-                                placeholder="0"
-                                style={{ width: "100%", maxWidth: 160 }}
-                              />
-                            </Form.Item>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: 2, marginLeft: 8 }}>
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <Button
-                              type="text"
-                              size="small"
-                              icon={<ArrowUpOutlined />}
-                              disabled={index === 0}
-                              onClick={() => move(index, index - 1)}
-                              style={{ height: 16, lineHeight: 1 }}
-                            />
-                            <Button
-                              type="text"
-                              size="small"
-                              icon={<ArrowDownOutlined />}
-                              disabled={index === fields.length - 1}
-                              onClick={() => move(index, index + 1)}
-                              style={{ height: 16, lineHeight: 1 }}
-                            />
-                          </div>
-
-                          <Button
-                            type="text"
-                            danger
-                            icon={<DeleteOutlined />}
-                            onClick={() => remove(name)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-                <Form.Item>
-                  <Button type="dashed" onClick={() => add({ type: "script", loop: 1 })} block icon={<PlusOutlined />}>
-                    {t("automation.add_step")}
-                  </Button>
-                </Form.Item>
-              </>
-            )}
-          </Form.List>
-        </Form>
-      </Modal>
-    </div >
+    </div>
   );
 };
+
 export default AutomationView;

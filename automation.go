@@ -274,11 +274,22 @@ func (a *App) StartTouchRecording(deviceId string) error {
 				if session, ok := touchRecordData[deviceId]; ok {
 					session.RawEvents = append(session.RawEvents, line)
 					capturedCount++
-					if capturedCount <= 5 {
-						fmt.Printf("[Automation] Captured #%d: %s\n", capturedCount, line)
-					}
 				}
 				touchRecordMu.Unlock()
+
+				// Check for touch up / release action to notify frontend (real-time feedback)
+				// Use an else-if to prioritize BTN_TOUCH and avoid double-counting if both signals are in the same loop (though they are usually separate lines)
+				// The main fix is ensuring we don't trigger for BOTH signals if they are emitted for the same lift event.
+				if strings.Contains(line, "BTN_TOUCH") && (strings.Contains(line, "UP") || strings.HasSuffix(strings.TrimSpace(line), "00000000")) {
+					wailsRuntime.EventsEmit(a.ctx, "touch-action-recorded", map[string]interface{}{
+						"deviceId": deviceId,
+					})
+				} else if strings.Contains(line, "ABS_MT_TRACKING_ID") && strings.Contains(strings.ToLower(line), "ffffffff") {
+					// Only use Tracking ID if this line isn't a BTN_TOUCH line (prevents double fire on line-by-line basis)
+					wailsRuntime.EventsEmit(a.ctx, "touch-action-recorded", map[string]interface{}{
+						"deviceId": deviceId,
+					})
+				}
 			}
 		}
 		fmt.Printf("[Automation] Scanner finished: %d lines read, %d events captured\n", lineCount, capturedCount)
@@ -335,6 +346,12 @@ func (a *App) StopTouchRecording(deviceId string) (*TouchScript, error) {
 
 	// Parse raw events into TouchScript
 	script := a.parseRawEvents(session)
+
+	// Enrich with device model info
+	info, err := a.GetDeviceInfo(deviceId)
+	if err == nil {
+		script.DeviceModel = info.Model
+	}
 
 	// Cleanup
 	delete(touchRecordCmd, deviceId)
@@ -690,6 +707,24 @@ func (a *App) playTouchScriptSync(ctx context.Context, deviceId string, script T
 	startTime := time.Now()
 	total := len(script.Events)
 
+	// 1. Get target device resolution
+	targetResStr, err := a.GetDeviceResolution(deviceId)
+	var scaleX, scaleY float64 = 1.0, 1.0
+
+	if err == nil && script.Resolution != "" {
+		// Parse target resolution
+		targetW, targetH, ok1 := parseResolution(targetResStr)
+		// Parse source resolution
+		sourceW, sourceH, ok2 := parseResolution(script.Resolution)
+
+		if ok1 && ok2 && sourceW > 0 && sourceH > 0 {
+			scaleX = float64(targetW) / float64(sourceW)
+			scaleY = float64(targetH) / float64(sourceH)
+			fmt.Printf("Auto-scaling enabled: Source=%dx%d, Target=%dx%d, ScaleX=%.2f, ScaleY=%.2f\n",
+				sourceW, sourceH, targetW, targetH, scaleX, scaleY)
+		}
+	}
+
 	for i, event := range script.Events {
 		select {
 		case <-ctx.Done():
@@ -711,14 +746,20 @@ func (a *App) playTouchScriptSync(ctx context.Context, deviceId string, script T
 		// Check pause
 		a.checkPause(deviceId)
 
+		// Apply scaling
+		finalX := int(float64(event.X) * scaleX)
+		finalY := int(float64(event.Y) * scaleY)
+
 		// Execute the touch event
 		var cmd string
 		switch event.Type {
 		case "tap":
-			cmd = fmt.Sprintf("shell input tap %d %d", event.X, event.Y)
+			cmd = fmt.Sprintf("shell input tap %d %d", finalX, finalY)
 		case "swipe":
+			finalX2 := int(float64(event.X2) * scaleX)
+			finalY2 := int(float64(event.Y2) * scaleY)
 			cmd = fmt.Sprintf("shell input swipe %d %d %d %d %d",
-				event.X, event.Y, event.X2, event.Y2, event.Duration)
+				finalX, finalY, finalX2, finalY2, event.Duration)
 		case "wait":
 			time.Sleep(time.Duration(event.Duration) * time.Millisecond)
 			continue
@@ -733,6 +774,23 @@ func (a *App) playTouchScriptSync(ctx context.Context, deviceId string, script T
 		}
 	}
 	return nil
+}
+
+// Helper to parse "WxH" string
+func parseResolution(res string) (int, int, bool) {
+	parts := strings.Split(res, "x")
+	if len(parts) != 2 {
+		// Try to handle "Physical size: WxH" format just in case, though GetDeviceResolution usually cleans it
+		// But let's stick to simple split as GetDeviceResolution seems to return "WxH" or raw output
+		// Let's rely on standard format
+		return 0, 0, false
+	}
+	w, err1 := strconv.Atoi(strings.TrimSpace(parts[0]))
+	h, err2 := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err1 != nil || err2 != nil {
+		return 0, 0, false
+	}
+	return w, h, true
 }
 
 // StopTouchPlayback stops an ongoing touch playback

@@ -156,11 +156,12 @@ type TouchEvent struct {
 
 // TouchScript represents a recorded touch automation script
 type TouchScript struct {
-	Name       string       `json:"name"`
-	DeviceID   string       `json:"deviceId"`
-	Resolution string       `json:"resolution"` // e.g. "1080x2400"
-	CreatedAt  string       `json:"createdAt"`
-	Events     []TouchEvent `json:"events"`
+	Name        string       `json:"name"`
+	DeviceID    string       `json:"deviceId"`
+	DeviceModel string       `json:"deviceModel,omitempty"` // Store device model name
+	Resolution  string       `json:"resolution"`            // e.g. "1080x2400"
+	CreatedAt   string       `json:"createdAt"`
+	Events      []TouchEvent `json:"events"`
 }
 
 // TouchRecordingSession represents an active recording session

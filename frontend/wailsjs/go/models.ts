@@ -384,6 +384,7 @@ export namespace main {
 	export class TouchScript {
 	    name: string;
 	    deviceId: string;
+	    deviceModel?: string;
 	    resolution: string;
 	    createdAt: string;
 	    events: TouchEvent[];
@@ -396,6 +397,7 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
 	        this.deviceId = source["deviceId"];
+	        this.deviceModel = source["deviceModel"];
 	        this.resolution = source["resolution"];
 	        this.createdAt = source["createdAt"];
 	        this.events = this.convertValues(source["events"], TouchEvent);

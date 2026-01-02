@@ -63,6 +63,8 @@ interface AutomationState {
   isPaused: boolean;
   runningTaskName: string | null;
 
+  recordedActionCount: number;
+
   // Actions
   startRecording: (deviceId: string) => Promise<void>;
   stopRecording: () => Promise<main.TouchScript | null>;
@@ -71,6 +73,7 @@ interface AutomationState {
   loadScripts: () => Promise<void>;
   saveScript: (script: main.TouchScript) => Promise<void>;
   deleteScript: (name: string) => Promise<void>;
+  deleteScripts: (names: string[]) => Promise<void>;
   renameScript: (oldName: string, newName: string) => Promise<void>;
   setCurrentScript: (script: main.TouchScript | null) => void;
   updateRecordingDuration: () => void;
@@ -79,6 +82,7 @@ interface AutomationState {
   loadTasks: () => Promise<void>;
   saveTask: (task: ScriptTask) => Promise<void>;
   deleteTask: (name: string) => Promise<void>;
+  deleteTasks: (names: string[]) => Promise<void>;
   runTask: (deviceId: string, task: ScriptTask) => Promise<void>;
   pauseTask: () => Promise<void>;
   resumeTask: () => Promise<void>;
@@ -96,6 +100,7 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
   playingDeviceId: null,
   recordingStartTime: null,
   recordingDuration: 0,
+  recordedActionCount: 0,
   currentScript: null,
   scripts: [],
   tasks: [],
@@ -114,6 +119,7 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
         recordingDeviceId: deviceId,
         recordingStartTime: Date.now(),
         recordingDuration: 0,
+        recordedActionCount: 0,
         currentScript: null,
       });
     } catch (err) {
@@ -133,6 +139,7 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
         recordingDeviceId: null,
         recordingStartTime: null,
         recordingDuration: 0,
+        recordedActionCount: 0,
         currentScript: script,
       });
       return script;
@@ -143,6 +150,7 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
         recordingDeviceId: null,
         recordingStartTime: null,
         recordingDuration: 0,
+        recordedActionCount: 0,
       });
       throw err;
     }
@@ -204,6 +212,18 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
     }
   },
 
+  deleteScripts: async (names: string[]) => {
+    try {
+      for (const name of names) {
+        await DeleteTouchScript(name);
+      }
+      await get().loadScripts();
+    } catch (err) {
+      console.error('Failed to delete scripts:', err);
+      throw err;
+    }
+  },
+
   renameScript: async (oldName: string, newName: string) => {
     try {
       // Cast to any because RenameTouchScript might be missing in older bindings
@@ -243,6 +263,18 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
       await get().loadTasks();
     } catch (err) {
       console.error('Failed to delete task:', err);
+      throw err;
+    }
+  },
+
+  deleteTasks: async (names: string[]) => {
+    try {
+      for (const name of names) {
+        await DeleteScriptTask(name);
+      }
+      await get().loadTasks();
+    } catch (err) {
+      console.error('Failed to delete tasks:', err);
       throw err;
     }
   },
@@ -305,6 +337,7 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
         isRecording: true,
         recordingDeviceId: data.deviceId,
         recordingStartTime: data.startTime * 1000,
+        recordedActionCount: 0,
       });
     };
 
@@ -314,7 +347,14 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
         recordingDeviceId: null,
         recordingStartTime: null,
         recordingDuration: 0,
+        recordedActionCount: 0,
       });
+    };
+
+    const handleTouchActionRecorded = (data: any) => {
+      set((state) => ({
+        recordedActionCount: state.recordedActionCount + 1
+      }));
     };
 
     const handlePlaybackStarted = (data: any) => {
@@ -375,6 +415,7 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
 
     EventsOn('touch-record-started', handleRecordStarted);
     EventsOn('touch-record-stopped', handleRecordStopped);
+    EventsOn('touch-action-recorded', handleTouchActionRecorded);
     EventsOn('touch-playback-started', handlePlaybackStarted);
     EventsOn('touch-playback-progress', handlePlaybackProgress);
     EventsOn('touch-playback-completed', handlePlaybackCompleted);
@@ -387,6 +428,7 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
     return () => {
       EventsOff('touch-record-started');
       EventsOff('touch-record-stopped');
+      EventsOff('touch-action-recorded');
       EventsOff('touch-playback-started');
       EventsOff('touch-playback-progress');
       EventsOff('touch-playback-completed');
