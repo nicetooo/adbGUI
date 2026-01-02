@@ -164,7 +164,7 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 			}
 
 			for l := 0; l < loopCount; l++ {
-				if err := a.runWorkflowStep(ctx, deviceId, step, l+1, loopCount); err != nil {
+				if err := a.runWorkflowStep(ctx, deviceId, step, l+1, loopCount, 0); err != nil {
 					// Handle error
 					if step.OnError == "continue" {
 						fmt.Printf("[Workflow] Step failed but continuing: %v\n", err)
@@ -195,14 +195,11 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 	return nil
 }
 
-func (a *App) runWorkflowStep(ctx context.Context, deviceId string, step WorkflowStep, currentLoop, totalLoops int) error {
-	// Helper to emit granular status
-	// emitStatus := func(msg string) {
-	// 	wailsRuntime.EventsEmit(a.ctx, "workflow-status", map[string]interface{}{
-	// 		"deviceId": deviceId,
-	// 		"status":   msg,
-	// 	})
-	// }
+func (a *App) runWorkflowStep(ctx context.Context, deviceId string, step WorkflowStep, currentLoop, totalLoops, depth int) error {
+	// Recursion guard
+	if depth > 10 {
+		return fmt.Errorf("maximum workflow nesting depth exceeded")
+	}
 
 	switch step.Type {
 	case "wait":
@@ -216,6 +213,55 @@ func (a *App) runWorkflowStep(ctx context.Context, deviceId string, step Workflo
 		// Raw ADB Command
 		if _, err := a.RunAdbCommand(deviceId, step.Value); err != nil {
 			return fmt.Errorf("adb command failed: %w", err)
+		}
+
+	case "run_workflow":
+		// Load the sub-workflow
+		// Value is expected to be the Workflow ID
+		workflowID := step.Value
+		workflowsPath := a.getWorkflowsPath()
+
+		// Try to find file by ID (sanitized)
+		safeName := regexp.MustCompile(`[^a-zA-Z0-9_-]`).ReplaceAllString(workflowID, "_")
+		filePath := filepath.Join(workflowsPath, safeName+".json")
+
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("workflow not found: %s", workflowID)
+		}
+
+		var subWorkflow Workflow
+		if err := json.Unmarshal(data, &subWorkflow); err != nil {
+			return fmt.Errorf("failed to parse sub-workflow: %w", err)
+		}
+
+		// Execute steps of the sub-workflow
+		for _, subStep := range subWorkflow.Steps {
+			// Check context
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
+			subLoopCount := subStep.Loop
+			if subLoopCount < 1 {
+				subLoopCount = 1
+			}
+
+			for l := 0; l < subLoopCount; l++ {
+				// Recursive call with incremented depth
+				if err := a.runWorkflowStep(ctx, deviceId, subStep, l+1, subLoopCount, depth+1); err != nil {
+					if subStep.OnError == "continue" {
+						continue
+					}
+					return err
+				}
+			}
+
+			if subStep.PostDelay > 0 {
+				time.Sleep(time.Duration(subStep.PostDelay) * time.Millisecond)
+			}
 		}
 
 	case "script":

@@ -590,7 +590,8 @@
       "scroll_to": "滚动直到可见",
       "assert_element": "断言元素",
       "script": "执行脚本",
-      "adb": "ADB 命令"
+      "adb": "ADB 命令",
+      "run_workflow": "运行工作流"
     },
     "convert": "转换",
     "step_updated": "步骤已更新",
@@ -603,13 +604,15 @@
     "no_workflows": "暂无工作流",
     "select_or_create": "请选择或创建一个工作流",
     "edit_step": "编辑步骤",
+    "select_workflow": "选择工作流",
     "step_type_label": "步骤类型",
     "name": "名称",
     "category": {
       "element_actions": "元素操作",
       "wait_conditions": "等待条件",
       "flow_control": "流程控制",
-      "script_actions": "脚本操作"
+      "script_actions": "脚本操作",
+      "nested": "嵌套调用"
     },
     "add_step": "添加步骤",
     "delete_confirm": "确定删除工作流？"

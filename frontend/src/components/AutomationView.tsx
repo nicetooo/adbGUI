@@ -276,7 +276,7 @@ const AutomationView: React.FC = () => {
           id,
           type: 'adb',
           name: `Tap ${idx + 1}`,
-          value: `input tap ${event.x} ${event.y}`,
+          value: `shell input tap ${event.x} ${event.y}`,
           loop: 1,
           postDelay: 0,
           onError: 'stop'
@@ -286,7 +286,7 @@ const AutomationView: React.FC = () => {
           id,
           type: 'adb',
           name: `Swipe ${idx + 1}`,
-          value: `input swipe ${event.x} ${event.y} ${event.x2 || event.x} ${event.y2 || event.y} ${event.duration || 300}`,
+          value: `shell input swipe ${event.x} ${event.y} ${event.x2 || event.x} ${event.y2 || event.y} ${event.duration || 300}`,
           loop: 1,
           postDelay: 0,
           onError: 'stop'

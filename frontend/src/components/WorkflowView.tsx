@@ -115,6 +115,9 @@ const STEP_TYPES = {
     { key: 'script', icon: <PlayCircleOutlined />, color: 'geekblue' },
     { key: 'adb', icon: <RobotOutlined />, color: 'volcano' },
   ],
+  NESTED: [
+    { key: 'run_workflow', icon: <BranchesOutlined />, color: 'gold' },
+  ],
 };
 
 const getStepTypeInfo = (type: string) => {
@@ -794,6 +797,15 @@ const WorkflowView: React.FC = () => {
                         ))}
                       </Space>
                     </Collapse.Panel>
+                    <Collapse.Panel header={t("workflow.category.nested")} key="5">
+                      <Space wrap size={[8, 8]}>
+                        {STEP_TYPES.NESTED.map(s => (
+                          <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
+                            <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
+                          </Tooltip>
+                        ))}
+                      </Space>
+                    </Collapse.Panel>
                   </Collapse>
                 </Card>
               </Panel>
@@ -853,6 +865,7 @@ const WorkflowView: React.FC = () => {
                   ...STEP_TYPES.WAIT_CONDITIONS.map(s => ({ label: t(`workflow.step_type.${s.key}`), value: s.key })),
                   ...STEP_TYPES.FLOW_CONTROL.map(s => ({ label: t(`workflow.step_type.${s.key}`), value: s.key })),
                   ...STEP_TYPES.SCRIPT_ACTIONS.map(s => ({ label: t(`workflow.step_type.${s.key}`), value: s.key })),
+                  ...STEP_TYPES.NESTED.map(s => ({ label: t(`workflow.step_type.${s.key}`), value: s.key })),
                 ]}
               />
             </Form.Item>
@@ -865,6 +878,7 @@ const WorkflowView: React.FC = () => {
                 const type = getFieldValue('type');
                 const needsSelector = ['click_element', 'long_click_element', 'input_text', 'swipe_element', 'wait_element', 'wait_gone', 'if_exists', 'scroll_to', 'assert_element'].includes(type);
                 const needsValue = ['input_text', 'wait', 'adb', 'script'].includes(type);
+                const isWorkflow = type === 'run_workflow';
 
                 return (
                   <>
@@ -884,6 +898,18 @@ const WorkflowView: React.FC = () => {
                           <Input placeholder={t("workflow.selector_placeholder")} />
                         </Form.Item>
                       </div>
+                    )}
+
+                    {isWorkflow && (
+                      <Form.Item name="value" label={t("workflow.select_workflow")} rules={[{ required: true }]}>
+                        <Select
+                          placeholder={t("workflow.select_workflow")}
+                          options={workflows
+                            .filter(w => w.id !== selectedWorkflow?.id) // Prevent self-selection
+                            .map(w => ({ label: w.name, value: w.id }))
+                          }
+                        />
+                      </Form.Item>
                     )}
 
                     {needsValue && (
