@@ -20,7 +20,8 @@
     "folder_name": "文件夹名称",
     "enter_new_name": "输入新名称",
     "clear": "清除",
-    "browse": "浏览"
+    "browse": "浏览",
+    "required": "必填项"
   },
   "menu": {
     "devices": "设备列表",
@@ -453,6 +454,7 @@
   "automation": {
     "title": "触控自动化",
     "touch_script": "触控脚本",
+    "scripts": "脚本",
     "record_control": "录制控制",
     "touch_on_device": "设备屏幕触控事件",
     "start_record": "开始录制",
@@ -474,6 +476,38 @@
     "delete": "删除",
     "delete_confirm": "确定删除脚本 \"{{name}}\"？",
     "playing": "播放中...",
-    "script_preview": "脚本预览"
+    "script_preview": "脚本预览",
+    "tasks": "任务编排",
+    "saved_tasks": "任务列表",
+    "no_tasks": "暂无任务",
+    "create_task": "新建任务",
+    "step": "步骤",
+    "run_task": "运行任务",
+    "steps_count": "个步骤",
+    "task_name": "任务名称",
+    "edit_task": "编辑任务",
+    "delete_task_confirm": "确定删除任务 \"{{name}}\"？",
+    "task_saved": "任务已保存",
+    "task_deleted": "任务已删除",
+    "add_step": "添加步骤",
+    "rename_script": "重命名脚本",
+    "new_script_name": "新脚本名称",
+    "script_renamed": "脚本重命名成功",
+    "step_type": {
+      "script": "脚本",
+      "wait": "等待",
+      "adb": "ADB 命令"
+    },
+    "duration": "时长",
+    "loop": "循环",
+    "post_delay": "执行后等待 (ms)",
+    "pause": "暂停",
+    "resume": "继续",
+    "stop_task": "停止",
+    "running": "运行中",
+    "paused": "已暂停",
+    "wait": "等待",
+    "adb_command": "ADB 命令",
+    "adb_placeholder": "例如: shell input keyevent 3"
   }
 }

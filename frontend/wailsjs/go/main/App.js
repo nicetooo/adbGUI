@@ -30,6 +30,10 @@ export function DeleteFile(arg1, arg2) {
   return window['go']['main']['App']['DeleteFile'](arg1, arg2);
 }
 
+export function DeleteScriptTask(arg1) {
+  return window['go']['main']['App']['DeleteScriptTask'](arg1);
+}
+
 export function DeleteTouchScript(arg1) {
   return window['go']['main']['App']['DeleteTouchScript'](arg1);
 }
@@ -162,6 +166,10 @@ export function ListPackages(arg1, arg2) {
   return window['go']['main']['App']['ListPackages'](arg1, arg2);
 }
 
+export function LoadScriptTasks() {
+  return window['go']['main']['App']['LoadScriptTasks']();
+}
+
 export function LoadTouchScripts() {
   return window['go']['main']['App']['LoadTouchScripts']();
 }
@@ -190,6 +198,10 @@ export function OpenSettings(arg1, arg2, arg3) {
   return window['go']['main']['App']['OpenSettings'](arg1, arg2, arg3);
 }
 
+export function PauseTask(arg1) {
+  return window['go']['main']['App']['PauseTask'](arg1);
+}
+
 export function PlayTouchScript(arg1, arg2) {
   return window['go']['main']['App']['PlayTouchScript'](arg1, arg2);
 }
@@ -198,12 +210,28 @@ export function RemoveHistoryDevice(arg1) {
   return window['go']['main']['App']['RemoveHistoryDevice'](arg1);
 }
 
+export function RenameTouchScript(arg1, arg2) {
+  return window['go']['main']['App']['RenameTouchScript'](arg1, arg2);
+}
+
 export function RestartAdbServer() {
   return window['go']['main']['App']['RestartAdbServer']();
 }
 
+export function ResumeTask(arg1) {
+  return window['go']['main']['App']['ResumeTask'](arg1);
+}
+
 export function RunAdbCommand(arg1, arg2) {
   return window['go']['main']['App']['RunAdbCommand'](arg1, arg2);
+}
+
+export function RunScriptTask(arg1, arg2) {
+  return window['go']['main']['App']['RunScriptTask'](arg1, arg2);
+}
+
+export function SaveScriptTask(arg1) {
+  return window['go']['main']['App']['SaveScriptTask'](arg1);
 }
 
 export function SaveTouchScript(arg1) {
@@ -320,6 +348,10 @@ export function StopRecording(arg1) {
 
 export function StopScrcpy(arg1) {
   return window['go']['main']['App']['StopScrcpy'](arg1);
+}
+
+export function StopTask(arg1) {
+  return window['go']['main']['App']['StopTask'](arg1);
 }
 
 export function StopTouchPlayback(arg1) {

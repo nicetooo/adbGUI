@@ -17,6 +17,8 @@ export function CopyFile(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function DeleteFile(arg1:string,arg2:string):Promise<void>;
 
+export function DeleteScriptTask(arg1:string):Promise<void>;
+
 export function DeleteTouchScript(arg1:string):Promise<void>;
 
 export function DisableApp(arg1:string,arg2:string):Promise<string>;
@@ -83,6 +85,8 @@ export function ListFiles(arg1:string,arg2:string):Promise<Array<main.FileInfo>>
 
 export function ListPackages(arg1:string,arg2:string):Promise<Array<main.AppPackage>>;
 
+export function LoadScriptTasks():Promise<Array<main.ScriptTask>>;
+
 export function LoadTouchScripts():Promise<Array<main.TouchScript>>;
 
 export function Log(arg1:string,arg2:Array<any>):Promise<void>;
@@ -97,13 +101,23 @@ export function OpenPath(arg1:string):Promise<void>;
 
 export function OpenSettings(arg1:string,arg2:string,arg3:string):Promise<string>;
 
+export function PauseTask(arg1:string):Promise<void>;
+
 export function PlayTouchScript(arg1:string,arg2:main.TouchScript):Promise<void>;
 
 export function RemoveHistoryDevice(arg1:string):Promise<void>;
 
+export function RenameTouchScript(arg1:string,arg2:string):Promise<void>;
+
 export function RestartAdbServer():Promise<string>;
 
+export function ResumeTask(arg1:string):Promise<void>;
+
 export function RunAdbCommand(arg1:string,arg2:string):Promise<string>;
+
+export function RunScriptTask(arg1:string,arg2:main.ScriptTask):Promise<void>;
+
+export function SaveScriptTask(arg1:main.ScriptTask):Promise<void>;
 
 export function SaveTouchScript(arg1:main.TouchScript):Promise<void>;
 
@@ -162,6 +176,8 @@ export function StopProxy():Promise<string>;
 export function StopRecording(arg1:string):Promise<void>;
 
 export function StopScrcpy(arg1:string):Promise<void>;
+
+export function StopTask(arg1:string):Promise<void>;
 
 export function StopTouchPlayback(arg1:string):Promise<void>;
 

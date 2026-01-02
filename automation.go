@@ -26,6 +26,10 @@ var (
 
 	touchPlaybackCancel = make(map[string]context.CancelFunc)
 	touchPlaybackMu     sync.Mutex
+	// Pause control
+	taskPauseSignal = make(map[string]chan struct{})
+	taskIsPaused    = make(map[string]bool)
+	taskPauseMu     sync.Mutex
 )
 
 // GetTouchInputDevice finds the touch input device path on the Android device
@@ -618,15 +622,20 @@ func (a *App) parseRawEvents(session *TouchRecordingSession) *TouchScript {
 				}
 
 			case "ABS_MT_POSITION_X":
+				// Some devices only report changes.
 				currentX = int(value)
-				if tracking && touchStartX == -1 {
-					touchStartX = currentX
+				if tracking {
+					if touchStartX == -1 {
+						touchStartX = currentX
+					}
 				}
 
 			case "ABS_MT_POSITION_Y":
 				currentY = int(value)
-				if tracking && touchStartY == -1 {
-					touchStartY = currentY
+				if tracking {
+					if touchStartY == -1 {
+						touchStartY = currentY
+					}
 				}
 			}
 		}
@@ -658,51 +667,14 @@ func (a *App) PlayTouchScript(deviceId string, script TouchScript) error {
 			})
 		}()
 
-		startTime := time.Now()
-		total := len(script.Events)
-
-		for i, event := range script.Events {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
-			// Wait until it's time to execute this event
-			elapsed := time.Since(startTime).Milliseconds()
-			if event.Timestamp > elapsed {
-				sleepDuration := time.Duration(event.Timestamp-elapsed) * time.Millisecond
-				select {
-				case <-ctx.Done():
-					return
-				case <-time.After(sleepDuration):
-				}
-			}
-
-			// Execute the touch event
-			var cmd string
-			switch event.Type {
-			case "tap":
-				cmd = fmt.Sprintf("shell input tap %d %d", event.X, event.Y)
-			case "swipe":
-				cmd = fmt.Sprintf("shell input swipe %d %d %d %d %d",
-					event.X, event.Y, event.X2, event.Y2, event.Duration)
-			case "wait":
-				time.Sleep(time.Duration(event.Duration) * time.Millisecond)
-				continue
-			default:
-				continue
-			}
-
-			_, _ = a.RunAdbCommand(deviceId, cmd)
-
-			// Emit progress
+		// Use the synchronous helper
+		_ = a.playTouchScriptSync(ctx, deviceId, script, func(current, total int) {
 			wailsRuntime.EventsEmit(a.ctx, "touch-playback-progress", map[string]interface{}{
 				"deviceId": deviceId,
-				"current":  i + 1,
+				"current":  current,
 				"total":    total,
 			})
-		}
+		})
 	}()
 
 	wailsRuntime.EventsEmit(a.ctx, "touch-playback-started", map[string]interface{}{
@@ -710,6 +682,56 @@ func (a *App) PlayTouchScript(deviceId string, script TouchScript) error {
 		"total":    len(script.Events),
 	})
 
+	return nil
+}
+
+// playTouchScriptSync is the synchronous core logic for playing a script
+func (a *App) playTouchScriptSync(ctx context.Context, deviceId string, script TouchScript, progressCb func(int, int)) error {
+	startTime := time.Now()
+	total := len(script.Events)
+
+	for i, event := range script.Events {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		// Wait until it's time to execute this event
+		elapsed := time.Since(startTime).Milliseconds()
+		if event.Timestamp > elapsed {
+			sleepDuration := time.Duration(event.Timestamp-elapsed) * time.Millisecond
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(sleepDuration):
+			}
+		}
+
+		// Check pause
+		a.checkPause(deviceId)
+
+		// Execute the touch event
+		var cmd string
+		switch event.Type {
+		case "tap":
+			cmd = fmt.Sprintf("shell input tap %d %d", event.X, event.Y)
+		case "swipe":
+			cmd = fmt.Sprintf("shell input swipe %d %d %d %d %d",
+				event.X, event.Y, event.X2, event.Y2, event.Duration)
+		case "wait":
+			time.Sleep(time.Duration(event.Duration) * time.Millisecond)
+			continue
+		default:
+			continue
+		}
+
+		_, _ = a.RunAdbCommand(deviceId, cmd)
+
+		if progressCb != nil {
+			progressCb(i+1, total)
+		}
+	}
 	return nil
 }
 
@@ -730,6 +752,50 @@ func (a *App) IsPlayingTouch(deviceId string) bool {
 	defer touchPlaybackMu.Unlock()
 	_, exists := touchPlaybackCancel[deviceId]
 	return exists
+}
+
+// PauseTask pauses the running task (or script)
+func (a *App) PauseTask(deviceId string) {
+	taskPauseMu.Lock()
+	defer taskPauseMu.Unlock()
+
+	if _, paused := taskIsPaused[deviceId]; !paused {
+		// Create a blocking channel
+		taskPauseSignal[deviceId] = make(chan struct{})
+		taskIsPaused[deviceId] = true
+		wailsRuntime.EventsEmit(a.ctx, "task-paused", map[string]interface{}{"deviceId": deviceId})
+	}
+}
+
+// ResumeTask resumes the paused task
+func (a *App) ResumeTask(deviceId string) {
+	taskPauseMu.Lock()
+	defer taskPauseMu.Unlock()
+
+	if ch, paused := taskPauseSignal[deviceId]; paused {
+		close(ch) // Unblock waiting goroutines
+		delete(taskPauseSignal, deviceId)
+		delete(taskIsPaused, deviceId)
+		wailsRuntime.EventsEmit(a.ctx, "task-resumed", map[string]interface{}{"deviceId": deviceId})
+	}
+}
+
+// StopTask stops the task (alias for StopTouchPlayback for now, but explicit for API)
+func (a *App) StopTask(deviceId string) {
+	// Resume first if paused to allow exit
+	a.ResumeTask(deviceId)
+	a.StopTouchPlayback(deviceId)
+}
+
+// checkPause blocks if the device is paused
+func (a *App) checkPause(deviceId string) {
+	taskPauseMu.Lock()
+	ch, paused := taskPauseSignal[deviceId]
+	taskPauseMu.Unlock()
+
+	if paused && ch != nil {
+		<-ch // Wait until channel is closed (resumed)
+	}
 }
 
 // getScriptsPath returns the path to the scripts directory
@@ -815,6 +881,274 @@ func (a *App) DeleteTouchScript(name string) error {
 		}
 		return fmt.Errorf("failed to delete script: %w", err)
 	}
+
+	return nil
+}
+
+// RenameTouchScript renames a script
+func (a *App) RenameTouchScript(oldName, newName string) error {
+	scriptsPath := a.getScriptsPath()
+
+	// 1. Read old file
+	safeOldName := regexp.MustCompile(`[^a-zA-Z0-9_-]`).ReplaceAllString(oldName, "_")
+	oldFilePath := filepath.Join(scriptsPath, safeOldName+".json")
+
+	data, err := os.ReadFile(oldFilePath)
+	if err != nil {
+		return fmt.Errorf("script not found: %w", err)
+	}
+
+	var script TouchScript
+	if err := json.Unmarshal(data, &script); err != nil {
+		return fmt.Errorf("failed to parse script: %w", err)
+	}
+
+	// 2. Update name
+	script.Name = newName
+
+	// 3. Save new file
+	if err := a.SaveTouchScript(script); err != nil {
+		return err
+	}
+
+	// 4. Delete old file if name changed (and safe names are different)
+	safeNewName := regexp.MustCompile(`[^a-zA-Z0-9_-]`).ReplaceAllString(newName, "_")
+	if safeOldName != safeNewName {
+		_ = os.Remove(oldFilePath)
+	}
+
+	return nil
+}
+
+// ---------------- Task Orchestration ----------------
+
+// getTasksPath returns the path to the tasks directory
+func (a *App) getTasksPath() string {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		configDir = os.TempDir()
+	}
+	tasksPath := filepath.Join(configDir, "Gaze", "tasks")
+	_ = os.MkdirAll(tasksPath, 0755)
+	return tasksPath
+}
+
+// SaveScriptTask saves a task compilation
+func (a *App) SaveScriptTask(task ScriptTask) error {
+	tasksPath := a.getTasksPath()
+
+	safeName := regexp.MustCompile(`[^a-zA-Z0-9_-]`).ReplaceAllString(task.Name, "_")
+	if safeName == "" {
+		safeName = fmt.Sprintf("task_%d", time.Now().Unix())
+	}
+
+	filePath := filepath.Join(tasksPath, safeName+".json")
+
+	data, err := json.MarshalIndent(task, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal task: %w", err)
+	}
+
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write task file: %w", err)
+	}
+
+	return nil
+}
+
+// LoadScriptTasks loads all saved tasks
+func (a *App) LoadScriptTasks() ([]ScriptTask, error) {
+	tasksPath := a.getTasksPath()
+
+	entries, err := os.ReadDir(tasksPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []ScriptTask{}, nil
+		}
+		return nil, fmt.Errorf("failed to read tasks directory: %w", err)
+	}
+
+	tasks := make([]ScriptTask, 0)
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+
+		filePath := filepath.Join(tasksPath, entry.Name())
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			continue
+		}
+
+		var task ScriptTask
+		if err := json.Unmarshal(data, &task); err != nil {
+			continue
+		}
+
+		tasks = append(tasks, task)
+	}
+
+	return tasks, nil
+}
+
+// DeleteScriptTask deletes a saved task
+func (a *App) DeleteScriptTask(name string) error {
+	tasksPath := a.getTasksPath()
+
+	safeName := regexp.MustCompile(`[^a-zA-Z0-9_-]`).ReplaceAllString(name, "_")
+	filePath := filepath.Join(tasksPath, safeName+".json")
+
+	if err := os.Remove(filePath); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("task not found")
+		}
+		return fmt.Errorf("failed to delete task: %w", err)
+	}
+
+	return nil
+}
+
+// RunScriptTask executes a composite task
+func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
+	touchPlaybackMu.Lock()
+	if _, exists := touchPlaybackCancel[deviceId]; exists {
+		touchPlaybackMu.Unlock()
+		return fmt.Errorf("playback already in progress")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	touchPlaybackCancel[deviceId] = cancel
+	touchPlaybackMu.Unlock()
+
+	go func() {
+		defer func() {
+			touchPlaybackMu.Lock()
+			delete(touchPlaybackCancel, deviceId)
+			touchPlaybackMu.Unlock()
+
+			wailsRuntime.EventsEmit(a.ctx, "task-completed", map[string]interface{}{
+				"deviceId": deviceId,
+				"taskName": task.Name,
+			})
+		}()
+
+		wailsRuntime.EventsEmit(a.ctx, "task-started", map[string]interface{}{
+			"deviceId": deviceId,
+			"taskName": task.Name,
+			"steps":    len(task.Steps),
+		})
+
+		// Load all available scripts first to quickly look them up
+		scripts, _ := a.LoadTouchScripts()
+		scriptMap := make(map[string]TouchScript)
+		for _, s := range scripts {
+			scriptMap[s.Name] = s
+		}
+
+		for i, step := range task.Steps {
+			// Check cancel
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			// Check pause
+			a.checkPause(deviceId)
+
+			wailsRuntime.EventsEmit(a.ctx, "task-step-started", map[string]interface{}{
+				"deviceId":  deviceId,
+				"stepIndex": i,
+				"type":      step.Type,
+				"value":     step.Value,
+			})
+
+			loopCount := step.Loop
+			if loopCount < 1 {
+				loopCount = 1
+			}
+
+			for l := 0; l < loopCount; l++ {
+				// Check cancel inside loop
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+
+				// Check pause inside loop
+				a.checkPause(deviceId)
+
+				// Emit step progress including loop info
+				wailsRuntime.EventsEmit(a.ctx, "task-step-running", map[string]interface{}{
+					"deviceId":    deviceId,
+					"taskName":    task.Name,
+					"stepIndex":   i,
+					"totalSteps":  len(task.Steps),
+					"currentLoop": l + 1,
+					"totalLoops":  loopCount,
+					"type":        step.Type,
+					"value":       step.Value,
+				})
+
+				if step.Type == "wait" {
+					duration, _ := strconv.Atoi(step.Value)
+					if duration > 0 {
+						time.Sleep(time.Duration(duration) * time.Millisecond)
+					}
+				} else if step.Type == "script" {
+					script, ok := scriptMap[step.Value]
+					if !ok {
+						fmt.Printf("[Automation] Script not found: %s\n", step.Value)
+						continue
+					}
+
+					// Run the script synchronously using our helper
+					err := a.playTouchScriptSync(ctx, deviceId, script, func(current, total int) {
+						// Optional: emit more granular progress if needed,
+						// but task-step-running might be enough for general status
+					})
+					if err != nil {
+						// Context cancelled or error
+						return
+					}
+				} else if step.Type == "adb" {
+					// Execute ADB command
+					// step.Value contains the command arguments (e.g. "shell input keyevent 3")
+					// Users might provide "shell input ..." or just "input ..."
+					// RunAdbCommand expects the full arguments string.
+					cmd := step.Value
+					_, err := a.RunAdbCommand(deviceId, cmd)
+					if err != nil {
+						fmt.Printf("[Automation] ADB command failed: %s, error: %v\n", cmd, err)
+						// Decide if we should stop the task. For now, continue but log error.
+					}
+				}
+			}
+
+			// Apply PostDelay after the step (all loops) is completed
+			if step.PostDelay > 0 {
+				wailsRuntime.EventsEmit(a.ctx, "task-step-running", map[string]interface{}{
+					"deviceId":      deviceId,
+					"taskName":      task.Name,
+					"stepIndex":     i,
+					"currentAction": fmt.Sprintf("Post-Wait: %dms", step.PostDelay),
+				})
+
+				// Check cancel before waiting
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+
+				// Check pause
+				a.checkPause(deviceId)
+
+				time.Sleep(time.Duration(step.PostDelay) * time.Millisecond)
+			}
+		}
+	}()
 
 	return nil
 }

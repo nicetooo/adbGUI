@@ -20,7 +20,8 @@
     "folder_name": "資料夾名稱",
     "enter_new_name": "輸入新名稱",
     "clear": "清除",
-    "browse": "瀏覽"
+    "browse": "瀏覽",
+    "required": "必填項"
   },
   "menu": {
     "devices": "裝置列表",
@@ -480,6 +481,40 @@
     "script_preview": "腳本預覽",
     "event_tap": "點擊",
     "event_swipe": "滑動",
-    "event_wait": "等待"
+    "event_wait": "等待",
+    "saved_tasks": "任務列表",
+    "scripts": "腳本",
+    "no_tasks": "暫無任務",
+    "create_task": "新建任務",
+    "task_name": "任務名稱",
+    "edit_task": "編輯任務",
+    "delete_task_confirm": "確定刪除任務 \"{{name}}\"？",
+    "task_saved": "任務已儲存",
+    "task_deleted": "任務已刪除",
+    "add_step": "添加步驟",
+    "rename_script": "重命名腳本",
+    "new_script_name": "新腳本名稱",
+    "script_renamed": "腳本重命名成功",
+    "step_type": {
+      "script": "腳本",
+      "wait": "等待",
+      "adb": "ADB 命令"
+    },
+    "duration": "時長",
+    "loop": "循環",
+    "post_delay": "執行後等待",
+    "pause": "暫停",
+    "resume": "繼續",
+    "stop_task": "停止任務",
+    "running": "運行中",
+    "paused": "已暫停",
+    "wait": "等待",
+    "adb_command": "ADB 命令",
+    "adb_placeholder": "例如: shell input keyevent 3",
+    "select_script": "選擇腳本",
+    "enter_name": "請輸入名稱",
+    "run_task": "執行任務",
+    "step": "步驟",
+    "steps_count": "個步驟"
   }
 }

@@ -5,4 +5,4 @@ export { useMirrorStore, openRecordPath } from './mirrorStore';
 export { useLogcatStore } from './logcatStore';
 export { useUIStore } from './uiStore';
 export { useAutomationStore } from './automationStore';
-export type { TouchEvent, TouchScript } from './automationStore';
+export type { TouchEvent, TouchScript, ScriptTask, TaskStep } from './automationStore';

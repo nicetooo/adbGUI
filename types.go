@@ -175,3 +175,18 @@ type TouchRecordingSession struct {
 	MinX        int
 	MinY        int
 }
+
+// TaskStep represents a step in a composite task
+type TaskStep struct {
+	Type      string `json:"type"`      // "script" or "wait"
+	Value     string `json:"value"`     // Script name or duration in ms (as string)
+	Loop      int    `json:"loop"`      // Number of times to repeat this step
+	PostDelay int    `json:"postDelay"` // Wait time in ms AFTER this step
+}
+
+// ScriptTask represents a sequence of automation steps
+type ScriptTask struct {
+	Name      string     `json:"name"`
+	Steps     []TaskStep `json:"steps"`
+	CreatedAt string     `json:"createdAt"`
+}

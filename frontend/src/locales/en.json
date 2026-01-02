@@ -20,7 +20,8 @@
     "folder_name": "Folder name",
     "enter_new_name": "Enter new name",
     "clear": "Clear",
-    "browse": "Browse"
+    "browse": "Browse",
+    "required": "Required"
   },
   "menu": {
     "devices": "Devices",
@@ -453,6 +454,7 @@
   "automation": {
     "title": "Touch Automation",
     "touch_script": "Touch Script",
+    "scripts": "Scripts",
     "record_control": "Record Control",
     "touch_on_device": "Touch events on device screen",
     "start_record": "Start Recording",
@@ -474,6 +476,38 @@
     "delete": "Delete",
     "delete_confirm": "Delete script \"{{name}}\"?",
     "playing": "Playing...",
-    "script_preview": "Script Preview"
+    "script_preview": "Script Preview",
+    "tasks": "Task Orchestration",
+    "saved_tasks": "Tasks",
+    "no_tasks": "No tasks",
+    "create_task": "New Task",
+    "step": "Step",
+    "run_task": "Run Task",
+    "steps_count": "step(s)",
+    "task_name": "Task Name",
+    "edit_task": "Edit Task",
+    "delete_task_confirm": "Delete task \"{{name}}\"?",
+    "task_saved": "Task saved",
+    "task_deleted": "Task deleted",
+    "add_step": "Add Step",
+    "rename_script": "Rename Script",
+    "new_script_name": "New Script Name",
+    "script_renamed": "Script renamed",
+    "step_type": {
+      "script": "Script",
+      "wait": "Wait",
+      "adb": "ADB Command"
+    },
+    "duration": "Duration",
+    "loop": "Loop",
+    "post_delay": "Wait (ms)",
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop_task": "Stop",
+    "running": "Running",
+    "paused": "Paused",
+    "wait": "Wait",
+    "adb_command": "ADB Command",
+    "adb_placeholder": "e.g. shell input keyevent 3"
   }
 }

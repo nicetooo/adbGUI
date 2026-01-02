@@ -20,7 +20,8 @@
     "folder_name": "폴더 이름",
     "enter_new_name": "새 이름 입력",
     "clear": "지우기",
-    "browse": "찾아보기"
+    "browse": "찾아보기",
+    "required": "필수"
   },
   "menu": {
     "devices": "장치 목록",
@@ -480,6 +481,40 @@
     "script_preview": "스크립트 미리보기",
     "event_tap": "탭",
     "event_swipe": "스와이프",
-    "event_wait": "대기"
+    "event_wait": "대기",
+    "saved_tasks": "저장된 태스크",
+    "scripts": "스크립트",
+    "no_tasks": "태스크 없음",
+    "create_task": "새 태스크",
+    "task_name": "태스크 이름",
+    "edit_task": "태스크 편집",
+    "delete_task_confirm": "태스크 \"{{name}}\"을(를) 삭제하시겠습니까?",
+    "task_saved": "태스크가 저장되었습니다",
+    "task_deleted": "태스크가 삭제되었습니다",
+    "add_step": "단계 추가",
+    "rename_script": "스크립트 이름 변경",
+    "new_script_name": "새 스크립트 이름",
+    "script_renamed": "스크립트 이름이 변경되었습니다",
+    "step_type": {
+      "script": "스크립트",
+      "wait": "대기",
+      "adb": "ADB 명령"
+    },
+    "duration": "지속 시간",
+    "loop": "반복",
+    "post_delay": "실행 후 대기",
+    "pause": "일시 중지",
+    "resume": "다시 시작",
+    "stop_task": "태스크 중지",
+    "running": "실행 중",
+    "paused": "일시 중지됨",
+    "wait": "대기",
+    "adb_command": "ADB 명령",
+    "adb_placeholder": "예: shell input keyevent 3",
+    "select_script": "스크립트 선택",
+    "enter_name": "이름을 입력하세요",
+    "run_task": "태스크 실행",
+    "step": "단계",
+    "steps_count": "단계"
   }
 }
