@@ -339,8 +339,12 @@ func (a *App) handleElementAction(ctx context.Context, deviceId string, step Wor
 		var foundNode *UINode
 
 		if step.Selector != nil {
-			// "advanced" usually implies XPath or complex logic.
-			if step.Selector.Type == "xpath" {
+			// Handle bounds selector specially - no need to search
+			if step.Selector.Type == "bounds" {
+				// Create a dummy node with just the bounds
+				foundNode = &UINode{Bounds: step.Selector.Value}
+			} else if step.Selector.Type == "xpath" {
+				// XPath search
 				results := a.SearchElementsXPath(hierarchy.Root, step.Selector.Value)
 				if len(results) > 0 {
 					// Use index if specified, else 0
@@ -439,6 +443,8 @@ func (a *App) findElementNode(node *UINode, checkType, checkValue string) *UINod
 		match = strings.Contains(node.Text, checkValue) || strings.Contains(node.ContentDesc, checkValue)
 	case "description":
 		match = node.ContentDesc == checkValue
+	case "bounds":
+		match = node.Bounds == checkValue
 	}
 
 	if match {

@@ -668,6 +668,20 @@
       "script": "Run Script",
       "adb": "ADB Command",
       "run_workflow": "Run Workflow"
-    }
+    },
+    "element_picker": "Element Picker",
+    "pick_element": "Pick Element from Screen",
+    "pick_element_tip": "Click an element from the tree to select it",
+    "select_element_first": "Please select an element first",
+    "no_valid_selector": "Could not generate a valid selector",
+    "use_selector": "Use Selector",
+    "choose_selector": "Choose Selector",
+    "selected_selector": "Selected",
+    "no_selectors": "No selectors available",
+    "selector_applied": "Selector applied",
+    "step_updated": "Step updated",
+    "save": "Save",
+    "update": "Update",
+    "bounds_warning": "Bounds selectors use fixed screen coordinates. They may not work reliably on different devices or screen orientations."
   }
 }

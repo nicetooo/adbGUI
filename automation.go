@@ -1389,6 +1389,8 @@ func (a *App) FindElement(node *UINode, checkType, checkValue string) bool {
 		match = strings.Contains(node.Text, checkValue) || strings.Contains(node.ContentDesc, checkValue)
 	case "description":
 		match = node.ContentDesc == checkValue
+	case "bounds":
+		match = node.Bounds == checkValue
 	}
 
 	if match {

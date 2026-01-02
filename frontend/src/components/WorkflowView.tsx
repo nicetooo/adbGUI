@@ -61,17 +61,12 @@ import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
 
 import DeviceSelector from "./DeviceSelector";
+import ElementPicker, { ElementSelector } from "./ElementPicker";
 import { useDeviceStore, useAutomationStore } from "../stores";
 
 const { Text, Title } = Typography;
 
 // Workflow types
-interface ElementSelector {
-  type: 'text' | 'id' | 'xpath' | 'advanced';
-  value: string;
-  index?: number;
-}
-
 interface WorkflowStep {
   id: string;
   type: string;
@@ -206,6 +201,9 @@ const WorkflowView: React.FC = () => {
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [stepForm] = Form.useForm();
+
+  // Element Picker
+  const [elementPickerVisible, setElementPickerVisible] = useState(false);
 
   const nodeTypes = useMemo(() => ({ workflowNode: WorkflowNode }), []);
 
@@ -490,6 +488,17 @@ const WorkflowView: React.FC = () => {
     setDrawerVisible(false);
     setEditingNodeId(null);
   }
+
+  const handleElementSelected = (selector: ElementSelector) => {
+    stepForm.setFieldsValue({
+      selectorType: selector.type,
+      selectorValue: selector.value,
+    });
+    setElementPickerVisible(false);
+    // Trigger form update
+    handleUpdateStep(stepForm.getFieldsValue());
+    message.success(t("workflow.selector_applied"));
+  };
 
   // Runners
   const handleRunWorkflow = async () => {
@@ -883,21 +892,36 @@ const WorkflowView: React.FC = () => {
                 return (
                   <>
                     {needsSelector && (
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <Form.Item name="selectorType" label={t("workflow.selector_type")} style={{ width: 100 }}>
-                          <Select
-                            options={[
-                              { label: 'Text', value: 'text' },
-                              { label: 'ID', value: 'id' },
-                              { label: 'XPath', value: 'xpath' },
-                              { label: t("workflow.selector_advanced"), value: 'advanced' },
-                            ]}
-                          />
-                        </Form.Item>
-                        <Form.Item name="selectorValue" label={t("workflow.selector_value")} style={{ flex: 1 }}>
-                          <Input placeholder={t("workflow.selector_placeholder")} />
-                        </Form.Item>
-                      </div>
+                      <>
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                          <Button
+                            type="primary"
+                            ghost
+                            icon={<AimOutlined />}
+                            onClick={() => setElementPickerVisible(true)}
+                            disabled={!selectedDevice}
+                            style={{ flex: 1 }}
+                          >
+                            {t("workflow.pick_element")}
+                          </Button>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <Form.Item name="selectorType" label={t("workflow.selector_type")} style={{ width: 100 }}>
+                            <Select
+                              options={[
+                                { label: 'Text', value: 'text' },
+                                { label: 'ID', value: 'id' },
+                                { label: 'XPath', value: 'xpath' },
+                                { label: 'Bounds', value: 'bounds' },
+                                { label: t("workflow.selector_advanced"), value: 'advanced' },
+                              ]}
+                            />
+                          </Form.Item>
+                          <Form.Item name="selectorValue" label={t("workflow.selector_value")} style={{ flex: 1 }}>
+                            <Input placeholder={t("workflow.selector_placeholder")} />
+                          </Form.Item>
+                        </div>
+                      </>
                     )}
 
                     {isWorkflow && (
@@ -977,6 +1001,13 @@ const WorkflowView: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* Element Picker Modal */}
+      <ElementPicker
+        visible={elementPickerVisible}
+        onSelect={handleElementSelected}
+        onCancel={() => setElementPickerVisible(false)}
+      />
 
     </div>
   );
