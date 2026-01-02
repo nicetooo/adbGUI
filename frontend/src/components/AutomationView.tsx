@@ -257,6 +257,10 @@ const AutomationView: React.FC = () => {
         value: val,
         loop: Number(s.loop || 1),
         postDelay: Number(s.postDelay || 0),
+        checkType: s.checkType,
+        checkValue: s.checkValue,
+        waitTimeout: Number(s.waitTimeout || 5000),
+        onFailure: s.onFailure || "stop",
       };
     });
 
@@ -294,6 +298,10 @@ const AutomationView: React.FC = () => {
         duration: s.type === 'wait' ? Number(s.value) : undefined,
         scriptName: s.type === 'script' ? s.value : undefined,
         adbCommand: s.type === 'adb' ? s.value : undefined,
+        checkType: s.checkType,
+        checkValue: s.checkValue,
+        waitTimeout: s.waitTimeout,
+        onFailure: s.onFailure,
       }))
     };
     taskForm.setFieldsValue(formValues);
@@ -953,6 +961,7 @@ const AutomationView: React.FC = () => {
                                     { label: t("automation.step_type.script"), value: "script" },
                                     { label: t("automation.step_type.wait"), value: "wait" },
                                     { label: t("automation.step_type.adb"), value: "adb" },
+                                    { label: t("automation.step_type.check"), value: "check" },
                                   ]}
                                 />
                               </Form.Item>
@@ -994,6 +1003,64 @@ const AutomationView: React.FC = () => {
                                         >
                                           <Input placeholder={t("automation.adb_placeholder")} />
                                         </Form.Item>
+                                      );
+                                    } else if (type === "check") {
+                                      return (
+                                        <div style={{ display: "flex", gap: 8 }}>
+                                          <Form.Item
+                                            {...restField}
+                                            name={[name, "checkType"]}
+                                            initialValue="text"
+                                            style={{ width: 150, marginBottom: 0 }}
+                                          >
+                                            <Select
+                                              options={[
+                                                { label: t("automation.check_types.text"), value: "text" },
+                                                { label: t("automation.check_types.contains"), value: "contains" },
+                                                { label: t("automation.check_types.id"), value: "id" },
+                                                { label: t("automation.check_types.description"), value: "description" },
+                                                { label: t("automation.check_types.class"), value: "class" },
+                                              ]}
+                                            />
+                                          </Form.Item>
+                                          <Form.Item
+                                            {...restField}
+                                            name={[name, "checkValue"]}
+                                            rules={[{ required: true, message: t("common.required") }]}
+                                            style={{ flex: 1, marginBottom: 0 }}
+                                          >
+                                            <Input placeholder={t("automation.check_value")} />
+                                          </Form.Item>
+                                        </div>
+                                      );
+                                    } else if (type === "check") {
+                                      return (
+                                        <div style={{ display: "flex", gap: 8 }}>
+                                          <Form.Item
+                                            {...restField}
+                                            name={[name, "checkType"]}
+                                            initialValue="text"
+                                            style={{ width: 150, marginBottom: 0 }}
+                                          >
+                                            <Select
+                                              options={[
+                                                { label: t("automation.check_types.text"), value: "text" },
+                                                { label: t("automation.check_types.contains"), value: "contains" },
+                                                { label: t("automation.check_types.id"), value: "id" },
+                                                { label: t("automation.check_types.description"), value: "description" },
+                                                { label: t("automation.check_types.class"), value: "class" },
+                                              ]}
+                                            />
+                                          </Form.Item>
+                                          <Form.Item
+                                            {...restField}
+                                            name={[name, "checkValue"]}
+                                            rules={[{ required: true, message: t("common.required") }]}
+                                            style={{ flex: 1, marginBottom: 0 }}
+                                          >
+                                            <Input placeholder={t("automation.check_value")} />
+                                          </Form.Item>
+                                        </div>
                                       );
                                     } else {
                                       return (
@@ -1051,8 +1118,59 @@ const AutomationView: React.FC = () => {
                                   </Form.Item>
                                 </div>
                               </div>
+                            </div>
 
-                              <div style={{ display: 'flex', gap: 2, marginLeft: 8 }}>
+                            <Form.Item
+                              noStyle
+                              shouldUpdate={(prevValues, currentValues) =>
+                                prevValues.steps?.[name]?.type !== currentValues.steps?.[name]?.type
+                              }
+                            >
+                              {({ getFieldValue }) => {
+                                const type = getFieldValue(["steps", name, "type"]);
+                                if (type !== "check") return null;
+                                return (
+                                  <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%", marginTop: 8 }}>
+                                    <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+                                      <span style={{ whiteSpace: "nowrap" }}>{t("automation.wait_timeout")}</span>
+                                      <Form.Item
+                                        {...restField}
+                                        name={[name, "waitTimeout"]}
+                                        initialValue={5000}
+                                        style={{ flex: 1, marginBottom: 0 }}
+                                      >
+                                        <InputNumber
+                                          min={100}
+                                          step={1000}
+                                          addonAfter="ms"
+                                          style={{ width: "100%", maxWidth: 160 }}
+                                        />
+                                      </Form.Item>
+                                    </div>
+                                    <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+                                      <span style={{ whiteSpace: "nowrap" }}>{t("automation.on_failure")}</span>
+                                      <Form.Item
+                                        {...restField}
+                                        name={[name, "onFailure"]}
+                                        initialValue="stop"
+                                        style={{ flex: 1, marginBottom: 0 }}
+                                      >
+                                        <Select
+                                          options={[
+                                            { label: t("automation.fail_stop"), value: "stop" },
+                                            { label: t("automation.fail_continue"), value: "continue" },
+                                          ]}
+                                        />
+                                      </Form.Item>
+                                    </div>
+                                    <div style={{ width: 44 }}></div>
+                                  </div>
+                                );
+                              }}
+                            </Form.Item>
+
+                            <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%", justifyContent: 'flex-end', marginTop: 8 }}>
+                              <div style={{ display: 'flex', gap: 2 }}>
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                                   <Button
                                     type="text"
@@ -1096,7 +1214,7 @@ const AutomationView: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 

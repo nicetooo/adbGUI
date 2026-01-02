@@ -152,6 +152,8 @@ type TouchEvent struct {
 	X2        int    `json:"x2,omitempty"`       // End X for swipe
 	Y2        int    `json:"y2,omitempty"`       // End Y for swipe
 	Duration  int    `json:"duration,omitempty"` // Duration in ms for swipe or wait
+	Label     string `json:"label,omitempty"`    // Optional label (e.g. text of the button clicked)
+	ResID     string `json:"resId,omitempty"`    // Optional resource ID of the element
 }
 
 // TouchScript represents a recorded touch automation script
@@ -179,10 +181,14 @@ type TouchRecordingSession struct {
 
 // TaskStep represents a step in a composite task
 type TaskStep struct {
-	Type      string `json:"type"`      // "script" or "wait"
-	Value     string `json:"value"`     // Script name or duration in ms (as string)
-	Loop      int    `json:"loop"`      // Number of times to repeat this step
-	PostDelay int    `json:"postDelay"` // Wait time in ms AFTER this step
+	Type        string `json:"type"`        // "script", "wait", "adb", "check"
+	Value       string `json:"value"`       // Script name, duration, adb command, or selector
+	Loop        int    `json:"loop"`        // Number of times to repeat this step
+	PostDelay   int    `json:"postDelay"`   // Wait time in ms AFTER this step
+	CheckType   string `json:"checkType"`   // "text", "id", "class", "contains"
+	CheckValue  string `json:"checkValue"`  // Success condition value
+	WaitTimeout int    `json:"waitTimeout"` // Max time to wait for condition in ms
+	OnFailure   string `json:"onFailure"`   // "stop", "continue"
 }
 
 // ScriptTask represents a sequence of automation steps

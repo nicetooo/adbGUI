@@ -31,6 +31,7 @@
     "logcat": "Logcat",
     "mirror": "Mirror",
     "proxy": "Proxy",
+    "inspector": "UI Inspector",
     "automation": "Automation"
   },
   "about": {
@@ -500,7 +501,21 @@
     "step_type": {
       "script": "Script",
       "wait": "Wait",
-      "adb": "ADB Command"
+      "adb": "ADB Command",
+      "check": "UI Check"
+    },
+    "check_type": "Check Type",
+    "check_value": "Check Value",
+    "wait_timeout": "Timeout (ms)",
+    "on_failure": "On Failure",
+    "fail_stop": "Stop Task",
+    "fail_continue": "Continue",
+    "check_types": {
+      "text": "Text Match",
+      "contains": "Contains Text",
+      "id": "Resource ID",
+      "description": "Content Desc",
+      "class": "Class Name"
     },
     "duration": "Duration",
     "loop": "Loop",
@@ -516,6 +531,29 @@
     "paused": "Paused",
     "wait": "Wait",
     "adb_command": "ADB Command",
-    "adb_placeholder": "e.g. shell input keyevent 3"
+    "adb_placeholder": "e.g. shell input keyevent 3",
+    "ui_inspector": "UI Inspector",
+    "ui_hierarchy": "UI Hierarchy Tree",
+    "no_hierarchy_info": "No UI hierarchy info fetched",
+    "element_details": "Element Details",
+    "select_element_tip": "Select an element from the tree to view details",
+    "copy_selector": "Copy Selector Text",
+    "click": "Click",
+    "long_click": "Long Click",
+    "action_success": "Action sent",
+    "copy_as_step": "Copy as Automation Step (JSON)",
+    "copy_step_success": "Automation step copied to clipboard",
+    "node_actions": "Exploration & Actions",
+    "simulate": "Simulate Run",
+    "swipe_up": "Swipe Up",
+    "swipe_down": "Swipe Down",
+    "swipe_left": "Swipe Left",
+    "swipe_right": "Swipe Right",
+    "back": "Back",
+    "home": "Home",
+    "recent": "Recent Tasks",
+    "input": "Simulate Keyboard Input",
+    "input_placeholder": "Type text to send...",
+    "ui_updated": "UI hierarchy updated"
   }
 }

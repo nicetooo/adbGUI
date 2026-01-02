@@ -31,6 +31,7 @@
     "logcat": "日誌查看",
     "mirror": "投屏控制",
     "proxy": "網路代理",
+    "inspector": "UI 分析",
     "automation": "觸控自動化"
   },
   "about": {
@@ -500,7 +501,21 @@
     "step_type": {
       "script": "腳本",
       "wait": "等待",
-      "adb": "ADB 命令"
+      "adb": "ADB 命令",
+      "check": "頁面檢查"
+    },
+    "check_type": "檢查類型",
+    "check_value": "檢查內容",
+    "wait_timeout": "超時時間",
+    "on_failure": "失敗時",
+    "fail_stop": "终止任務",
+    "fail_continue": "繼續執行",
+    "check_types": {
+      "text": "文本完全匹配",
+      "contains": "包含文本",
+      "id": "資源 ID",
+      "description": "內容描述",
+      "class": "類名"
     },
     "duration": "時長",
     "loop": "循環",
@@ -516,6 +531,28 @@
     "paused": "已暫停",
     "wait": "等待",
     "adb_command": "ADB 命令",
-    "adb_placeholder": "例如: shell input keyevent 3"
+    "adb_placeholder": "例如: shell input keyevent 3",
+    "ui_inspector": "UI 分析",
+    "ui_hierarchy": "UI 佈局樹",
+    "no_hierarchy_info": "未獲取到 UI 佈局資訊",
+    "element_details": "元素詳情",
+    "select_element_tip": "從左側樹中選擇一個元素查看詳情",
+    "copy_selector": "複製選擇器文本",
+    "click": "模擬點擊",
+    "long_click": "模擬長按",
+    "action_success": "操作已發送",
+    "copy_as_step": "轉換為自動化步驟 (JSON)",
+    "copy_step_success": "腳本步驟已複製到剪貼板",
+    "node_actions": "調試與探索",
+    "simulate": "執行模擬",
+    "swipe_up": "向上滑動",
+    "swipe_down": "向下滑動",
+    "swipe_left": "向左滑動",
+    "swipe_right": "向右滑動",
+    "back": "返回鍵",
+    "home": "主頁鍵",
+    "recent": "多任務",
+    "input": "模擬鍵盤輸入",
+    "input_placeholder": "輸入要發送的内容..."
   }
 }

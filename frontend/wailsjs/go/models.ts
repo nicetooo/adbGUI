@@ -309,6 +309,10 @@ export namespace main {
 	    value: string;
 	    loop: number;
 	    postDelay: number;
+	    checkType: string;
+	    checkValue: string;
+	    waitTimeout: number;
+	    onFailure: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new TaskStep(source);
@@ -320,6 +324,10 @@ export namespace main {
 	        this.value = source["value"];
 	        this.loop = source["loop"];
 	        this.postDelay = source["postDelay"];
+	        this.checkType = source["checkType"];
+	        this.checkValue = source["checkValue"];
+	        this.waitTimeout = source["waitTimeout"];
+	        this.onFailure = source["onFailure"];
 	    }
 	}
 	export class ScriptTask {
@@ -365,6 +373,8 @@ export namespace main {
 	    x2?: number;
 	    y2?: number;
 	    duration?: number;
+	    label?: string;
+	    resId?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new TouchEvent(source);
@@ -379,6 +389,8 @@ export namespace main {
 	        this.x2 = source["x2"];
 	        this.y2 = source["y2"];
 	        this.duration = source["duration"];
+	        this.label = source["label"];
+	        this.resId = source["resId"];
 	    }
 	}
 	export class TouchScript {
@@ -420,6 +432,119 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	export class UINode {
+	    text: string;
+	    resourceId: string;
+	    class: string;
+	    package: string;
+	    contentDesc: string;
+	    checkable: string;
+	    checked: string;
+	    clickable: string;
+	    enabled: string;
+	    focusable: string;
+	    focused: string;
+	    scrollable: string;
+	    longClickable: string;
+	    password: string;
+	    selected: string;
+	    bounds: string;
+	    nodes: UINode[];
+	
+	    static createFrom(source: any = {}) {
+	        return new UINode(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.text = source["text"];
+	        this.resourceId = source["resourceId"];
+	        this.class = source["class"];
+	        this.package = source["package"];
+	        this.contentDesc = source["contentDesc"];
+	        this.checkable = source["checkable"];
+	        this.checked = source["checked"];
+	        this.clickable = source["clickable"];
+	        this.enabled = source["enabled"];
+	        this.focusable = source["focusable"];
+	        this.focused = source["focused"];
+	        this.scrollable = source["scrollable"];
+	        this.longClickable = source["longClickable"];
+	        this.password = source["password"];
+	        this.selected = source["selected"];
+	        this.bounds = source["bounds"];
+	        this.nodes = this.convertValues(source["nodes"], UINode);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class UIHierarchyResult {
+	    root?: UINode;
+	    rawXml: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new UIHierarchyResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = this.convertValues(source["root"], UINode);
+	        this.rawXml = source["rawXml"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
+export namespace xml {
+	
+	export class Name {
+	    Space: string;
+	    Local: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Name(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Space = source["Space"];
+	        this.Local = source["Local"];
+	    }
 	}
 
 }

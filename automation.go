@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"os"
 	"os/exec"
@@ -1181,6 +1182,62 @@ func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
 						fmt.Printf("[Automation] ADB command failed: %s, error: %v\n", cmd, err)
 						// Decide if we should stop the task. For now, continue but log error.
 					}
+				} else if step.Type == "check" {
+					// Content-aware check: wait for element to appear
+					timeout := step.WaitTimeout
+					if timeout <= 0 {
+						timeout = 5000 // Default 5s
+					}
+
+					checkType := step.CheckType
+					if checkType == "" {
+						checkType = "text"
+					}
+
+					fmt.Printf("[Automation] Checking for element: %s=%s (timeout: %dms)\n", checkType, step.CheckValue, timeout)
+
+					startCheck := time.Now()
+					found := false
+					for {
+						// Check cancel/pause
+						select {
+						case <-ctx.Done():
+							return
+						default:
+						}
+						a.checkPause(deviceId)
+
+						wailsRuntime.EventsEmit(a.ctx, "task-step-running", map[string]interface{}{
+							"deviceId":      deviceId,
+							"taskName":      task.Name,
+							"stepIndex":     i,
+							"currentAction": fmt.Sprintf("Checking UI: %s=%s", checkType, step.CheckValue),
+						})
+
+						result, err := a.GetUIHierarchy(deviceId)
+						if err == nil && a.FindElement(result.Root, checkType, step.CheckValue) {
+							found = true
+							break
+						}
+
+						if time.Since(startCheck) >= time.Duration(timeout)*time.Millisecond {
+							break
+						}
+						time.Sleep(1 * time.Second)
+					}
+
+					if !found {
+						fmt.Printf("[Automation] Element not found: %s=%s\n", checkType, step.CheckValue)
+						if step.OnFailure == "stop" {
+							wailsRuntime.EventsEmit(a.ctx, "task-error", map[string]interface{}{
+								"deviceId": deviceId,
+								"error":    fmt.Sprintf("Element not found: %s=%s", checkType, step.CheckValue),
+							})
+							return
+						}
+					} else {
+						fmt.Printf("[Automation] Element found: %s=%s\n", checkType, step.CheckValue)
+					}
 				}
 			}
 
@@ -1209,4 +1266,235 @@ func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
 	}()
 
 	return nil
+}
+
+// UI Hierarchy structures for parsing uiautomator dump
+type UINode struct {
+	XMLName       xml.Name `xml:"node" json:"-"`
+	Text          string   `xml:"text,attr" json:"text"`
+	ResourceID    string   `xml:"resource-id,attr" json:"resourceId"`
+	Class         string   `xml:"class,attr" json:"class"`
+	Package       string   `xml:"package,attr" json:"package"`
+	ContentDesc   string   `xml:"content-desc,attr" json:"contentDesc"`
+	Checkable     string   `xml:"checkable,attr" json:"checkable"`
+	Checked       string   `xml:"checked,attr" json:"checked"`
+	Clickable     string   `xml:"clickable,attr" json:"clickable"`
+	Enabled       string   `xml:"enabled,attr" json:"enabled"`
+	Focusable     string   `xml:"focusable,attr" json:"focusable"`
+	Focused       string   `xml:"focused,attr" json:"focused"`
+	Scrollable    string   `xml:"scrollable,attr" json:"scrollable"`
+	LongClickable string   `xml:"long-clickable,attr" json:"longClickable"`
+	Password      string   `xml:"password,attr" json:"password"`
+	Selected      string   `xml:"selected,attr" json:"selected"`
+	Bounds        string   `xml:"bounds,attr" json:"bounds"`
+	Nodes         []UINode `xml:"node" json:"nodes"`
+}
+
+type UIHierarchy struct {
+	XMLName xml.Name `xml:"hierarchy"`
+	Nodes   []UINode `xml:"node"`
+}
+
+type UIHierarchyResult struct {
+	Root   *UINode `json:"root"`
+	RawXML string  `json:"rawXml"`
+}
+
+// GetUIHierarchy dumps the UI hierarchy and parses it
+func (a *App) GetUIHierarchy(deviceId string) (*UIHierarchyResult, error) {
+	// Try dumping several times as it can be flaky
+	var xmlContent string
+	var err error
+	maxRetries := 3
+
+	for i := 0; i < maxRetries; i++ {
+		// Dump to a temporary file on device
+		// We use /data/local/tmp as it's usually more reliable than /sdcard
+		dumpFile := "/data/local/tmp/view.xml"
+		dumpCmd := fmt.Sprintf("shell uiautomator dump %s", dumpFile)
+		_, err = a.RunAdbCommand(deviceId, dumpCmd)
+		if err == nil {
+			// Read the file content
+			catCmd := fmt.Sprintf("shell cat %s", dumpFile)
+			xmlContent, err = a.RunAdbCommand(deviceId, catCmd)
+			if err == nil && strings.Contains(xmlContent, "<?xml") {
+				break
+			}
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	if err != nil || xmlContent == "" {
+		return nil, fmt.Errorf("failed to dump UI after %d attempts: %v", maxRetries, err)
+	}
+
+	// Basic cleanup if output has extra stuff (sometimes ADB adds headers or footers)
+	startIdx := strings.Index(xmlContent, "<?xml")
+	if startIdx != -1 {
+		xmlContent = xmlContent[startIdx:]
+	}
+	endIdx := strings.LastIndex(xmlContent, ">")
+	if endIdx != -1 && endIdx < len(xmlContent)-1 {
+		xmlContent = xmlContent[:endIdx+1]
+	}
+
+	rawXml := xmlContent // Save cleaned XML
+
+	// Fix common XML escaping issues if any
+	// Go's regexp doesn't support lookaheads, so we use a safe replacement chain
+	xmlContent = strings.ReplaceAll(xmlContent, "&", "&amp;")
+	xmlContent = strings.ReplaceAll(xmlContent, "&amp;amp;", "&amp;")
+	xmlContent = strings.ReplaceAll(xmlContent, "&amp;lt;", "&lt;")
+	xmlContent = strings.ReplaceAll(xmlContent, "&amp;gt;", "&gt;")
+	xmlContent = strings.ReplaceAll(xmlContent, "&amp;quot;", "&quot;")
+	xmlContent = strings.ReplaceAll(xmlContent, "&amp;apos;", "&apos;")
+	xmlContent = strings.ReplaceAll(xmlContent, "&amp;#", "&#") // Fix numeric entities
+
+	var root UIHierarchy
+	err = xml.Unmarshal([]byte(xmlContent), &root)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse UI XML (length: %d): %w", len(xmlContent), err)
+	}
+
+	var finalRoot *UINode
+	if len(root.Nodes) == 1 {
+		finalRoot = &root.Nodes[0]
+	} else {
+		finalRoot = &UINode{
+			Class:   "android.view.View",
+			Text:    "Root Container",
+			Package: root.Nodes[0].Package,
+			Bounds:  "[0,0][0,0]",
+			Nodes:   root.Nodes,
+		}
+	}
+
+	return &UIHierarchyResult{
+		Root:   finalRoot,
+		RawXML: rawXml,
+	}, nil
+}
+
+// FindElement recursively searches for an element matching the criteria
+func (a *App) FindElement(node *UINode, checkType, checkValue string) bool {
+	match := false
+	switch checkType {
+	case "text":
+		match = node.Text == checkValue
+	case "id":
+		match = node.ResourceID == checkValue || strings.HasSuffix(node.ResourceID, ":id/"+checkValue)
+	case "class":
+		match = node.Class == checkValue
+	case "contains":
+		match = strings.Contains(node.Text, checkValue) || strings.Contains(node.ContentDesc, checkValue)
+	case "description":
+		match = node.ContentDesc == checkValue
+	}
+
+	if match {
+		return true
+	}
+
+	for i := range node.Nodes {
+		if a.FindElement(&node.Nodes[i], checkType, checkValue) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// GetElementsWithText returns all elements containing the given text (useful for debugging/frontend)
+func (a *App) GetElementsWithText(deviceId string, text string) ([]map[string]interface{}, error) {
+	result, err := a.GetUIHierarchy(deviceId)
+	if err != nil {
+		return nil, err
+	}
+	root := result.Root
+
+	var results []map[string]interface{}
+	var find func(*UINode)
+	find = func(node *UINode) {
+		if strings.Contains(node.Text, text) || strings.Contains(node.ContentDesc, text) {
+			results = append(results, map[string]interface{}{
+				"text":       node.Text,
+				"resourceId": node.ResourceID,
+				"bounds":     node.Bounds,
+				"class":      node.Class,
+			})
+		}
+		for i := range node.Nodes {
+			find(&node.Nodes[i])
+		}
+	}
+
+	find(root)
+	return results, nil
+}
+
+// PerformNodeAction executes a node-based action (click, long click, swipe, keys)
+func (a *App) PerformNodeAction(deviceId string, bounds string, actionType string) error {
+	// Bounds format: "[x1,y1][x2,y2]"
+	re := regexp.MustCompile(`\[(\d+),(\d+)\]\[(\d+),(\d+)\]`)
+	matches := re.FindStringSubmatch(bounds)
+	if len(matches) < 5 {
+		return fmt.Errorf("invalid bounds format: %s", bounds)
+	}
+
+	x1, _ := strconv.Atoi(matches[1])
+	y1, _ := strconv.Atoi(matches[2])
+	x2, _ := strconv.Atoi(matches[3])
+	y2, _ := strconv.Atoi(matches[4])
+
+	centerX := (x1 + x2) / 2
+	centerY := (y1 + y2) / 2
+	width := x2 - x1
+	height := y2 - y1
+
+	var cmd string
+	switch actionType {
+	case "long_click":
+		cmd = fmt.Sprintf("shell input swipe %d %d %d %d 1000", centerX, centerY, centerX, centerY)
+	case "swipe_up":
+		// Swipe from bottom of node to top
+		cmd = fmt.Sprintf("shell input swipe %d %d %d %d 300", centerX, y2-height/10, centerX, y1+height/10)
+	case "swipe_down":
+		// Swipe from top of node to bottom
+		cmd = fmt.Sprintf("shell input swipe %d %d %d %d 300", centerX, y1+height/10, centerX, y2-height/10)
+	case "swipe_left":
+		// Swipe from right of node to left
+		cmd = fmt.Sprintf("shell input swipe %d %d %d %d 300", x2-width/10, centerY, x1+width/10, centerY)
+	case "swipe_right":
+		// Swipe from left of node to right
+		cmd = fmt.Sprintf("shell input swipe %d %d %d %d 300", x1+width/10, centerY, x2-width/10, centerY)
+	case "back":
+		cmd = "shell input keyevent 4"
+	case "home":
+		cmd = "shell input keyevent 3"
+	case "recent":
+		cmd = "shell input keyevent 187"
+	default:
+		cmd = fmt.Sprintf("shell input tap %d %d", centerX, centerY)
+	}
+
+	_, err := a.RunAdbCommand(deviceId, cmd)
+	return err
+}
+
+// InputNodeText taps a node to focus it and then sends text input
+func (a *App) InputNodeText(deviceId string, bounds string, text string) error {
+	// First click to focus
+	err := a.PerformNodeAction(deviceId, bounds, "click")
+	if err != nil {
+		return err
+	}
+
+	// Small delay to ensure focus
+	time.Sleep(200 * time.Millisecond)
+
+	// ADB input text doesn't like spaces directly, replace with %s
+	processedText := strings.ReplaceAll(text, " ", "%s")
+	cmd := fmt.Sprintf("shell input text \"%s\"", processedText)
+	_, err = a.RunAdbCommand(deviceId, cmd)
+	return err
 }

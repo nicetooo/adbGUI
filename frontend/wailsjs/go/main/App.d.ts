@@ -31,6 +31,8 @@ export function ExecuteBatchOperation(arg1:main.BatchOperation):Promise<main.Bat
 
 export function ExportAPK(arg1:string,arg2:string):Promise<string>;
 
+export function FindElement(arg1:main.UINode,arg2:string,arg3:string):Promise<boolean>;
+
 export function ForceStopApp(arg1:string,arg2:string):Promise<string>;
 
 export function GetAppInfo(arg1:string,arg2:string,arg3:boolean):Promise<main.AppPackage>;
@@ -46,6 +48,8 @@ export function GetDeviceInfo(arg1:string):Promise<main.DeviceInfo>;
 export function GetDeviceResolution(arg1:string):Promise<string>;
 
 export function GetDevices(arg1:boolean):Promise<Array<main.Device>>;
+
+export function GetElementsWithText(arg1:string,arg2:string):Promise<Array<{[key: string]: any}>>;
 
 export function GetHistoryDevices():Promise<Array<main.HistoryDevice>>;
 
@@ -63,7 +67,11 @@ export function GetThumbnail(arg1:string,arg2:string,arg3:string):Promise<string
 
 export function GetTouchInputDevice(arg1:string):Promise<string>;
 
+export function GetUIHierarchy(arg1:string):Promise<main.UIHierarchyResult>;
+
 export function Greet(arg1:string):Promise<string>;
+
+export function InputNodeText(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function InstallAPK(arg1:string,arg2:string):Promise<string>;
 
@@ -102,6 +110,8 @@ export function OpenPath(arg1:string):Promise<void>;
 export function OpenSettings(arg1:string,arg2:string,arg3:string):Promise<string>;
 
 export function PauseTask(arg1:string):Promise<void>;
+
+export function PerformNodeAction(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function PlayTouchScript(arg1:string,arg2:main.TouchScript):Promise<void>;
 

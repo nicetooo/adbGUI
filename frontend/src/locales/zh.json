@@ -31,6 +31,7 @@
     "logcat": "日志查看",
     "mirror": "投屏控制",
     "proxy": "网络代理",
+    "inspector": "UI 分析",
     "automation": "触控自动化"
   },
   "about": {
@@ -500,7 +501,21 @@
     "step_type": {
       "script": "脚本",
       "wait": "等待",
-      "adb": "ADB 命令"
+      "adb": "ADB 命令",
+      "check": "页面检查"
+    },
+    "check_type": "检查类型",
+    "check_value": "检查内容",
+    "wait_timeout": "超时时间",
+    "on_failure": "失败时",
+    "fail_stop": "终止任务",
+    "fail_continue": "继续执行",
+    "check_types": {
+      "text": "文本完全匹配",
+      "contains": "包含文本",
+      "id": "资源 ID",
+      "description": "内容描述",
+      "class": "类名"
     },
     "duration": "时长",
     "loop": "循环",
@@ -516,6 +531,29 @@
     "paused": "已暂停",
     "wait": "等待",
     "adb_command": "ADB 命令",
-    "adb_placeholder": "例如: shell input keyevent 3"
+    "adb_placeholder": "例如: shell input keyevent 3",
+    "ui_inspector": "UI 分析",
+    "ui_hierarchy": "UI 布局树",
+    "no_hierarchy_info": "未获取到 UI 布局信息",
+    "element_details": "元素详情",
+    "select_element_tip": "从左侧树中选择一个元素查看详情",
+    "copy_selector": "复制选择器文本",
+    "click": "模拟点击",
+    "long_click": "模拟长按",
+    "action_success": "操作已发送",
+    "copy_as_step": "转换为自动化步骤 (JSON)",
+    "copy_step_success": "脚本步骤已复制到剪贴板",
+    "node_actions": "调试与探索",
+    "simulate": "执行模拟",
+    "swipe_up": "向上滑动",
+    "swipe_down": "向下滑动",
+    "swipe_left": "向左滑动",
+    "swipe_right": "向右滑动",
+    "back": "返回键",
+    "home": "主页键",
+    "recent": "多任务",
+    "input": "模拟键盘输入",
+    "input_placeholder": "输入要发送的内容...",
+    "ui_updated": "UI 结构已更新"
   }
 }

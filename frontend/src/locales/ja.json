@@ -31,6 +31,7 @@
     "logcat": "ログキャット",
     "mirror": "画面ミラーリング",
     "proxy": "ネットワークプロキシ",
+    "inspector": "UI 分析",
     "automation": "タッチ自動化"
   },
   "about": {

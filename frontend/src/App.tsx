@@ -16,6 +16,7 @@ import ShellView from "./components/ShellView";
 import MirrorView from "./components/MirrorView";
 import ProxyView from "./components/ProxyView";
 import AutomationView from "./components/AutomationView";
+import UIInspectorView from "./components/UIInspectorView";
 import DeviceInfoModal from "./components/DeviceInfoModal";
 import AboutModal from "./components/AboutModal";
 import WirelessConnectModal from "./components/WirelessConnectModal";
@@ -35,6 +36,7 @@ import {
   SunOutlined,
   MoonOutlined,
   RobotOutlined,
+  BlockOutlined,
 } from "@ant-design/icons";
 import "./App.css";
 import { useTheme } from "./ThemeContext";
@@ -214,6 +216,8 @@ function App() {
         return <ProxyView />;
       case VIEW_KEYS.AUTOMATION:
         return <AutomationView />;
+      case VIEW_KEYS.INSPECTOR:
+        return <UIInspectorView />;
       default:
         return <div style={{ padding: 24 }}>{t("app.select_option")}</div>;
     }
@@ -253,6 +257,7 @@ function App() {
                 { key: VIEW_KEYS.SHELL, icon: <CodeOutlined />, label: t("menu.shell") },
                 { key: VIEW_KEYS.LOGCAT, icon: <FileTextOutlined />, label: t("menu.logcat") },
                 { key: VIEW_KEYS.PROXY, icon: <GlobalOutlined />, label: t("menu.proxy") || "Proxy" },
+                { key: VIEW_KEYS.INSPECTOR, icon: <BlockOutlined />, label: t("menu.inspector") || "UI Inspector" },
                 { key: VIEW_KEYS.AUTOMATION, icon: <RobotOutlined />, label: t("menu.automation") },
               ]}
             />
@@ -283,8 +288,8 @@ function App() {
                 size="small"
                 icon={
                   mode === 'light' ? <SunOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} /> :
-                  mode === 'dark' ? <MoonOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} /> :
-                  <DesktopOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />
+                    mode === 'dark' ? <MoonOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} /> :
+                      <DesktopOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />
                 }
                 title={t("app.change_theme") || "Change Theme"}
               />

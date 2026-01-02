@@ -30,6 +30,10 @@ export interface TaskStep {
   value: string;
   loop: number;
   postDelay?: number;
+  checkType?: string;
+  checkValue?: string;
+  waitTimeout?: number;
+  onFailure?: string;
 }
 
 export interface ScriptTask {
@@ -39,6 +43,26 @@ export interface ScriptTask {
 }
 
 export type ScriptTaskModel = main.ScriptTask;
+
+export interface UINode {
+  text: string;
+  resourceId: string;
+  class: string;
+  package: string;
+  contentDesc: string;
+  bounds: string;
+  checkable: string;
+  checked: string;
+  clickable: string;
+  enabled: string;
+  focusable: string;
+  focused: string;
+  scrollable: string;
+  longClickable: string;
+  password: string;
+  selected: string;
+  nodes: UINode[]; // Note: XML maps to 'nodes' in JSON serialization
+}
 
 interface AutomationState {
   // State
@@ -64,6 +88,9 @@ interface AutomationState {
   runningTaskName: string | null;
 
   recordedActionCount: number;
+  uiHierarchy: UINode | null;
+  rawXml: string | null;
+  isFetchingHierarchy: boolean;
 
   // Actions
   startRecording: (deviceId: string) => Promise<void>;
@@ -87,6 +114,8 @@ interface AutomationState {
   pauseTask: () => Promise<void>;
   resumeTask: () => Promise<void>;
   stopTask: () => Promise<void>;
+  fetchUIHierarchy: (deviceId: string) => Promise<void>;
+  checkAndRefreshUIHierarchy: (deviceId: string) => Promise<boolean>;
 
   // Event subscription
   subscribeToEvents: () => () => void;
@@ -109,6 +138,9 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
   isTaskRunning: false,
   isPaused: false,
   runningTaskName: null,
+  uiHierarchy: null,
+  rawXml: null,
+  isFetchingHierarchy: false,
 
   // Actions
   startRecording: async (deviceId: string) => {
@@ -238,7 +270,6 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
   loadTasks: async () => {
     try {
       const tasks = await LoadScriptTasks();
-      // Manual cast if needed or simple assignment
       set({ tasks: (tasks as unknown as ScriptTask[]) || [] });
     } catch (err) {
       console.error('Failed to load tasks:', err);
@@ -248,7 +279,6 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
 
   saveTask: async (task: ScriptTask) => {
     try {
-      // Cast to any to bypass strict type check if Wails models aren't updated yet
       await SaveScriptTask(task as any);
       await get().loadTasks();
     } catch (err) {
@@ -296,7 +326,6 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
   pauseTask: async () => {
     const deviceId = get().playingDeviceId;
     if (deviceId) {
-      // Cast to any because PauseTask might not be in Wails definitions yet
       await (PauseTask as any)(deviceId);
       set({ isPaused: true });
     }
@@ -315,6 +344,41 @@ export const useAutomationStore = create<AutomationState>((set, get) => ({
     if (deviceId) {
       await (StopTask as any)(deviceId);
       set({ isTaskRunning: false, isPaused: false, runningTaskName: null, taskProgress: null });
+    }
+  },
+
+  fetchUIHierarchy: async (deviceId: string) => {
+    if (!deviceId) return;
+    set({ isFetchingHierarchy: true, uiHierarchy: null, rawXml: null });
+    try {
+      const result = await (window as any).go.main.App.GetUIHierarchy(deviceId);
+      set({ 
+        uiHierarchy: result.root, 
+        rawXml: result.rawXml, 
+        isFetchingHierarchy: false 
+      });
+    } catch (err) {
+      console.error('Failed to fetch UI hierarchy:', err);
+      set({ isFetchingHierarchy: false });
+      throw err;
+    }
+  },
+
+  checkAndRefreshUIHierarchy: async (deviceId: string) => {
+    if (!deviceId) return false;
+    try {
+      const result = await (window as any).go.main.App.GetUIHierarchy(deviceId);
+      if (result.rawXml !== get().rawXml) {
+        set({ 
+          uiHierarchy: result.root, 
+          rawXml: result.rawXml 
+        });
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Background UI refresh failed:', err);
+      return false;
     }
   },
 

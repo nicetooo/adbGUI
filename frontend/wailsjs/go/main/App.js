@@ -58,6 +58,10 @@ export function ExportAPK(arg1, arg2) {
   return window['go']['main']['App']['ExportAPK'](arg1, arg2);
 }
 
+export function FindElement(arg1, arg2, arg3) {
+  return window['go']['main']['App']['FindElement'](arg1, arg2, arg3);
+}
+
 export function ForceStopApp(arg1, arg2) {
   return window['go']['main']['App']['ForceStopApp'](arg1, arg2);
 }
@@ -88,6 +92,10 @@ export function GetDeviceResolution(arg1) {
 
 export function GetDevices(arg1) {
   return window['go']['main']['App']['GetDevices'](arg1);
+}
+
+export function GetElementsWithText(arg1, arg2) {
+  return window['go']['main']['App']['GetElementsWithText'](arg1, arg2);
 }
 
 export function GetHistoryDevices() {
@@ -122,8 +130,16 @@ export function GetTouchInputDevice(arg1) {
   return window['go']['main']['App']['GetTouchInputDevice'](arg1);
 }
 
+export function GetUIHierarchy(arg1) {
+  return window['go']['main']['App']['GetUIHierarchy'](arg1);
+}
+
 export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
+}
+
+export function InputNodeText(arg1, arg2, arg3) {
+  return window['go']['main']['App']['InputNodeText'](arg1, arg2, arg3);
 }
 
 export function InstallAPK(arg1, arg2) {
@@ -200,6 +216,10 @@ export function OpenSettings(arg1, arg2, arg3) {
 
 export function PauseTask(arg1) {
   return window['go']['main']['App']['PauseTask'](arg1);
+}
+
+export function PerformNodeAction(arg1, arg2, arg3) {
+  return window['go']['main']['App']['PerformNodeAction'](arg1, arg2, arg3);
 }
 
 export function PlayTouchScript(arg1, arg2) {
