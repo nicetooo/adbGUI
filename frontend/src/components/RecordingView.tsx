@@ -298,11 +298,19 @@ const RecordingView: React.FC = () => {
             posY: 150 + steps.length * 100,
           } as main.WorkflowStep);
         } else {
+          // Create a small tap area around the point for better reliability
+          const tapSize = 10;
+          const x1 = Math.max(0, event.x - tapSize);
+          const y1 = Math.max(0, event.y - tapSize);
+          const x2 = event.x + tapSize;
+          const y2 = event.y + tapSize;
+          const bounds = `[${x1},${y1}][${x2},${y2}]`;
+
           steps.push({
             id,
             type: 'click_element',
             name: `Click (${event.x}, ${event.y})`,
-            selector: { type: 'bounds', value: `[${event.x},${event.y}]`, index: 0 },
+            selector: { type: 'bounds', value: bounds, index: 0 },
             loop: 1,
             postDelay: 0,
             onError: 'stop',
