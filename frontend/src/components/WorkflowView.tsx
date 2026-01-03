@@ -340,6 +340,10 @@ const WorkflowView: React.FC = () => {
   const [variablesModalVisible, setVariablesModalVisible] = useState(false);
   const [tempVariables, setTempVariables] = useState<{ key: string, value: string }[]>([]);
 
+  // Track current step for each workflow (including nested workflows)
+  // Key: workflowId, Value: { stepId, isWaiting, waitPhase }
+  const [workflowStepMap, setWorkflowStepMap] = useState<Record<string, { stepId: string, isWaiting: boolean, waitPhase?: 'pre' | 'post' }>>({});
+
   // Variable options for AutoComplete
   const variableOptions = useMemo(() => {
     if (!selectedWorkflow?.variables) return [];
@@ -473,6 +477,12 @@ const WorkflowView: React.FC = () => {
 
     if (selectedWorkflow) {
       const newNodes: Node[] = selectedWorkflow.steps.map((step, index) => {
+        // Check if this step is currently running in this workflow
+        const stepState = workflowStepMap[selectedWorkflow.id];
+        const isCurrent = stepState?.stepId === step.id && !stepState?.isWaiting;
+        const isWaiting = stepState?.stepId === step.id && stepState?.isWaiting;
+        const waitPhase = stepState?.waitPhase;
+
         return {
           id: step.id,
           type: 'workflowNode',
@@ -480,8 +490,9 @@ const WorkflowView: React.FC = () => {
           data: {
             step,
             label: step.name || t(`workflow.step_type.${step.type}`),
-            isCurrent: step.id === currentStepId,
-            isWaiting: step.id === waitingStepId
+            isCurrent,
+            isWaiting,
+            waitingPhase: waitPhase
           },
         };
       });
@@ -560,11 +571,16 @@ const WorkflowView: React.FC = () => {
   }, [selectedWorkflow, getLayoutedElements, t, token]);
 
   useEffect(() => {
+    if (!selectedWorkflow) return;
+
     setNodes((nds) =>
       nds.map((node) => {
-        const isCurrent = node.id === currentStepId;
-        const isWaiting = node.id === waitingStepId;
-        const phase = node.id === waitingStepId ? waitingPhase : null;
+        // Get the step state for the current workflow
+        const stepState = workflowStepMap[selectedWorkflow.id];
+        const isCurrent = stepState?.stepId === node.id && !stepState?.isWaiting;
+        const isWaiting = stepState?.stepId === node.id && stepState?.isWaiting;
+        const phase = stepState?.stepId === node.id ? stepState?.waitPhase : null;
+
         if (node.data.isCurrent !== isCurrent || node.data.isWaiting !== isWaiting || node.data.waitingPhase !== phase) {
           return {
             ...node,
@@ -574,7 +590,7 @@ const WorkflowView: React.FC = () => {
         return node;
       })
     );
-  }, [currentStepId, waitingStepId, waitingPhase, isRunning]);
+  }, [workflowStepMap, selectedWorkflow, isRunning]);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge({
@@ -999,6 +1015,14 @@ const WorkflowView: React.FC = () => {
       const onComplete = (data: any) => {
         if (data.deviceId === deviceObj.id) {
           setRunningWorkflowIds(prev => prev.filter(id => id !== data.workflowId));
+
+          // Clean up step map for this workflow
+          setWorkflowStepMap(prev => {
+            const newMap = { ...prev };
+            delete newMap[data.workflowId];
+            return newMap;
+          });
+
           if (data.workflowId === selectedWorkflow.id) {
             cleanUp();
             resolve();
@@ -1009,6 +1033,14 @@ const WorkflowView: React.FC = () => {
       const onError = (data: any) => {
         if (data.deviceId === deviceObj.id) {
           setRunningWorkflowIds(prev => prev.filter(id => id !== data.workflowId));
+
+          // Clean up step map for this workflow
+          setWorkflowStepMap(prev => {
+            const newMap = { ...prev };
+            delete newMap[data.workflowId];
+            return newMap;
+          });
+
           if (data.workflowId === selectedWorkflow.id) {
             cleanUp();
             reject(data.error);
@@ -1017,19 +1049,46 @@ const WorkflowView: React.FC = () => {
       };
 
       const onStep = (data: any) => {
-        if (data.deviceId === deviceObj.id) {
-          console.log("[Workflow] Step running:", data.stepId);
-          setCurrentStepId(data.stepId);
-          setWaitingStepId(null);
-          setWaitingPhase(null);
+        if (data.deviceId === deviceObj.id && data.workflowId) {
+          console.log("[Workflow] Step running:", data.stepId, "in workflow:", data.workflowId);
+
+          // Update the step map for this workflow
+          setWorkflowStepMap(prev => ({
+            ...prev,
+            [data.workflowId]: {
+              stepId: data.stepId,
+              isWaiting: false
+            }
+          }));
+
+          // Also update legacy state for backward compatibility
+          if (data.workflowId === sanitizedWorkflow.id) {
+            setCurrentStepId(data.stepId);
+            setWaitingStepId(null);
+            setWaitingPhase(null);
+          }
         }
       };
 
       const onWait = (data: any) => {
-        if (data.deviceId === deviceObj.id) {
-          console.log("[Workflow] Step waiting:", data.stepId, "phase:", data.phase, "duration:", data.duration);
-          setWaitingStepId(data.stepId);
-          setWaitingPhase(data.phase);
+        if (data.deviceId === deviceObj.id && data.workflowId) {
+          console.log("[Workflow] Step waiting:", data.stepId, "phase:", data.phase, "in workflow:", data.workflowId);
+
+          // Update the step map for this workflow
+          setWorkflowStepMap(prev => ({
+            ...prev,
+            [data.workflowId]: {
+              stepId: data.stepId,
+              isWaiting: true,
+              waitPhase: data.phase
+            }
+          }));
+
+          // Also update legacy state for backward compatibility
+          if (data.workflowId === sanitizedWorkflow.id) {
+            setWaitingStepId(data.stepId);
+            setWaitingPhase(data.phase);
+          }
         }
       };
 
@@ -1056,6 +1115,7 @@ const WorkflowView: React.FC = () => {
 
     try {
       setIsPaused(false); // Reset pause state when starting
+      setWorkflowStepMap({}); // Clear all workflow step tracking
       await (window as any).go.main.App.RunWorkflow(deviceObj, sanitizedWorkflow);
       await executionPromise;
       setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${t("workflow.completed")}`]);
@@ -1067,6 +1127,7 @@ const WorkflowView: React.FC = () => {
       setIsPaused(false);
       setRunningWorkflowIds([]);
       setCurrentStepId(null);
+      setWorkflowStepMap({}); // Clear all workflow step tracking
     }
   };
 

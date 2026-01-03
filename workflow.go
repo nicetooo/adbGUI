@@ -218,11 +218,12 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 		executedCount++
 
 		wailsRuntime.EventsEmit(a.ctx, "workflow-step-running", map[string]interface{}{
-			"deviceId":  deviceId,
-			"stepIndex": executedCount,
-			"stepId":    step.ID,
-			"stepName":  step.Name,
-			"stepType":  step.Type,
+			"deviceId":   deviceId,
+			"workflowId": workflow.ID,
+			"stepIndex":  executedCount,
+			"stepId":     step.ID,
+			"stepName":   step.Name,
+			"stepType":   step.Type,
 		})
 
 		loopCount := step.Loop
@@ -236,10 +237,11 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 			// Pre-Wait
 			if step.PreWait > 0 {
 				wailsRuntime.EventsEmit(a.ctx, "workflow-step-waiting", map[string]interface{}{
-					"deviceId": deviceId,
-					"stepId":   step.ID,
-					"duration": step.PreWait,
-					"phase":    "pre",
+					"deviceId":   deviceId,
+					"workflowId": workflow.ID,
+					"stepId":     step.ID,
+					"duration":   step.PreWait,
+					"phase":      "pre",
 				})
 				time.Sleep(time.Duration(step.PreWait) * time.Millisecond)
 			}
@@ -259,10 +261,11 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 			// Post Delay (Wait After)
 			if step.PostDelay > 0 {
 				wailsRuntime.EventsEmit(a.ctx, "workflow-step-waiting", map[string]interface{}{
-					"deviceId": deviceId,
-					"stepId":   step.ID,
-					"duration": step.PostDelay,
-					"phase":    "post",
+					"deviceId":   deviceId,
+					"workflowId": workflow.ID,
+					"stepId":     step.ID,
+					"duration":   step.PostDelay,
+					"phase":      "post",
 				})
 				time.Sleep(time.Duration(step.PostDelay) * time.Millisecond)
 			}
