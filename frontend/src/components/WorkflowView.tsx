@@ -3,7 +3,6 @@ import {
   Button,
   Space,
   Card,
-  List,
   Modal,
   Input,
   message,
@@ -1563,78 +1562,29 @@ const WorkflowView: React.FC = () => {
             {workflows.length === 0 ? (
               <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("workflow.no_workflows")} />
             ) : (
-              <List
-                size="small"
-                dataSource={workflows}
-                renderItem={(workflow) => (
-                  <List.Item
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {workflows.map(workflow => (
+                  <div
+                    key={workflow.id}
                     onClick={() => {
                       if (editingWorkflowId !== workflow.id && selectedWorkflow?.id !== workflow.id) {
                         setSelectedWorkflow(workflow);
                       }
                     }}
                     style={{
-                      cursor: editingWorkflowId === workflow.id ? 'default' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
                       padding: '12px 16px',
+                      cursor: editingWorkflowId === workflow.id ? 'default' : 'pointer',
                       borderLeft: selectedWorkflow?.id === workflow.id ? `3px solid ${token.colorPrimary}` : '3px solid transparent',
-                      backgroundColor: selectedWorkflow?.id === workflow.id ? token.colorPrimaryBg : undefined
+                      backgroundColor: selectedWorkflow?.id === workflow.id ? token.colorPrimaryBg : undefined,
+                      borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                      transition: 'all 0.2s'
                     }}
-                    actions={
-                      editingWorkflowId === workflow.id ? [
-                        <Button
-                          key="save"
-                          type="text"
-                          size="small"
-                          icon={<CheckCircleOutlined />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRenameWorkflow(workflow.id, editingWorkflowName);
-                          }}
-                        />,
-                        <Button
-                          key="cancel"
-                          type="text"
-                          size="small"
-                          icon={<StopOutlined />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingWorkflowId(null);
-                            setEditingWorkflowName("");
-                          }}
-                        />
-                      ] : [
-                        <Button
-                          key="edit"
-                          type="text"
-                          size="small"
-                          icon={<EditOutlined />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingWorkflowId(workflow.id);
-                            setEditingWorkflowName(workflow.name);
-                          }}
-                        />,
-                        <Popconfirm
-                          key="del"
-                          title={t("workflow.delete_confirm")}
-                          onConfirm={(e) => {
-                            e?.stopPropagation();
-                            handleDeleteWorkflow(workflow.id);
-                          }}
-                        >
-                          <Button
-                            type="text"
-                            size="small"
-                            danger
-                            icon={<DeleteOutlined />}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </Popconfirm>
-                      ]
-                    }
                   >
                     <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex: 1, overflow: 'hidden', marginRight: 8 }}>
                         {editingWorkflowId === workflow.id ? (
                           <Input
                             size="small"
@@ -1657,20 +1607,80 @@ const WorkflowView: React.FC = () => {
                               setEditingWorkflowName(workflow.name);
                             }}
                           >
-                            {workflow.name}
+                            <Text strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {workflow.name}
+                            </Text>
                             {runningWorkflowIds.includes(workflow.id) && (
                               <LoadingOutlined style={{ color: token.colorPrimary, fontSize: 12 }} />
                             )}
                           </div>
                         )}
                         {editingWorkflowId !== workflow.id && (
-                          <div style={{ fontSize: 12, color: token.colorTextSecondary }}>{workflow.steps.length} steps</div>
+                          <div style={{ fontSize: 12, color: token.colorTextSecondary, marginTop: 2 }}>{workflow.steps.length} {t("workflow.steps_count") || "steps"}</div>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {editingWorkflowId === workflow.id ? (
+                          <>
+                            <Button
+                              key="save"
+                              type="text"
+                              size="small"
+                              icon={<CheckCircleOutlined />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRenameWorkflow(workflow.id, editingWorkflowName);
+                              }}
+                            />
+                            <Button
+                              key="cancel"
+                              type="text"
+                              size="small"
+                              icon={<StopOutlined />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingWorkflowId(null);
+                                setEditingWorkflowName("");
+                              }}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              key="edit"
+                              type="text"
+                              size="small"
+                              icon={<EditOutlined />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingWorkflowId(workflow.id);
+                                setEditingWorkflowName(workflow.name);
+                              }}
+                            />
+                            <Popconfirm
+                              key="del"
+                              title={t("workflow.delete_confirm")}
+                              onConfirm={(e) => {
+                                e?.stopPropagation();
+                                handleDeleteWorkflow(workflow.id);
+                              }}
+                            >
+                              <Button
+                                type="text"
+                                size="small"
+                                danger
+                                icon={<DeleteOutlined />}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </Popconfirm>
+                          </>
                         )}
                       </div>
                     </div>
-                  </List.Item>
-                )}
-              />
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -1723,71 +1733,104 @@ const WorkflowView: React.FC = () => {
                   boxShadow: token.boxShadowSecondary,
                   border: `1px solid ${token.colorBorderSecondary}`
                 }}>
-                  <Collapse ghost size="small" defaultActiveKey={['1', '2', '3']}>
-                    <Collapse.Panel header={t("workflow.category.element_actions")} key="1">
-                      <Space wrap size={[8, 8]}>
-                        {STEP_TYPES.ELEMENT_ACTIONS.map(s => (
-                          <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
-                            <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
-                          </Tooltip>
-                        ))}
-                      </Space>
-                    </Collapse.Panel>
-                    <Collapse.Panel header={t("workflow.category.wait_conditions")} key="2">
-                      <Space wrap size={[8, 8]}>
-                        {STEP_TYPES.WAIT_CONDITIONS.map(s => (
-                          <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
-                            <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
-                          </Tooltip>
-                        ))}
-                      </Space>
-                    </Collapse.Panel>
-                    <Collapse.Panel header={t("workflow.category.flow_control")} key="3">
-                      <Space wrap size={[8, 8]}>
-                        {STEP_TYPES.FLOW_CONTROL.map(s => (
-                          <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
-                            <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
-                          </Tooltip>
-                        ))}
-                      </Space>
-                    </Collapse.Panel>
-                    <Collapse.Panel header={t("workflow.category.script_actions")} key="script_actions">
-                      <Space wrap size={[8, 8]}>
-                        {STEP_TYPES.SCRIPT_ACTIONS.map(s => (
-                          <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
-                            <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
-                          </Tooltip>
-                        ))}
-                      </Space>
-                    </Collapse.Panel>
-                    <Collapse.Panel header={t("workflow.category.system_actions")} key="4">
-                      <Space wrap size={[8, 8]}>
-                        {STEP_TYPES.SYSTEM_ACTIONS.map(s => (
-                          <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
-                            <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
-                          </Tooltip>
-                        ))}
-                      </Space>
-                    </Collapse.Panel>
-                    <Collapse.Panel header={t("workflow.category.nested")} key="5">
-                      <Space wrap size={[8, 8]}>
-                        {STEP_TYPES.NESTED.map(s => (
-                          <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
-                            <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
-                          </Tooltip>
-                        ))}
-                      </Space>
-                    </Collapse.Panel>
-                    <Collapse.Panel header={t("workflow.category.app_actions")} key="6">
-                      <Space wrap size={[8, 8]}>
-                        {STEP_TYPES.APP_ACTIONS.map(s => (
-                          <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
-                            <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
-                          </Tooltip>
-                        ))}
-                      </Space>
-                    </Collapse.Panel>
-                  </Collapse>
+                  <Collapse
+                    ghost
+                    size="small"
+                    defaultActiveKey={['1', '2', '3']}
+                    items={[
+                      {
+                        key: '1',
+                        label: t("workflow.category.element_actions"),
+                        children: (
+                          <Space wrap size={[8, 8]}>
+                            {STEP_TYPES.ELEMENT_ACTIONS.map(s => (
+                              <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
+                                <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
+                              </Tooltip>
+                            ))}
+                          </Space>
+                        )
+                      },
+                      {
+                        key: '2',
+                        label: t("workflow.category.wait_conditions"),
+                        children: (
+                          <Space wrap size={[8, 8]}>
+                            {STEP_TYPES.WAIT_CONDITIONS.map(s => (
+                              <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
+                                <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
+                              </Tooltip>
+                            ))}
+                          </Space>
+                        )
+                      },
+                      {
+                        key: '3',
+                        label: t("workflow.category.flow_control"),
+                        children: (
+                          <Space wrap size={[8, 8]}>
+                            {STEP_TYPES.FLOW_CONTROL.map(s => (
+                              <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
+                                <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
+                              </Tooltip>
+                            ))}
+                          </Space>
+                        )
+                      },
+                      {
+                        key: 'script_actions',
+                        label: t("workflow.category.script_actions"),
+                        children: (
+                          <Space wrap size={[8, 8]}>
+                            {STEP_TYPES.SCRIPT_ACTIONS.map(s => (
+                              <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
+                                <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
+                              </Tooltip>
+                            ))}
+                          </Space>
+                        )
+                      },
+                      {
+                        key: '4',
+                        label: t("workflow.category.system_actions"),
+                        children: (
+                          <Space wrap size={[8, 8]}>
+                            {STEP_TYPES.SYSTEM_ACTIONS.map(s => (
+                              <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
+                                <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
+                              </Tooltip>
+                            ))}
+                          </Space>
+                        )
+                      },
+                      {
+                        key: '5',
+                        label: t("workflow.category.nested"),
+                        children: (
+                          <Space wrap size={[8, 8]}>
+                            {STEP_TYPES.NESTED.map(s => (
+                              <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
+                                <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
+                              </Tooltip>
+                            ))}
+                          </Space>
+                        )
+                      },
+                      {
+                        key: '6',
+                        label: t("workflow.category.app_actions"),
+                        children: (
+                          <Space wrap size={[8, 8]}>
+                            {STEP_TYPES.APP_ACTIONS.map(s => (
+                              <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
+                                <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
+                              </Tooltip>
+                            ))}
+                          </Space>
+                        )
+                      }
+                    ]}
+                  />
                 </div>
               </Panel>
             </ReactFlow>
@@ -1811,7 +1854,7 @@ const WorkflowView: React.FC = () => {
             message.success(t("workflow.step_updated"));
           }}
           open={drawerVisible}
-          width={450}
+          styles={{ wrapper: { width: 450 } }}
           mask={false}
           style={{ background: token.colorBgContainer }}
         >

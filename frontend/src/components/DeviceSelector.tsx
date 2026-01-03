@@ -28,7 +28,7 @@ const DeviceSelector: React.FC<DeviceSelectorProps> = ({ style = {} }) => {
       onChange={setSelectedDevice}
       style={{ width: 220, ...style }}
       placeholder={t("device_selector.placeholder")}
-      dropdownRender={(menu) => (
+      popupRender={(menu) => (
         <>
           {menu}
           <Divider style={{ margin: '8px 0' }} />
