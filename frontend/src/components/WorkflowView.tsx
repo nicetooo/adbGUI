@@ -47,6 +47,7 @@ import {
   ExpandOutlined,
   LockOutlined,
   ForkOutlined,
+  PartitionOutlined,
 } from "@ant-design/icons";
 import {
   ReactFlow,
@@ -86,8 +87,14 @@ interface WorkflowStep {
   loop?: number;
   postDelay?: number;
   nextStepId?: string;
+  nextSource?: string;
+  nextTarget?: string;
   trueStepId?: string;
+  trueSource?: string;
+  trueTarget?: string;
   falseStepId?: string;
+  falseSource?: string;
+  falseTarget?: string;
   posX?: number;
   posY?: number;
 }
@@ -153,10 +160,18 @@ const WorkflowNode = ({ data, selected }: any) => {
   const { token } = theme.useToken();
   const typeInfo = getStepTypeInfo(step.type);
   const isBranch = step.type === 'branch';
+  const isStart = step.type === 'start';
 
   return (
     <div style={{ position: 'relative' }}>
-      <Handle type="target" position={Position.Top} style={{ background: token.colorTextSecondary }} />
+      {/* Start node has no input handle */}
+      {!isStart && (
+        <>
+          <Handle type="target" position={Position.Top} style={{ background: token.colorTextSecondary }} />
+          <Handle type="target" position={Position.Left} id="target-left" style={{ background: token.colorTextSecondary }} />
+          <Handle type="target" position={Position.Right} id="target-right" style={{ background: token.colorTextSecondary }} />
+        </>
+      )}
       <Card
         size="small"
         style={{
@@ -205,6 +220,12 @@ const WorkflowNode = ({ data, selected }: any) => {
             id="true"
             style={{ left: '30%', background: token.colorSuccess }}
           />
+          <Handle
+            type="source"
+            position={Position.Left}
+            id="true-left"
+            style={{ top: '70%', background: token.colorSuccess }}
+          />
 
           <div style={{ position: 'absolute', bottom: -14, right: '25%', fontSize: 9, color: token.colorError, fontWeight: 'bold' }}>False</div>
           <Handle
@@ -213,9 +234,23 @@ const WorkflowNode = ({ data, selected }: any) => {
             id="false"
             style={{ left: '70%', background: token.colorError }}
           />
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="false-right"
+            style={{ top: '70%', background: token.colorError }}
+          />
         </>
       ) : (
-        <Handle type="source" position={Position.Bottom} id="default" style={{ background: token.colorTextSecondary }} />
+        <>
+          <Handle type="source" position={Position.Bottom} id="default" style={{ background: token.colorTextSecondary }} />
+          {!isStart && (
+            <>
+              <Handle type="source" position={Position.Left} id="source-left" style={{ top: '70%', background: token.colorTextSecondary }} />
+              <Handle type="source" position={Position.Right} id="source-right" style={{ top: '70%', background: token.colorTextSecondary }} />
+            </>
+          )}
+        </>
       )}
     </div>
   );
@@ -234,7 +269,7 @@ const WorkflowView: React.FC = () => {
 
   // Execution state
   const [isRunning, setIsRunning] = useState(false);
-  const [currentStepIndex, setCurrentStepIndex] = useState(-1);
+  const [currentStepId, setCurrentStepId] = useState<string | null>(null);
   const [executionLogs, setExecutionLogs] = useState<string[]>([]);
 
   // React Flow state
@@ -275,7 +310,15 @@ const WorkflowView: React.FC = () => {
     const nodeWidth = 280;
     const nodeHeight = 80;
 
-    dagreGraph.setGraph({ rankdir: 'TB' });
+    // Configure dagre with better spacing
+    dagreGraph.setGraph({
+      rankdir: 'TB',      // Top to Bottom
+      ranksep: 80,        // Vertical spacing between levels
+      nodesep: 50,        // Horizontal spacing between nodes
+      edgesep: 20,        // Minimum edge separation
+      marginx: 20,
+      marginy: 20,
+    });
 
     nodes.forEach((node) => {
       dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
@@ -317,7 +360,7 @@ const WorkflowView: React.FC = () => {
           data: {
             step,
             label: step.name || t(`workflow.step_type.${step.type}`),
-            isCurrent: index === currentStepIndex
+            isCurrent: step.id === currentStepId
           },
         };
       });
@@ -333,7 +376,8 @@ const WorkflowView: React.FC = () => {
               source: step.id,
               target: step.nextStepId,
               type: 'smoothstep',
-              sourceHandle: 'default',
+              sourceHandle: step.nextSource || 'default',
+              targetHandle: step.nextTarget,
               markerEnd: { type: MarkerType.ArrowClosed }
             });
           }
@@ -343,7 +387,8 @@ const WorkflowView: React.FC = () => {
               source: step.id,
               target: step.trueStepId,
               type: 'smoothstep',
-              sourceHandle: 'true',
+              sourceHandle: step.trueSource || 'true',
+              targetHandle: step.trueTarget,
               label: 'True',
               style: { stroke: token.colorSuccess },
               labelStyle: { fill: token.colorSuccess, fontWeight: 700 },
@@ -356,7 +401,8 @@ const WorkflowView: React.FC = () => {
               source: step.id,
               target: step.falseStepId,
               type: 'smoothstep',
-              sourceHandle: 'false',
+              sourceHandle: step.falseSource || 'false',
+              targetHandle: step.falseTarget,
               label: 'False',
               style: { stroke: token.colorError },
               labelStyle: { fill: token.colorError, fontWeight: 700 },
@@ -395,8 +441,7 @@ const WorkflowView: React.FC = () => {
   useEffect(() => {
     setNodes((nds) =>
       nds.map((node) => {
-        const stepIndex = selectedWorkflow?.steps.findIndex(s => s.id === node.id);
-        const isCurrent = stepIndex === currentStepIndex;
+        const isCurrent = node.id === currentStepId;
         if (node.data.isCurrent !== isCurrent) {
           return {
             ...node,
@@ -406,7 +451,7 @@ const WorkflowView: React.FC = () => {
         return node;
       })
     );
-  }, [currentStepIndex, isRunning, selectedWorkflow]);
+  }, [currentStepId, isRunning]);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge({
@@ -416,6 +461,49 @@ const WorkflowView: React.FC = () => {
     }, eds)),
     [setEdges],
   );
+
+  const handleAutoLayout = useCallback(() => {
+    if (nodes.length === 0) return;
+
+    const dagreGraph = new dagre.graphlib.Graph();
+    dagreGraph.setDefaultEdgeLabel(() => ({}));
+    const nodeWidth = 280;
+    const nodeHeight = 80;
+
+    // Configure with large spacing to avoid overlaps
+    dagreGraph.setGraph({
+      rankdir: 'TB',
+      ranksep: 100,       // Large vertical spacing between levels
+      nodesep: 80,       // Widen the layout significantly to avoid overlaps
+      edgesep: 30,
+      marginx: 50,
+      marginy: 50,
+    });
+
+    nodes.forEach((node) => {
+      dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+    });
+
+    edges.forEach((edge) => {
+      dagreGraph.setEdge(edge.source, edge.target);
+    });
+
+    dagre.layout(dagreGraph);
+
+    const layoutedNodes = nodes.map((node) => {
+      const nodeWithPosition = dagreGraph.node(node.id);
+      return {
+        ...node,
+        position: {
+          x: nodeWithPosition.x - nodeWidth / 2,
+          y: nodeWithPosition.y - nodeHeight / 2,
+        },
+      };
+    });
+
+    setNodes(layoutedNodes);
+    message.success(t("workflow.layout_applied"));
+  }, [nodes, edges, setNodes, t]);
 
   const handleNodeClick = (event: React.MouseEvent, node: Node) => {
     setEditingNodeId(node.id);
@@ -494,24 +582,48 @@ const WorkflowView: React.FC = () => {
       const outgoing = outEdgesMap.get(node.id) || [];
 
       let nextStepId = "";
+      let nextSource = "";
+      let nextTarget = "";
       let trueStepId = "";
+      let trueSource = "";
+      let trueTarget = "";
       let falseStepId = "";
+      let falseSource = "";
+      let falseTarget = "";
 
       if (originalStep.type === 'branch') {
-        const t = outgoing.find(e => e.sourceHandle === 'true');
-        const f = outgoing.find(e => e.sourceHandle === 'false');
-        if (t) trueStepId = t.target;
-        if (f) falseStepId = f.target;
+        const t = outgoing.find(e => e.sourceHandle === 'true' || e.sourceHandle === 'true-left');
+        const f = outgoing.find(e => e.sourceHandle === 'false' || e.sourceHandle === 'false-right');
+        if (t) {
+          trueStepId = t.target;
+          trueSource = t.sourceHandle || 'true';
+          trueTarget = t.targetHandle || '';
+        }
+        if (f) {
+          falseStepId = f.target;
+          falseSource = f.sourceHandle || 'false';
+          falseTarget = f.targetHandle || '';
+        }
       } else {
-        const next = outgoing.find(e => e.sourceHandle === 'default' || !e.sourceHandle);
-        if (next) nextStepId = next.target;
+        const next = outgoing.find(e => e.sourceHandle === 'default' || e.sourceHandle === 'source-left' || e.sourceHandle === 'source-right' || !e.sourceHandle);
+        if (next) {
+          nextStepId = next.target;
+          nextSource = next.sourceHandle || 'default';
+          nextTarget = next.targetHandle || '';
+        }
       }
 
       return {
         ...originalStep,
         nextStepId,
+        nextSource,
+        nextTarget,
         trueStepId,
+        trueSource,
+        trueTarget,
         falseStepId,
+        falseSource,
+        falseTarget,
         value: originalStep.value,
         posX: node.position.x,
         posY: node.position.y
@@ -712,7 +824,7 @@ const WorkflowView: React.FC = () => {
     const sanitizedWorkflow = { ...workflowToRun, steps: sanitizedSteps };
 
     setIsRunning(true);
-    setCurrentStepIndex(0);
+    setCurrentStepId(null);
     setExecutionLogs([
       `[${new Date().toLocaleTimeString()}] ${t("workflow.started")}: ${sanitizedWorkflow.name}`,
       `[Info] Executing ${sanitizedWorkflow.steps.length} steps.`
@@ -747,7 +859,7 @@ const WorkflowView: React.FC = () => {
 
       const onStep = (data: any) => {
         if (data.deviceId === deviceObj.id) {
-          setCurrentStepIndex(data.stepIndex);
+          setCurrentStepId(data.stepId);
         }
       };
 
@@ -765,15 +877,21 @@ const WorkflowView: React.FC = () => {
       message.error(String(err));
     } finally {
       setIsRunning(false);
-      setCurrentStepIndex(-1);
+      setCurrentStepId(null);
     }
   };
 
   const handleStopWorkflow = async () => {
+    const deviceObj = useDeviceStore.getState().devices.find(d => d.id === selectedDevice);
+    if (!deviceObj) {
+      message.error("Device not found");
+      return;
+    }
+
     try {
-      await (window as any).go.main.App.StopWorkflow(selectedDevice);
+      await (window as any).go.main.App.StopWorkflow(deviceObj);
       setIsRunning(false);
-      setCurrentStepIndex(-1);
+      setCurrentStepId(null);
       setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${t("workflow.stopped")}`]);
     } catch (err) {
       message.error(String(err));
@@ -804,6 +922,9 @@ const WorkflowView: React.FC = () => {
           <DeviceSelector />
           {selectedWorkflow && (
             <>
+              <Tooltip title={t("workflow.auto_layout")}>
+                <Button icon={<PartitionOutlined />} onClick={handleAutoLayout} />
+              </Tooltip>
               <Button icon={<SaveOutlined />} onClick={() => handleSaveGraph()}>
                 {t("workflow.save")}
               </Button>

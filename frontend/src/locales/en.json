@@ -709,6 +709,8 @@
     "warning_start_not_connected": "Start node is not connected to any step",
     "branch_description": "Branch node checks if the specified element exists. Connect True/False outputs to different paths.",
     "branch_condition": "Condition (element to check)",
-    "delete_step": "Delete Step"
+    "delete_step": "Delete Step",
+    "auto_layout": "Auto Layout",
+    "layout_applied": "Layout applied"
   }
 }

@@ -173,6 +173,16 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 
 		fmt.Printf(">>> Starting from: %s -> %s\n", startStep.ID, currentStepID)
 
+		// Emit event for Start node to show it's running
+		wailsRuntime.EventsEmit(a.ctx, "workflow-step-running", map[string]interface{}{
+			"deviceId":  deviceId,
+			"stepIndex": 0,
+			"stepId":    startStep.ID,
+			"stepName":  startStep.Name,
+			"stepType":  "start",
+		})
+		time.Sleep(300 * time.Millisecond) // Brief highlight for Start node
+
 		// Graph-based execution loop
 		executedCount := 0
 		maxSteps := 1000 // Safety limit to prevent infinite loops

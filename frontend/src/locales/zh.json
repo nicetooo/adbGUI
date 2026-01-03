@@ -669,6 +669,8 @@
     "warning_start_not_connected": "开始节点未连接到任何步骤",
     "branch_description": "条件分支节点检查指定元素是否存在。将 True/False 输出连接到不同的路径。",
     "branch_condition": "条件 (检查的元素)",
-    "delete_step": "删除步骤"
+    "delete_step": "删除步骤",
+    "auto_layout": "自动整理",
+    "layout_applied": "已整理布局"
   }
 }

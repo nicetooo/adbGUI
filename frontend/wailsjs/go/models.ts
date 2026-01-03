@@ -591,8 +591,14 @@ export namespace main {
 	    loop?: number;
 	    postDelay?: number;
 	    nextStepId?: string;
+	    nextSource?: string;
+	    nextTarget?: string;
 	    trueStepId?: string;
+	    trueSource?: string;
+	    trueTarget?: string;
 	    falseStepId?: string;
+	    falseSource?: string;
+	    falseTarget?: string;
 	    posX?: number;
 	    posY?: number;
 	
@@ -612,8 +618,14 @@ export namespace main {
 	        this.loop = source["loop"];
 	        this.postDelay = source["postDelay"];
 	        this.nextStepId = source["nextStepId"];
+	        this.nextSource = source["nextSource"];
+	        this.nextTarget = source["nextTarget"];
 	        this.trueStepId = source["trueStepId"];
+	        this.trueSource = source["trueSource"];
+	        this.trueTarget = source["trueTarget"];
 	        this.falseStepId = source["falseStepId"];
+	        this.falseSource = source["falseSource"];
+	        this.falseTarget = source["falseTarget"];
 	        this.posX = source["posX"];
 	        this.posY = source["posY"];
 	    }

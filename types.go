@@ -218,8 +218,14 @@ type WorkflowStep struct {
 	PostDelay int              `json:"postDelay,omitempty"`
 	// Graph Flow Control
 	NextStepId  string `json:"nextStepId,omitempty"`  // Default next step
+	NextSource  string `json:"nextSource,omitempty"`  // Handle ID for next step
+	NextTarget  string `json:"nextTarget,omitempty"`  // Handle ID for next step target
 	TrueStepId  string `json:"trueStepId,omitempty"`  // Branch TRUE target
+	TrueSource  string `json:"trueSource,omitempty"`  // Handle ID for true step
+	TrueTarget  string `json:"trueTarget,omitempty"`  // Handle ID for true step target
 	FalseStepId string `json:"falseStepId,omitempty"` // Branch FALSE target
+	FalseSource string `json:"falseSource,omitempty"` // Handle ID for false step
+	FalseTarget string `json:"falseTarget,omitempty"` // Handle ID for false step target
 
 	// Visual Layout
 	PosX float64 `json:"posX,omitempty"`
