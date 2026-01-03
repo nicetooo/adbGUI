@@ -561,8 +561,9 @@ const ElementPicker: React.FC<ElementPickerProps> = ({
       }
       open={visible}
       onCancel={onCancel}
-      width={900}
+      width="85%"
       styles={{ body: { padding: 0 } }}
+      style={{ top: 30 }}
       footer={
         <Space>
           <Button onClick={onCancel}>{t("common.cancel")}</Button>
@@ -577,7 +578,7 @@ const ElementPicker: React.FC<ElementPickerProps> = ({
         </Space>
       }
     >
-      <div style={{ display: "flex", height: 500 }}>
+      <div style={{ display: "flex", height: "70vh" }}>
         {/* Left: Tree */}
         <div
           style={{
