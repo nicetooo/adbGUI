@@ -345,11 +345,19 @@ const AutomationView: React.FC = () => {
             posY: 150 + steps.length * 100,
           } as main.WorkflowStep);
         } else {
+          // Use bounds selector for coordinate-based long press
+          const tapSize = 10;
+          const x1 = Math.max(0, event.x - tapSize);
+          const y1 = Math.max(0, event.y - tapSize);
+          const x2 = event.x + tapSize;
+          const y2 = event.y + tapSize;
+          const bounds = `[${x1},${y1}][${x2},${y2}]`;
+
           steps.push({
             id,
-            type: 'adb',
+            type: 'long_click_element',
             name: `${t('workflow.generated_step_name.long_press')} (${event.x}, ${event.y})`,
-            value: `shell input swipe ${event.x} ${event.y} ${event.x} ${event.y} ${event.duration || 1000}`,
+            selector: { type: 'bounds', value: bounds, index: 0 },
             loop: 1,
             postDelay: 0,
             onError: 'stop',
@@ -358,11 +366,32 @@ const AutomationView: React.FC = () => {
           } as main.WorkflowStep);
         }
       } else if (event.type === 'swipe') {
+        const dx = (event.x2 || event.x) - event.x;
+        const dy = (event.y2 || event.y) - event.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        let direction = 'up';
+        if (Math.abs(dx) > Math.abs(dy)) {
+          direction = dx > 0 ? 'right' : 'left';
+        } else {
+          direction = dy > 0 ? 'down' : 'up';
+        }
+
+        const tapSize = 10;
+        const x1 = Math.max(0, event.x - tapSize);
+        const y1 = Math.max(0, event.y - tapSize);
+        const x2 = event.x + tapSize;
+        const y2 = event.y + tapSize;
+        const bounds = `[${x1},${y1}][${x2},${y2}]`;
+
         steps.push({
           id,
-          type: 'adb',
-          name: `${t('workflow.generated_step_name.swipe')} ${idx + 1}`,
-          value: `shell input swipe ${event.x} ${event.y} ${event.x2 || event.x} ${event.y2 || event.y} ${event.duration || 300}`,
+          type: 'swipe_element',
+          name: `${t('workflow.generated_step_name.swipe')} ${direction}`,
+          selector: { type: 'bounds', value: bounds, index: 0 },
+          value: direction,
+          swipeDistance: Math.round(distance),
+          swipeDuration: event.duration || 300,
           loop: 1,
           postDelay: 0,
           onError: 'stop',
