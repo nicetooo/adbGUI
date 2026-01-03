@@ -127,185 +127,164 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 			touchPlaybackMu.Lock()
 			delete(touchPlaybackCancel, deviceId)
 			touchPlaybackMu.Unlock()
-
-			wailsRuntime.EventsEmit(a.ctx, "workflow-completed", map[string]interface{}{
-				"deviceId":     deviceId,
-				"workflowName": workflow.Name,
-			})
 		}()
 
 		wailsRuntime.EventsEmit(a.ctx, "workflow-started", map[string]interface{}{
 			"deviceId":     deviceId,
 			"workflowName": workflow.Name,
+			"workflowId":   workflow.ID,
 			"steps":        len(workflow.Steps),
 		})
 
-		// Build ID->Step map for graph navigation
-		fmt.Printf("--- WORKFLOW EXECUTION: %s ---\n", workflow.Name)
-		stepMap := make(map[string]*WorkflowStep)
-		var startStep *WorkflowStep
-		for i := range workflow.Steps {
-			s := &workflow.Steps[i]
-			fmt.Printf("  [%d] ID=%s Type=%s Next=%s TrueNext=%s FalseNext=%s\n",
-				i, s.ID, s.Type, s.NextStepId, s.TrueStepId, s.FalseStepId)
-			stepMap[s.ID] = s
-			if s.Type == "start" {
-				startStep = s
-			}
-		}
-
-		// Find start node
-		if startStep == nil {
+		err := a.runWorkflowInternal(ctx, deviceId, workflow, 0)
+		if err != nil && err != context.Canceled {
 			wailsRuntime.EventsEmit(a.ctx, "workflow-error", map[string]interface{}{
-				"deviceId": deviceId,
-				"error":    "Workflow must have a 'start' node",
+				"deviceId":   deviceId,
+				"workflowId": workflow.ID,
+				"error":      err.Error(),
 			})
-			return
 		}
 
-		// Get the first actual step (what start node points to)
-		currentStepID := startStep.NextStepId
-		if currentStepID == "" {
-			// No steps after start - workflow is empty, just complete successfully
-			fmt.Printf(">>> Workflow has no steps after Start, completing immediately\n")
-			return
+		wailsRuntime.EventsEmit(a.ctx, "workflow-completed", map[string]interface{}{
+			"deviceId":     deviceId,
+			"workflowName": workflow.Name,
+			"workflowId":   workflow.ID,
+		})
+	}()
+
+	return nil
+}
+
+// runWorkflowInternal contains the core graph traversal logic
+func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow Workflow, depth int) error {
+	// Build ID->Step map for graph navigation
+	stepMap := make(map[string]*WorkflowStep)
+	var startStep *WorkflowStep
+	for i := range workflow.Steps {
+		s := &workflow.Steps[i]
+		stepMap[s.ID] = s
+		if s.Type == "start" {
+			startStep = s
+		}
+	}
+
+	// Find start node
+	if startStep == nil {
+		return fmt.Errorf("workflow must have a 'start' node")
+	}
+
+	// Get the first actual step (what start node points to)
+	currentStepID := startStep.NextStepId
+	if currentStepID == "" {
+		return nil
+	}
+
+	// Emit event for Start node to show it's running
+	wailsRuntime.EventsEmit(a.ctx, "workflow-step-running", map[string]interface{}{
+		"deviceId": deviceId,
+		"stepId":   startStep.ID,
+		"stepName": startStep.Name,
+		"stepType": "start",
+	})
+	time.Sleep(200 * time.Millisecond)
+
+	// Graph-based execution loop
+	executedCount := 0
+	maxSteps := 2000 // Safety limit
+
+	for currentStepID != "" && executedCount < maxSteps {
+		select {
+		case <-ctx.Done():
+			return context.Canceled
+		default:
 		}
 
-		fmt.Printf(">>> Starting from: %s -> %s\n", startStep.ID, currentStepID)
+		// Check pause
+		a.checkPause(deviceId)
 
-		// Emit event for Start node to show it's running
+		step, exists := stepMap[currentStepID]
+		if !exists {
+			break
+		}
+
+		executedCount++
+
 		wailsRuntime.EventsEmit(a.ctx, "workflow-step-running", map[string]interface{}{
 			"deviceId":  deviceId,
-			"stepIndex": 0,
-			"stepId":    startStep.ID,
-			"stepName":  startStep.Name,
-			"stepType":  "start",
+			"stepIndex": executedCount,
+			"stepId":    step.ID,
+			"stepName":  step.Name,
+			"stepType":  step.Type,
 		})
-		time.Sleep(300 * time.Millisecond) // Brief highlight for Start node
 
-		// Graph-based execution loop
-		executedCount := 0
-		maxSteps := 1000 // Safety limit to prevent infinite loops
+		loopCount := step.Loop
+		if loopCount < 1 {
+			loopCount = 1
+		}
 
-		for currentStepID != "" && executedCount < maxSteps {
-			step, exists := stepMap[currentStepID]
-			if !exists {
-				fmt.Printf("[Workflow] Step not found: %s\n", currentStepID)
-				break
+		var stepResult bool = true
+
+		for l := 0; l < loopCount; l++ {
+			// Pre-Wait
+			if step.PreWait > 0 {
+				wailsRuntime.EventsEmit(a.ctx, "workflow-step-waiting", map[string]interface{}{
+					"deviceId": deviceId,
+					"stepId":   step.ID,
+					"duration": step.PreWait,
+					"phase":    "pre",
+				})
+				time.Sleep(time.Duration(step.PreWait) * time.Millisecond)
 			}
 
-			executedCount++
-			stepJson, _ := json.Marshal(step)
-			fmt.Printf(">>> Executing Step [%d] %s: %s\n", executedCount, step.ID, string(stepJson))
+			var err error
+			stepResult, err = a.runWorkflowStep(ctx, deviceId, *step, l+1, loopCount, depth)
+			if err != nil {
+				if err == context.Canceled {
+					return context.Canceled
+				}
+				if step.OnError == "continue" {
+					goto check_cancel
+				}
+				return err
+			}
 
+			// Post Delay (Wait After)
+			if step.PostDelay > 0 {
+				wailsRuntime.EventsEmit(a.ctx, "workflow-step-waiting", map[string]interface{}{
+					"deviceId": deviceId,
+					"stepId":   step.ID,
+					"duration": step.PostDelay,
+					"phase":    "post",
+				})
+				time.Sleep(time.Duration(step.PostDelay) * time.Millisecond)
+			}
+
+		check_cancel:
 			select {
 			case <-ctx.Done():
-				return
+				return context.Canceled
 			default:
 			}
+		}
 
-			// Check pause (reusing automation.go logic)
-			a.checkPause(deviceId)
-
-			wailsRuntime.EventsEmit(a.ctx, "workflow-step-running", map[string]interface{}{
-				"deviceId":  deviceId,
-				"stepIndex": executedCount - 1,
-				"stepId":    step.ID,
-				"stepName":  step.Name,
-				"stepType":  step.Type,
-			})
-
-			loopCount := step.Loop
-			if loopCount < 1 {
-				loopCount = 1
-			}
-
-			var stepResult bool = true
-
-			for l := 0; l < loopCount; l++ {
-				// Pre-Wait
-				if step.PreWait > 0 {
-					fmt.Printf(">>> Step %s waiting for %dms...\n", step.ID, step.PreWait)
-					wailsRuntime.EventsEmit(a.ctx, "workflow-step-waiting", map[string]interface{}{
-						"deviceId": deviceId,
-						"stepId":   step.ID,
-						"duration": step.PreWait,
-						"phase":    "pre",
-					})
-					time.Sleep(time.Duration(step.PreWait) * time.Millisecond)
-				}
-
-				var err error
-				stepResult, err = a.runWorkflowStep(ctx, deviceId, *step, l+1, loopCount, 0)
-				if err != nil {
-					// Handle error
-					if err == context.Canceled {
-						return // Stop execution silently
-					}
-					if step.OnError == "continue" {
-						fmt.Printf("[Workflow] Step failed but continuing: %v\n", err)
-						goto check_cancel
-					}
-
-					wailsRuntime.EventsEmit(a.ctx, "workflow-error", map[string]interface{}{
-						"deviceId": deviceId,
-						"error":    err.Error(),
-					})
-					return // Stop execution
-				}
-
-				// Post Delay (Wait After)
-				if step.PostDelay > 0 {
-					fmt.Printf(">>> Step %s post-waiting for %dms...\n", step.ID, step.PostDelay)
-					wailsRuntime.EventsEmit(a.ctx, "workflow-step-waiting", map[string]interface{}{
-						"deviceId": deviceId,
-						"stepId":   step.ID,
-						"duration": step.PostDelay,
-						"phase":    "post",
-					})
-					time.Sleep(time.Duration(step.PostDelay) * time.Millisecond)
-				}
-
-			check_cancel:
-				// Check cancel between loops
-				select {
-				case <-ctx.Done():
-					return
-				default:
-				}
-			}
-
-			// Determine Next Step based on graph edges
-			nextStepID := ""
-
-			if step.Type == "branch" {
-				// Conditional branch: use result to determine path
-				if stepResult {
-					nextStepID = step.TrueStepId
-					fmt.Printf(">>> Branch result: TRUE -> %s\n", nextStepID)
-				} else {
-					nextStepID = step.FalseStepId
-					fmt.Printf(">>> Branch result: FALSE -> %s\n", nextStepID)
-				}
+		// Determine Next Step
+		nextStepID := ""
+		if step.Type == "branch" {
+			if stepResult {
+				nextStepID = step.TrueStepId
 			} else {
-				// Normal step: follow nextStepId
-				nextStepID = step.NextStepId
+				nextStepID = step.FalseStepId
 			}
-
-			if nextStepID == "" {
-				fmt.Printf(">>> End of workflow (no next step)\n")
-			}
-
-			currentStepID = nextStepID
+		} else {
+			nextStepID = step.NextStepId
 		}
 
-		if executedCount >= maxSteps {
-			wailsRuntime.EventsEmit(a.ctx, "workflow-error", map[string]interface{}{
-				"deviceId": deviceId,
-				"error":    "Workflow exceeded maximum step limit (possible infinite loop)",
-			})
-		}
-	}()
+		currentStepID = nextStepID
+	}
+
+	if executedCount >= maxSteps {
+		return fmt.Errorf("workflow exceeded maximum step limit (possible infinite loop)")
+	}
 
 	return nil
 }
@@ -689,69 +668,28 @@ func (a *App) loadAndRunSubWorkflow(ctx context.Context, deviceId, workflowID st
 		return fmt.Errorf("failed to parse sub-workflow: %w", err)
 	}
 
-	// Make SubWorkflows ALSO support graph execution?
-	// YES. We can reuse RunWorkflow logic?
-	// But RunWorkflow spawns a goroutine and emits events which might confuse the parent flow events?
-	// AND RunWorkflow takes a 'Device' object.
-	// Ideally we refactor the loop logic into 'runWorkflowLoop'.
-	// But for now, to save time, I will keep loadAndRunSubWorkflow simple (Linear + Legacy).
-	// OR I can duplicate the loop logic here.
-	// Given user requested "Not nested", supporting graph inside nested might not be priority.
-	// But consistency is good.
-	// Let's stick to Linear for SubWorkflow for now to avoid massive refactor (extracting loop).
-	// Main Workflow supports Graph. SubWorkflows run linearly (unless I refactor).
-	// User said "Instead of nested call", meaning they will use the MAIN graph.
-	// So SubWorkflow logic being linear is Acceptable for legacy support.
-	// I will just update the recursive call to match signature.
+	wailsRuntime.EventsEmit(a.ctx, "workflow-started", map[string]interface{}{
+		"deviceId":     deviceId,
+		"workflowName": subWorkflow.Name,
+		"workflowId":   subWorkflow.ID,
+		"steps":        len(subWorkflow.Steps),
+	})
 
-	for _, subStep := range subWorkflow.Steps {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
+	err = a.runWorkflowInternal(ctx, deviceId, subWorkflow, depth+1)
 
-		subLoopCount := subStep.Loop
-		if subLoopCount < 1 {
-			subLoopCount = 1
-		}
-
-		for l := 0; l < subLoopCount; l++ {
-			// Pre-Wait
-			if subStep.PreWait > 0 {
-				wailsRuntime.EventsEmit(a.ctx, "workflow-step-waiting", map[string]interface{}{
-					"deviceId": deviceId,
-					"stepId":   subStep.ID,
-					"duration": subStep.PreWait,
-					"phase":    "pre",
-				})
-				time.Sleep(time.Duration(subStep.PreWait) * time.Millisecond)
-			}
-			// Recursive call - discard bool result
-			if _, err := a.runWorkflowStep(ctx, deviceId, subStep, l+1, subLoopCount, depth+1); err != nil {
-				if subStep.OnError == "continue" {
-					goto next_sub_loop
-				}
-				return err
-			}
-
-			if subStep.PostDelay > 0 {
-				wailsRuntime.EventsEmit(a.ctx, "workflow-step-waiting", map[string]interface{}{
-					"deviceId": deviceId,
-					"stepId":   subStep.ID,
-					"duration": subStep.PostDelay,
-					"phase":    "post",
-				})
-				time.Sleep(time.Duration(subStep.PostDelay) * time.Millisecond)
-			}
-
-		next_sub_loop:
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-			}
-		}
+	if err != nil && err != context.Canceled {
+		wailsRuntime.EventsEmit(a.ctx, "workflow-error", map[string]interface{}{
+			"deviceId":   deviceId,
+			"workflowId": subWorkflow.ID,
+			"error":      err.Error(),
+		})
 	}
-	return nil
+
+	wailsRuntime.EventsEmit(a.ctx, "workflow-completed", map[string]interface{}{
+		"deviceId":     deviceId,
+		"workflowName": subWorkflow.Name,
+		"workflowId":   subWorkflow.ID,
+	})
+
+	return err
 }

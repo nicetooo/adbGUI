@@ -326,6 +326,7 @@ const WorkflowView: React.FC = () => {
 
   // Execution state
   const [isRunning, setIsRunning] = useState(false);
+  const [runningWorkflowIds, setRunningWorkflowIds] = useState<string[]>([]);
   const [isPaused, setIsPaused] = useState(false);
   const [currentStepId, setCurrentStepId] = useState<string | null>(null);
   const [waitingStepId, setWaitingStepId] = useState<string | null>(null);
@@ -583,18 +584,18 @@ const WorkflowView: React.FC = () => {
     dagreGraph.setGraph({
       rankdir: direction,
       ranker: 'network-simplex',
-      ranksep: isHorizontal ? 150 : 120,
-      nodesep: isHorizontal ? 60 : 100, // In LR, nodesep is vertical distance.
+      ranksep: isHorizontal ? 150 : 40, // TB: vertical distance between ranks
+      nodesep: isHorizontal ? 40 : 40,  // LR: vertical distance between siblings
       edgesep: 50,
       marginx: 50,
       marginy: 50,
     });
 
     nodes.forEach((node) => {
-      // In LR mode, we need more 'height' (vertical space) for the node ghost
-      // In TB mode, we need more 'width' (horizontal space)
-      const ghostWidth = isHorizontal ? 320 : 400;
-      const ghostHeight = isHorizontal ? 200 : 150;
+      // TB: Vertical spacing is predominantly ranksep + ghostHeight
+      // LR: Vertical spacing is predominantly nodesep + ghostHeight
+      const ghostWidth = isHorizontal ? 320 : 360;
+      const ghostHeight = isHorizontal ? 120 : 100;
 
       dagreGraph.setNode(node.id, { width: ghostWidth, height: ghostHeight });
     });
@@ -942,6 +943,7 @@ const WorkflowView: React.FC = () => {
     const sanitizedWorkflow = { ...workflowToRun, steps: sanitizedSteps };
 
     setIsRunning(true);
+    setRunningWorkflowIds([selectedWorkflow.id]);
     setCurrentStepId(null);
     setExecutionLogs([
       `[${new Date().toLocaleTimeString()}] ${t("workflow.started")}: ${sanitizedWorkflow.name}`,
@@ -956,6 +958,7 @@ const WorkflowView: React.FC = () => {
       }
 
       const cleanUp = () => {
+        runtime.EventsOff("workflow-started", onSubStarted);
         runtime.EventsOff("workflow-completed", onComplete);
         runtime.EventsOff("workflow-error", onError);
         runtime.EventsOff("workflow-step-running", onStep);
@@ -964,17 +967,30 @@ const WorkflowView: React.FC = () => {
         runtime.EventsOff("task-resumed", onResumed);
       };
 
+      const onSubStarted = (data: any) => {
+        if (data.deviceId === deviceObj.id && data.workflowId) {
+          setRunningWorkflowIds(prev => Array.from(new Set([...prev, data.workflowId])));
+          setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${t("workflow.started")}: ${data.workflowName}`]);
+        }
+      };
+
       const onComplete = (data: any) => {
         if (data.deviceId === deviceObj.id) {
-          cleanUp();
-          resolve();
+          setRunningWorkflowIds(prev => prev.filter(id => id !== data.workflowId));
+          if (data.workflowId === selectedWorkflow.id) {
+            cleanUp();
+            resolve();
+          }
         }
       };
 
       const onError = (data: any) => {
         if (data.deviceId === deviceObj.id) {
-          cleanUp();
-          reject(data.error);
+          setRunningWorkflowIds(prev => prev.filter(id => id !== data.workflowId));
+          if (data.workflowId === selectedWorkflow.id) {
+            cleanUp();
+            reject(data.error);
+          }
         }
       };
 
@@ -1007,6 +1023,7 @@ const WorkflowView: React.FC = () => {
         }
       };
 
+      runtime.EventsOn("workflow-started", onSubStarted);
       runtime.EventsOn("workflow-completed", onComplete);
       runtime.EventsOn("workflow-error", onError);
       runtime.EventsOn("workflow-step-running", onStep);
@@ -1026,6 +1043,7 @@ const WorkflowView: React.FC = () => {
     } finally {
       setIsRunning(false);
       setIsPaused(false);
+      setRunningWorkflowIds([]);
       setCurrentStepId(null);
     }
   };
@@ -1148,9 +1166,16 @@ const WorkflowView: React.FC = () => {
                       </Popconfirm>
                     ]}
                   >
-                    <div style={{ width: '100%' }}>
-                      <div style={{ fontWeight: 500 }}>{workflow.name}</div>
-                      <div style={{ fontSize: 12, color: token.colorTextSecondary }}>{workflow.steps.length} steps</div>
+                    <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {workflow.name}
+                          {runningWorkflowIds.includes(workflow.id) && (
+                            <LoadingOutlined style={{ color: token.colorPrimary, fontSize: 12 }} />
+                          )}
+                        </div>
+                        <div style={{ fontSize: 12, color: token.colorTextSecondary }}>{workflow.steps.length} steps</div>
+                      </div>
                     </div>
                   </List.Item>
                 )}
