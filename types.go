@@ -216,6 +216,14 @@ type WorkflowStep struct {
 	OnError   string           `json:"onError,omitempty"` // "stop", "continue"
 	Loop      int              `json:"loop,omitempty"`
 	PostDelay int              `json:"postDelay,omitempty"`
+	// Graph Flow Control
+	NextStepId  string `json:"nextStepId,omitempty"`  // Default next step
+	TrueStepId  string `json:"trueStepId,omitempty"`  // Branch TRUE target
+	FalseStepId string `json:"falseStepId,omitempty"` // Branch FALSE target
+
+	// Visual Layout
+	PosX float64 `json:"posX,omitempty"`
+	PosY float64 `json:"posY,omitempty"`
 }
 
 type Workflow struct {

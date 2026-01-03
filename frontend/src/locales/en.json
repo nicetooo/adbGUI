@@ -629,6 +629,9 @@
     "add_step": "Add Step",
     "edit_step": "Edit Step",
     "select_workflow": "Select Workflow",
+    "branch_conditions": "Branch Conditions",
+    "if_true": "If True",
+    "if_false": "If False",
     "step_type_label": "Step Type",
     "selector_type": "Selector",
     "selector_value": "Value",
@@ -656,6 +659,7 @@
       "nested": "Nested Workflows"
     },
     "step_type": {
+      "start": "Start",
       "click_element": "Click Element",
       "long_click_element": "Long Click",
       "input_text": "Input Text",
@@ -669,6 +673,7 @@
       "script": "Run Script",
       "adb": "ADB Command",
       "run_workflow": "Run Workflow",
+      "branch": "Conditional Branch",
       "key_back": "Back",
       "key_home": "Home",
       "key_recent": "Recent Apps",
@@ -697,6 +702,13 @@
     "pick_point_hint": "For WebView/Hybrid pages that cannot be analyzed",
     "tap_on_device": "Tap on the device screen to capture coordinates",
     "point_captured": "Point captured: ({{x}}, {{y}})",
-    "point_capture_failed": "Failed to capture point"
+    "point_capture_failed": "Failed to capture point",
+    "error_no_start": "Workflow must have a Start node",
+    "error_duplicate_start": "Only one Start node is allowed",
+    "error_delete_start": "Start node cannot be deleted",
+    "warning_start_not_connected": "Start node is not connected to any step",
+    "branch_description": "Branch node checks if the specified element exists. Connect True/False outputs to different paths.",
+    "branch_condition": "Condition (element to check)",
+    "delete_step": "Delete Step"
   }
 }

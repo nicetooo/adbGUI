@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Button,
   Space,
@@ -46,6 +46,7 @@ import {
   SoundOutlined,
   ExpandOutlined,
   LockOutlined,
+  ForkOutlined,
 } from "@ant-design/icons";
 import {
   ReactFlow,
@@ -57,12 +58,12 @@ import {
   addEdge,
   Handle,
   Position,
-  Panel,
   Connection,
   Edge,
   Node,
   BackgroundVariant,
-  MarkerType
+  MarkerType,
+  Panel as FlowPanel
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
@@ -84,6 +85,11 @@ interface WorkflowStep {
   onError?: string;
   loop?: number;
   postDelay?: number;
+  nextStepId?: string;
+  trueStepId?: string;
+  falseStepId?: string;
+  posX?: number;
+  posY?: number;
 }
 
 interface Workflow {
@@ -109,7 +115,8 @@ const STEP_TYPES = {
     { key: 'wait', icon: <ClockCircleOutlined />, color: 'default' },
   ],
   FLOW_CONTROL: [
-    { key: 'if_exists', icon: <BranchesOutlined />, color: 'green' },
+    { key: 'start', icon: <CaretRightOutlined />, color: 'green' },
+    { key: 'branch', icon: <ForkOutlined />, color: 'purple' },
     { key: 'scroll_to', icon: <ReloadOutlined />, color: 'magenta' },
     { key: 'assert_element', icon: <CheckCircleOutlined />, color: 'lime' },
   ],
@@ -145,6 +152,7 @@ const WorkflowNode = ({ data, selected }: any) => {
   const { step, isRunning, isCurrent } = data;
   const { token } = theme.useToken();
   const typeInfo = getStepTypeInfo(step.type);
+  const isBranch = step.type === 'branch';
 
   return (
     <div style={{ position: 'relative' }}>
@@ -167,8 +175,6 @@ const WorkflowNode = ({ data, selected }: any) => {
             padding: 6,
             borderRadius: 6,
             display: 'flex',
-            // color: typeInfo.color === 'default' ? token.colorText : token[(typeInfo.color + '6') as keyof typeof token] || typeInfo.color 
-            // Simplified color mapping for better dark/light compatibility:
             color: typeInfo.color === 'default' ? token.colorText : typeInfo.color
           }}>
             {typeInfo.icon}
@@ -181,7 +187,7 @@ const WorkflowNode = ({ data, selected }: any) => {
                 <Text ellipsis style={{ fontSize: 11, maxWidth: 120, color: token.colorTextSecondary }}>{step.selector.value}</Text>
               </div>
             )}
-            {step.value && (
+            {!isBranch && step.value && (
               <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
                 <Text ellipsis style={{ fontSize: 11, color: token.colorTextSecondary }}>{step.value}</Text>
               </div>
@@ -189,7 +195,28 @@ const WorkflowNode = ({ data, selected }: any) => {
           </div>
         </div>
       </Card>
-      <Handle type="source" position={Position.Bottom} style={{ background: token.colorTextSecondary }} />
+
+      {isBranch ? (
+        <>
+          <div style={{ position: 'absolute', bottom: -14, left: '25%', fontSize: 9, color: token.colorSuccess, fontWeight: 'bold' }}>True</div>
+          <Handle
+            type="source"
+            position={Position.Bottom}
+            id="true"
+            style={{ left: '30%', background: token.colorSuccess }}
+          />
+
+          <div style={{ position: 'absolute', bottom: -14, right: '25%', fontSize: 9, color: token.colorError, fontWeight: 'bold' }}>False</div>
+          <Handle
+            type="source"
+            position={Position.Bottom}
+            id="false"
+            style={{ left: '70%', background: token.colorError }}
+          />
+        </>
+      ) : (
+        <Handle type="source" position={Position.Bottom} id="default" style={{ background: token.colorTextSecondary }} />
+      )}
     </div>
   );
 };
@@ -222,9 +249,11 @@ const WorkflowView: React.FC = () => {
   // Element Picker
   const [elementPickerVisible, setElementPickerVisible] = useState(false);
 
+  // Track if we should skip the next node re-render (after saving)
+  const skipNextRenderRef = useRef(false);
+
   const nodeTypes = useMemo(() => ({ workflowNode: WorkflowNode }), []);
 
-  // Load workflows
   useEffect(() => {
     loadWorkflows();
   }, []);
@@ -238,8 +267,9 @@ const WorkflowView: React.FC = () => {
     }
   };
 
-  // Layout Graph
   const getLayoutedElements = useCallback((nodes: Node[], edges: Edge[]) => {
+    if (nodes.length === 0) return { nodes, edges };
+
     const dagreGraph = new dagre.graphlib.Graph();
     dagreGraph.setDefaultEdgeLabel(() => ({}));
     const nodeWidth = 280;
@@ -271,44 +301,102 @@ const WorkflowView: React.FC = () => {
     return { nodes: layoutedNodes, edges };
   }, []);
 
-  // Convert Workflow Steps to Graph
   useEffect(() => {
+    // Skip re-rendering nodes if we just saved (nodes are already up-to-date)
+    if (skipNextRenderRef.current) {
+      skipNextRenderRef.current = false;
+      return;
+    }
+
     if (selectedWorkflow) {
-      const newNodes: Node[] = selectedWorkflow.steps.map((step, index) => ({
-        id: step.id,
-        type: 'workflowNode',
-        position: { x: 0, y: 0 }, // Initial position, will belayouted
-        data: {
-          step,
-          label: step.name || t(`workflow.step_type.${step.type}`),
-          isCurrent: index === currentStepIndex
-        },
-      }));
+      const newNodes: Node[] = selectedWorkflow.steps.map((step, index) => {
+        return {
+          id: step.id,
+          type: 'workflowNode',
+          position: (step.posX !== undefined && step.posY !== undefined) ? { x: step.posX, y: step.posY } : { x: 0, y: 0 },
+          data: {
+            step,
+            label: step.name || t(`workflow.step_type.${step.type}`),
+            isCurrent: index === currentStepIndex
+          },
+        };
+      });
 
-      const newEdges: Edge[] = selectedWorkflow.steps.slice(0, -1).map((step, index) => ({
-        id: `e-${step.id}-${selectedWorkflow.steps[index + 1].id}`,
-        source: step.id,
-        target: selectedWorkflow.steps[index + 1].id,
-        type: 'smoothstep',
-        markerEnd: { type: MarkerType.ArrowClosed },
-      }));
+      const newEdges: Edge[] = [];
+      const hasGraphData = selectedWorkflow.steps.some(s => s.nextStepId || s.trueStepId || s.falseStepId);
 
-      const layouted = getLayoutedElements(newNodes, newEdges);
-      setNodes(layouted.nodes);
-      setEdges(layouted.edges);
+      if (hasGraphData) {
+        selectedWorkflow.steps.forEach(step => {
+          if (step.nextStepId) {
+            newEdges.push({
+              id: `e-${step.id}-${step.nextStepId}`,
+              source: step.id,
+              target: step.nextStepId,
+              type: 'smoothstep',
+              sourceHandle: 'default',
+              markerEnd: { type: MarkerType.ArrowClosed }
+            });
+          }
+          if (step.trueStepId) {
+            newEdges.push({
+              id: `e-${step.id}-${step.trueStepId}-true`,
+              source: step.id,
+              target: step.trueStepId,
+              type: 'smoothstep',
+              sourceHandle: 'true',
+              label: 'True',
+              style: { stroke: token.colorSuccess },
+              labelStyle: { fill: token.colorSuccess, fontWeight: 700 },
+              markerEnd: { type: MarkerType.ArrowClosed, color: token.colorSuccess }
+            });
+          }
+          if (step.falseStepId) {
+            newEdges.push({
+              id: `e-${step.id}-${step.falseStepId}-false`,
+              source: step.id,
+              target: step.falseStepId,
+              type: 'smoothstep',
+              sourceHandle: 'false',
+              label: 'False',
+              style: { stroke: token.colorError },
+              labelStyle: { fill: token.colorError, fontWeight: 700 },
+              markerEnd: { type: MarkerType.ArrowClosed, color: token.colorError }
+            });
+          }
+        });
+      } else {
+        selectedWorkflow.steps.slice(0, -1).forEach((step, index) => {
+          newEdges.push({
+            id: `e-${step.id}-${selectedWorkflow.steps[index + 1].id}`,
+            source: step.id,
+            target: selectedWorkflow.steps[index + 1].id,
+            type: 'smoothstep',
+            sourceHandle: 'default',
+            markerEnd: { type: MarkerType.ArrowClosed },
+          });
+        });
+      }
+
+      const hasPositions = selectedWorkflow.steps.some(s => s.posX !== undefined);
+      if (hasPositions) {
+        setNodes(newNodes);
+        setEdges(newEdges);
+      } else {
+        const layouted = getLayoutedElements(newNodes, newEdges);
+        setNodes(layouted.nodes);
+        setEdges(layouted.edges);
+      }
     } else {
       setNodes([]);
       setEdges([]);
     }
-  }, [selectedWorkflow, getLayoutedElements, t]); // Removed currentStepIndex dependency to prevent layout reset on run
+  }, [selectedWorkflow, getLayoutedElements, t, token]);
 
-  // Update visual state when running
   useEffect(() => {
     setNodes((nds) =>
       nds.map((node) => {
         const stepIndex = selectedWorkflow?.steps.findIndex(s => s.id === node.id);
         const isCurrent = stepIndex === currentStepIndex;
-        // Only update if changed
         if (node.data.isCurrent !== isCurrent) {
           return {
             ...node,
@@ -320,9 +408,12 @@ const WorkflowView: React.FC = () => {
     );
   }, [currentStepIndex, isRunning, selectedWorkflow]);
 
-
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({ ...params, type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } }, eds)),
+    (params: Connection) => setEdges((eds) => addEdge({
+      ...params,
+      type: 'smoothstep',
+      markerEnd: { type: MarkerType.ArrowClosed }
+    }, eds)),
     [setEdges],
   );
 
@@ -334,7 +425,7 @@ const WorkflowView: React.FC = () => {
       ...step,
       selectorType: step.selector?.type,
       selectorValue: step.selector?.value,
-      type: step.type // ensure type is set for conditional rendering
+      type: step.type,
     });
     setDrawerVisible(true);
   };
@@ -346,15 +437,23 @@ const WorkflowView: React.FC = () => {
   };
 
   const handleCreateWorkflowSubmit = async (values: any) => {
+    // Auto-create a Start node
+    const startStep: WorkflowStep = {
+      id: `start_${Date.now()}`,
+      type: 'start',
+      name: 'Start',
+      posX: 250,
+      posY: 50,
+    };
+
     const newWorkflow: Workflow = {
       id: `wf_${Date.now()}`,
       name: values.name,
       description: values.description,
-      steps: [],
+      steps: [startStep],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    // Save immediatelly
     try {
       await (window as any).go.main.App.SaveWorkflow(newWorkflow);
       message.success(t("workflow.saved"));
@@ -369,44 +468,83 @@ const WorkflowView: React.FC = () => {
   const handleSaveGraph = async (silent: boolean = false): Promise<Workflow | null> => {
     if (!selectedWorkflow) return null;
 
-    const nodeMap = new Map(nodes.map(n => [n.id, n]));
-    const outEdgesMap = new Map<string, string>(); // source -> target
-    edges.forEach(e => outEdgesMap.set(e.source, e.target));
+    const outEdgesMap = new Map<string, Edge[]>();
+    edges.forEach(e => {
+      const list = outEdgesMap.get(e.source) || [];
+      list.push(e);
+      outEdgesMap.set(e.source, list);
+    });
 
-    // Find start node
-    const incomings = new Set(edges.map(e => e.target));
-    const starts = nodes.filter(n => !incomings.has(n.id));
-
-    if (starts.length === 0 && nodes.length > 0) {
-      message.warning("Cycle detected or no clear start. Saving best guess.");
+    // Check for start node
+    const hasStartNode = nodes.some(n => (n.data.step as WorkflowStep).type === 'start');
+    if (!hasStartNode) {
+      if (!silent) message.error(t("workflow.error_no_start"));
+      return null;
     }
 
-    const orderedSteps: WorkflowStep[] = [];
-    let currentId: string | undefined = starts.length > 0 ? starts[0].id : (nodes[0]?.id);
+    // Check if start node has outgoing connection
+    const startNode = nodes.find(n => (n.data.step as WorkflowStep).type === 'start');
+    const startOutgoing = outEdgesMap.get(startNode?.id || '') || [];
+    if (startOutgoing.length === 0) {
+      if (!silent) message.warning(t("workflow.warning_start_not_connected"));
+    }
 
-    const visited = new Set<string>();
-    while (currentId && !visited.has(currentId)) {
-      visited.add(currentId);
-      const node = nodeMap.get(currentId);
-      if (node) {
-        orderedSteps.push(node.data.step as WorkflowStep);
+    const stepsToSave: WorkflowStep[] = nodes.map(node => {
+      const originalStep = node.data.step as WorkflowStep;
+      const outgoing = outEdgesMap.get(node.id) || [];
+
+      let nextStepId = "";
+      let trueStepId = "";
+      let falseStepId = "";
+
+      if (originalStep.type === 'branch') {
+        const t = outgoing.find(e => e.sourceHandle === 'true');
+        const f = outgoing.find(e => e.sourceHandle === 'false');
+        if (t) trueStepId = t.target;
+        if (f) falseStepId = f.target;
+      } else {
+        const next = outgoing.find(e => e.sourceHandle === 'default' || !e.sourceHandle);
+        if (next) nextStepId = next.target;
       }
-      currentId = outEdgesMap.get(currentId);
-    }
+
+      return {
+        ...originalStep,
+        nextStepId,
+        trueStepId,
+        falseStepId,
+        value: originalStep.value,
+        posX: node.position.x,
+        posY: node.position.y
+      };
+    });
 
     const updatedWorkflow = {
       ...selectedWorkflow,
-      steps: orderedSteps,
+      steps: stepsToSave,
       updatedAt: new Date().toISOString(),
     };
 
     try {
       await (window as any).go.main.App.SaveWorkflow(updatedWorkflow);
+
+      // Mark to skip the next useEffect render - nodes are already up-to-date
+      skipNextRenderRef.current = true;
+
+      // Update both workflows list and selectedWorkflow
+      setWorkflows(prev => {
+        const idx = prev.findIndex(w => w.id === updatedWorkflow.id);
+        if (idx >= 0) {
+          const newList = [...prev];
+          newList[idx] = updatedWorkflow;
+          return newList;
+        }
+        return [...prev, updatedWorkflow];
+      });
       setSelectedWorkflow(updatedWorkflow);
+
       if (!silent) {
         message.success(t("workflow.saved"));
       }
-      loadWorkflows();
       return updatedWorkflow;
     } catch (err) {
       if (!silent) {
@@ -418,6 +556,15 @@ const WorkflowView: React.FC = () => {
 
   const handleAddStep = (type: string) => {
     if (!selectedWorkflow) return;
+
+    // Prevent adding multiple start nodes
+    if (type === 'start') {
+      const hasStart = nodes.some(n => (n.data.step as WorkflowStep).type === 'start');
+      if (hasStart) {
+        message.warning(t("workflow.error_duplicate_start"));
+        return;
+      }
+    }
 
     const id = `step_${Date.now()}`;
     const newStep: WorkflowStep = {
@@ -431,7 +578,7 @@ const WorkflowView: React.FC = () => {
     const newNode: Node = {
       id,
       type: 'workflowNode',
-      position: { x: 250, y: (nodes.length * 100) + 50 }, // Simple stacking
+      position: { x: 250, y: (nodes.length * 100) + 50 },
       data: {
         step: newStep,
         label: t(`workflow.step_type.${type}`),
@@ -439,30 +586,39 @@ const WorkflowView: React.FC = () => {
       }
     };
 
-    // Auto connect to last node if exists
     if (nodes.length > 0) {
       const hasOutgoing = new Set(edges.map(e => e.source));
       const tails = nodes.filter(n => !hasOutgoing.has(n.id));
 
       if (tails.length === 1) {
         const lastNode = tails[0];
-        const newEdge = {
-          id: `e-${lastNode.id}-${id}`,
-          source: lastNode.id,
-          target: id,
-          type: 'smoothstep',
-          markerEnd: { type: MarkerType.ArrowClosed },
-        };
-        setEdges(eds => [...eds, newEdge]);
-        newNode.position = { x: lastNode.position.x, y: lastNode.position.y + 120 };
+        const lastType = (lastNode.data.step as WorkflowStep).type;
+        if (lastType !== 'branch') {
+          const newEdge = {
+            id: `e-${lastNode.id}-${id}`,
+            source: lastNode.id,
+            target: id,
+            type: 'smoothstep',
+            sourceHandle: 'default',
+            markerEnd: { type: MarkerType.ArrowClosed },
+          };
+          setEdges(eds => [...eds, newEdge]);
+          newNode.position = { x: lastNode.position.x, y: lastNode.position.y + 120 };
+        } else {
+          newNode.position = { x: lastNode.position.x, y: lastNode.position.y + 120 };
+        }
       }
     }
 
     setNodes(nds => [...nds, newNode]);
-    setEditingNodeId(id);
-    stepForm.resetFields();
-    stepForm.setFieldsValue({ type, onError: 'stop', loop: 1 });
-    setDrawerVisible(true);
+
+    // Don't open drawer for start node - it doesn't need configuration
+    if (type !== 'start') {
+      setEditingNodeId(id);
+      stepForm.resetFields();
+      stepForm.setFieldsValue({ type, onError: 'stop', loop: 1 });
+      setDrawerVisible(true);
+    }
   };
 
   const handleUpdateStep = (values: any) => {
@@ -483,6 +639,9 @@ const WorkflowView: React.FC = () => {
           onError: values.onError,
           loop: values.loop,
           postDelay: values.postDelay,
+          nextStepId: (node.data.step as WorkflowStep).nextStepId,
+          trueStepId: (node.data.step as WorkflowStep).trueStepId,
+          falseStepId: (node.data.step as WorkflowStep).falseStepId,
         };
         return {
           ...node,
@@ -500,6 +659,14 @@ const WorkflowView: React.FC = () => {
 
   const handleDeleteNode = () => {
     if (!editingNodeId) return;
+
+    // Prevent deleting start node
+    const nodeToDelete = nodes.find(n => n.id === editingNodeId);
+    if (nodeToDelete && (nodeToDelete.data.step as WorkflowStep).type === 'start') {
+      message.warning(t("workflow.error_delete_start"));
+      return;
+    }
+
     setNodes(nds => nds.filter(n => n.id !== editingNodeId));
     setEdges(eds => eds.filter(e => e.source !== editingNodeId && e.target !== editingNodeId));
     setDrawerVisible(false);
@@ -512,12 +679,10 @@ const WorkflowView: React.FC = () => {
       selectorValue: selector.value,
     });
     setElementPickerVisible(false);
-    // Trigger form update
     handleUpdateStep(stepForm.getFieldsValue());
     message.success(t("workflow.selector_applied"));
   };
 
-  // Runners
   const handleRunWorkflow = async () => {
     if (!selectedDevice || !selectedWorkflow) {
       message.warning(t("app.select_device"));
@@ -534,12 +699,10 @@ const WorkflowView: React.FC = () => {
     if (!workflowToRun) return;
 
     if (workflowToRun.steps.length === 0) {
-      message.warning("Run aborted: Workflow has 0 steps. Please check graph connections.");
+      message.warning("Run aborted: Workflow has 0 steps.");
       return;
     }
 
-    // Auto-fix legacy commands: prepend 'shell' if missing for 'input' commands
-    // This allows running old workflows without re-converting
     const sanitizedSteps = workflowToRun.steps.map(s => {
       if (s.type === 'adb' && s.value && s.value.trim().startsWith('input ')) {
         return { ...s, value: `shell ${s.value}` };
@@ -555,17 +718,13 @@ const WorkflowView: React.FC = () => {
       `[Info] Executing ${sanitizedWorkflow.steps.length} steps.`
     ]);
 
-    // Setup event listeners using a Promise wrapper to wait for completion
     const executionPromise = new Promise<void>((resolve, reject) => {
       const runtime = (window as any).runtime;
       if (!runtime) {
-        console.warn("Wails runtime not found");
-        // Fallback for dev mode without backend
         setTimeout(resolve, 1000);
         return;
       }
 
-      // Cleanup function
       const cleanUp = () => {
         runtime.EventsOff("workflow-completed", onComplete);
         runtime.EventsOff("workflow-error", onError);
@@ -599,10 +758,7 @@ const WorkflowView: React.FC = () => {
 
     try {
       await (window as any).go.main.App.RunWorkflow(deviceObj, sanitizedWorkflow);
-
-      // Wait for the completion event
       await executionPromise;
-
       setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${t("workflow.completed")}`]);
     } catch (err) {
       setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${t("workflow.error")}: ${err}`]);
@@ -639,7 +795,6 @@ const WorkflowView: React.FC = () => {
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      {/* Header */}
       <div style={{ padding: "12px 24px", borderBottom: `1px solid ${token.colorBorderSecondary}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: token.colorBgContainer }}>
         <Space>
           <Title level={4} style={{ margin: 0 }}>{t("workflow.title")}</Title>
@@ -667,7 +822,6 @@ const WorkflowView: React.FC = () => {
       </div>
 
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-        {/* Left Sidebar: List */}
         <div style={{ width: 250, borderRight: `1px solid ${token.colorBorderSecondary}`, display: "flex", flexDirection: "column", background: token.colorBgContainer }}>
           <div style={{ padding: 12, borderBottom: `1px solid ${token.colorBorderSecondary}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text strong>{t("workflow.workflows")}</Text>
@@ -710,7 +864,6 @@ const WorkflowView: React.FC = () => {
           </div>
         </div>
 
-        {/* Center: Graph */}
         <div style={{ flex: 1, position: 'relative' }}>
           {selectedWorkflow ? (
             <ReactFlow
@@ -723,7 +876,19 @@ const WorkflowView: React.FC = () => {
               nodeTypes={nodeTypes}
               fitView
               attributionPosition="bottom-right"
-              style={{ backgroundColor: token.colorBgContainer }}
+              style={{
+                backgroundColor: token.colorBgContainer,
+                // @ts-ignore
+                '--xy-controls-button-background-color': token.colorBgElevated,
+                '--xy-controls-button-background-color-hover': token.colorBgTextHover,
+                '--xy-controls-button-border-color': token.colorBorder,
+                '--xy-controls-button-color': token.colorText, // Icon color
+                '--xy-minimap-background-color': token.colorBgElevated,
+                '--xy-minimap-mask-background-color': token.colorFillTertiary,
+                '--xy-minimap-node-background-color': token.colorFill,
+                '--xy-minimap-node-stroke-color': 'transparent',
+              }}
+              proOptions={{ hideAttribution: true }}
             >
               <Background
                 color={token.colorTextQuaternary}
@@ -731,62 +896,20 @@ const WorkflowView: React.FC = () => {
                 variant={BackgroundVariant.Dots}
                 style={{ backgroundColor: token.colorBgLayout }}
               />
-              <Controls
-                style={{
-                  backgroundColor: token.colorBgElevated,
-                  border: `1px solid ${token.colorBorder}`,
-                  fill: token.colorText,
-                  borderRadius: 4,
-                  padding: 2
-                }}
-              />
-              <style>{`
-                .react-flow__controls-button {
-                  background-color: ${token.colorBgElevated} !important;
-                  border-bottom: 1px solid ${token.colorBorder} !important;
-                  fill: ${token.colorText} !important;
-                }
-                .react-flow__controls-button:hover {
-                  background-color: ${token.colorBgLayout} !important;
-                }
-                .react-flow__controls-button:last-child {
-                  border-bottom: none !important;
-                }
-                .react-flow__controls-button svg {
-                  fill: ${token.colorText} !important;
-                }
-              `}</style>
-              <MiniMap
-                zoomable
-                pannable
-                style={{
-                  backgroundColor: token.colorBgElevated,
-                  border: `1px solid ${token.colorBorder}`,
-                  borderRadius: 4
-                }}
-                maskColor={token.colorBgMask}
-                nodeColor={token.colorPrimary}
-              />
-              <Panel position="top-left" style={{ margin: 16 }}>
-                <Card
-                  size="small"
-                  style={{
-                    width: 220,
-                    boxShadow: token.boxShadowSecondary,
-                    backgroundColor: token.colorBgElevated,
-                    border: `1px solid ${token.colorBorder}`
-                  }}
-                  title={t("workflow.add_step")}
-                  headStyle={{ borderBottom: `1px solid ${token.colorBorderSecondary}`, minHeight: 36, padding: '0 12px' }}
-                  bodyStyle={{ padding: 12 }}
-                >
-                  <Collapse
-                    ghost
-                    size="small"
-                    accordion
-                    expandIconPosition="end"
-                    defaultActiveKey={['1']}
-                  >
+              <Controls />
+              <MiniMap style={{ height: 120 }} zoomable pannable />
+
+              {/* Tool Panel fixed to Top-Left of the Graph Canvas */}
+              <FlowPanel position="top-left" style={{ margin: 12 }}>
+                <div style={{
+                  width: 260,
+                  background: token.colorBgContainer,
+                  borderRadius: 8,
+                  padding: 8,
+                  boxShadow: token.boxShadowSecondary,
+                  border: `1px solid ${token.colorBorderSecondary}`
+                }}>
+                  <Collapse ghost size="small" defaultActiveKey={['1', '2', '3']}>
                     <Collapse.Panel header={t("workflow.category.element_actions")} key="1">
                       <Space wrap size={[8, 8]}>
                         {STEP_TYPES.ELEMENT_ACTIONS.map(s => (
@@ -814,16 +937,7 @@ const WorkflowView: React.FC = () => {
                         ))}
                       </Space>
                     </Collapse.Panel>
-                    <Collapse.Panel header={t("workflow.category.script_actions")} key="4">
-                      <Space wrap size={[8, 8]}>
-                        {STEP_TYPES.SCRIPT_ACTIONS.map(s => (
-                          <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
-                            <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
-                          </Tooltip>
-                        ))}
-                      </Space>
-                    </Collapse.Panel>
-                    <Collapse.Panel header={t("workflow.category.system_actions")} key="5">
+                    <Collapse.Panel header={t("workflow.category.system_actions")} key="4">
                       <Space wrap size={[8, 8]}>
                         {STEP_TYPES.SYSTEM_ACTIONS.map(s => (
                           <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
@@ -832,7 +946,7 @@ const WorkflowView: React.FC = () => {
                         ))}
                       </Space>
                     </Collapse.Panel>
-                    <Collapse.Panel header={t("workflow.category.nested")} key="6">
+                    <Collapse.Panel header={t("workflow.category.nested")} key="5">
                       <Space wrap size={[8, 8]}>
                         {STEP_TYPES.NESTED.map(s => (
                           <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
@@ -842,173 +956,156 @@ const WorkflowView: React.FC = () => {
                       </Space>
                     </Collapse.Panel>
                   </Collapse>
-                </Card>
-              </Panel>
-
-              {/* Execution Log Overlay */}
-              {executionLogs.length > 0 && (
-                <Panel position="bottom-center" style={{ width: '60%', marginBottom: 20 }}>
-                  <Card
-                    size="small"
-                    style={{
-                      maxHeight: 150,
-                      overflowY: 'auto',
-                      background: 'rgba(0,0,0,0.8)',
-                      border: 'none',
-                      color: '#fff',
-                      position: 'relative'
-                    }}
-                    bodyStyle={{ padding: 8 }}
-                  >
-                    <div style={{ position: 'absolute', top: 4, right: 4, cursor: 'pointer' }} onClick={() => setExecutionLogs([])}>
-                      <span style={{ fontSize: 16 }}>×</span>
-                    </div>
-                    {executionLogs.map((log, i) => (
-                      <div key={i} style={{ fontSize: 11, fontFamily: 'monospace' }}>{log}</div>
-                    ))}
-                  </Card>
-                </Panel>
-              )}
+                </div>
+              </FlowPanel>
             </ReactFlow>
           ) : (
-            <div style={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', background: token.colorBgLayout }}>
-              <Empty description={t("workflow.select_or_create")}>
-                <Button type="primary" onClick={handleCreateWorkflow}>{t("workflow.create")}</Button>
-              </Empty>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: token.colorTextSecondary }}>
+              <BranchesOutlined style={{ fontSize: 48, marginBottom: 16 }} />
+              <Text>{t("workflow.select_or_create")}</Text>
             </div>
           )}
         </div>
 
-        {/* Right Drawer: Properties */}
         <Drawer
           title={t("workflow.edit_step")}
           placement="right"
           onClose={() => setDrawerVisible(false)}
           open={drawerVisible}
-          width={400}
+          width={320}
           mask={false}
-          extra={
-            <Button danger type="text" icon={<DeleteOutlined />} onClick={handleDeleteNode}>{t("workflow.delete")}</Button>
-          }
+          style={{ background: token.colorBgContainer }}
         >
-          <Form form={stepForm} layout="vertical" onValuesChange={(_, values) => handleUpdateStep(stepForm.getFieldsValue())}>
-            <Form.Item name="type" label={t("workflow.step_type_label")} rules={[{ required: true }]}>
-              <Select
-                disabled
-                options={[
-                  ...STEP_TYPES.ELEMENT_ACTIONS.map(s => ({ label: t(`workflow.step_type.${s.key}`), value: s.key })),
-                  ...STEP_TYPES.WAIT_CONDITIONS.map(s => ({ label: t(`workflow.step_type.${s.key}`), value: s.key })),
-                  ...STEP_TYPES.FLOW_CONTROL.map(s => ({ label: t(`workflow.step_type.${s.key}`), value: s.key })),
-                  ...STEP_TYPES.SCRIPT_ACTIONS.map(s => ({ label: t(`workflow.step_type.${s.key}`), value: s.key })),
-                  ...STEP_TYPES.SYSTEM_ACTIONS.map(s => ({ label: t(`workflow.step_type.${s.key}`), value: s.key })),
-                  ...STEP_TYPES.NESTED.map(s => ({ label: t(`workflow.step_type.${s.key}`), value: s.key })),
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name="name" label={t("workflow.name")}>
-              <Input placeholder="Custom step name" />
-            </Form.Item>
+          {editingNodeId && (
+            <>
+              <Form layout="vertical" form={stepForm}>
+                <Form.Item name="type" label={t("workflow.step_type_label")}>
+                  <Select
+                    disabled
+                    options={Object.values(STEP_TYPES).flat().map(t => ({ label: t.key, value: t.key }))}
+                  />
+                </Form.Item>
+                <Form.Item name="name" label={t("workflow.name")}>
+                  <Input placeholder={t("workflow.name")} />
+                </Form.Item>
 
-            <Form.Item noStyle shouldUpdate={(prev, curr) => prev.type !== curr.type}>
-              {({ getFieldValue }) => {
-                const type = getFieldValue('type');
-                const needsSelector = ['click_element', 'long_click_element', 'input_text', 'swipe_element', 'wait_element', 'wait_gone', 'if_exists', 'scroll_to', 'assert_element'].includes(type);
-                const needsValue = ['input_text', 'wait', 'adb', 'script'].includes(type);
-                const isWorkflow = type === 'run_workflow';
+                <Form.Item
+                  noStyle
+                  shouldUpdate={(prev, cur) => prev.type !== cur.type}
+                >
+                  {({ getFieldValue }) => {
+                    const type = getFieldValue('type');
+                    const isBranch = type === 'branch';
+                    const needsSelector = ['click_element', 'long_click_element', 'input_text', 'swipe_element', 'wait_element', 'wait_gone', 'assert_element', 'branch'].includes(type);
+                    const needsValue = ['input_text', 'wait', 'adb', 'script', 'run_workflow'].includes(type);
+                    const isWorkflow = type === 'run_workflow';
 
-                return (
-                  <>
-                    {needsSelector && (
+                    return (
                       <>
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                          <Button
-                            type="primary"
-                            ghost
-                            icon={<AimOutlined />}
-                            onClick={() => setElementPickerVisible(true)}
-                            disabled={!selectedDevice}
-                            style={{ flex: 1 }}
-                          >
-                            {t("workflow.pick_element")}
-                          </Button>
-                        </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <Form.Item name="selectorType" label={t("workflow.selector_type")} style={{ width: 100 }}>
+                        {isBranch && (
+                          <div style={{
+                            padding: '8px 12px',
+                            marginBottom: 12,
+                            background: token.colorInfoBg,
+                            border: `1px solid ${token.colorInfoBorder}`,
+                            borderRadius: 6
+                          }}>
+                            <Text style={{ fontSize: 12, color: token.colorTextSecondary }}>
+                              {t("workflow.branch_description")}
+                            </Text>
+                          </div>
+                        )}
+                        {needsSelector && (
+                          <>
+                            <Form.Item label={isBranch ? t("workflow.branch_condition") : t("workflow.selector_type")}>
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <Form.Item name="selectorType" noStyle>
+                                  <Select style={{ flex: 1 }} options={[
+                                    { label: 'Text', value: 'text' },
+                                    { label: 'Resource ID', value: 'id' },
+                                    { label: 'XPath', value: 'xpath' },
+                                    { label: 'Content Desc', value: 'description' },
+                                    { label: 'Class', value: 'class' },
+                                    { label: 'Bounds', value: 'bounds' },
+                                  ]} />
+                                </Form.Item>
+                                <Button icon={<AimOutlined />} onClick={() => setElementPickerVisible(true)} />
+                              </div>
+                            </Form.Item>
+                            <Form.Item name="selectorValue" label={t("workflow.selector_value")}>
+                              <Input.TextArea
+                                placeholder={t("workflow.selector_placeholder")}
+                                autoSize={{ minRows: 1, maxRows: 6 }}
+                              />
+                            </Form.Item>
+                          </>
+                        )}
+
+                        {isWorkflow && (
+                          <Form.Item name="value" label={t("workflow.select_workflow")} rules={[{ required: true }]}>
                             <Select
-                              options={[
-                                { label: 'Text', value: 'text' },
-                                { label: 'ID', value: 'id' },
-                                { label: 'XPath', value: 'xpath' },
-                                { label: 'Bounds', value: 'bounds' },
-                                { label: t("workflow.selector_advanced"), value: 'advanced' },
-                              ]}
+                              placeholder={t("workflow.select_workflow")}
+                              options={workflows
+                                .filter(w => w.id !== selectedWorkflow?.id)
+                                .map(w => ({ label: w.name, value: w.id }))
+                              }
                             />
                           </Form.Item>
-                          <Form.Item name="selectorValue" label={t("workflow.selector_value")} style={{ flex: 1 }}>
-                            <Input placeholder={t("workflow.selector_placeholder")} />
-                          </Form.Item>
-                        </div>
-                      </>
-                    )}
-
-                    {isWorkflow && (
-                      <Form.Item name="value" label={t("workflow.select_workflow")} rules={[{ required: true }]}>
-                        <Select
-                          placeholder={t("workflow.select_workflow")}
-                          options={workflows
-                            .filter(w => w.id !== selectedWorkflow?.id) // Prevent self-selection
-                            .map(w => ({ label: w.name, value: w.id }))
-                          }
-                        />
-                      </Form.Item>
-                    )}
-
-                    {needsValue && (
-                      <Form.Item name="value" label={t("workflow.value")}>
-                        {type === 'script' ? (
-                          <Select
-                            placeholder={t("workflow.select_script")}
-                            options={scripts.map(s => ({ label: s.name, value: s.name }))}
-                          />
-                        ) : type === 'wait' ? (
-                          <InputNumber addonAfter="ms" min={100} step={100} style={{ width: '100%' }} />
-                        ) : (
-                          <Input placeholder={type === 'adb' ? 'shell input keyevent 4' : t("workflow.value_placeholder")} />
                         )}
-                      </Form.Item>
-                    )}
-                  </>
-                );
-              }}
-            </Form.Item>
 
-            <div style={{ display: 'flex', gap: 16 }}>
-              <Form.Item name="timeout" label={t("workflow.timeout")} style={{ flex: 1 }}>
-                <InputNumber addonAfter="ms" min={100} step={1000} style={{ width: '100%' }} placeholder="5000" />
-              </Form.Item>
-              <Form.Item name="loop" label={t("workflow.loop")} style={{ width: 100 }}>
-                <InputNumber min={1} style={{ width: '100%' }} placeholder="1" />
-              </Form.Item>
-            </div>
+                        {needsValue && (
+                          <Form.Item name="value" label={t("workflow.value")}>
+                            {type === 'script' ? (
+                              <Select
+                                placeholder={t("workflow.select_script")}
+                                options={scripts.map(s => ({ label: s.name, value: s.name }))}
+                              />
+                            ) : type === 'wait' ? (
+                              <InputNumber addonAfter="ms" min={100} step={100} style={{ width: '100%' }} />
+                            ) : (
+                              <Input placeholder={type === 'adb' ? 'shell input keyevent 4' : t("workflow.value_placeholder")} />
+                            )}
+                          </Form.Item>
+                        )}
+                      </>
+                    );
+                  }}
+                </Form.Item>
 
-            <Form.Item name="onError" label={t("workflow.on_error")}>
-              <Select
-                options={[
-                  { label: t("workflow.error_stop"), value: 'stop' },
-                  { label: t("workflow.error_continue"), value: 'continue' },
-                ]}
-                placeholder={t("workflow.error_stop")}
-              />
-            </Form.Item>
+                <div style={{ display: 'flex', gap: 16 }}>
+                  <Form.Item name="timeout" label={t("workflow.timeout")} style={{ flex: 1 }}>
+                    <InputNumber addonAfter="ms" min={100} step={1000} style={{ width: '100%' }} placeholder="5000" />
+                  </Form.Item>
+                  <Form.Item name="loop" label={t("workflow.loop")} style={{ width: 100 }}>
+                    <InputNumber min={1} style={{ width: '100%' }} placeholder="1" />
+                  </Form.Item>
+                </div>
 
-            <Button type="primary" block onClick={() => handleUpdateStep(stepForm.getFieldsValue())}>
-              {t("workflow.update")}
-            </Button>
-          </Form>
+                <Form.Item name="onError" label={t("workflow.on_error")}>
+                  <Select
+                    options={[
+                      { label: t("workflow.error_stop"), value: 'stop' },
+                      { label: t("workflow.error_continue"), value: 'continue' },
+                    ]}
+                    placeholder={t("workflow.error_stop")}
+                  />
+                </Form.Item>
+
+                <Button type="primary" block onClick={() => handleUpdateStep(stepForm.getFieldsValue())}>
+                  {t("workflow.update")}
+                </Button>
+
+                <Divider style={{ margin: '12px 0' }} />
+
+                <Button danger block icon={<DeleteOutlined />} onClick={handleDeleteNode}>
+                  {t("workflow.delete_step")}
+                </Button>
+              </Form>
+            </>
+          )}
         </Drawer>
       </div>
 
-      {/* Workflow Creation Modal */}
       <Modal
         title={t("workflow.create")}
         open={workflowModalVisible}
@@ -1029,13 +1126,11 @@ const WorkflowView: React.FC = () => {
         </Form>
       </Modal>
 
-      {/* Element Picker Modal */}
       <ElementPicker
         visible={elementPickerVisible}
-        onSelect={handleElementSelected}
         onCancel={() => setElementPickerVisible(false)}
+        onSelect={handleElementSelected}
       />
-
     </div>
   );
 };

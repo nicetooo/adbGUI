@@ -590,6 +590,11 @@ export namespace main {
 	    onError?: string;
 	    loop?: number;
 	    postDelay?: number;
+	    nextStepId?: string;
+	    trueStepId?: string;
+	    falseStepId?: string;
+	    posX?: number;
+	    posY?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new WorkflowStep(source);
@@ -606,6 +611,11 @@ export namespace main {
 	        this.onError = source["onError"];
 	        this.loop = source["loop"];
 	        this.postDelay = source["postDelay"];
+	        this.nextStepId = source["nextStepId"];
+	        this.trueStepId = source["trueStepId"];
+	        this.falseStepId = source["falseStepId"];
+	        this.posX = source["posX"];
+	        this.posY = source["posY"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

@@ -579,6 +579,7 @@
     "stop": "停止",
     "delete": "删除",
     "step_type": {
+      "start": "开始",
       "click_element": "点击元素",
       "long_click_element": "长按元素",
       "input_text": "输入文本",
@@ -592,6 +593,7 @@
       "script": "执行脚本",
       "adb": "ADB 命令",
       "run_workflow": "运行工作流",
+      "branch": "条件分支",
       "key_back": "返回键",
       "key_home": "主页键",
       "key_recent": "多任务",
@@ -613,6 +615,9 @@
     "select_or_create": "请选择或创建一个工作流",
     "edit_step": "编辑步骤",
     "select_workflow": "选择工作流",
+    "branch_conditions": "分支条件",
+    "if_true": "条件成立 (True)",
+    "if_false": "条件不成立 (False)",
     "step_type_label": "步骤类型",
     "name": "名称",
     "category": {
@@ -657,6 +662,13 @@
     "pick_point_hint": "适用于 WebView/混合页面等无法分析的场景",
     "tap_on_device": "请在设备屏幕上点击以捕获坐标",
     "point_captured": "已捕获坐标: ({{x}}, {{y}})",
-    "point_capture_failed": "捕获坐标失败"
+    "point_capture_failed": "捕获坐标失败",
+    "error_no_start": "工作流必须包含一个开始节点",
+    "error_duplicate_start": "只能有一个开始节点",
+    "error_delete_start": "开始节点不能被删除",
+    "warning_start_not_connected": "开始节点未连接到任何步骤",
+    "branch_description": "条件分支节点检查指定元素是否存在。将 True/False 输出连接到不同的路径。",
+    "branch_condition": "条件 (检查的元素)",
+    "delete_step": "删除步骤"
   }
 }
