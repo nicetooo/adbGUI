@@ -199,16 +199,21 @@ export const useLogcatStore = create<LogcatState>()(
           }
         }, 100);
 
-        // Subscribe to logcat events
-        EventsOn('logcat-data', (data: string | string[]) => {
-          const lines = Array.isArray(data) ? data : [data];
+        // Subscribe to session events batch (unified event source)
+        EventsOn('session-events-batch', (events: any[]) => {
+          // Filter for log events only
+          const logEvents = events.filter((e: any) => e.category === 'log');
+          if (logEvents.length === 0) return;
 
           // Access current filter state using get()
           const { preFilter, preUseRegex, excludeFilter, excludeUseRegex } = get();
 
           const filteredLines: string[] = [];
 
-          for (const line of lines) {
+          for (const event of logEvents) {
+            const line = event.detail?.raw || event.title;
+            if (!line) continue;
+
             let shouldKeep = true;
 
             // 1. Pre-filter (Include)
@@ -262,7 +267,7 @@ export const useLogcatStore = create<LogcatState>()(
 
     stopLogcat: () => {
       StopLogcat();
-      EventsOff('logcat-data');
+      EventsOff('session-events-batch');
 
       if (flushTimerId) {
         clearInterval(flushTimerId);

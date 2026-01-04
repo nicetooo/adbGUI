@@ -155,8 +155,28 @@ export const useSessionStore = create<SessionState>()(
     // Load timeline for a session
     loadTimeline: async (sessionId: string, filter?: SessionFilter) => {
       const timeline = await (window as any).go.main.App.GetSessionTimeline(sessionId, filter || null);
+      
+      // Deduplicate timeline (Network events may have updates)
+      const dedupedTimeline: SessionEvent[] = [];
+      const idMap = new Map<string, number>(); // RequestId -> Index
+
+      (timeline || []).forEach((event: SessionEvent) => {
+        const reqId = event.category === 'network' ? (event.detail as any)?.id : undefined;
+        if (reqId) {
+          if (idMap.has(reqId)) {
+             // Replace existing event with newer version
+             dedupedTimeline[idMap.get(reqId)!] = event;
+          } else {
+             dedupedTimeline.push(event);
+             idMap.set(reqId, dedupedTimeline.length - 1);
+          }
+        } else {
+          dedupedTimeline.push(event);
+        }
+      });
+
       set((state: SessionState) => {
-        state.timeline = timeline || [];
+        state.timeline = dedupedTimeline;
         state.activeSessionId = sessionId;
       });
     },
@@ -199,6 +219,11 @@ export const useSessionStore = create<SessionState>()(
         if (filter.endTime && event.timestamp > filter.endTime) {
           return false;
         }
+        if (filter.searchText) {
+           const searchLower = filter.searchText.toLowerCase();
+           return event.title.toLowerCase().includes(searchLower) || 
+                  (event.detail && JSON.stringify(event.detail).toLowerCase().includes(searchLower));
+        }
         return true;
       });
     },
@@ -221,14 +246,36 @@ export const useSessionStore = create<SessionState>()(
 
     // Subscribe to real-time events
     subscribeToEvents: () => {
-      // Handle new session events
-      const handleSessionEvent = (event: SessionEvent) => {
+      // Handle batch of session events (unified event source)
+      const handleSessionEventsBatch = (events: SessionEvent[]) => {
         const { activeSessionId } = get();
 
         // Only add to timeline if it's for the active session
-        if (event.sessionId === activeSessionId) {
+        const matchingEvents = events.filter(e => e.sessionId === activeSessionId);
+        
+        if (matchingEvents.length > 0) {
           set((state: SessionState) => {
-            state.timeline.push(event);
+            matchingEvents.forEach(newEvent => {
+               // Check if it's a network event update
+               const reqId = newEvent.category === 'network' ? (newEvent.detail as any)?.id : undefined;
+               
+               if (reqId) {
+                  // Find existing event index
+                  const existingIndex = state.timeline.findIndex(e => 
+                    e.category === 'network' && (e.detail as any)?.id === reqId
+                  );
+                  
+                  if (existingIndex !== -1) {
+                      // Update existing event
+                      state.timeline[existingIndex] = newEvent;
+                  } else {
+                      state.timeline.push(newEvent);
+                  }
+               } else {
+                   // Not a network event or no ID, just push
+                   state.timeline.push(newEvent);
+               }
+            });
           });
         }
       };
@@ -251,12 +298,12 @@ export const useSessionStore = create<SessionState>()(
         });
       };
 
-      EventsOn('session-event', handleSessionEvent);
+      EventsOn('session-events-batch', handleSessionEventsBatch);
       EventsOn('session-started', handleSessionStarted);
       EventsOn('session-ended', handleSessionEnded);
 
       return () => {
-        EventsOff('session-event');
+        EventsOff('session-events-batch');
         EventsOff('session-started');
         EventsOff('session-ended');
       };

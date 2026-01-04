@@ -182,14 +182,6 @@ func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex b
 	go func() {
 		reader := bufio.NewReader(stdout)
 
-		var (
-			chunk            []string
-			maxChunk         = 200
-			flushInter       = 100 * time.Millisecond
-			lastFlush        = time.Now()
-			lastLogEventTime = time.Now()
-		)
-
 		for {
 			line, err := reader.ReadString('\n')
 			if err != nil {
@@ -232,37 +224,19 @@ func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex b
 				}
 			}
 
-			// Emit session event for Error and Warning level logs
-			// Rate limited to prevent UI flooding (max 5 events/sec)
+			// Emit ALL logs to Session (no rate limiting - batch sync handles performance)
 			if level, tag, message, ok := parseLogcatLine(line); ok {
-				if level == "E" || level == "W" || level == "F" {
-					if level == "F" || time.Since(lastLogEventTime) > 200*time.Millisecond {
-						lastLogEventTime = time.Now()
-						sessionLevel := logcatLevelToSessionLevel(level)
-						a.EmitSessionEvent(deviceId, "logcat", "log", sessionLevel,
-							fmt.Sprintf("[%s] %s", tag, message),
-							map[string]interface{}{
-								"tag":         tag,
-								"message":     message,
-								"level":       level,
-								"packageName": packageName,
-								"raw":         strings.TrimSpace(line),
-							})
-					}
-				}
+				sessionLevel := logcatLevelToSessionLevel(level)
+				a.EmitSessionEvent(deviceId, "logcat", "log", sessionLevel,
+					fmt.Sprintf("[%s] %s", tag, message),
+					map[string]interface{}{
+						"tag":         tag,
+						"message":     message,
+						"level":       level,
+						"packageName": packageName,
+						"raw":         strings.TrimSpace(line),
+					})
 			}
-
-			chunk = append(chunk, line)
-
-			if len(chunk) >= maxChunk || (len(chunk) > 0 && time.Since(lastFlush) >= flushInter) {
-				wailsRuntime.EventsEmit(a.ctx, "logcat-data", chunk)
-				chunk = nil
-				lastFlush = time.Now()
-			}
-		}
-
-		if len(chunk) > 0 {
-			wailsRuntime.EventsEmit(a.ctx, "logcat-data", chunk)
 		}
 	}()
 

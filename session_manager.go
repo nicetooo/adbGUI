@@ -65,7 +65,13 @@ var (
 	sessionEvents       = make(map[string][]SessionEvent) // sessionId -> events
 	activeSession       = make(map[string]string)         // deviceId -> active sessionId
 	sessionMu           sync.RWMutex
-	maxEventsPerSession = 10000 // Prevent memory overflow
+	maxEventsPerSession = 50000 // Increased for complete data storage
+
+	// Batch sync to frontend
+	eventBuffer     = make([]SessionEvent, 0, 100)
+	eventBufferMu   sync.Mutex
+	batchSyncTicker *time.Ticker
+	batchSyncStop   chan struct{}
 )
 
 // ========================================
@@ -316,7 +322,7 @@ func (a *App) EmitSessionEventFull(event SessionEvent) {
 	a.emitEventInternal(event)
 }
 
-// emitEventInternal stores and broadcasts an event (must hold lock)
+// emitEventInternal stores event and adds to batch buffer (must hold sessionMu lock)
 func (a *App) emitEventInternal(event SessionEvent) {
 	// Store in session if active
 	if event.SessionID != "" {
@@ -329,8 +335,58 @@ func (a *App) emitEventInternal(event SessionEvent) {
 		}
 	}
 
-	// Broadcast to frontend
-	wailsRuntime.EventsEmit(a.ctx, "session-event", event)
+	// Add to batch buffer for frontend sync
+	eventBufferMu.Lock()
+	eventBuffer = append(eventBuffer, event)
+	eventBufferMu.Unlock()
+}
+
+// StartBatchSync starts the batch sync ticker (call on app startup)
+func (a *App) StartBatchSync() {
+	if batchSyncTicker != nil {
+		return // Already running
+	}
+
+	batchSyncTicker = time.NewTicker(100 * time.Millisecond)
+	batchSyncStop = make(chan struct{})
+
+	go func() {
+		for {
+			select {
+			case <-batchSyncTicker.C:
+				a.flushEventBuffer()
+			case <-batchSyncStop:
+				return
+			}
+		}
+	}()
+}
+
+// StopBatchSync stops the batch sync ticker
+func (a *App) StopBatchSync() {
+	if batchSyncTicker != nil {
+		batchSyncTicker.Stop()
+		close(batchSyncStop)
+		batchSyncTicker = nil
+	}
+}
+
+// flushEventBuffer sends buffered events to frontend
+func (a *App) flushEventBuffer() {
+	eventBufferMu.Lock()
+	if len(eventBuffer) == 0 {
+		eventBufferMu.Unlock()
+		return
+	}
+
+	// Copy and clear buffer
+	batch := make([]SessionEvent, len(eventBuffer))
+	copy(batch, eventBuffer)
+	eventBuffer = eventBuffer[:0]
+	eventBufferMu.Unlock()
+
+	// Emit batch to frontend
+	wailsRuntime.EventsEmit(a.ctx, "session-events-batch", batch)
 }
 
 // ========================================

@@ -244,6 +244,8 @@ export function StartActivity(arg1:string,arg2:string):Promise<string>;
 
 export function StartApp(arg1:string,arg2:string):Promise<string>;
 
+export function StartBatchSync():Promise<void>;
+
 export function StartDeviceMonitor():Promise<void>;
 
 export function StartLogcat(arg1:string,arg2:string,arg3:string,arg4:boolean,arg5:string,arg6:boolean):Promise<void>;
@@ -261,6 +263,8 @@ export function StartTouchRecording(arg1:string,arg2:string):Promise<void>;
 export function StartWirelessServer():Promise<string>;
 
 export function StopAllNetworkMonitors():Promise<void>;
+
+export function StopBatchSync():Promise<void>;
 
 export function StopDeviceMonitor():Promise<void>;
 

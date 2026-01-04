@@ -102,10 +102,12 @@ func (a *App) startup(ctx context.Context) {
 	a.setupBinaries()
 	a.initPersistentCache()
 	a.StartDeviceMonitor()
+	a.StartBatchSync() // Start session event batch sync
 }
 
 // Shutdown is called when the application is closing
 func (a *App) Shutdown(ctx context.Context) {
+	a.StopBatchSync() // Stop session event batch sync
 	a.scrcpyMu.Lock()
 	for id, cmd := range a.scrcpyCmds {
 		if cmd.Process != nil {

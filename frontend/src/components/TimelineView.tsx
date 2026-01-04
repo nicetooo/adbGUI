@@ -1,4 +1,5 @@
 import { useEffect, useRef, memo, useMemo, useCallback } from 'react';
+import dayjs from 'dayjs';
 import {
   Card,
   Tag,
@@ -12,6 +13,9 @@ import {
   Segmented,
   theme,
   Input,
+  DatePicker,
+  Tabs,
+  Descriptions,
 } from 'antd';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -93,6 +97,16 @@ const TimelineView = () => {
     { label: 'Info', value: 'info' },
     { label: 'Debug', value: 'debug' },
   ];
+
+  // RangePicker presets generator function - returns dayjs objects for compatibility
+  const getRangePresets = () => {
+    return [
+      { label: '1m', value: [dayjs().subtract(1, 'minute'), dayjs()] as [dayjs.Dayjs, dayjs.Dayjs] },
+      { label: '5m', value: [dayjs().subtract(5, 'minute'), dayjs()] as [dayjs.Dayjs, dayjs.Dayjs] },
+      { label: '15m', value: [dayjs().subtract(15, 'minute'), dayjs()] as [dayjs.Dayjs, dayjs.Dayjs] },
+      { label: '1h', value: [dayjs().subtract(1, 'hour'), dayjs()] as [dayjs.Dayjs, dayjs.Dayjs] },
+    ];
+  };
 
   // Segmented options - memoized to prevent re-creation
   const segmentedOptions = useMemo(() => [
@@ -190,7 +204,7 @@ const TimelineView = () => {
 
   // Virtualizer callbacks - memoized to prevent recreation
   const getScrollElement = useCallback(() => listRef.current, []);
-  const estimateSize = useCallback(() => 60, []);
+  const estimateSize = useCallback(() => 32, []); // Compact row height
   // Note: getItemKey uses filteredTimeline but we don't include it in deps
   // because the function is called with the current timeline state anyway
   const getItemKey = useCallback(
@@ -251,6 +265,19 @@ const TimelineView = () => {
     setFilter({ levels: values });
   }, [setFilter]);
 
+  const handleTimeRangeChange = useCallback((dates: any) => {
+    if (!dates || dates.length < 2) {
+      // Clear time filter
+      setFilter({ startTime: undefined, endTime: undefined });
+    } else {
+      // Set custom time range
+      setFilter({
+        startTime: dates[0]?.valueOf() || undefined,
+        endTime: dates[1]?.valueOf() || undefined
+      });
+    }
+  }, [setFilter]);
+
   const handleAutoScrollChange = useCallback((value: string | number) => {
     setAutoScroll(value === 'on');
   }, [setAutoScroll]);
@@ -278,7 +305,7 @@ const TimelineView = () => {
           {t('timeline.title') || 'Session Timeline'}
         </Title>
 
-        {/* Device & Session Selection */}
+        {/* Device Selection */}
         <Space wrap style={{ marginBottom: 12 }}>
           <Select
             style={{ width: 200 }}
@@ -286,13 +313,6 @@ const TimelineView = () => {
             value={selectedDevice || undefined}
             onChange={setSelectedDevice}
             options={deviceOptions}
-          />
-          <Select
-            style={{ width: 300 }}
-            placeholder={t('timeline.select_session') || 'Select Session'}
-            value={selectedSessionId || undefined}
-            onChange={setSelectedSessionId}
-            options={sessionOptions}
           />
         </Space>
 
@@ -322,6 +342,15 @@ const TimelineView = () => {
             onChange={handleLevelChange}
             options={levelOptions}
             allowClear
+          />
+          <DatePicker.RangePicker
+            size="small"
+            showTime={{ format: 'HH:mm' }}
+            format="MM-DD HH:mm"
+            presets={getRangePresets()}
+            onChange={handleTimeRangeChange}
+            allowClear
+            style={{ width: 260 }}
           />
           <Segmented
             size="small"
@@ -371,55 +400,206 @@ const TimelineView = () => {
         </Card>
       )}
 
+      {/* Split Layout: Timeline List + Detail Panel */}
+      <div style={{ flex: 1, display: 'flex', gap: 12, overflow: 'hidden' }}>
+        {/* Timeline List */}
+        <div
+          ref={listRef}
+          style={{
+            flex: selectedEventId ? 2 : 1,
+            overflow: 'auto',
+            backgroundColor: token.colorBgContainer,
+            borderRadius: 8,
+            border: `1px solid ${token.colorBorder}`,
+          }}
+        >
+          {filteredTimeline.length === 0 ? (
+            <Empty
+              description={t('timeline.no_events') || 'No events'}
+              style={{ marginTop: 48 }}
+            />
+          ) : (
+            <div
+              style={{
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const event = filteredTimeline[virtualRow.index];
+                if (!event) return null;
+                return (
+                  <EventRow
+                    key={virtualRow.key}
+                    index={virtualRow.index}
+                    event={event}
+                    isSelected={event.id === selectedEventId}
+                    onSelect={selectEvent}
+                    measureElement={rowVirtualizer.measureElement}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
 
+        {/* Detail Panel */}
+        {selectedEventId && (() => {
+          const selectedEvent = filteredTimeline.find(e => e.id === selectedEventId);
+          if (!selectedEvent) return null;
 
-      {/* Timeline List */}
-      <div
-        ref={listRef}
-        style={{
-          flex: 1,
-          overflow: 'auto',
-          backgroundColor: token.colorBgContainer,
-          borderRadius: 8,
-          border: `1px solid ${token.colorBorder}`,
-        }}
-      >
-        {filteredTimeline.length === 0 ? (
-          <Empty
-            description={t('timeline.no_events') || 'No events'}
-            style={{ marginTop: 48 }}
-          />
-        ) : (
-          <div
-            style={{
-              height: `${rowVirtualizer.getTotalSize()}px`,
-              width: '100%',
-              position: 'relative',
-            }}
-          >
-            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-              const event = filteredTimeline[virtualRow.index];
-              if (!event) return null; // Added check for robustness
-              return (
-                <EventRow
-                  key={virtualRow.key}
-                  index={virtualRow.index}
-                  event={event}
-                  isSelected={event.id === selectedEventId}
-                  onSelect={selectEvent}
-                  measureElement={rowVirtualizer.measureElement}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                />
-              );
-            })}
-          </div>
-        )}
+          return (
+            <Card
+              size="small"
+              title={<Text strong>Event Details</Text>}
+              style={{ flex: 1, overflow: 'auto', minWidth: 300 }}
+              styles={{ body: { padding: 12 } }}
+              extra={
+                <Button type="text" size="small" onClick={() => selectEvent('')}>
+                  ✕
+                </Button>
+              }
+            >
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                {/* Title */}
+                <div>
+                  <Text type="secondary" style={{ fontSize: 11 }}>Title</Text>
+                  <div style={{ wordBreak: 'break-all' }}>{selectedEvent.title}</div>
+                </div>
+
+                {/* Meta */}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Tag color={selectedEvent.level === 'error' ? 'red' : selectedEvent.level === 'warn' ? 'orange' : 'blue'}>
+                    {selectedEvent.level}
+                  </Tag>
+                  <Tag color="purple">{selectedEvent.category}</Tag>
+                  <Tag>{selectedEvent.type}</Tag>
+                </div>
+
+                {/* Time */}
+                <div>
+                  <Text type="secondary" style={{ fontSize: 11 }}>Time</Text>
+                  <div style={{ fontFamily: 'monospace', fontSize: 12 }}>
+                    {new Date(selectedEvent.timestamp).toLocaleString()}
+                  </div>
+                </div>
+
+                {/* Duration */}
+                {selectedEvent.duration !== undefined && selectedEvent.duration > 0 && (
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 11 }}>Duration</Text>
+                    <div>{formatDuration(selectedEvent.duration)}</div>
+                  </div>
+                )}
+
+                {/* Detail */}
+                {/* Detail Content */}
+                {(() => {
+                  if (!selectedEvent.detail) return null;
+
+                  // Network Event - Tabbed View
+                  if (selectedEvent.category === 'network') {
+                    const d = selectedEvent.detail as any;
+                    const items = [
+                      {
+                        key: 'summary',
+                        label: 'Summary',
+                        children: (
+                          <Descriptions column={1} size="small" bordered>
+                            <Descriptions.Item label="URL"><Text copyable={{ text: d.url }} style={{ fontSize: 11 }}>{d.url}</Text></Descriptions.Item>
+                            <Descriptions.Item label="Method">{d.method}</Descriptions.Item>
+                            <Descriptions.Item label="Status Code">
+                              <Tag color={d.statusCode >= 400 ? 'red' : 'green'}>{d.statusCode}</Tag>
+                            </Descriptions.Item>
+                            <Descriptions.Item label="Duration">{d.duration ? `${d.duration} ms` : '-'}</Descriptions.Item>
+                            <Descriptions.Item label="Type">{d.contentType || '-'}</Descriptions.Item>
+                            <Descriptions.Item label="Size">{d.bodySize ? `${d.bodySize} bytes` : '-'}</Descriptions.Item>
+                          </Descriptions>
+                        )
+                      },
+                      {
+                        key: 'request',
+                        label: 'Request',
+                        children: (
+                          <div>
+                            {d.requestHeaders && (
+                              <div style={{ marginBottom: 12 }}>
+                                <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Headers</Text>
+                                <div style={{ background: token.colorFillAlter, padding: 8, borderRadius: 4, fontFamily: 'monospace', fontSize: 11 }}>
+                                  {Object.entries(d.requestHeaders).map(([k, v]) => (
+                                    <div key={k} style={{ wordBreak: 'break-all' }}>
+                                      <span style={{ color: token.colorTextSecondary }}>{k}:</span> {Array.isArray(v) ? v.join(', ') : String(v)}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            <div>
+                              <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Body</Text>
+                              <pre style={{ margin: 0, fontSize: 11, background: token.colorFillAlter, padding: 8, borderRadius: 4, whiteSpace: 'pre-wrap', wordBreak: 'break-all', overflowX: 'hidden' }}>{d.requestBody || '<Empty>'}</pre>
+                            </div>
+                          </div>
+                        )
+                      },
+                      {
+                        key: 'response',
+                        label: 'Response',
+                        children: (
+                          <div>
+                            {d.responseHeaders && (
+                              <div style={{ marginBottom: 12 }}>
+                                <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Headers</Text>
+                                <div style={{ background: token.colorFillAlter, padding: 8, borderRadius: 4, fontFamily: 'monospace', fontSize: 11 }}>
+                                  {Object.entries(d.responseHeaders).map(([k, v]) => (
+                                    <div key={k} style={{ wordBreak: 'break-all' }}>
+                                      <span style={{ color: token.colorTextSecondary }}>{k}:</span> {Array.isArray(v) ? v.join(', ') : String(v)}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            <div>
+                              <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Body</Text>
+                              <pre style={{ margin: 0, fontSize: 11, background: token.colorFillAlter, padding: 8, borderRadius: 4, whiteSpace: 'pre-wrap', wordBreak: 'break-all', overflowX: 'hidden' }}>{d.responseBody || '<Empty>'}</pre>
+                            </div>
+                          </div>
+                        )
+                      }
+                    ];
+                    return <Tabs items={items} size="small" style={{ marginTop: 0 }} />;
+                  }
+
+                  // Default - JSON View
+                  return (
+                    <div>
+                      <Text type="secondary" style={{ fontSize: 11 }}>Detail</Text>
+                      <pre style={{
+                        fontSize: 11,
+                        background: token.colorFillAlter,
+                        padding: 8,
+                        borderRadius: 4,
+                        overflowX: 'hidden',
+                        margin: '4px 0 0',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-all',
+                      }}>
+                        {JSON.stringify(selectedEvent.detail, null, 2)}
+                      </pre>
+                    </div>
+                  );
+                })()}
+              </Space>
+            </Card>
+          );
+        })()}
       </div>
 
       {/* Stats Footer */}
@@ -444,7 +624,7 @@ const TimelineView = () => {
   );
 };
 
-// Separated EventRow component to prevent re-creation on every render (causing flicker)
+// Compact single-line EventRow
 const EventRow = memo(({
   index,
   event,
@@ -461,8 +641,32 @@ const EventRow = memo(({
   measureElement: (el: HTMLElement | null) => void;
 }) => {
   const { token } = theme.useToken();
-  const icon = getEventIcon(event);
-  const color = getEventColor(event);
+
+  // Level colors
+  const levelColorMap: Record<string, string> = {
+    error: 'red',
+    warn: 'orange',
+    info: 'blue',
+    debug: 'default',
+    verbose: 'default',
+  };
+
+  // Category colors
+  const categoryColorMap: Record<string, string> = {
+    workflow: 'purple',
+    log: 'cyan',
+    network: 'green',
+    system: 'default',
+  };
+
+  // Background color based on level for quick visual
+  const rowBg = isSelected
+    ? token.colorPrimaryBg
+    : event.level === 'error'
+      ? 'rgba(255, 77, 79, 0.08)'
+      : event.level === 'warn'
+        ? 'rgba(250, 173, 20, 0.06)'
+        : 'transparent';
 
   return (
     <div
@@ -472,75 +676,60 @@ const EventRow = memo(({
       style={{
         ...style,
         cursor: 'pointer',
-        backgroundColor: isSelected ? token.colorPrimaryBg : 'transparent',
-        borderLeft: `3px solid ${color}`,
-        padding: '8px 12px',
+        backgroundColor: rowBg,
+        borderLeft: `3px solid ${levelColorMap[event.level] === 'red' ? '#ff4d4f' : levelColorMap[event.level] === 'orange' ? '#faad14' : token.colorBorder}`,
+        padding: '4px 8px',
         borderBottom: `1px solid ${token.colorSplit}`,
         display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        height: 'auto',
-        minHeight: style.height,
+        alignItems: 'center',
+        gap: 8,
+        height: 32,
+        fontSize: 12,
       }}
     >
-      <div style={{ width: '100%' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-          <span style={{ fontSize: 16 }}>{icon}</span>
-          <Text strong style={{ flex: 1, color: token.colorText }}>
-            {event.title}
-          </Text>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {formatEventTime(event.timestamp)}
-          </Text>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Tag
-            color={categoryColors[event.category]}
-            style={{ margin: 0, fontSize: 11 }}
-          >
-            {event.category}
-          </Tag>
-          <Tag
-            color={levelStyles[event.level]?.color}
-            style={{ margin: 0, fontSize: 11 }}
-          >
-            {event.level}
-          </Tag>
-          {event.duration !== undefined && event.duration > 0 && (
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              {formatDuration(event.duration)}
-            </Text>
-          )}
-          {event.stepId && (
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              Step: {event.stepId.slice(0, 8)}
-            </Text>
-          )}
-        </div>
-        {event.detail && typeof event.detail === 'object' && (
-          <div style={{ marginTop: 4 }}>
-            {(event.detail as any).error && (
-              <Text type="danger" style={{ fontSize: 12 }}>
-                {(event.detail as any).error}
-              </Text>
-            )}
-            {(event.detail as any).url && (
-              <Text
-                type="secondary"
-                style={{ fontSize: 11, display: 'block' }}
-                ellipsis
-              >
-                {(event.detail as any).url}
-              </Text>
-            )}
-            {(event.detail as any).result !== undefined && (
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                Result: {String((event.detail as any).result)}
-              </Text>
-            )}
-          </div>
-        )}
-      </div>
+      {/* Time */}
+      <Text type="secondary" style={{ fontSize: 11, fontFamily: 'monospace', width: 80, flexShrink: 0 }}>
+        {formatEventTime(event.timestamp)}
+      </Text>
+
+      {/* Category Tag */}
+      <Tag
+        color={categoryColorMap[event.category] || 'default'}
+        style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}
+      >
+        {event.category.toUpperCase().slice(0, 3)}
+      </Tag>
+
+      {/* Level Tag */}
+      <Tag
+        color={levelColorMap[event.level] || 'default'}
+        style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}
+      >
+        {event.category === 'network' && (event.detail as any)?.method
+          ? (event.detail as any).method.toUpperCase()
+          : event.level.toUpperCase().slice(0, 3)}
+      </Tag>
+
+      {/* Title - truncated */}
+      <Text
+        ellipsis
+        style={{
+          flex: 1,
+          color: event.level === 'error' ? '#ff4d4f' : event.level === 'warn' ? '#faad14' : token.colorText,
+          fontSize: 12,
+        }}
+      >
+        {event.category === 'network' && (event.detail as any)?.method && event.title.startsWith((event.detail as any).method + ' ')
+          ? event.title.substring(((event.detail as any).method as string).length + 1)
+          : event.title}
+      </Text>
+
+      {/* Duration if present */}
+      {event.duration !== undefined && event.duration > 0 && (
+        <Text type="secondary" style={{ fontSize: 10, flexShrink: 0 }}>
+          {formatDuration(event.duration)}
+        </Text>
+      )}
     </div>
   );
 });

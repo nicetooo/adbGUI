@@ -3,9 +3,10 @@ package main
 import (
 	"fmt"
 	"os/exec"
+	"strconv"
+	"strings"
 	"sync"
-
-	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"time"
 
 	"Gaze/proxy"
 )
@@ -33,48 +34,60 @@ func (a *App) GetProxyDevice() string {
 // StartProxy starts the internal HTTP/HTTPS proxy
 func (a *App) StartProxy(port int) (string, error) {
 	err := proxy.GetProxy().Start(port, func(req proxy.RequestLog) {
-		// Emit to UI
-		wailsRuntime.EventsEmit(a.ctx, "proxy_request", req)
+		// All network events go through Session (unified event source)
+		// Skip partial updates to avoid duplicates - only emit completed requests
+		// Filter out pending requests (StatusCode 0) to avoid duplicates.
+		// We only want to emit the final event when the response is complete.
+		if req.StatusCode == 0 {
+			return
+		}
 
-		// Emit to session (only for completed requests with status code, skip partial updates)
-		if req.StatusCode > 0 && !req.PartialUpdate {
-			proxyDeviceMu.RLock()
-			deviceId := proxyDeviceId
-			proxyDeviceMu.RUnlock()
+		proxyDeviceMu.RLock()
+		deviceId := proxyDeviceId
+		proxyDeviceMu.RUnlock()
 
-			if deviceId != "" {
-				// Filter out static resources - only show API requests in timeline
-				if isStaticResource(req.URL, req.ContentType) {
-					return
-				}
+		if deviceId == "" {
+			return
+		}
 
-				// Determine event type and level
-				eventType := "network_request"
-				level := "info"
-				if req.StatusCode >= 400 && req.StatusCode < 500 {
-					level = "warn"
-				} else if req.StatusCode >= 500 {
-					level = "error"
-				}
+		// Determine level based on status code
+		level := "info"
+		if req.StatusCode >= 400 && req.StatusCode < 500 {
+			level = "warn"
+		} else if req.StatusCode >= 500 {
+			level = "error"
+		}
 
-				title := fmt.Sprintf("%s %s → %d", req.Method, req.URL, req.StatusCode)
-				if len(title) > 100 {
-					title = title[:97] + "..."
-				}
+		title := fmt.Sprintf("%s %s → %d", req.Method, req.URL, req.StatusCode)
+		if len(title) > 100 {
+			title = title[:97] + "..."
+		}
 
-				a.EmitSessionEvent(deviceId, eventType, "network", level, title,
-					map[string]interface{}{
-						"id":          req.Id,
-						"method":      req.Method,
-						"url":         req.URL,
-						"statusCode":  req.StatusCode,
-						"contentType": req.ContentType,
-						"bodySize":    req.BodySize,
-						"isHttps":     req.IsHTTPS,
-						"isWs":        req.IsWs,
-					})
+		// Calculate duration from ID (SessionId-TimestampNano)
+		var durationMs int64
+		parts := strings.Split(req.Id, "-")
+		if len(parts) >= 2 {
+			if startNano, err := strconv.ParseInt(parts[len(parts)-1], 10, 64); err == nil {
+				durationMs = (time.Now().UnixNano() - startNano) / 1e6
 			}
 		}
+
+		a.EmitSessionEvent(deviceId, "network_request", "network", level, title,
+			map[string]interface{}{
+				"id":              req.Id,
+				"method":          req.Method,
+				"url":             req.URL,
+				"statusCode":      req.StatusCode,
+				"contentType":     req.ContentType,
+				"bodySize":        req.BodySize,
+				"duration":        durationMs,
+				"isHttps":         req.IsHTTPS,
+				"isWs":            req.IsWs,
+				"requestHeaders":  req.Headers,
+				"requestBody":     req.Body,
+				"responseHeaders": req.RespHeaders,
+				"responseBody":    req.RespBody,
+			})
 	})
 	if err != nil {
 		return "", err

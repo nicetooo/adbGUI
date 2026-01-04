@@ -123,20 +123,44 @@ const ProxyView: React.FC = () => {
             // Settings are already synced via store
         });
 
-        // Listen for logs
-        const handleProxyRequest = (log: RequestLog) => {
-            const existingLog = logs.find(l => l.id === log.id);
-            if (existingLog) {
-                updateLog(log.id, log);
-            } else {
-                addLog(log);
+        // Listen for network events from session (unified event source)
+        const handleSessionBatch = (events: any[]) => {
+            // Filter for network events only
+            const networkEvents = events.filter((e: any) => e.category === 'network');
+
+            for (const event of networkEvents) {
+                const detail = event.detail || {};
+                // Convert session event to RequestLog format
+                const log: RequestLog = {
+                    id: detail.id || event.id,
+                    time: new Date(event.timestamp).toLocaleTimeString(),
+                    clientIp: '',
+                    method: detail.method || 'UNKNOWN',
+                    url: detail.url || event.title,
+                    headers: {},
+                    body: '',
+                    isHttps: detail.isHttps || false,
+                    statusCode: detail.statusCode,
+                    contentType: detail.contentType,
+                    bodySize: detail.bodySize,
+                    isWs: detail.isWs || false,
+                };
+
+                // Use getState() to get current logs (avoid stale closure)
+                const currentLogs = useProxyStore.getState().logs;
+                const existingLog = currentLogs.find(l => l.id === log.id);
+                if (existingLog) {
+                    updateLog(log.id, log);
+                } else {
+                    addLog(log);
+                }
             }
         };
 
-        EventsOn("proxy_request", handleProxyRequest);
+        EventsOn("session-events-batch", handleSessionBatch);
 
         return () => {
-            EventsOff("proxy_request");
+            EventsOff("session-events-batch");
         };
     }, []);
 
