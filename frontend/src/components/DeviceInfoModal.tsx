@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { main } from "../../wailsjs/go/models";
 
 interface DeviceInfoModalProps {
-  visible: boolean;
+  open: boolean;
   onCancel: () => void;
   deviceInfo: main.DeviceInfo | null;
   loading: boolean;
@@ -15,7 +15,7 @@ interface DeviceInfoModalProps {
 }
 
 const DeviceInfoModal: React.FC<DeviceInfoModalProps> = ({
-  visible,
+  open,
   onCancel,
   deviceInfo,
   loading,
@@ -71,7 +71,7 @@ const DeviceInfoModal: React.FC<DeviceInfoModalProps> = ({
           </Button>
         </div>
       }
-      open={visible}
+      open={open}
       onCancel={onCancel}
       footer={[
         <Button key="close" onClick={onCancel}>

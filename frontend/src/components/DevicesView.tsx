@@ -599,7 +599,7 @@ const DevicesView: React.FC<DevicesViewProps> = ({
       </div>
 
       <BatchOperationModal
-        visible={batchModalVisible}
+        open={batchModalVisible}
         onClose={closeBatchModal}
         selectedDeviceIds={Array.from(selectedDevices)}
         devices={devices}

@@ -24,7 +24,7 @@ import {
     CopyOutlined,
     QuestionCircleOutlined,
 } from "@ant-design/icons";
-import { useDeviceStore, useAutomationStore } from "../stores";
+import { useDeviceStore, useAutomationStore, useUIInspectorStore } from "../stores";
 
 const DetailItem: React.FC<{
     label: string;
@@ -88,13 +88,23 @@ const UIInspectorView: React.FC = () => {
     const { t } = useTranslation();
     const { token } = theme.useToken();
 
-    const [selectedNode, setSelectedNode] = useState<any>(null);
-    const [searchText, setSearchText] = useState("");
-    const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
-    const [autoExpandParent, setAutoExpandParent] = useState(true);
-    const [selectedAction, setSelectedAction] = useState("click");
-    const [inputText, setInputText] = useState("");
-    const [searchMode, setSearchMode] = useState<"auto" | "xpath" | "advanced">("auto");
+    // Use uiInspectorStore instead of useState
+    const {
+        selectedNode,
+        searchText,
+        expandedKeys,
+        autoExpandParent,
+        selectedAction,
+        inputText,
+        searchMode,
+        setSelectedNode,
+        setSearchText,
+        setExpandedKeys,
+        setAutoExpandParent,
+        setSelectedAction,
+        setInputText,
+        setSearchMode,
+    } = useUIInspectorStore();
 
     // Detect search mode from query
     const getEffectiveSearchMode = (query: string): string => {

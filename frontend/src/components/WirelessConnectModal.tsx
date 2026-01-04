@@ -12,14 +12,14 @@ const EventsOff = (window as any).runtime?.EventsOff;
 const { Text } = Typography;
 
 interface WirelessConnectModalProps {
-  visible: boolean;
+  open: boolean;
   onCancel: () => void;
   onConnect: (address: string) => Promise<void>;
   onPair: (address: string, code: string) => Promise<void>;
 }
 
 const WirelessConnectModal: React.FC<WirelessConnectModalProps> = ({
-  visible,
+  open,
   onCancel,
   onConnect,
   onPair,
@@ -31,7 +31,7 @@ const WirelessConnectModal: React.FC<WirelessConnectModalProps> = ({
   const [connectUrl, setConnectUrl] = useState("");
 
   useEffect(() => {
-    if (visible) {
+    if (open) {
       // Start the server and get the URL
       StartWirelessServer()
         .then((url: string) => setConnectUrl(url + "/c"))
@@ -62,7 +62,7 @@ const WirelessConnectModal: React.FC<WirelessConnectModalProps> = ({
         }
       };
     }
-  }, [visible]);
+  }, [open]);
 
   const handleSubmit = async () => {
     try {
@@ -142,7 +142,7 @@ const WirelessConnectModal: React.FC<WirelessConnectModalProps> = ({
   return (
     <Modal
       title={t("devices.wireless_connect")}
-      open={visible}
+      open={open}
       onCancel={onCancel}
       onOk={handleSubmit}
       confirmLoading={loading}

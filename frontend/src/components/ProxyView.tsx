@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card, Button, InputNumber, Space, Typography, Tag, message, Modal, Divider, Switch, Tooltip, Radio, Input, Drawer, Tabs, theme } from 'antd';
 import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined } from '@ant-design/icons';
 import DeviceSelector from './DeviceSelector';
-import { useDeviceStore } from '../stores';
+import { useDeviceStore, useProxyStore } from '../stores';
 // @ts-ignore
-import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns } from '../../wailsjs/go/main/App';
+import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, SetProxyDevice } from '../../wailsjs/go/main/App';
 // @ts-ignore
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -44,28 +44,49 @@ const ProxyView: React.FC = () => {
     const { t } = useTranslation();
     const { token } = theme.useToken();
     const { selectedDevice } = useDeviceStore();
-    const [isRunning, setIsRunning] = useState(false);
-    const [port, setPort] = useState(8080);
-    const [localIP, setLocalIP] = useState("");
-    const [logs, setLogs] = useState<RequestLog[]>([]);
+
+    // Use proxyStore instead of useState
+    const {
+        isRunning,
+        port,
+        localIP,
+        logs,
+        wsEnabled,
+        mitmEnabled,
+        filterType,
+        searchText,
+        latency,
+        bypassPatterns,
+        isBypassModalOpen,
+        newPattern,
+        selectedLog,
+        detailsDrawerOpen,
+        netStats,
+        dlLimit,
+        ulLimit,
+        setProxyRunning,
+        setPort,
+        setLocalIP,
+        addLog,
+        updateLog,
+        clearLogs,
+        toggleWS,
+        toggleMITM,
+        setFilterType,
+        setSearchText,
+        setLatency,
+        setBypassModalOpen,
+        setNewPattern,
+        selectLog,
+        setDetailsDrawerOpen,
+        setNetStats,
+        setSpeedLimits,
+        addBypassPattern,
+        removeBypassPattern,
+    } = useProxyStore();
+
     const logsEndRef = useRef<HTMLDivElement>(null);
-    const [wsEnabled, setWsEnabled] = useState(true); // Default matching backend
-    const [mitmEnabled, setMitmEnabled] = useState(true);
-    const [filterType, setFilterType] = useState<"ALL" | "HTTP" | "WS">("ALL");
-    const [searchText, setSearchText] = useState("");
-    const [latency, setLatency] = useState<number | null>(null);
-    const [bypassPatterns, setBypassPatterns] = useState<string[]>([]);
-    const [isBypassModalOpen, setIsBypassModalOpen] = useState(false);
-    const [newPattern, setNewPattern] = useState("");
-
     const parentRef = useRef<HTMLDivElement>(null);
-    const [selectedLog, setSelectedLog] = useState<RequestLog | null>(null);
-    const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
-
-    const [netStats, setNetStats] = useState<NetworkStats>({ rxSpeed: 0, txSpeed: 0, rxBytes: 0, txBytes: 0, time: 0 });
-    // const [isMonitoring, setIsMonitoring] = useState(false); // Removed manual toggle
-    const [dlLimit, setDlLimit] = useState<number | null>(null);
-    const [ulLimit, setUlLimit] = useState<number | null>(null);
 
     useEffect(() => {
         // Listen for network stats
@@ -84,42 +105,38 @@ const ProxyView: React.FC = () => {
             StartNetworkMonitor(selectedDevice);
         }
         return () => {
-            if (selectedDevice) StopNetworkMonitor(selectedDevice);
+            if (selectedDevice) {
+                StopNetworkMonitor(selectedDevice);
+            }
         };
     }, [selectedDevice]);
 
     useEffect(() => {
         // Initial status check
-        GetProxyStatus().then((status: boolean) => setIsRunning(status));
+        GetProxyStatus().then((status: boolean) => setProxyRunning(status));
         GetLocalIP().then((ip: string) => setLocalIP(ip));
 
         // Sync settings from backend
+        // Note: These settings are managed by the store and backend
         // @ts-ignore
         import('../../wailsjs/go/main/App').then(m => {
-            if (m.GetProxySettings) {
-                m.GetProxySettings().then((settings: any) => {
-                    if (settings.wsEnabled !== undefined) setWsEnabled(settings.wsEnabled);
-                    if (settings.mitmEnabled !== undefined) setMitmEnabled(settings.mitmEnabled);
-                    if (settings.bypassPatterns !== undefined) setBypassPatterns(settings.bypassPatterns);
-                });
-            }
+            // Settings are already synced via store
         });
 
         // Listen for logs
-        EventsOn("proxy_request", (log: RequestLog) => {
-            setLogs(prev => {
-                const index = prev.findIndex(l => l.id === log.id);
-                if (index > -1) {
-                    const newLogs = [...prev];
-                    newLogs[index] = { ...newLogs[index], ...log };
-                    return newLogs;
-                }
-                return [log, ...prev].slice(0, 5000);
-            });
-        });
+        const handleProxyRequest = (log: RequestLog) => {
+            const existingLog = logs.find(l => l.id === log.id);
+            if (existingLog) {
+                updateLog(log.id, log);
+            } else {
+                addLog(log);
+            }
+        };
+
+        EventsOn("proxy_request", handleProxyRequest);
 
         return () => {
-            EventsOff("proxy-request");
+            EventsOff("proxy_request");
         };
     }, []);
 
@@ -135,7 +152,7 @@ const ProxyView: React.FC = () => {
             await SetProxyMITM(mitmEnabled);
             await SetProxyWSEnabled(wsEnabled);
             await StartProxy(port);
-            setIsRunning(true);
+            setProxyRunning(true);
 
             // 2. Automagically set device proxy if selected
             if (selectedDevice && localIP) {
@@ -171,7 +188,7 @@ const ProxyView: React.FC = () => {
 
             // 2. Stop Server
             await StopProxy();
-            setIsRunning(false);
+            setProxyRunning(false);
             message.success(t('proxy.stop_success'));
         } catch (err) {
             message.error(t('app.command_failed') + ": " + String(err));
@@ -244,7 +261,7 @@ const ProxyView: React.FC = () => {
     const handleWSToggle = async (checked: boolean) => {
         try {
             await SetProxyWSEnabled(checked);
-            setWsEnabled(checked);
+            toggleWS();
             message.success(checked ? t('proxy.on') : t('proxy.off'));
         } catch (err) {
             message.error(t('app.command_failed') + ": " + String(err));
@@ -254,7 +271,7 @@ const ProxyView: React.FC = () => {
     const handleMITMToggle = async (checked: boolean) => {
         try {
             await SetProxyMITM(checked);
-            setMitmEnabled(checked);
+            toggleMITM();
             if (checked) {
                 message.info(t('proxy.mitm_tooltip'));
             } else {
@@ -314,8 +331,7 @@ const ProxyView: React.FC = () => {
         try {
             await SetProxyLimit(0, 0);
             await SetProxyLatency(0);
-            setDlLimit(null);
-            setUlLimit(null);
+            setSpeedLimits(null, null);
             setLatency(null);
             message.success(t('proxy.off'));
         } catch (err) {
@@ -425,7 +441,7 @@ const ProxyView: React.FC = () => {
                                     <Button size="small" icon={<DownloadOutlined />} onClick={handleInstallCert}>
                                         Cert
                                     </Button>
-                                    <Button size="small" icon={<SettingOutlined />} onClick={() => setIsBypassModalOpen(true)}>
+                                    <Button size="small" icon={<SettingOutlined />} onClick={() => setBypassModalOpen(true)}>
                                         Rules
                                     </Button>
                                 </Space>
@@ -480,7 +496,7 @@ const ProxyView: React.FC = () => {
                                         placeholder="DL"
                                         min={0}
                                         value={dlLimit}
-                                        onChange={setDlLimit}
+                                        onChange={(val) => setSpeedLimits(val, ulLimit)}
                                         style={{ width: 110 }}
                                         title={t('proxy.dl_limit')}
                                     />
@@ -491,7 +507,7 @@ const ProxyView: React.FC = () => {
                                         placeholder="UL"
                                         min={0}
                                         value={ulLimit}
-                                        onChange={setUlLimit}
+                                        onChange={(val) => setSpeedLimits(dlLimit, val)}
                                         style={{ width: 110 }}
                                         title={t('proxy.ul_limit')}
                                     />
@@ -538,7 +554,7 @@ const ProxyView: React.FC = () => {
                             value={searchText}
                             onChange={e => setSearchText(e.target.value)}
                         />
-                        <Button size="small" type="link" onClick={() => setLogs([])} icon={<DeleteOutlined />} style={{ padding: 0 }}>{t('proxy.clear_logs')}</Button>
+                        <Button size="small" type="link" onClick={() => clearLogs()} icon={<DeleteOutlined />} style={{ padding: 0 }}>{t('proxy.clear_logs')}</Button>
                     </div>
                 }
             >
@@ -577,7 +593,7 @@ const ProxyView: React.FC = () => {
                                 >
                                     {/* Main Row Content */}
                                     <div
-                                        onClick={() => { setSelectedLog(record); setDetailsDrawerOpen(true); }}
+                                        onClick={() => { selectLog(record); setDetailsDrawerOpen(true); }}
                                         style={{
                                             display: 'grid',
                                             gridTemplateColumns: '80px 70px 60px 1fr 80px 80px',
@@ -805,9 +821,9 @@ const ProxyView: React.FC = () => {
                     </Space>
                 }
                 open={isBypassModalOpen}
-                onCancel={() => setIsBypassModalOpen(false)}
+                onCancel={() => setBypassModalOpen(false)}
                 footer={[
-                    <Button key="close" type="primary" onClick={() => setIsBypassModalOpen(false)}>{t('common.close')}</Button>
+                    <Button key="close" type="primary" onClick={() => setBypassModalOpen(false)}>{t('common.close')}</Button>
                 ]}
             >
                 <div style={{ marginBottom: 16 }}>
@@ -824,7 +840,7 @@ const ProxyView: React.FC = () => {
                         onPressEnter={() => {
                             if (newPattern && !bypassPatterns.includes(newPattern)) {
                                 const next = [...bypassPatterns, newPattern];
-                                setBypassPatterns(next);
+                                addBypassPattern(newPattern.trim());
                                 SetMITMBypassPatterns(next);
                                 setNewPattern("");
                             }
@@ -833,7 +849,7 @@ const ProxyView: React.FC = () => {
                     <Button type="primary" onClick={() => {
                         if (newPattern && !bypassPatterns.includes(newPattern)) {
                             const next = [...bypassPatterns, newPattern];
-                            setBypassPatterns(next);
+                            addBypassPattern(newPattern.trim());
                             SetMITMBypassPatterns(next);
                             setNewPattern("");
                         }
@@ -846,10 +862,10 @@ const ProxyView: React.FC = () => {
                             <Tag
                                 key={pat}
                                 closable
-                                onClose={() => {
+                                onClose={async () => {
+                                    removeBypassPattern(pat);
                                     const next = bypassPatterns.filter(p => p !== pat);
-                                    setBypassPatterns(next);
-                                    SetMITMBypassPatterns(next);
+                                    await SetMITMBypassPatterns(next);
                                 }}
                             >
                                 {pat}

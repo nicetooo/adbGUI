@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect } from "react";
 import {
   Button,
   Space,
@@ -38,7 +38,7 @@ import {
   DownloadFile
 } from "../../wailsjs/go/main/App";
 import DeviceSelector from "./DeviceSelector";
-import { useDeviceStore } from "../stores";
+import { useDeviceStore, useFilesStore } from "../stores";
 
 const NameWithThumbnail = ({
   deviceId,
@@ -182,21 +182,25 @@ const FilesView: React.FC<FilesViewProps> = ({
   const { token } = theme.useToken();
   const { selectedDevice } = useDeviceStore();
 
-  // Files state
-  const [currentPath, setCurrentPath] = useState(initialPath);
-  const [fileList, setFileList] = useState<any[]>([]);
-  const [filesLoading, setFilesLoading] = useState(false);
-  const [clipboard, setClipboard] = useState<{
-    path: string;
-    type: "copy" | "cut";
-  } | null>(null);
-  const [showHiddenFiles, setShowHiddenFiles] = useState(false);
+  // Use filesStore instead of useState
+  const {
+    currentPath,
+    fileList,
+    filesLoading,
+    clipboard,
+    showHiddenFiles,
+    setCurrentPath,
+    setFileList,
+    setFilesLoading,
+    setClipboard,
+    setShowHiddenFiles,
+  } = useFilesStore();
 
   useEffect(() => {
     if (initialPath && initialPath !== currentPath) {
       setCurrentPath(initialPath);
     }
-  }, [initialPath]);
+  }, [initialPath, currentPath, setCurrentPath]);
 
   const fetchFiles = async (path: string) => {
     if (!selectedDevice) return;

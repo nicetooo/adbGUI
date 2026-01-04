@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React from "react";
 import { Button, Space, Input, message, theme } from "antd";
 import { ClearOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import DeviceSelector from "./DeviceSelector";
-import { useDeviceStore } from "../stores";
+import { useDeviceStore, useShellStore } from "../stores";
 // @ts-ignore
 import { RunAdbCommand } from "../../wailsjs/go/main/App";
 
@@ -11,10 +11,19 @@ const ShellView: React.FC = () => {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const { selectedDevice } = useDeviceStore();
-  const [shellCmd, setShellCmd] = useState("");
-  const [shellOutput, setShellOutput] = useState("");
-  const [history, setHistory] = useState<string[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
+
+  // Use shellStore instead of useState
+  const {
+    shellCmd,
+    shellOutput,
+    history,
+    historyIndex,
+    setShellCmd,
+    setShellOutput,
+    addToHistory,
+    navigateHistory,
+    clearOutput,
+  } = useShellStore();
 
   const presets = [
     { label: t("shell.presets.current_activity"), cmd: "shell dumpsys window | grep mCurrentFocus" },
@@ -29,11 +38,7 @@ const ShellView: React.FC = () => {
     const cmdToRun = command || shellCmd;
     if (!cmdToRun) return;
 
-    setHistory((prev) => {
-      const newHist = [cmdToRun, ...prev.filter((c) => c !== cmdToRun)].slice(0, 50);
-      return newHist;
-    });
-    setHistoryIndex(-1);
+    addToHistory(cmdToRun);
 
     try {
       const res = await RunAdbCommand(selectedDevice, cmdToRun.trim());
@@ -47,21 +52,10 @@ const ShellView: React.FC = () => {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowUp") {
       e.preventDefault();
-      if (historyIndex < history.length - 1) {
-        const newIndex = historyIndex + 1;
-        setHistoryIndex(newIndex);
-        setShellCmd(history[newIndex]);
-      }
+      navigateHistory('up');
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
-      if (historyIndex > 0) {
-        const newIndex = historyIndex - 1;
-        setHistoryIndex(newIndex);
-        setShellCmd(history[newIndex]);
-      } else if (historyIndex === 0) {
-        setHistoryIndex(-1);
-        setShellCmd("");
-      }
+      navigateHistory('down');
     }
   };
 
@@ -87,7 +81,7 @@ const ShellView: React.FC = () => {
         <h2 style={{ margin: 0, color: token.colorText }}>{t("shell.title")}</h2>
         <Space>
           <DeviceSelector />
-          <Button icon={<ClearOutlined />} onClick={() => setShellOutput("")}>
+          <Button icon={<ClearOutlined />} onClick={clearOutput}>
             {t("common.clear") || "Clear"}
           </Button>
         </Space>

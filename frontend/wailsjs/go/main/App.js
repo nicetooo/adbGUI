@@ -30,8 +30,16 @@ export function CancelOpenFile(arg1) {
   return window['go']['main']['App']['CancelOpenFile'](arg1);
 }
 
+export function CleanupOldSessions(arg1) {
+  return window['go']['main']['App']['CleanupOldSessions'](arg1);
+}
+
 export function ClearAppData(arg1, arg2) {
   return window['go']['main']['App']['ClearAppData'](arg1, arg2);
+}
+
+export function ClearSession(arg1) {
+  return window['go']['main']['App']['ClearSession'](arg1);
 }
 
 export function ClickElement(arg1, arg2, arg3, arg4) {
@@ -40,6 +48,10 @@ export function ClickElement(arg1, arg2, arg3, arg4) {
 
 export function CopyFile(arg1, arg2, arg3) {
   return window['go']['main']['App']['CopyFile'](arg1, arg2, arg3);
+}
+
+export function CreateSession(arg1, arg2, arg3) {
+  return window['go']['main']['App']['CreateSession'](arg1, arg2, arg3);
 }
 
 export function DeleteFile(arg1, arg2) {
@@ -66,8 +78,28 @@ export function DownloadFile(arg1, arg2) {
   return window['go']['main']['App']['DownloadFile'](arg1, arg2);
 }
 
+export function EmitSessionEvent(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['main']['App']['EmitSessionEvent'](arg1, arg2, arg3, arg4, arg5, arg6);
+}
+
+export function EmitSessionEventFull(arg1) {
+  return window['go']['main']['App']['EmitSessionEventFull'](arg1);
+}
+
+export function EmitSessionEventWithStep(arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
+  return window['go']['main']['App']['EmitSessionEventWithStep'](arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+}
+
 export function EnableApp(arg1, arg2) {
   return window['go']['main']['App']['EnableApp'](arg1, arg2);
+}
+
+export function EndSession(arg1, arg2) {
+  return window['go']['main']['App']['EndSession'](arg1, arg2);
+}
+
+export function EnsureActiveSession(arg1) {
+  return window['go']['main']['App']['EnsureActiveSession'](arg1);
 }
 
 export function ExecuteBatchOperation(arg1) {
@@ -108,6 +140,10 @@ export function ForceStopApp(arg1, arg2) {
 
 export function GenerateSelectorSuggestions(arg1, arg2) {
   return window['go']['main']['App']['GenerateSelectorSuggestions'](arg1, arg2);
+}
+
+export function GetActiveSession(arg1) {
+  return window['go']['main']['App']['GetActiveSession'](arg1);
 }
 
 export function GetAppInfo(arg1, arg2, arg3) {
@@ -162,12 +198,20 @@ export function GetMITMBypassPatterns() {
   return window['go']['main']['App']['GetMITMBypassPatterns']();
 }
 
+export function GetProxyDevice() {
+  return window['go']['main']['App']['GetProxyDevice']();
+}
+
 export function GetProxySettings() {
   return window['go']['main']['App']['GetProxySettings']();
 }
 
 export function GetProxyStatus() {
   return window['go']['main']['App']['GetProxyStatus']();
+}
+
+export function GetRecentEvents(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetRecentEvents'](arg1, arg2, arg3);
 }
 
 export function GetRecordingEventCount(arg1) {
@@ -180,6 +224,22 @@ export function GetRecordingStatus(arg1) {
 
 export function GetSelectorMatchCount(arg1, arg2) {
   return window['go']['main']['App']['GetSelectorMatchCount'](arg1, arg2);
+}
+
+export function GetSession(arg1) {
+  return window['go']['main']['App']['GetSession'](arg1);
+}
+
+export function GetSessionMetadata(arg1, arg2) {
+  return window['go']['main']['App']['GetSessionMetadata'](arg1, arg2);
+}
+
+export function GetSessionTimeline(arg1, arg2) {
+  return window['go']['main']['App']['GetSessionTimeline'](arg1, arg2);
+}
+
+export function GetSessions(arg1, arg2) {
+  return window['go']['main']['App']['GetSessions'](arg1, arg2);
 }
 
 export function GetThumbnail(arg1, arg2, arg3) {
@@ -386,6 +446,10 @@ export function SetMITMBypassPatterns(arg1) {
   return window['go']['main']['App']['SetMITMBypassPatterns'](arg1);
 }
 
+export function SetProxyDevice(arg1) {
+  return window['go']['main']['App']['SetProxyDevice'](arg1);
+}
+
 export function SetProxyLatency(arg1) {
   return window['go']['main']['App']['SetProxyLatency'](arg1);
 }
@@ -400,6 +464,10 @@ export function SetProxyMITM(arg1) {
 
 export function SetProxyWSEnabled(arg1) {
   return window['go']['main']['App']['SetProxyWSEnabled'](arg1);
+}
+
+export function SetSessionMetadata(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetSessionMetadata'](arg1, arg2, arg3);
 }
 
 export function Shutdown(arg1) {

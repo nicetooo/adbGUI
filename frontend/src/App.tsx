@@ -18,6 +18,7 @@ import ProxyView from "./components/ProxyView";
 import RecordingView from "./components/RecordingView";
 import WorkflowView from "./components/WorkflowView";
 import UIInspectorView from "./components/UIInspectorView";
+import TimelineView from "./components/TimelineView";
 import DeviceInfoModal from "./components/DeviceInfoModal";
 import AboutModal from "./components/AboutModal";
 import WirelessConnectModal from "./components/WirelessConnectModal";
@@ -40,6 +41,7 @@ import {
   BlockOutlined,
   VideoCameraOutlined,
   BranchesOutlined,
+  HistoryOutlined,
 } from "@ant-design/icons";
 import "./App.css";
 import { useTheme } from "./ThemeContext";
@@ -50,7 +52,7 @@ import {
   VIEW_KEYS,
 } from "./stores";
 // @ts-ignore
-import { OpenPath } from "../wailsjs/go/main/App";
+import { OpenPath, SetProxyDevice } from "../wailsjs/go/main/App";
 
 // @ts-ignore
 const BrowserOpenURL = (window as any).runtime.BrowserOpenURL;
@@ -168,6 +170,15 @@ function App() {
     };
   }, []);
 
+  // Auto-set proxy device to ensure network events are captured in timeline globally
+  useEffect(() => {
+    if (selectedDevice) {
+      SetProxyDevice(selectedDevice);
+    } else {
+      SetProxyDevice('');
+    }
+  }, [selectedDevice]);
+
   // Screenshot progress listener
   useEffect(() => {
     const msgKey = "screenshot-msg";
@@ -201,32 +212,8 @@ function App() {
     return () => unsubDevices();
   }, []);
 
-  const renderContent = () => {
-    switch (selectedKey) {
-      case VIEW_KEYS.DEVICES:
-        return <DevicesView onShowWirelessConnect={showWirelessConnect} />;
-      case VIEW_KEYS.FILES:
-        return <FilesView />;
-      case VIEW_KEYS.APPS:
-        return <AppsView />;
-      case VIEW_KEYS.SHELL:
-        return <ShellView />;
-      case VIEW_KEYS.LOGCAT:
-        return <LogcatView />;
-      case VIEW_KEYS.MIRROR:
-        return <MirrorView />;
-      case VIEW_KEYS.PROXY:
-        return <ProxyView />;
-      case VIEW_KEYS.RECORDING:
-        return <RecordingView />;
-      case VIEW_KEYS.WORKFLOW:
-        return <WorkflowView />;
-      case VIEW_KEYS.INSPECTOR:
-        return <UIInspectorView />;
-      default:
-        return <div style={{ padding: 24 }}>{t("app.select_option")}</div>;
-    }
-  };
+  // All views are now rendered persistently with keep-alive
+  // No renderContent function needed
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
@@ -265,6 +252,7 @@ function App() {
                 { key: VIEW_KEYS.RECORDING, icon: <VideoCameraOutlined />, label: t("menu.recording") },
                 { key: VIEW_KEYS.INSPECTOR, icon: <BlockOutlined />, label: t("menu.inspector") || "UI Inspector" },
                 { key: VIEW_KEYS.WORKFLOW, icon: <BranchesOutlined />, label: t("menu.workflow") },
+                { key: VIEW_KEYS.TIMELINE, icon: <HistoryOutlined />, label: t("menu.timeline") || "Timeline" },
               ]}
             />
           </div>
@@ -330,29 +318,41 @@ function App() {
       <Layout className="site-layout" style={{ marginLeft: 220 }}>
         <Content style={{ margin: "0", height: "100vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
           <div className="drag-handle" style={{ height: 38, width: "100%", flexShrink: 0 }} />
-          {renderContent()}
+
+          {/* Conditional Rendering - Only render active view */}
+          {selectedKey === VIEW_KEYS.DEVICES && <DevicesView onShowWirelessConnect={showWirelessConnect} />}
+          {selectedKey === VIEW_KEYS.MIRROR && <MirrorView />}
+          {selectedKey === VIEW_KEYS.APPS && <AppsView />}
+          {selectedKey === VIEW_KEYS.FILES && <FilesView />}
+          {selectedKey === VIEW_KEYS.SHELL && <ShellView />}
+          {selectedKey === VIEW_KEYS.LOGCAT && <LogcatView />}
+          {selectedKey === VIEW_KEYS.PROXY && <ProxyView />}
+          {selectedKey === VIEW_KEYS.RECORDING && <RecordingView />}
+          {selectedKey === VIEW_KEYS.INSPECTOR && <UIInspectorView />}
+          {selectedKey === VIEW_KEYS.WORKFLOW && <WorkflowView />}
+          {selectedKey === VIEW_KEYS.TIMELINE && <TimelineView />}
         </Content>
       </Layout>
 
       <DeviceInfoModal
-        visible={deviceInfoVisible}
+        open={deviceInfoVisible}
         onCancel={closeDeviceInfo}
         deviceInfo={selectedDeviceInfo}
         loading={deviceInfoLoading}
         onRefresh={() => selectedDeviceInfo && handleFetchDeviceInfo(selectedDeviceInfo.serial || selectedDevice)}
       />
 
-      <AboutModal visible={aboutVisible} onCancel={hideAbout} />
+      <AboutModal open={aboutVisible} onCancel={hideAbout} />
 
       <WirelessConnectModal
-        visible={wirelessConnectVisible}
+        open={wirelessConnectVisible}
         onCancel={hideWirelessConnect}
         onConnect={handleAdbConnectWithFeedback}
         onPair={handleAdbPairWithFeedback}
       />
 
       <FeedbackModal
-        visible={feedbackVisible}
+        open={feedbackVisible}
         onCancel={hideFeedback}
         appVersion={appVersion}
         deviceInfo={devices.find(d => d.id === selectedDevice) ? `${devices.find(d => d.id === selectedDevice)?.brand} ${devices.find(d => d.id === selectedDevice)?.model} (ID: ${selectedDevice})` : "None"}

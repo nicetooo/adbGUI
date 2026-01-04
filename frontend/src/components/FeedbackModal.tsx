@@ -7,7 +7,7 @@ const { TextArea } = Input;
 const { Text } = Typography;
 
 interface FeedbackModalProps {
-  visible: boolean;
+  open: boolean;
   onCancel: () => void;
   appVersion: string;
   deviceInfo: string;
@@ -19,7 +19,7 @@ declare global {
   }
 }
 
-const FeedbackModal = ({ visible, onCancel, appVersion, deviceInfo }: FeedbackModalProps) => {
+const FeedbackModal = ({ open, onCancel, appVersion, deviceInfo }: FeedbackModalProps) => {
   const { t } = useTranslation();
   const [backendLogs, setBackendLogs] = useState<string[]>([]);
   const [frontendLogs, setFrontendLogs] = useState<string[]>([]);
@@ -28,17 +28,17 @@ const FeedbackModal = ({ visible, onCancel, appVersion, deviceInfo }: FeedbackMo
   const [description, setDescription] = useState("");
 
   useEffect(() => {
-    if (visible) {
+    if (open) {
       fetchLogs();
     }
-  }, [visible]);
+  }, [open]);
 
   const fetchLogs = async () => {
     try {
       const bLogs = await GetBackendLogs();
       setBackendLogs(bLogs || []);
       // Pre-select all by default? Or maybe just allow picking
-      
+
       const fLogs = window.runtimeLogs || [];
       setFrontendLogs(fLogs);
     } catch (err) {
@@ -90,7 +90,7 @@ const FeedbackModal = ({ visible, onCancel, appVersion, deviceInfo }: FeedbackMo
   return (
     <Modal
       title={t("app.feedback")}
-      open={visible}
+      open={open}
       onCancel={onCancel}
       onOk={handleOk}
       width={800}
@@ -153,7 +153,7 @@ const FeedbackModal = ({ visible, onCancel, appVersion, deviceInfo }: FeedbackMo
               label: `${t("app.frontend_logs")} (${frontendLogs.length})`,
               children: (
                 <div style={{ maxHeight: 300, overflowY: "auto", border: "1px solid #f0f0f0", borderRadius: 4, padding: 8 }}>
-                   <div style={{ marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid #f0f0f0" }}>
+                  <div style={{ marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid #f0f0f0" }}>
                     <Checkbox
                       onChange={(e) => toggleAllFrontend(e.target.checked)}
                       checked={selectedFrontendLogs.size === frontendLogs.length && frontendLogs.length > 0}

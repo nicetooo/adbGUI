@@ -33,7 +33,29 @@
     "proxy": "Proxy",
     "recording": "Recording",
     "workflow": "Workflow",
-    "inspector": "UI Inspector"
+    "inspector": "UI Inspector",
+    "timeline": "Timeline"
+  },
+  "timeline": {
+    "title": "Session Timeline",
+    "select_device": "Select Device",
+    "select_session": "Select Session",
+    "filter_category": "Category",
+    "filter_level": "Level",
+    "auto_scroll": "Auto Scroll",
+    "manual": "Manual",
+    "refresh": "Refresh",
+    "clear": "Clear",
+    "no_events": "No events",
+    "showing": "Showing",
+    "of": "of",
+    "events": "events",
+    "live": "Live",
+    "active": "Active",
+    "completed": "Completed",
+    "failed": "Failed",
+    "cancelled": "Cancelled",
+    "duration": "Duration"
   },
   "about": {
     "title": "About Gaze",

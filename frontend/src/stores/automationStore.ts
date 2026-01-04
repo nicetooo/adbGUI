@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { main } from '../../wailsjs/go/models';
 import {
   StartTouchRecording,
@@ -132,460 +133,502 @@ interface AutomationState {
   subscribeToEvents: () => () => void;
 }
 
-export const useAutomationStore = create<AutomationState>((set, get) => ({
-  // Initial state
-  isRecording: false,
-  isPlaying: false,
-  recordingDeviceId: null,
-  playingDeviceId: null,
-  recordingStartTime: null,
-  recordingDuration: 0,
-  recordedActionCount: 0,
-  currentScript: null,
-  scripts: [],
-  tasks: [],
-  playbackProgress: null,
-  taskProgress: null,
-  isTaskRunning: false,
-  isPaused: false,
-  runningTaskName: null,
-  uiHierarchy: null,
-  rawXml: null,
-  isFetchingHierarchy: false,
-  
-  // Recording mode state
-  recordingMode: 'fast',
-  isWaitingForSelector: false,
-  pendingSelectorData: null,
-  isPreCapturing: false,
-  isAnalyzing: false,
-
-  // Actions
-  startRecording: async (deviceId: string, mode: 'fast' | 'precise' = 'fast') => {
-    try {
-      await StartTouchRecording(deviceId, mode);
-      set({
-        isRecording: true,
-        recordingDeviceId: deviceId,
-        recordingStartTime: Date.now(),
-        recordingDuration: 0,
-        recordedActionCount: 0,
-        currentScript: null,
-        recordingMode: mode,
-        isWaitingForSelector: false,
-        pendingSelectorData: null,
-      });
-    } catch (err) {
-      console.error('Failed to start recording:', err);
-      throw err;
-    }
-  },
-
-  stopRecording: async () => {
-    const { recordingDeviceId } = get();
-    if (!recordingDeviceId) return null;
-
-    try {
-      const script = await StopTouchRecording(recordingDeviceId);
-      set({
-        isRecording: false,
-        recordingDeviceId: null,
-        recordingStartTime: null,
-        recordingDuration: 0,
-        recordedActionCount: 0,
-        currentScript: script,
-      });
-      return script;
-    } catch (err) {
-      console.error('Failed to stop recording:', err);
-      set({
-        isRecording: false,
-        recordingDeviceId: null,
-        recordingStartTime: null,
-        recordingDuration: 0,
-        recordedActionCount: 0,
-      });
-      throw err;
-    }
-  },
-
-  playScript: async (deviceId: string, script: main.TouchScript) => {
-    try {
-      await PlayTouchScript(deviceId, script);
-      set({
-        isPlaying: true,
-        playingDeviceId: deviceId,
-        playbackProgress: { current: 0, total: script.events?.length || 0 },
-      });
-    } catch (err) {
-      console.error('Failed to play script:', err);
-      throw err;
-    }
-  },
-
-  stopPlayback: () => {
-    const { playingDeviceId } = get();
-    if (playingDeviceId) {
-      StopTouchPlayback(playingDeviceId);
-    }
-    set({
-      isPlaying: false,
-      playingDeviceId: null,
-      playbackProgress: null,
-    });
-  },
-
-  loadScripts: async () => {
-    try {
-      const scripts = await LoadTouchScripts();
-      set({ scripts: scripts || [] });
-    } catch (err) {
-      console.error('Failed to load scripts:', err);
-      set({ scripts: [] });
-    }
-  },
-
-  saveScript: async (script: main.TouchScript) => {
-    try {
-      await SaveTouchScript(script);
-      await get().loadScripts();
-    } catch (err) {
-      console.error('Failed to save script:', err);
-      throw err;
-    }
-  },
-
-  deleteScript: async (name: string) => {
-    try {
-      await DeleteTouchScript(name);
-      await get().loadScripts();
-    } catch (err) {
-      console.error('Failed to delete script:', err);
-      throw err;
-    }
-  },
-
-  deleteScripts: async (names: string[]) => {
-    try {
-      for (const name of names) {
-        await DeleteTouchScript(name);
-      }
-      await get().loadScripts();
-    } catch (err) {
-      console.error('Failed to delete scripts:', err);
-      throw err;
-    }
-  },
-
-  renameScript: async (oldName: string, newName: string) => {
-    try {
-      // Cast to any because RenameTouchScript might be missing in older bindings
-      await (RenameTouchScript as any)(oldName, newName);
-      await get().loadScripts();
-    } catch (err) {
-      console.error('Failed to rename script:', err);
-      throw err;
-    }
-  },
-
-  loadTasks: async () => {
-    try {
-      const tasks = await LoadScriptTasks();
-      set({ tasks: (tasks as unknown as ScriptTask[]) || [] });
-    } catch (err) {
-      console.error('Failed to load tasks:', err);
-      set({ tasks: [] });
-    }
-  },
-
-  saveTask: async (task: ScriptTask) => {
-    try {
-      await SaveScriptTask(task as any);
-      await get().loadTasks();
-    } catch (err) {
-      console.error('Failed to save task:', err);
-      throw err;
-    }
-  },
-
-  deleteTask: async (name: string) => {
-    try {
-      await DeleteScriptTask(name);
-      await get().loadTasks();
-    } catch (err) {
-      console.error('Failed to delete task:', err);
-      throw err;
-    }
-  },
-
-  deleteTasks: async (names: string[]) => {
-    try {
-      for (const name of names) {
-        await DeleteScriptTask(name);
-      }
-      await get().loadTasks();
-    } catch (err) {
-      console.error('Failed to delete tasks:', err);
-      throw err;
-    }
-  },
-
-  runTask: async (deviceId: string, task: ScriptTask) => {
-    try {
-      await RunScriptTask(deviceId, task as any);
-      set({
-        isTaskRunning: true,
-        isPaused: false,
-        runningTaskName: task.name,
-      });
-    } catch (err) {
-      console.error('Failed to run task:', err);
-      throw err;
-    }
-  },
-
-  pauseTask: async () => {
-    const deviceId = get().playingDeviceId;
-    if (deviceId) {
-      await (PauseTask as any)(deviceId);
-      set({ isPaused: true });
-    }
-  },
-
-  resumeTask: async () => {
-    const deviceId = get().playingDeviceId;
-    if (deviceId) {
-      await (ResumeTask as any)(deviceId);
-      set({ isPaused: false });
-    }
-  },
-
-  stopTask: async () => {
-    const deviceId = get().playingDeviceId;
-    if (deviceId) {
-      await (StopTask as any)(deviceId);
-      set({ isTaskRunning: false, isPaused: false, runningTaskName: null, taskProgress: null });
-    }
-  },
-
-  fetchUIHierarchy: async (deviceId: string) => {
-    if (!deviceId) return;
-    set({ isFetchingHierarchy: true });
-    try {
-      // Delegate to elementStore for shared caching
-      const { useElementStore } = await import('./elementStore');
-      const elementStore = useElementStore.getState();
-      const hierarchy = await elementStore.fetchHierarchy(deviceId, true);
-      // Sync state for backward compatibility
-      set({
-        uiHierarchy: hierarchy,
-        rawXml: elementStore.rawXml,
-        isFetchingHierarchy: false
-      });
-    } catch (err) {
-      console.error('Failed to fetch UI hierarchy:', err);
-      set({ isFetchingHierarchy: false });
-      throw err;
-    }
-  },
-
-  checkAndRefreshUIHierarchy: async (deviceId: string) => {
-    if (!deviceId) return false;
-    try {
-      // Delegate to elementStore for shared caching
-      const { useElementStore } = await import('./elementStore');
-      const elementStore = useElementStore.getState();
-      const oldRawXml = get().rawXml;
-      await elementStore.fetchHierarchy(deviceId, false);
-      if (elementStore.rawXml !== oldRawXml) {
-        set({
-          uiHierarchy: elementStore.hierarchy,
-          rawXml: elementStore.rawXml
-        });
-        return true;
-      }
-      return false;
-    } catch (err) {
-      console.error('Background UI refresh failed:', err);
-      return false;
-    }
-  },
-
-  setCurrentScript: (script: main.TouchScript | null) => {
-    set({ currentScript: script });
-  },
-
-  updateRecordingDuration: () => {
-    const { isRecording, recordingStartTime } = get();
-    if (isRecording && recordingStartTime) {
-      const duration = Math.floor((Date.now() - recordingStartTime) / 1000);
-      set({ recordingDuration: duration });
-    }
-  },
-
-  submitSelectorChoice: async (selectorType: string, selectorValue: string) => {
-    const { recordingDeviceId } = get();
-    if (!recordingDeviceId) {
-      throw new Error('No active recording');
-    }
+export const useAutomationStore = create<AutomationState>()(
+  immer((set, get) => ({
+    // Initial state
+    isRecording: false,
+    isPlaying: false,
+    recordingDeviceId: null,
+    playingDeviceId: null,
+    recordingStartTime: null,
+    recordingDuration: 0,
+    recordedActionCount: 0,
+    currentScript: null,
+    scripts: [],
+    tasks: [],
+    playbackProgress: null,
+    taskProgress: null,
+    isTaskRunning: false,
+    isPaused: false,
+    runningTaskName: null,
+    uiHierarchy: null,
+    rawXml: null,
+    isFetchingHierarchy: false,
     
-    try {
-      await (window as any).go.main.App.SubmitSelectorChoice(
-        recordingDeviceId,
-        selectorType,
-        selectorValue
-      );
-      set({
-        isWaitingForSelector: false,
-        pendingSelectorData: null,
+    // Recording mode state
+    recordingMode: 'fast',
+    isWaitingForSelector: false,
+    pendingSelectorData: null,
+    isPreCapturing: false,
+    isAnalyzing: false,
+
+    // Actions
+    startRecording: async (deviceId: string, mode: 'fast' | 'precise' = 'fast') => {
+      try {
+        await StartTouchRecording(deviceId, mode);
+        set((state: AutomationState) => {
+          state.isRecording = true;
+          state.recordingDeviceId = deviceId;
+          state.recordingStartTime = Date.now();
+          state.recordingDuration = 0;
+          state.recordedActionCount = 0;
+          state.currentScript = null;
+          state.recordingMode = mode;
+          state.isWaitingForSelector = false;
+          state.pendingSelectorData = null;
+        });
+      } catch (err) {
+        console.error('Failed to start recording:', err);
+        throw err;
+      }
+    },
+
+    stopRecording: async () => {
+      const { recordingDeviceId } = get();
+      if (!recordingDeviceId) return null;
+
+      try {
+        const script = await StopTouchRecording(recordingDeviceId);
+        set((state: AutomationState) => {
+          state.isRecording = false;
+          state.recordingDeviceId = null;
+          state.recordingStartTime = null;
+          state.recordingDuration = 0;
+          state.recordedActionCount = 0;
+          state.currentScript = script;
+        });
+        return script;
+      } catch (err) {
+        console.error('Failed to stop recording:', err);
+        set((state: AutomationState) => {
+          state.isRecording = false;
+          state.recordingDeviceId = null;
+          state.recordingStartTime = null;
+          state.recordingDuration = 0;
+          state.recordedActionCount = 0;
+        });
+        throw err;
+      }
+    },
+
+    playScript: async (deviceId: string, script: main.TouchScript) => {
+      try {
+        await PlayTouchScript(deviceId, script);
+        set((state: AutomationState) => {
+          state.isPlaying = true;
+          state.playingDeviceId = deviceId;
+          state.playbackProgress = { current: 0, total: script.events?.length || 0 };
+        });
+      } catch (err) {
+        console.error('Failed to play script:', err);
+        throw err;
+      }
+    },
+
+    stopPlayback: () => {
+      const { playingDeviceId } = get();
+      if (playingDeviceId) {
+        StopTouchPlayback(playingDeviceId);
+      }
+      set((state: AutomationState) => {
+        state.isPlaying = false;
+        state.playingDeviceId = null;
+        state.playbackProgress = null;
       });
-    } catch (err) {
-      console.error('Failed to submit selector choice:', err);
-      throw err;
-    }
-  },
+    },
 
-  setRecordingMode: (mode: 'fast' | 'precise') => {
-    set({ recordingMode: mode });
-  },
+    loadScripts: async () => {
+      try {
+        const scripts = await LoadTouchScripts();
+        set((state: AutomationState) => {
+          state.scripts = scripts || [];
+        });
+      } catch (err) {
+        console.error('Failed to load scripts:', err);
+        set((state: AutomationState) => {
+          state.scripts = [];
+        });
+      }
+    },
 
-  // Event subscription
-  subscribeToEvents: () => {
-    const handleRecordStarted = (data: any) => {
-      set({
-        isRecording: true,
-        recordingDeviceId: data.deviceId,
-        recordingStartTime: data.startTime * 1000,
-        recordedActionCount: 0,
+    saveScript: async (script: main.TouchScript) => {
+      try {
+        await SaveTouchScript(script);
+        await get().loadScripts();
+      } catch (err) {
+        console.error('Failed to save script:', err);
+        throw err;
+      }
+    },
+
+    deleteScript: async (name: string) => {
+      try {
+        await DeleteTouchScript(name);
+        await get().loadScripts();
+      } catch (err) {
+        console.error('Failed to delete script:', err);
+        throw err;
+      }
+    },
+
+    deleteScripts: async (names: string[]) => {
+      try {
+        for (const name of names) {
+          await DeleteTouchScript(name);
+        }
+        await get().loadScripts();
+      } catch (err) {
+        console.error('Failed to delete scripts:', err);
+        throw err;
+      }
+    },
+
+    renameScript: async (oldName: string, newName: string) => {
+      try {
+        // Cast to any because RenameTouchScript might be missing in older bindings
+        await (RenameTouchScript as any)(oldName, newName);
+        await get().loadScripts();
+      } catch (err) {
+        console.error('Failed to rename script:', err);
+        throw err;
+      }
+    },
+
+    loadTasks: async () => {
+      try {
+        const tasks = await LoadScriptTasks();
+        set((state: AutomationState) => {
+          state.tasks = (tasks as unknown as ScriptTask[]) || [];
+        });
+      } catch (err) {
+        console.error('Failed to load tasks:', err);
+        set((state: AutomationState) => {
+          state.tasks = [];
+        });
+      }
+    },
+
+    saveTask: async (task: ScriptTask) => {
+      try {
+        await SaveScriptTask(task as any);
+        await get().loadTasks();
+      } catch (err) {
+        console.error('Failed to save task:', err);
+        throw err;
+      }
+    },
+
+    deleteTask: async (name: string) => {
+      try {
+        await DeleteScriptTask(name);
+        await get().loadTasks();
+      } catch (err) {
+        console.error('Failed to delete task:', err);
+        throw err;
+      }
+    },
+
+    deleteTasks: async (names: string[]) => {
+      try {
+        for (const name of names) {
+          await DeleteScriptTask(name);
+        }
+        await get().loadTasks();
+      } catch (err) {
+        console.error('Failed to delete tasks:', err);
+        throw err;
+      }
+    },
+
+    runTask: async (deviceId: string, task: ScriptTask) => {
+      try {
+        await RunScriptTask(deviceId, task as any);
+        set((state: AutomationState) => {
+          state.isTaskRunning = true;
+          state.isPaused = false;
+          state.runningTaskName = task.name;
+        });
+      } catch (err) {
+        console.error('Failed to run task:', err);
+        throw err;
+      }
+    },
+
+    pauseTask: async () => {
+      const deviceId = get().playingDeviceId;
+      if (deviceId) {
+        await (PauseTask as any)(deviceId);
+        set((state: AutomationState) => {
+          state.isPaused = true;
+        });
+      }
+    },
+
+    resumeTask: async () => {
+      const deviceId = get().playingDeviceId;
+      if (deviceId) {
+        await (ResumeTask as any)(deviceId);
+        set((state: AutomationState) => {
+          state.isPaused = false;
+        });
+      }
+    },
+
+    stopTask: async () => {
+      const deviceId = get().playingDeviceId;
+      if (deviceId) {
+        await (StopTask as any)(deviceId);
+        set((state: AutomationState) => {
+          state.isTaskRunning = false;
+          state.isPaused = false;
+          state.runningTaskName = null;
+          state.taskProgress = null;
+        });
+      }
+    },
+
+    fetchUIHierarchy: async (deviceId: string) => {
+      if (!deviceId) return;
+      set((state: AutomationState) => {
+        state.isFetchingHierarchy = true;
       });
-    };
+      try {
+        // Delegate to elementStore for shared caching
+        const { useElementStore } = await import('./elementStore');
+        const elementStore = useElementStore.getState();
+        const hierarchy = await elementStore.fetchHierarchy(deviceId, true);
+        // Sync state for backward compatibility
+        set((state: AutomationState) => {
+          state.uiHierarchy = hierarchy as unknown as UINode;
+          state.rawXml = elementStore.rawXml;
+          state.isFetchingHierarchy = false;
+        });
+      } catch (err) {
+        console.error('Failed to fetch UI hierarchy:', err);
+        set((state: AutomationState) => {
+          state.isFetchingHierarchy = false;
+        });
+        throw err;
+      }
+    },
 
-    const handleRecordStopped = (data: any) => {
-      set({
-        isRecording: false,
-        recordingDeviceId: null,
-        recordingStartTime: null,
-        recordingDuration: 0,
-        recordedActionCount: 0,
+    checkAndRefreshUIHierarchy: async (deviceId: string) => {
+      if (!deviceId) return false;
+      try {
+        // Delegate to elementStore for shared caching
+        const { useElementStore } = await import('./elementStore');
+        const elementStore = useElementStore.getState();
+        const oldRawXml = get().rawXml;
+        await elementStore.fetchHierarchy(deviceId, false);
+        if (elementStore.rawXml !== oldRawXml) {
+          set((state: AutomationState) => {
+            state.uiHierarchy = elementStore.hierarchy as unknown as UINode;
+            state.rawXml = elementStore.rawXml;
+          });
+          return true;
+        }
+        return false;
+      } catch (err) {
+        console.error('Background UI refresh failed:', err);
+        return false;
+      }
+    },
+
+    setCurrentScript: (script: main.TouchScript | null) => {
+      set((state: AutomationState) => {
+        state.currentScript = script;
       });
-    };
+    },
 
-    const handleTouchActionRecorded = (data: any) => {
-      set((state) => ({
-        recordedActionCount: state.recordedActionCount + 1
-      }));
-    };
+    updateRecordingDuration: () => {
+      const { isRecording, recordingStartTime } = get();
+      if (isRecording && recordingStartTime) {
+        const duration = Math.floor((Date.now() - recordingStartTime) / 1000);
+        set((state: AutomationState) => {
+          state.recordingDuration = duration;
+        });
+      }
+    },
 
-    const handlePlaybackStarted = (data: any) => {
-      set({
-        isPlaying: true,
-        playingDeviceId: data.deviceId,
-        playbackProgress: { current: 0, total: data.total },
+    submitSelectorChoice: async (selectorType: string, selectorValue: string) => {
+      const { recordingDeviceId } = get();
+      if (!recordingDeviceId) {
+        throw new Error('No active recording');
+      }
+      
+      try {
+        await (window as any).go.main.App.SubmitSelectorChoice(
+          recordingDeviceId,
+          selectorType,
+          selectorValue
+        );
+        set((state: AutomationState) => {
+          state.isWaitingForSelector = false;
+          state.pendingSelectorData = null;
+        });
+      } catch (err) {
+        console.error('Failed to submit selector choice:', err);
+        throw err;
+      }
+    },
+
+    setRecordingMode: (mode: 'fast' | 'precise') => {
+      set((state: AutomationState) => {
+        state.recordingMode = mode;
       });
-    };
+    },
 
-    const handlePlaybackProgress = (data: any) => {
-      set({
-        playbackProgress: { current: data.current, total: data.total },
+    // Event subscription
+    subscribeToEvents: () => {
+      const handleRecordStarted = (data: any) => {
+        set((state: AutomationState) => {
+          state.isRecording = true;
+          state.recordingDeviceId = data.deviceId;
+          state.recordingStartTime = data.startTime * 1000;
+          state.recordedActionCount = 0;
+        });
+      };
+
+      const handleRecordStopped = (data: any) => {
+        set((state: AutomationState) => {
+          state.isRecording = false;
+          state.recordingDeviceId = null;
+          state.recordingStartTime = null;
+          state.recordingDuration = 0;
+          state.recordedActionCount = 0;
+        });
+      };
+
+      const handleTouchActionRecorded = (data: any) => {
+        set((state: AutomationState) => {
+          state.recordedActionCount += 1;
+        });
+      };
+
+      const handlePlaybackStarted = (data: any) => {
+        set((state: AutomationState) => {
+          state.isPlaying = true;
+          state.playingDeviceId = data.deviceId;
+          state.playbackProgress = { current: 0, total: data.total };
+        });
+      };
+
+      const handlePlaybackProgress = (data: any) => {
+        set((state: AutomationState) => {
+          if (state.playbackProgress) {
+            state.playbackProgress.current = data.current;
+            state.playbackProgress.total = data.total;
+          }
+        });
+      };
+
+      const handlePlaybackCompleted = (data: any) => {
+        set((state: AutomationState) => {
+          state.isPlaying = false;
+          state.playingDeviceId = null;
+          state.playbackProgress = null;
+        });
+      };
+
+      const handleTaskStarted = (data: any) => {
+        set((state: AutomationState) => {
+          state.isTaskRunning = true;
+          state.isPaused = false;
+          state.runningTaskName = data.taskName;
+          state.playingDeviceId = data.deviceId;
+        });
+      };
+
+      const handleTaskCompleted = (data: any) => {
+        set((state: AutomationState) => {
+          state.isTaskRunning = false;
+          state.isPaused = false;
+          state.runningTaskName = null;
+          state.taskProgress = null;
+          state.playingDeviceId = null;
+        });
+      };
+
+      const handleTaskPaused = (data: any) => set((state: AutomationState) => {
+        state.isPaused = true;
       });
-    };
-
-    const handlePlaybackCompleted = (data: any) => {
-      set({
-        isPlaying: false,
-        playingDeviceId: null,
-        playbackProgress: null,
+      const handleTaskResumed = (data: any) => set((state: AutomationState) => {
+        state.isPaused = false;
       });
-    };
 
-    const handleTaskStarted = (data: any) => {
-      set({
-        isTaskRunning: true,
-        isPaused: false,
-        runningTaskName: data.taskName,
-        playingDeviceId: data.deviceId,
+      const handleTaskStepRunning = (data: any) => {
+        set((state: AutomationState) => {
+          state.taskProgress = {
+            stepIndex: data.stepIndex,
+            totalSteps: data.totalSteps,
+            currentLoop: data.currentLoop,
+            totalLoops: data.totalLoops,
+            currentAction: data.currentAction || (data.type === 'wait' ? `Wait ${data.value}ms` : `Running: ${data.value}`),
+          };
+        });
+      };
+
+      const handleRecordingPausedForSelector = (data: any) => {
+        set((state: AutomationState) => {
+          state.isWaitingForSelector = true;
+          state.pendingSelectorData = data;
+          state.isAnalyzing = false;
+        });
+      };
+
+      const handleRecordingResumed = (data: any) => {
+        set((state: AutomationState) => {
+          state.isWaitingForSelector = false;
+          state.pendingSelectorData = null;
+          state.isAnalyzing = false;
+        });
+      };
+
+      const offPreCaptureStarted = EventsOn('recording-pre-capture-started', (data: any) => {
+        set((state: AutomationState) => {
+          state.isPreCapturing = true;
+        });
       });
-    };
 
-    const handleTaskCompleted = (data: any) => {
-      set({
-        isTaskRunning: false,
-        isPaused: false,
-        runningTaskName: null,
-        taskProgress: null,
-        playingDeviceId: null,
+      const offPreCaptureFinished = EventsOn('recording-pre-capture-finished', (data: any) => {
+        set((state: AutomationState) => {
+          state.isPreCapturing = false;
+        });
       });
-    };
 
-    const handleTaskPaused = (data: any) => set({ isPaused: true });
-    const handleTaskResumed = (data: any) => set({ isPaused: false });
-
-    const handleTaskStepRunning = (data: any) => {
-      set({
-        taskProgress: {
-          stepIndex: data.stepIndex,
-          totalSteps: data.totalSteps,
-          currentLoop: data.currentLoop,
-          totalLoops: data.totalLoops,
-          currentAction: data.currentAction || (data.type === 'wait' ? `Wait ${data.value}ms` : `Running: ${data.value}`),
-        },
+      const offAnalysisStarted = EventsOn('recording-analysis-started', (data: any) => {
+        set((state: AutomationState) => {
+          state.isAnalyzing = true;
+        });
       });
-    };
 
-    const handleRecordingPausedForSelector = (data: any) => {
-      set({
-        isWaitingForSelector: true,
-        pendingSelectorData: data,
-        isAnalyzing: false, // Added
-      });
-    };
+      EventsOn('touch-record-started', handleRecordStarted);
+      EventsOn('touch-record-stopped', handleRecordStopped);
+      EventsOn('touch-action-recorded', handleTouchActionRecorded);
+      EventsOn('touch-playback-started', handlePlaybackStarted);
+      EventsOn('touch-playback-progress', handlePlaybackProgress);
+      EventsOn('touch-playback-completed', handlePlaybackCompleted);
+      EventsOn('task-started', handleTaskStarted);
+      EventsOn('task-completed', handleTaskCompleted);
+      EventsOn('task-step-running', handleTaskStepRunning);
+      EventsOn('task-paused', handleTaskPaused);
+      EventsOn('task-resumed', handleTaskResumed);
+      EventsOn('recording-paused-for-selector', handleRecordingPausedForSelector);
+      EventsOn('recording-resumed', handleRecordingResumed);
 
-    const handleRecordingResumed = (data: any) => {
-      set({
-        isWaitingForSelector: false,
-        pendingSelectorData: null,
-        isAnalyzing: false, // Added
-      });
-    };
-
-    const offPreCaptureStarted = EventsOn('recording-pre-capture-started', (data: any) => {
-      set({ isPreCapturing: true });
-    });
-
-    const offPreCaptureFinished = EventsOn('recording-pre-capture-finished', (data: any) => {
-      set({ isPreCapturing: false });
-    });
-
-    const offAnalysisStarted = EventsOn('recording-analysis-started', (data: any) => {
-      set({ isAnalyzing: true });
-    });
-
-    EventsOn('touch-record-started', handleRecordStarted);
-    EventsOn('touch-record-stopped', handleRecordStopped);
-    EventsOn('touch-action-recorded', handleTouchActionRecorded);
-    EventsOn('touch-playback-started', handlePlaybackStarted);
-    EventsOn('touch-playback-progress', handlePlaybackProgress);
-    EventsOn('touch-playback-completed', handlePlaybackCompleted);
-    EventsOn('task-started', handleTaskStarted);
-    EventsOn('task-completed', handleTaskCompleted);
-    EventsOn('task-step-running', handleTaskStepRunning);
-    EventsOn('task-paused', handleTaskPaused);
-    EventsOn('task-resumed', handleTaskResumed);
-    EventsOn('recording-paused-for-selector', handleRecordingPausedForSelector);
-    EventsOn('recording-resumed', handleRecordingResumed);
-
-    return () => {
-      EventsOff('touch-record-started');
-      EventsOff('touch-record-stopped');
-      EventsOff('touch-action-recorded');
-      EventsOff('touch-playback-started');
-      EventsOff('touch-playback-progress');
-      EventsOff('touch-playback-completed');
-      EventsOff('task-started');
-      EventsOff('task-completed');
-      EventsOff('task-step-running');
-      EventsOff('recording-paused-for-selector');
-      EventsOff('recording-resumed');
-    };
-  },
-}));
+      return () => {
+        EventsOff('touch-record-started');
+        EventsOff('touch-record-stopped');
+        EventsOff('touch-action-recorded');
+        EventsOff('touch-playback-started');
+        EventsOff('touch-playback-progress');
+        EventsOff('touch-playback-completed');
+        EventsOff('task-started');
+        EventsOff('task-completed');
+        EventsOff('task-step-running');
+        EventsOff('recording-paused-for-selector');
+        EventsOff('recording-resumed');
+      };
+    },
+  }))
+);

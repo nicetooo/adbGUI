@@ -18,11 +18,17 @@ export function AssertElementText(arg1:string,arg2:main.ElementSelector,arg3:str
 
 export function CancelOpenFile(arg1:string):Promise<void>;
 
+export function CleanupOldSessions(arg1:time.Duration):Promise<number>;
+
 export function ClearAppData(arg1:string,arg2:string):Promise<string>;
+
+export function ClearSession(arg1:string):Promise<void>;
 
 export function ClickElement(arg1:context.Context,arg2:string,arg3:main.ElementSelector,arg4:main.ElementActionConfig):Promise<void>;
 
 export function CopyFile(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function CreateSession(arg1:string,arg2:string,arg3:string):Promise<string>;
 
 export function DeleteFile(arg1:string,arg2:string):Promise<void>;
 
@@ -36,7 +42,17 @@ export function DisableApp(arg1:string,arg2:string):Promise<string>;
 
 export function DownloadFile(arg1:string,arg2:string):Promise<string>;
 
+export function EmitSessionEvent(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:any):Promise<void>;
+
+export function EmitSessionEventFull(arg1:main.SessionEvent):Promise<void>;
+
+export function EmitSessionEventWithStep(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:any):Promise<void>;
+
 export function EnableApp(arg1:string,arg2:string):Promise<string>;
+
+export function EndSession(arg1:string,arg2:string):Promise<void>;
+
+export function EnsureActiveSession(arg1:string):Promise<string>;
 
 export function ExecuteBatchOperation(arg1:main.BatchOperation):Promise<main.BatchOperationResult>;
 
@@ -57,6 +73,8 @@ export function FindElementBySelector(arg1:main.UINode,arg2:main.ElementSelector
 export function ForceStopApp(arg1:string,arg2:string):Promise<string>;
 
 export function GenerateSelectorSuggestions(arg1:main.UINode,arg2:main.UINode):Promise<Array<main.SelectorSuggestion>>;
+
+export function GetActiveSession(arg1:string):Promise<string>;
 
 export function GetAppInfo(arg1:string,arg2:string,arg3:boolean):Promise<main.AppPackage>;
 
@@ -84,15 +102,27 @@ export function GetLocalIP():Promise<string>;
 
 export function GetMITMBypassPatterns():Promise<Array<string>>;
 
+export function GetProxyDevice():Promise<string>;
+
 export function GetProxySettings():Promise<{[key: string]: any}>;
 
 export function GetProxyStatus():Promise<boolean>;
+
+export function GetRecentEvents(arg1:string,arg2:number,arg3:Array<string>):Promise<Array<main.SessionEvent>>;
 
 export function GetRecordingEventCount(arg1:string):Promise<number>;
 
 export function GetRecordingStatus(arg1:string):Promise<{[key: string]: any}>;
 
 export function GetSelectorMatchCount(arg1:main.UINode,arg2:main.ElementSelector):Promise<number>;
+
+export function GetSession(arg1:string):Promise<main.Session>;
+
+export function GetSessionMetadata(arg1:string,arg2:string):Promise<any>;
+
+export function GetSessionTimeline(arg1:string,arg2:main.SessionFilter):Promise<Array<main.SessionEvent>>;
+
+export function GetSessions(arg1:string,arg2:number):Promise<Array<main.Session>>;
 
 export function GetThumbnail(arg1:string,arg2:string,arg3:string):Promise<string>;
 
@@ -196,6 +226,8 @@ export function SetDeviceNetworkLimit(arg1:string,arg2:number):Promise<string>;
 
 export function SetMITMBypassPatterns(arg1:Array<string>):Promise<void>;
 
+export function SetProxyDevice(arg1:string):Promise<void>;
+
 export function SetProxyLatency(arg1:number):Promise<void>;
 
 export function SetProxyLimit(arg1:number,arg2:number):Promise<void>;
@@ -203,6 +235,8 @@ export function SetProxyLimit(arg1:number,arg2:number):Promise<void>;
 export function SetProxyMITM(arg1:boolean):Promise<void>;
 
 export function SetProxyWSEnabled(arg1:boolean):Promise<void>;
+
+export function SetSessionMetadata(arg1:string,arg2:string,arg3:any):Promise<void>;
 
 export function Shutdown(arg1:context.Context):Promise<void>;
 

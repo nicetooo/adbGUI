@@ -34,7 +34,29 @@
     "inspector": "UI 分析",
     "automation": "触控自动化",
     "recording": "触控录制",
-    "workflow": "工作流编排"
+    "workflow": "工作流编排",
+    "timeline": "事件时间线"
+  },
+  "timeline": {
+    "title": "会话时间线",
+    "select_device": "选择设备",
+    "select_session": "选择会话",
+    "filter_category": "分类过滤",
+    "filter_level": "级别过滤",
+    "auto_scroll": "自动滚动",
+    "manual": "手动",
+    "refresh": "刷新",
+    "clear": "清空",
+    "no_events": "暂无事件",
+    "showing": "显示",
+    "of": "/",
+    "events": "条事件",
+    "live": "实时",
+    "active": "进行中",
+    "completed": "已完成",
+    "failed": "失败",
+    "cancelled": "已取消",
+    "duration": "时长"
   },
   "about": {
     "title": "关于 Gaze",

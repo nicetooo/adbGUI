@@ -29,7 +29,7 @@ import {
 } from "@ant-design/icons";
 import DeviceSelector from "./DeviceSelector";
 import AppInfoModal from "./AppInfoModal";
-import { useDeviceStore, useLogcatStore, useUIStore, VIEW_KEYS } from "../stores";
+import { useDeviceStore, useLogcatStore, useUIStore, VIEW_KEYS, useAppsStore } from "../stores";
 // @ts-ignore
 import {
   GetAppInfo,
@@ -57,6 +57,28 @@ const AppsView: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [tableHeight, setTableHeight] = useState<number>(400);
 
+  // Use appsStore instead of useState
+  const {
+    packages,
+    appsLoading,
+    packageFilter,
+    typeFilter,
+    infoModalVisible,
+    infoLoading,
+    selectedAppInfo,
+    permissionSearch,
+    activitySearch,
+    setPackages,
+    setAppsLoading,
+    setPackageFilter,
+    setTypeFilter,
+    setInfoModalVisible,
+    setInfoLoading,
+    setSelectedAppInfo,
+    setPermissionSearch,
+    setActivitySearch,
+  } = useAppsStore();
+
   const handleJumpToLogcat = async (pkg: string) => {
     setSelectedPackage(pkg);
     setLogFilter("");
@@ -70,20 +92,6 @@ const AppsView: React.FC = () => {
     }
   };
 
-  // Apps state
-  const [packages, setPackages] = useState<main.AppPackage[]>([]);
-  const [appsLoading, setAppsLoading] = useState(false);
-  const [packageFilter, setPackageFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState("user");
-
-
-  // App Info state
-  const [infoModalVisible, setInfoModalVisible] = React.useState(false);
-  const [infoLoading, setInfoLoading] = React.useState(false);
-  const [selectedAppInfo, setSelectedAppInfo] = React.useState<main.AppPackage | null>(null);
-  const [permissionSearch, setPermissionSearch] = React.useState("");
-  const [activitySearch, setActivitySearch] = React.useState("");
-
   const fetchPackages = async (packageType?: string, deviceId?: string) => {
     const targetDevice = deviceId || selectedDevice;
     if (!targetDevice) return;
@@ -94,10 +102,8 @@ const AppsView: React.FC = () => {
       if (typeToFetch === "all") {
         setPackages(res || []);
       } else if (typeToFetch === "system") {
-        setPackages((prev) => {
-          const userPackages = prev.filter((p) => p.type === "user");
-          return [...userPackages, ...(res || [])];
-        });
+        const userPackages = packages.filter((p: main.AppPackage) => p.type === "user");
+        setPackages([...userPackages, ...(res || [])]);
       } else {
         setPackages(res || []);
       }
@@ -463,7 +469,7 @@ const AppsView: React.FC = () => {
         />
       </div>
       <AppInfoModal
-        visible={infoModalVisible}
+        open={infoModalVisible}
         onCancel={() => setInfoModalVisible(false)}
         selectedAppInfo={selectedAppInfo}
         infoLoading={infoLoading}

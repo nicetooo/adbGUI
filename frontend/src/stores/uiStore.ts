@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { ViewKey, VIEW_KEYS, VIEW_NAME_MAP } from './types';
 import { GetAppVersion } from '../../wailsjs/go/main/App';
 
@@ -38,60 +39,82 @@ interface UIState {
   subscribeToEvents: (onDeviceSelect: (deviceId: string) => void) => () => void;
 }
 
-export const useUIStore = create<UIState>((set) => ({
-  // Initial state
-  selectedKey: VIEW_KEYS.DEVICES,
+export const useUIStore = create<UIState>()(
+  immer((set) => ({
+    // Initial state
+    selectedKey: VIEW_KEYS.DEVICES,
 
-  aboutVisible: false,
-  wirelessConnectVisible: false,
-  feedbackVisible: false,
+    aboutVisible: false,
+    wirelessConnectVisible: false,
+    feedbackVisible: false,
 
-  appVersion: '',
+    appVersion: '',
 
-  // Actions
-  setSelectedKey: (key) => set({ selectedKey: key as ViewKey }),
+    // Actions
+    setSelectedKey: (key) => set((state: UIState) => {
+      state.selectedKey = key as ViewKey;
+    }),
 
-  navigateToView: (viewName) => {
-    const viewKey = VIEW_NAME_MAP[viewName];
-    if (viewKey) {
-      set({ selectedKey: viewKey });
-    }
-  },
-
-  // Modal toggles
-  showAbout: () => set({ aboutVisible: true }),
-  hideAbout: () => set({ aboutVisible: false }),
-  showWirelessConnect: () => set({ wirelessConnectVisible: true }),
-  hideWirelessConnect: () => set({ wirelessConnectVisible: false }),
-  showFeedback: () => set({ feedbackVisible: true }),
-  hideFeedback: () => set({ feedbackVisible: false }),
-
-  // Initialization
-  init: async () => {
-    try {
-      const version = await GetAppVersion();
-      set({ appVersion: version });
-    } catch {
-      // Ignore version fetch errors
-    }
-  },
-
-  // Event subscription
-  subscribeToEvents: (onDeviceSelect) => {
-    EventsOn('tray:navigate', (data: any) => {
-      if (data.deviceId && onDeviceSelect) {
-        onDeviceSelect(data.deviceId);
+    navigateToView: (viewName) => {
+      const viewKey = VIEW_NAME_MAP[viewName];
+      if (viewKey) {
+        set((state: UIState) => {
+          state.selectedKey = viewKey;
+        });
       }
-      if (data.view) {
-        const viewKey = VIEW_NAME_MAP[data.view];
-        if (viewKey) {
-          set({ selectedKey: viewKey });
+    },
+
+    // Modal toggles
+    showAbout: () => set((state: UIState) => {
+      state.aboutVisible = true;
+    }),
+    hideAbout: () => set((state: UIState) => {
+      state.aboutVisible = false;
+    }),
+    showWirelessConnect: () => set((state: UIState) => {
+      state.wirelessConnectVisible = true;
+    }),
+    hideWirelessConnect: () => set((state: UIState) => {
+      state.wirelessConnectVisible = false;
+    }),
+    showFeedback: () => set((state: UIState) => {
+      state.feedbackVisible = true;
+    }),
+    hideFeedback: () => set((state: UIState) => {
+      state.feedbackVisible = false;
+    }),
+
+    // Initialization
+    init: async () => {
+      try {
+        const version = await GetAppVersion();
+        set((state: UIState) => {
+          state.appVersion = version;
+        });
+      } catch {
+        // Ignore version fetch errors
+      }
+    },
+
+    // Event subscription
+    subscribeToEvents: (onDeviceSelect) => {
+      EventsOn('tray:navigate', (data: any) => {
+        if (data.deviceId && onDeviceSelect) {
+          onDeviceSelect(data.deviceId);
         }
-      }
-    });
+        if (data.view) {
+          const viewKey = VIEW_NAME_MAP[data.view];
+          if (viewKey) {
+            set((state: UIState) => {
+              state.selectedKey = viewKey;
+            });
+          }
+        }
+      });
 
-    return () => {
-      EventsOff('tray:navigate');
-    };
-  },
-}));
+      return () => {
+        EventsOff('tray:navigate');
+      };
+    },
+  }))
+);

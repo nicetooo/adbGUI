@@ -9,26 +9,26 @@ import { GetAppVersion } from "../../wailsjs/go/main/App";
 const { Title, Text, Paragraph } = Typography;
 
 interface AboutModalProps {
-  visible: boolean;
+  open: boolean;
   onCancel: () => void;
 }
 
-const AboutModal: React.FC<AboutModalProps> = ({ visible, onCancel }) => {
+const AboutModal: React.FC<AboutModalProps> = ({ open, onCancel }) => {
   const { t } = useTranslation();
   const [version, setVersion] = React.useState<string>("");
 
   React.useEffect(() => {
-    if (visible) {
+    if (open) {
       GetAppVersion().then((v) => setVersion(v));
     }
-  }, [visible]);
+  }, [open]);
 
   // @ts-ignore
   const BrowserOpenURL = (window as any).runtime.BrowserOpenURL;
 
   return (
     <Modal
-      open={visible}
+      open={open}
       onCancel={onCancel}
       footer={[
         <Button key="close" type="primary" onClick={onCancel}>
@@ -65,21 +65,21 @@ const AboutModal: React.FC<AboutModalProps> = ({ visible, onCancel }) => {
           <Text strong>{t("about.author")}:</Text>
           <Space>
             <Text>Nice</Text>
-            <Button 
-              type="link" 
-              size="small" 
-              icon={<MailOutlined />} 
+            <Button
+              type="link"
+              size="small"
+              icon={<MailOutlined />}
               onClick={() => BrowserOpenURL && BrowserOpenURL("mailto:naserdin@protonmail.com")}
             />
           </Space>
         </div>
-        
+
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <Text strong>{t("about.github")}:</Text>
-          <Button 
-            type="link" 
-            size="small" 
-            icon={<GithubOutlined />} 
+          <Button
+            type="link"
+            size="small"
+            icon={<GithubOutlined />}
             onClick={() => BrowserOpenURL && BrowserOpenURL("https://github.com/nicetooo/adbGUI")}
           >
             nicetooo/adbGUI
@@ -93,7 +93,7 @@ const AboutModal: React.FC<AboutModalProps> = ({ visible, onCancel }) => {
       </div>
 
       <Divider />
-      
+
       <Paragraph style={{ fontSize: 12, color: "#888", textAlign: "center" }}>
         {t("about.made_with")}
       </Paragraph>

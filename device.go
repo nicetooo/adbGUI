@@ -340,6 +340,10 @@ func (a *App) GetDevices(forceLog bool) ([]Device, error) {
 	result := make([]Device, len(finalDevices))
 	for i, d := range finalDevices {
 		result[i] = *d
+		// Auto-ensure session for active devices so logs/events are captured immediately
+		if d.State == "device" {
+			go a.EnsureActiveSession(d.ID)
+		}
 	}
 	return result, nil
 }

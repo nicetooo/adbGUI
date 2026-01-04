@@ -38,11 +38,11 @@ export interface RecordStatus {
   isRecording: boolean;
   startTime: number | null;
   duration: number;
-  recordPath: string;
+  recordPath?: string;
 }
 
 // Navigation types
-export type ViewKey = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10';
+export type ViewKey = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11';
 
 export const VIEW_KEYS = {
   DEVICES: '1' as ViewKey,
@@ -55,6 +55,7 @@ export const VIEW_KEYS = {
   RECORDING: '8' as ViewKey,
   WORKFLOW: '9' as ViewKey,
   INSPECTOR: '10' as ViewKey,
+  TIMELINE: '11' as ViewKey,
 } as const;
 
 export const VIEW_NAME_MAP: Record<string, ViewKey> = {
@@ -68,6 +69,7 @@ export const VIEW_NAME_MAP: Record<string, ViewKey> = {
   recording: VIEW_KEYS.RECORDING,
   workflow: VIEW_KEYS.WORKFLOW,
   inspector: VIEW_KEYS.INSPECTOR,
+  timeline: VIEW_KEYS.TIMELINE,
 };
 
 // Batch operation types

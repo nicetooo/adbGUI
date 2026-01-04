@@ -1,6 +1,8 @@
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { MirrorStatus, RecordStatus } from './types';
 import { OpenPath } from '../../wailsjs/go/main/App';
+import { main } from '../../wailsjs/go/models';
 
 // @ts-ignore
 const EventsOn = (window as any).runtime.EventsOn;
@@ -12,10 +14,24 @@ interface MirrorState {
   mirrorStatuses: Record<string, MirrorStatus>;
   recordStatuses: Record<string, RecordStatus>;
   recordPathRefs: Record<string, string>;
+  
+  // New: MirrorView specific states
+  deviceConfigs: Record<string, main.ScrcpyConfig>;
+  deviceShouldRecord: Record<string, boolean>;
+  availableCameras: string[];
+  availableDisplays: string[];
+  deviceAndroidVer: number;
 
   // Actions
   setMirrorStatus: (deviceId: string, status: Partial<MirrorStatus>) => void;
   setRecordStatus: (deviceId: string, status: Partial<RecordStatus>) => void;
+  
+  // New: MirrorView specific actions
+  setDeviceConfig: (deviceId: string, config: main.ScrcpyConfig) => void;
+  setDeviceShouldRecord: (deviceId: string, should: boolean) => void;
+  setAvailableCameras: (cameras: string[]) => void;
+  setAvailableDisplays: (displays: string[]) => void;
+  setDeviceAndroidVer: (ver: number) => void;
 
   // Duration update (called by interval)
   updateDurations: () => void;
@@ -24,147 +40,158 @@ interface MirrorState {
   subscribeToEvents: (onRecordSaved: (deviceId: string, path: string) => void) => () => void;
 }
 
-export const useMirrorStore = create<MirrorState>((set, get) => ({
-  // Initial state
-  mirrorStatuses: {},
-  recordStatuses: {},
-  recordPathRefs: {},
+export const useMirrorStore = create<MirrorState>()(
+  immer((set, get) => ({
+    // Initial state
+    mirrorStatuses: {},
+    recordStatuses: {},
+    recordPathRefs: {},
+    
+    // New: MirrorView specific initial states
+    deviceConfigs: {},
+    deviceShouldRecord: {},
+    availableCameras: [],
+    availableDisplays: [],
+    deviceAndroidVer: 0,
 
-  // Actions
-  setMirrorStatus: (deviceId: string, status: Partial<MirrorStatus>) => {
-    set(state => ({
-      mirrorStatuses: {
-        ...state.mirrorStatuses,
-        [deviceId]: {
-          ...state.mirrorStatuses[deviceId],
-          ...status,
-        } as MirrorStatus,
-      },
-    }));
-  },
-
-  setRecordStatus: (deviceId: string, status: Partial<RecordStatus>) => {
-    set(state => ({
-      recordStatuses: {
-        ...state.recordStatuses,
-        [deviceId]: {
-          ...state.recordStatuses[deviceId],
-          ...status,
-        } as RecordStatus,
-      },
-    }));
-  },
-
-  updateDurations: () => {
-    const now = Math.floor(Date.now() / 1000);
-
-    set(state => {
-      let mirrorChanged = false;
-      let recordChanged = false;
-      const nextMirror = { ...state.mirrorStatuses };
-      const nextRecord = { ...state.recordStatuses };
-
-      Object.keys(nextMirror).forEach(id => {
-        if (nextMirror[id].isMirroring && nextMirror[id].startTime) {
-          nextMirror[id] = {
-            ...nextMirror[id],
-            duration: now - nextMirror[id].startTime!,
+    // Actions
+    setMirrorStatus: (deviceId: string, status: Partial<MirrorStatus>) => {
+      set((state: MirrorState) => {
+        if (!state.mirrorStatuses[deviceId]) {
+          state.mirrorStatuses[deviceId] = {
+            isMirroring: false,
+            startTime: null,
+            duration: 0,
           };
-          mirrorChanged = true;
         }
+        Object.assign(state.mirrorStatuses[deviceId], status);
       });
+    },
 
-      Object.keys(nextRecord).forEach(id => {
-        if (nextRecord[id].isRecording && nextRecord[id].startTime) {
-          nextRecord[id] = {
-            ...nextRecord[id],
-            duration: now - nextRecord[id].startTime!,
+    setRecordStatus: (deviceId: string, status: Partial<RecordStatus>) => {
+      set((state: MirrorState) => {
+        if (!state.recordStatuses[deviceId]) {
+          state.recordStatuses[deviceId] = {
+            isRecording: false,
+            startTime: null,
+            duration: 0,
           };
-          recordChanged = true;
         }
+        Object.assign(state.recordStatuses[deviceId], status);
       });
+    },
+    
+    // New: MirrorView specific actions
+    setDeviceConfig: (deviceId: string, config: main.ScrcpyConfig) => {
+      set((state: MirrorState) => {
+        state.deviceConfigs[deviceId] = config;
+      });
+    },
+    
+    setDeviceShouldRecord: (deviceId: string, should: boolean) => {
+      set((state: MirrorState) => {
+        state.deviceShouldRecord[deviceId] = should;
+      });
+    },
+    
+    setAvailableCameras: (cameras: string[]) => {
+      set((state: MirrorState) => {
+        state.availableCameras = cameras;
+      });
+    },
+    
+    setAvailableDisplays: (displays: string[]) => {
+      set((state: MirrorState) => {
+        state.availableDisplays = displays;
+      });
+    },
+    
+    setDeviceAndroidVer: (ver: number) => {
+      set((state: MirrorState) => {
+        state.deviceAndroidVer = ver;
+      });
+    },
 
-      if (!mirrorChanged && !recordChanged) {
-        return state;
-      }
+    updateDurations: () => {
+      const now = Math.floor(Date.now() / 1000);
 
-      return {
-        mirrorStatuses: mirrorChanged ? nextMirror : state.mirrorStatuses,
-        recordStatuses: recordChanged ? nextRecord : state.recordStatuses,
-      };
-    });
-  },
+      set((state: MirrorState) => {
+        Object.keys(state.mirrorStatuses).forEach(id => {
+          const status = state.mirrorStatuses[id];
+          if (status.isMirroring && status.startTime) {
+            status.duration = now - status.startTime;
+          }
+        });
 
-  subscribeToEvents: (onRecordSaved) => {
-    EventsOn('scrcpy-started', (data: any) => {
-      const deviceId = data.deviceId;
-      set(state => ({
-        mirrorStatuses: {
-          ...state.mirrorStatuses,
-          [deviceId]: {
+        Object.keys(state.recordStatuses).forEach(id => {
+          const status = state.recordStatuses[id];
+          if (status.isRecording && status.startTime) {
+            status.duration = now - status.startTime;
+          }
+        });
+      });
+    },
+
+    subscribeToEvents: (onRecordSaved) => {
+      EventsOn('scrcpy-started', (data: any) => {
+        const deviceId = data.deviceId;
+        set((state: MirrorState) => {
+          state.mirrorStatuses[deviceId] = {
             isMirroring: true,
             startTime: data.startTime,
             duration: 0,
-          },
-        },
-      }));
-    });
-
-    EventsOn('scrcpy-stopped', (deviceId: string) => {
-      set(state => {
-        const next = { ...state.mirrorStatuses };
-        if (next[deviceId]) {
-          next[deviceId] = { ...next[deviceId], isMirroring: false, startTime: null };
-        }
-        return { mirrorStatuses: next };
+          };
+        });
       });
-    });
 
-    EventsOn('scrcpy-record-started', (data: any) => {
-      const deviceId = data.deviceId;
-      set(state => ({
-        recordStatuses: {
-          ...state.recordStatuses,
-          [deviceId]: {
+      EventsOn('scrcpy-stopped', (deviceId: string) => {
+        set((state: MirrorState) => {
+          if (state.mirrorStatuses[deviceId]) {
+            state.mirrorStatuses[deviceId].isMirroring = false;
+            state.mirrorStatuses[deviceId].startTime = null;
+          }
+        });
+      });
+
+      EventsOn('scrcpy-record-started', (data: any) => {
+        const deviceId = data.deviceId;
+        set((state: MirrorState) => {
+          state.recordStatuses[deviceId] = {
             isRecording: true,
             startTime: data.startTime,
             duration: 0,
             recordPath: data.recordPath,
-          },
-        },
-        recordPathRefs: {
-          ...state.recordPathRefs,
-          [deviceId]: data.recordPath,
-        },
-      }));
-    });
-
-    EventsOn('scrcpy-record-stopped', (deviceId: string) => {
-      const { recordPathRefs } = get();
-      const path = recordPathRefs[deviceId];
-
-      set(state => {
-        const next = { ...state.recordStatuses };
-        if (next[deviceId]) {
-          next[deviceId] = { ...next[deviceId], isRecording: false, startTime: null };
-        }
-        return { recordStatuses: next };
+          };
+          state.recordPathRefs[deviceId] = data.recordPath;
+        });
       });
 
-      if (path && onRecordSaved) {
-        onRecordSaved(deviceId, path);
-      }
-    });
+      EventsOn('scrcpy-record-stopped', (deviceId: string) => {
+        const { recordPathRefs } = get();
+        const path = recordPathRefs[deviceId];
 
-    // Return cleanup function
-    return () => {
-      EventsOff('scrcpy-started');
-      EventsOff('scrcpy-stopped');
-      EventsOff('scrcpy-record-started');
-      EventsOff('scrcpy-record-stopped');
-    };
-  },
-}));
+        set((state: MirrorState) => {
+          if (state.recordStatuses[deviceId]) {
+            state.recordStatuses[deviceId].isRecording = false;
+            state.recordStatuses[deviceId].startTime = null;
+          }
+        });
+
+        if (path && onRecordSaved) {
+          onRecordSaved(deviceId, path);
+        }
+      });
+
+      // Return cleanup function
+      return () => {
+        EventsOff('scrcpy-started');
+        EventsOff('scrcpy-stopped');
+        EventsOff('scrcpy-record-started');
+        EventsOff('scrcpy-record-stopped');
+      };
+    },
+  }))
+);
 
 // Helper to open recorded file path
 export const openRecordPath = (path: string) => {

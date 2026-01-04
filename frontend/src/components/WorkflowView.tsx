@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useShallow } from 'zustand/react/shallow';
 import {
   Button,
   Space,
@@ -79,7 +80,7 @@ import dagre from 'dagre';
 
 import DeviceSelector from "./DeviceSelector";
 import ElementPicker, { ElementSelector } from "./ElementPicker";
-import { useDeviceStore, useAutomationStore } from "../stores";
+import { useDeviceStore, useAutomationStore, useWorkflowStore, Workflow, WorkflowStep } from "../stores";
 
 const { Text, Title } = Typography;
 
@@ -145,56 +146,11 @@ const isValidTargetHandle = (handle: any): boolean => {
 
 
 // Workflow types
-interface WorkflowStep {
-  id: string;
-  type: string;
-  label?: string;
-  name?: string; // Some steps use name instead of label
-  selector?: ElementSelector;
-  value?: string;
-  loop?: number; // Number of times to loop (for wait/loop steps)
-  timeout?: number; // Timeout for element wait steps in ms
-  postDelay?: number; // Delay after execution in ms
-  preWait?: number; // Delay before execution in ms
-  swipeDistance?: number; // Distance for swipe actions
-  swipeDuration?: number; // Duration for swipe actions in ms
-  conditionType?: string; // Condition type for branch steps: 'exists', 'not_exists', 'text_equals', 'text_contains', 'variable_equals'
-  onError?: 'stop' | 'continue'; // Error handling strategy
+// Workflow types are now imported from stores/workflowStore
 
-  // Flow connections (next step IDs)
-  nextStepId?: string;
-  trueStepId?: string;
-  falseStepId?: string;
-
-  // Visual layout position on the graph
-  posX?: number;
-  posY?: number;
-
-  // Persistence for specific handle IDs
-  nextSource?: string;
-  trueSource?: string;
-  falseSource?: string;
-  nextTarget?: string;
-  trueTarget?: string;
-  falseTarget?: string;
-
-  children?: WorkflowStep[]; // For nested steps
-  scriptId?: string; // For script steps
-  workflowId?: string; // For run_workflow steps
-}
-
-interface Workflow {
-  id: string;
-  name: string;
-  description?: string;
-  steps: WorkflowStep[];
-  variables?: Record<string, string>;
-  createdAt?: string;
-  updatedAt?: string;
-}
 
 // Custom Node Component
-const WorkflowNode = ({ data, selected }: any) => {
+const WorkflowNode = React.memo(({ data, selected }: any) => {
   const { t } = useTranslation();
   const { step, isRunning, isCurrent, isWaiting, waitingPhase, onExecuteStep, canExecute } = data;
   const { token } = theme.useToken();
@@ -343,7 +299,7 @@ const WorkflowNode = ({ data, selected }: any) => {
       )}
     </div>
   );
-};
+});
 
 const WorkflowView: React.FC = () => {
   const { selectedDevice } = useDeviceStore();
@@ -351,29 +307,83 @@ const WorkflowView: React.FC = () => {
   const { t } = useTranslation();
   const { token } = theme.useToken();
 
-  const [workflows, setWorkflows] = useState<Workflow[]>([]);
-  const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
-  const [workflowModalVisible, setWorkflowModalVisible] = useState(false);
+  // Use workflowStore for workflow management
+  const {
+    workflows,
+    selectedWorkflowId,
+    workflowModalVisible,
+    packages,
+    appsLoading,
+    editingWorkflowId,
+    editingWorkflowName,
+    setWorkflows,
+    selectWorkflow,
+    getSelectedWorkflow,
+    addWorkflow,
+    updateWorkflow,
+    deleteWorkflow,
+    setWorkflowModalVisible,
+    setPackages,
+    setAppsLoading,
+  } = useWorkflowStore(useShallow(state => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { executionLogs, workflowStepMap, ...rest } = state;
+    return rest;
+  }));
+
+  const selectedWorkflow = getSelectedWorkflow();
   const [workflowForm] = Form.useForm();
-  const [packages, setPackages] = useState<any[]>([]);
-  const [appsLoading, setAppsLoading] = useState(false);
-  const [editingWorkflowId, setEditingWorkflowId] = useState<string | null>(null);
-  const [editingWorkflowName, setEditingWorkflowName] = useState("");
 
-  // Execution state
-  const [isRunning, setIsRunning] = useState(false);
-  const [runningWorkflowIds, setRunningWorkflowIds] = useState<string[]>([]);
-  const [isPaused, setIsPaused] = useState(false);
-  const [currentStepId, setCurrentStepId] = useState<string | null>(null);
-  const [waitingStepId, setWaitingStepId] = useState<string | null>(null);
-  const [waitingPhase, setWaitingPhase] = useState<'pre' | 'post' | null>(null);
-  const [executionLogs, setExecutionLogs] = useState<string[]>([]);
-  const [variablesModalVisible, setVariablesModalVisible] = useState(false);
-  const [tempVariables, setTempVariables] = useState<{ key: string, value: string }[]>([]);
+  // Use workflowStore for execution state with selector to avoid re-rendering on high-frequency updates
+  const {
+    isRunning,
+    runningWorkflowIds,
+    isPaused,
+    currentStepId,
+    waitingStepId,
+    waitingPhase,
+    // executionLogs, // Excluded to prevent re-renders
+    variablesModalVisible,
+    tempVariables,
+    // workflowStepMap, // Excluded to prevent re-renders
+    drawerVisible,
+    elementPickerVisible,
+    editingNodeId,
+    needsAutoSave,
+    setIsRunning,
+    setRunningWorkflowIds,
+    addRunningWorkflowId,
+    removeRunningWorkflowId,
+    setIsPaused,
+    setCurrentStepId,
+    setWaitingStep,
+    setWaitingStepId,
+    setWaitingPhase,
+    setExecutionLogs,
+    addExecutionLog,
+    clearExecutionLogs,
+    setVariablesModalVisible,
+    setTempVariables,
+    setWorkflowStepMap,
+    updateWorkflowStepStatus,
+    clearWorkflowStepStatus,
+    setDrawerVisible,
+    setElementPickerVisible,
+    setEditingNode,
+    setEditingNodeId,
+    setEditingWorkflow,
+    setEditingWorkflowId,
+    setEditingWorkflowName,
+    setNeedsAutoSave,
+    setSelectedWorkflow,
+  } = useWorkflowStore(useShallow(state => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { executionLogs, workflowStepMap, ...rest } = state;
+    return rest;
+  }));
 
-  // Track current step for each workflow (including nested workflows)
-  // Key: workflowId, Value: { stepId, isWaiting, waitPhase }
-  const [workflowStepMap, setWorkflowStepMap] = useState<Record<string, { stepId: string, isWaiting: boolean, waitPhase?: 'pre' | 'post' }>>({});
+  // Access workflowStepMap directly from state for initial render logic without subscribing to updates
+  const workflowStepMap = useWorkflowStore.getState().workflowStepMap;
 
   // Variable options for AutoComplete
   const variableOptions = useMemo(() => {
@@ -388,9 +398,14 @@ const WorkflowView: React.FC = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
+  // Ref for throttling updates
+  const rafRef = useRef<number>();
+
   // Flag to trigger auto-save after reconnection
-  const [needsAutoSave, setNeedsAutoSave] = useState(false);
   const reconnectionEdgesRef = useRef<Edge[]>([]);
+
+  // Store cleanup function for workflow event listeners
+  const cleanupEventsRef = useRef<(() => void) | null>(null);
 
   // Wrapper for onNodesChange to protect Start node from deletion and auto-reconnect
   const onNodesChangeWithProtection = useCallback(
@@ -513,7 +528,7 @@ const WorkflowView: React.FC = () => {
   }, [needsAutoSave, selectedWorkflow]);
 
   // Node Editing
-  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+
 
   const fetchPackages = useCallback(async () => {
     if (!selectedDevice) return;
@@ -531,11 +546,10 @@ const WorkflowView: React.FC = () => {
   useEffect(() => {
     fetchPackages();
   }, [fetchPackages]);
-  const [drawerVisible, setDrawerVisible] = useState(false);
   const [stepForm] = Form.useForm();
 
   // Element Picker
-  const [elementPickerVisible, setElementPickerVisible] = useState(false);
+
 
   // Track if we should skip the next node re-render (after saving)
   const skipNextRenderRef = useRef(false);
@@ -754,24 +768,51 @@ const WorkflowView: React.FC = () => {
   useEffect(() => {
     if (!selectedWorkflow) return;
 
-    setNodes((nds) =>
-      nds.map((node) => {
-        // Get the step state for the current workflow
-        const stepState = workflowStepMap[selectedWorkflow.id];
-        const isCurrent = stepState?.stepId === node.id && !stepState?.isWaiting;
-        const isWaiting = stepState?.stepId === node.id && stepState?.isWaiting;
-        const phase = stepState?.stepId === node.id ? stepState?.waitPhase : null;
+    // Transient subscription for high-frequency updates
+    const unsub = useWorkflowStore.subscribe((state, prevState) => {
+      // Check if workflowStepMap has changed
+      if (state.workflowStepMap === prevState?.workflowStepMap) {
+        return;
+      }
 
-        if (node.data.isCurrent !== isCurrent || node.data.isWaiting !== isWaiting || node.data.waitingPhase !== phase) {
-          return {
-            ...node,
-            data: { ...(node.data as object), isCurrent, isWaiting, isRunning, waitingPhase: phase }
-          }
-        }
-        return node;
-      })
-    );
-  }, [workflowStepMap, selectedWorkflow, isRunning]);
+      // If already scheduled, skip this update (throttle)
+      if (rafRef.current) {
+        return;
+      }
+
+      const map = state.workflowStepMap;
+
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = undefined; // Reset flag
+
+        // This callback runs outside of React render cycle
+        setNodes((nds) =>
+          nds.map((node) => {
+            // Get the step state for the current workflow
+            const stepState = map[selectedWorkflow.id];
+            const isCurrent = stepState?.stepId === node.id && !stepState?.isWaiting;
+            const isWaiting = stepState?.stepId === node.id && stepState?.isWaiting;
+            const phase = stepState?.stepId === node.id ? stepState?.waitPhase : null;
+
+            if (node.data.isCurrent !== isCurrent || node.data.isWaiting !== isWaiting || node.data.waitingPhase !== phase) {
+              return {
+                ...node,
+                data: { ...(node.data as object), isCurrent, isWaiting, isRunning, waitingPhase: phase }
+              };
+            }
+            return node;
+          })
+        );
+      });
+    });
+
+    return () => {
+      unsub();
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, [selectedWorkflow, isRunning, setNodes]);
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -858,7 +899,7 @@ const WorkflowView: React.FC = () => {
 
   const handleCreateWorkflow = () => {
     workflowForm.resetFields();
-    setSelectedWorkflow(null);
+    selectWorkflow(null);
     setWorkflowModalVisible(true);
   };
 
@@ -884,8 +925,8 @@ const WorkflowView: React.FC = () => {
       await (window as any).go.main.App.SaveWorkflow(newWorkflow);
       message.success(t("workflow.saved"));
       setWorkflowModalVisible(false);
-      setWorkflows(prev => [...prev, newWorkflow]);
-      setSelectedWorkflow(newWorkflow);
+      addWorkflow(newWorkflow);
+      selectWorkflow(newWorkflow.id);
     } catch (err) {
       message.error(String(err));
     }
@@ -986,17 +1027,10 @@ const WorkflowView: React.FC = () => {
       // Mark to skip the next useEffect render - nodes are already up-to-date
       skipNextRenderRef.current = true;
 
-      // Update both workflows list and selectedWorkflow
-      setWorkflows(prev => {
-        const idx = prev.findIndex(w => w.id === updatedWorkflow.id);
-        if (idx >= 0) {
-          const newList = [...prev];
-          newList[idx] = updatedWorkflow;
-          return newList;
-        }
-        return [...prev, updatedWorkflow];
-      });
-      setSelectedWorkflow(updatedWorkflow);
+      // Update workflow in store
+      updateWorkflow(selectedWorkflow.id, updatedWorkflow);
+      await (window as any).go.main.App.SaveWorkflow(updatedWorkflow);
+      selectWorkflow(updatedWorkflow.id);
 
       if (!silent) {
         message.success(t("workflow.saved"));
@@ -1247,7 +1281,12 @@ const WorkflowView: React.FC = () => {
         runtime.EventsOff("workflow-step-waiting", onWait);
         runtime.EventsOff("task-paused", onPaused);
         runtime.EventsOff("task-resumed", onResumed);
+        // Clear the ref after cleanup
+        cleanupEventsRef.current = null;
       };
+
+      // Store cleanup function in ref for manual stop
+      cleanupEventsRef.current = cleanUp;
 
       const onSubStarted = (data: any) => {
         if (data.deviceId === deviceObj.id && data.workflowId) {
@@ -1367,6 +1406,7 @@ const WorkflowView: React.FC = () => {
       setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${t("workflow.error")}: ${err}`]);
       message.error(String(err));
     } finally {
+      // Note: Event cleanup is handled by cleanUp() in onComplete/onError handlers
       setIsRunning(false);
       setIsPaused(false);
       setRunningWorkflowIds([]);
@@ -1405,8 +1445,8 @@ const WorkflowView: React.FC = () => {
       setSelectedWorkflow(updatedWorkflow);
 
       // Update workflows list
-      setWorkflows(prev => {
-        const idx = prev.findIndex(w => w.id === updatedWorkflow.id);
+      setWorkflows((prev: Workflow[]) => {
+        const idx = prev.findIndex((w: Workflow) => w.id === updatedWorkflow.id);
         if (idx >= 0) {
           const newList = [...prev];
           newList[idx] = updatedWorkflow;
@@ -1431,9 +1471,17 @@ const WorkflowView: React.FC = () => {
 
     try {
       await (window as any).go.main.App.StopWorkflow(deviceObj);
+
+      // CRITICAL: Clean up event listeners when manually stopping
+      if (cleanupEventsRef.current) {
+        cleanupEventsRef.current();
+      }
+
       setIsRunning(false);
       setIsPaused(false);
       setCurrentStepId(null);
+      setRunningWorkflowIds([]);
+      setWorkflowStepMap({});
       setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${t("workflow.stopped")}`]);
     } catch (err) {
       message.error(String(err));
@@ -1472,8 +1520,8 @@ const WorkflowView: React.FC = () => {
       await (window as any).go.main.App.SaveWorkflow(updatedWorkflow);
 
       // Update local state
-      setWorkflows(prev => {
-        const idx = prev.findIndex(w => w.id === id);
+      setWorkflows((prev: Workflow[]) => {
+        const idx = prev.findIndex((w: Workflow) => w.id === id);
         if (idx >= 0) {
           const newList = [...prev];
           newList[idx] = updatedWorkflow;
@@ -2192,14 +2240,14 @@ const WorkflowView: React.FC = () => {
                 type="text"
                 danger
                 icon={<DeleteOutlined />}
-                onClick={() => setTempVariables(prev => prev.filter((_, i) => i !== index))}
+                onClick={() => setTempVariables((prev: { key: string; value: string }[]) => prev.filter((_: any, i: number) => i !== index))}
               />
             </div>
           ))}
         </div>
         <Button
           type="dashed"
-          onClick={() => setTempVariables(prev => [...prev, { key: '', value: '' }])}
+          onClick={() => setTempVariables((prev: { key: string; value: string }[]) => [...prev, { key: '', value: '' }])}
           block
           icon={<PlusOutlined />}
           style={{ marginTop: 8 }}
@@ -2209,7 +2257,7 @@ const WorkflowView: React.FC = () => {
       </Modal>
 
       <ElementPicker
-        visible={elementPickerVisible}
+        open={elementPickerVisible}
         onCancel={() => setElementPickerVisible(false)}
         onSelect={handleElementSelected}
       />

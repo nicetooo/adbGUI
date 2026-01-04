@@ -1,5 +1,15 @@
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 import { StartLogcat, StopLogcat } from '../../wailsjs/go/main/App';
+// @ts-ignore
+import { main } from '../../wailsjs/go/models';
+
+export interface FilterPreset {
+  id: string;
+  name: string;
+  pattern: string;
+  isRegex: boolean;
+}
 
 // @ts-ignore
 const EventsOn = (window as any).runtime.EventsOn;
@@ -20,9 +30,18 @@ interface LogcatState {
   excludeFilter: string;
   excludeUseRegex: boolean;
 
-  // Internal buffer (replaces useRef)
-  logBuffer: string[];
-  flushTimerId: number | null;
+  // Persistent Filter Presets Selection
+  selectedPresetIds: string[];
+  selectedExcludePresetIds: string[];
+
+  // UI State
+  packages: main.AppPackage[];
+  appRunningStatus: boolean;
+  autoScroll: boolean;
+  levelFilter: string[];
+  matchCase: boolean;
+  matchWholeWord: boolean;
+  savedFilters: FilterPreset[];
 
   // Actions
   setLogs: (logs: string[] | ((prev: string[]) => string[])) => void;
@@ -35,6 +54,17 @@ interface LogcatState {
   setExcludeFilter: (filter: string) => void;
   setExcludeUseRegex: (useRegex: boolean) => void;
 
+  setSelectedPresetIds: (ids: string[] | ((prev: string[]) => string[])) => void;
+  setSelectedExcludePresetIds: (ids: string[] | ((prev: string[]) => string[])) => void;
+  
+  setPackages: (packages: main.AppPackage[]) => void;
+  setAppRunningStatus: (status: boolean) => void;
+  setAutoScroll: (autoScroll: boolean) => void;
+  setLevelFilter: (filter: string[]) => void;
+  setMatchCase: (match: boolean) => void;
+  setMatchWholeWord: (match: boolean) => void;
+  setSavedFilters: (filters: FilterPreset[] | ((prev: FilterPreset[]) => FilterPreset[])) => void;
+
   // Logcat control
   toggleLogcat: (deviceId: string, pkg: string) => Promise<void>;
   stopLogcat: () => void;
@@ -43,155 +73,231 @@ interface LogcatState {
   reset: () => void;
 }
 
-const MAX_LOGS = 200000;
+// Local buffer to throttle updates (prevents 1000s of state updates per second)
+let logBuffer: string[] = [];
+let flushTimerId: number | null = null;
 
-export const useLogcatStore = create<LogcatState>((set, get) => ({
-  // Initial state
-  logs: [],
-  isLogging: false,
-  selectedPackage: '',
+const MAX_LOGS = 50000; // Reduced from 200k to 50k for performance
 
-  logFilter: '',
-  useRegex: false,
-  preFilter: '',
-  preUseRegex: false,
-  excludeFilter: '',
-  excludeUseRegex: false,
+export const useLogcatStore = create<LogcatState>()(
+  immer((set, get) => ({
+    // Initial state
+    logs: [],
+    isLogging: false,
+    selectedPackage: '',
 
-  logBuffer: [],
-  flushTimerId: null,
+    logFilter: '',
+    useRegex: false,
+    preFilter: '',
+    preUseRegex: false,
+    excludeFilter: '',
+    excludeUseRegex: false,
 
-  // Actions
-  setLogs: (logsOrUpdater) => {
-    set(state => {
-      const newLogs = typeof logsOrUpdater === 'function'
-        ? logsOrUpdater(state.logs)
-        : logsOrUpdater;
-      return { logs: newLogs.length > MAX_LOGS ? newLogs.slice(-MAX_LOGS) : newLogs };
-    });
-  },
+    selectedPresetIds: [],
+    selectedExcludePresetIds: [],
 
-  clearLogs: () => set({ logs: [] }),
+    // UI State Init
+    packages: [],
+    appRunningStatus: false,
+    autoScroll: true,
+    levelFilter: [],
+    matchCase: false,
+    matchWholeWord: false,
+    savedFilters: (() => {
+      try {
+        const saved = localStorage.getItem("adbGUI_logcat_filters");
+        return saved ? JSON.parse(saved) : [];
+      } catch {
+        return [];
+      }
+    })(),
 
-  setSelectedPackage: (pkg) => set({ selectedPackage: pkg }),
-
-  setLogFilter: (filter) => set({ logFilter: filter }),
-  setUseRegex: (useRegex) => set({ useRegex }),
-  setPreFilter: (filter) => set({ preFilter: filter }),
-  setPreUseRegex: (useRegex) => set({ preUseRegex: useRegex }),
-  setExcludeFilter: (filter) => set({ excludeFilter: filter }),
-  setExcludeUseRegex: (useRegex) => set({ excludeUseRegex: useRegex }),
-
-  toggleLogcat: async (deviceId: string, pkg: string) => {
-    const { isLogging, preFilter, preUseRegex, excludeFilter, excludeUseRegex } = get();
-
-    if (isLogging) {
-      get().stopLogcat();
-    } else {
-      set({ logs: [], isLogging: true, logBuffer: [] });
-
-      // Flush logs every 100ms
-      const timerId = window.setInterval(() => {
-        const { logBuffer } = get();
-        if (logBuffer.length > 0) {
-          const chunk = [...logBuffer];
-          set({ logBuffer: [] });
-
-          set(state => {
-            const next = [...state.logs, ...chunk];
-            return { logs: next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next };
-          });
-        }
-      }, 100);
-
-      set({ flushTimerId: timerId });
-
-      // Subscribe to logcat events
-      EventsOn('logcat-data', (data: string | string[]) => {
-        const lines = Array.isArray(data) ? data : [data];
-
-        // Access current filter state using get()
-        const { preFilter, preUseRegex, excludeFilter, excludeUseRegex, logBuffer } = get();
-
-        const filteredLines: string[] = [];
-
-        for (const line of lines) {
-          let shouldKeep = true;
-
-          // 1. Pre-filter (Include)
-          if (preFilter.trim()) {
-            try {
-              if (preUseRegex) {
-                const regex = new RegExp(preFilter, 'i');
-                if (!regex.test(line)) shouldKeep = false;
-              } else {
-                if (!line.toLowerCase().includes(preFilter.toLowerCase())) shouldKeep = false;
-              }
-            } catch {
-              if (!line.toLowerCase().includes(preFilter.toLowerCase())) shouldKeep = false;
-            }
-          }
-
-          // 2. Exclude filter (Negative)
-          if (shouldKeep && excludeFilter.trim()) {
-            try {
-              if (excludeUseRegex) {
-                const regex = new RegExp(excludeFilter, 'i');
-                if (regex.test(line)) shouldKeep = false;
-              } else {
-                if (line.toLowerCase().includes(excludeFilter.toLowerCase())) shouldKeep = false;
-              }
-            } catch {
-              if (line.toLowerCase().includes(excludeFilter.toLowerCase())) shouldKeep = false;
-            }
-          }
-
-          if (shouldKeep) {
-            filteredLines.push(line);
-          }
-        }
-
-        if (filteredLines.length > 0) {
-          set({ logBuffer: [...logBuffer, ...filteredLines] });
+    // Actions
+    setLogs: (logsOrUpdater) => {
+      set((state: LogcatState) => {
+        const nextLogs = typeof logsOrUpdater === 'function'
+          ? logsOrUpdater(state.logs)
+          : logsOrUpdater;
+        
+        if (nextLogs.length > MAX_LOGS) {
+          state.logs = nextLogs.slice(-MAX_LOGS);
+        } else {
+          state.logs = nextLogs;
         }
       });
+    },
 
-      try {
-        await StartLogcat(deviceId, pkg, preFilter, preUseRegex, excludeFilter, excludeUseRegex);
-      } catch (err) {
+    clearLogs: () => set({ logs: [] }),
+
+    setSelectedPackage: (pkg) => set({ selectedPackage: pkg }),
+
+    setLogFilter: (filter) => set({ logFilter: filter }),
+    setUseRegex: (useRegex) => set({ useRegex }),
+    setPreFilter: (filter) => set({ preFilter: filter }),
+    setPreUseRegex: (useRegex) => set({ preUseRegex: useRegex }),
+    setExcludeFilter: (filter) => set({ excludeFilter: filter }),
+    setExcludeUseRegex: (useRegex) => set({ excludeUseRegex: useRegex }),
+
+    setSelectedPresetIds: (idsOrUpdater) => set((state: LogcatState) => {
+       state.selectedPresetIds = typeof idsOrUpdater === 'function' 
+         ? idsOrUpdater(state.selectedPresetIds)
+         : idsOrUpdater;
+    }),
+    
+    setSelectedExcludePresetIds: (idsOrUpdater) => set((state: LogcatState) => {
+       state.selectedExcludePresetIds = typeof idsOrUpdater === 'function' 
+         ? idsOrUpdater(state.selectedExcludePresetIds)
+         : idsOrUpdater;
+    }),
+
+    setPackages: (packages) => set({ packages }),
+    setAppRunningStatus: (status) => set({ appRunningStatus: status }),
+    setAutoScroll: (autoScroll) => set({ autoScroll }),
+    setLevelFilter: (filter) => set({ levelFilter: filter }),
+    setMatchCase: (match) => set({ matchCase: match }),
+    setMatchWholeWord: (match) => set({ matchWholeWord: match }),
+
+    setSavedFilters: (filtersOrUpdater) => set((state: LogcatState) => {
+      const nextFilters = typeof filtersOrUpdater === 'function'
+        ? filtersOrUpdater(state.savedFilters)
+        : filtersOrUpdater;
+      state.savedFilters = nextFilters;
+      localStorage.setItem("adbGUI_logcat_filters", JSON.stringify(nextFilters));
+    }),
+
+    toggleLogcat: async (deviceId: string, pkg: string) => {
+      const { isLogging } = get();
+
+      if (isLogging) {
         get().stopLogcat();
-        throw err;
+      } else {
+        set((state: LogcatState) => {
+          state.logs = [];
+          state.isLogging = true;
+        });
+        
+        // Reset buffer
+        logBuffer = [];
+
+        // Flush logs every 100ms
+        flushTimerId = window.setInterval(() => {
+          if (logBuffer.length > 0) {
+            const chunk = [...logBuffer];
+            logBuffer = []; // Clear local buffer
+            
+            set((state: LogcatState) => {
+              if (chunk.length > MAX_LOGS) {
+                 // XOR swap or just replace if chunk is huge
+                 state.logs = chunk.slice(-MAX_LOGS);
+              } else {
+                state.logs.push(...chunk);
+                if (state.logs.length > MAX_LOGS) {
+                  state.logs = state.logs.slice(-MAX_LOGS);
+                }
+              }
+            });
+          }
+        }, 100);
+
+        // Subscribe to logcat events
+        EventsOn('logcat-data', (data: string | string[]) => {
+          const lines = Array.isArray(data) ? data : [data];
+
+          // Access current filter state using get()
+          const { preFilter, preUseRegex, excludeFilter, excludeUseRegex } = get();
+
+          const filteredLines: string[] = [];
+
+          for (const line of lines) {
+            let shouldKeep = true;
+
+            // 1. Pre-filter (Include)
+            if (preFilter.trim()) {
+              try {
+                if (preUseRegex) {
+                  const regex = new RegExp(preFilter, 'i');
+                  if (!regex.test(line)) shouldKeep = false;
+                } else {
+                  if (!line.toLowerCase().includes(preFilter.toLowerCase())) shouldKeep = false;
+                }
+              } catch {
+                if (!line.toLowerCase().includes(preFilter.toLowerCase())) shouldKeep = false;
+              }
+            }
+
+            // 2. Exclude filter (Negative)
+            if (shouldKeep && excludeFilter.trim()) {
+              try {
+                if (excludeUseRegex) {
+                  const regex = new RegExp(excludeFilter, 'i');
+                  if (regex.test(line)) shouldKeep = false;
+                } else {
+                  if (line.toLowerCase().includes(excludeFilter.toLowerCase())) shouldKeep = false;
+                }
+              } catch {
+                if (line.toLowerCase().includes(excludeFilter.toLowerCase())) shouldKeep = false;
+              }
+            }
+
+            if (shouldKeep) {
+              filteredLines.push(line);
+            }
+          }
+
+          if (filteredLines.length > 0) {
+             // Push to local buffer, NO state update here
+             logBuffer.push(...filteredLines);
+          }
+        });
+
+        try {
+          const { preFilter, preUseRegex, excludeFilter, excludeUseRegex } = get();
+          await StartLogcat(deviceId, pkg, preFilter, preUseRegex, excludeFilter, excludeUseRegex);
+        } catch (err) {
+          get().stopLogcat();
+          throw err;
+        }
       }
-    }
-  },
+    },
 
-  stopLogcat: () => {
-    const { flushTimerId } = get();
+    stopLogcat: () => {
+      StopLogcat();
+      EventsOff('logcat-data');
 
-    StopLogcat();
-    EventsOff('logcat-data');
+      if (flushTimerId) {
+        clearInterval(flushTimerId);
+        flushTimerId = null;
+      }
+      logBuffer = [];
 
-    if (flushTimerId) {
-      clearInterval(flushTimerId);
-    }
+      set((state: LogcatState) => {
+        state.isLogging = false;
+      });
+    },
 
-    set({ isLogging: false, logBuffer: [], flushTimerId: null });
-  },
-
-  reset: () => {
-    const { isLogging } = get();
-    if (isLogging) {
-      get().stopLogcat();
-    }
-    set({
-      logs: [],
-      selectedPackage: '',
-      logFilter: '',
-      useRegex: false,
-      preFilter: '',
-      preUseRegex: false,
-      excludeFilter: '',
-      excludeUseRegex: false,
-    });
-  },
-}));
+    reset: () => {
+      const { isLogging } = get();
+      if (isLogging) {
+        get().stopLogcat();
+      }
+      set({
+        logs: [],
+        selectedPackage: '',
+        logFilter: '',
+        useRegex: false,
+        preFilter: '',
+        preUseRegex: false,
+        excludeFilter: '',
+        excludeUseRegex: false,
+        selectedPresetIds: [],
+        selectedExcludePresetIds: [],
+        packages: [],
+        appRunningStatus: false,
+        autoScroll: true,
+        levelFilter: [],
+        matchCase: false,
+        matchWholeWord: false,
+      });
+    },
+  }))
+);

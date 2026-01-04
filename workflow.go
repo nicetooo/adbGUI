@@ -158,11 +158,29 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 			touchPlaybackMu.Unlock()
 		}()
 
+		// Use active session for unified timeline
+		sessionId := a.EnsureActiveSession(deviceId)
+
+		// We can update session metadata or emit a "workflow started" marker event separate from session start
 		wailsRuntime.EventsEmit(a.ctx, "workflow-started", map[string]interface{}{
 			"deviceId":     deviceId,
 			"workflowName": workflow.Name,
 			"workflowId":   workflow.ID,
 			"steps":        len(workflow.Steps),
+			"sessionId":    sessionId,
+		})
+
+		// Emit workflow start event to timeline
+		a.EmitSessionEventFull(SessionEvent{
+			DeviceID: deviceId,
+			Type:     "workflow_start", // Distinct from session_start
+			Category: "workflow",
+			Level:    "info",
+			Title:    fmt.Sprintf("Workflow started: %s", workflow.Name),
+			Detail: map[string]interface{}{
+				"workflowId": workflow.ID,
+				"totalSteps": len(workflow.Steps),
+			},
 		})
 
 		// Initialize variable context
@@ -173,19 +191,57 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 			}
 		}
 
+		startTime := time.Now()
 		err := a.runWorkflowInternal(ctx, deviceId, workflow, 0, vars)
-		if err != nil && err != context.Canceled {
-			wailsRuntime.EventsEmit(a.ctx, "workflow-error", map[string]interface{}{
-				"deviceId":   deviceId,
-				"workflowId": workflow.ID,
-				"error":      err.Error(),
-			})
+
+		// End session with appropriate status
+		sessionStatus := "completed"
+		if err != nil {
+			if err == context.Canceled {
+				sessionStatus = "cancelled"
+			} else {
+				sessionStatus = "failed"
+				// Emit error event
+				a.EmitSessionEvent(deviceId, "workflow_error", "workflow", "error",
+					"Workflow failed: "+err.Error(),
+					map[string]interface{}{
+						"workflowId": workflow.ID,
+						"error":      err.Error(),
+					})
+
+				wailsRuntime.EventsEmit(a.ctx, "workflow-error", map[string]interface{}{
+					"deviceId":   deviceId,
+					"workflowId": workflow.ID,
+					"error":      err.Error(),
+				})
+			}
 		}
+
+		// Emit completion event with duration
+		duration := time.Since(startTime).Milliseconds()
+		a.EmitSessionEventFull(SessionEvent{
+			DeviceID: deviceId,
+			Type:     "workflow_completed",
+			Category: "workflow",
+			Level:    "info",
+			Title:    fmt.Sprintf("Workflow completed: %s", workflow.Name),
+			Duration: duration,
+			Detail: map[string]interface{}{
+				"workflowId": workflow.ID,
+				"status":     sessionStatus,
+			},
+		})
+
+		// Do NOT end the session, as it's the main device timeline.
+		// Just emit completion event.
 
 		wailsRuntime.EventsEmit(a.ctx, "workflow-completed", map[string]interface{}{
 			"deviceId":     deviceId,
 			"workflowName": workflow.Name,
 			"workflowId":   workflow.ID,
+			"sessionId":    sessionId,
+			"duration":     duration,
+			"status":       sessionStatus,
 		})
 	}()
 
@@ -217,6 +273,14 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 	}
 
 	// Emit event for Start node to show it's running
+	a.EmitSessionEventWithStep(deviceId, startStep.ID, "workflow_step_start", "workflow", "info",
+		"Workflow started",
+		map[string]interface{}{
+			"stepIndex": 0,
+			"stepType":  "start",
+			"stepName":  startStep.Name,
+		})
+
 	wailsRuntime.EventsEmit(a.ctx, "workflow-step-running", map[string]interface{}{
 		"deviceId": deviceId,
 		"stepId":   startStep.ID,
@@ -224,6 +288,14 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 		"stepType": "start",
 	})
 	time.Sleep(200 * time.Millisecond)
+
+	// Mark start step as completed
+	a.EmitSessionEventWithStep(deviceId, startStep.ID, "workflow_step_end", "workflow", "info",
+		"Start node completed",
+		map[string]interface{}{
+			"stepIndex": 0,
+			"stepType":  "start",
+		})
 
 	// Graph-based execution loop
 	executedCount := 0
@@ -245,6 +317,16 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 		}
 
 		executedCount++
+		stepStartTime := time.Now()
+
+		// Emit step start event to session
+		a.EmitSessionEventWithStep(deviceId, step.ID, "workflow_step_start", "workflow", "info",
+			fmt.Sprintf("Step %d: %s", executedCount, step.Name),
+			map[string]interface{}{
+				"stepIndex": executedCount,
+				"stepType":  step.Type,
+				"stepName":  step.Name,
+			})
 
 		wailsRuntime.EventsEmit(a.ctx, "workflow-step-running", map[string]interface{}{
 			"deviceId":   deviceId,
@@ -261,6 +343,7 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 		}
 
 		var stepResult bool = true
+		var stepError error
 
 		for l := 0; l < loopCount; l++ {
 			// Pre-Wait
@@ -278,9 +361,45 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 			var err error
 			stepResult, err = a.runWorkflowStep(ctx, deviceId, *step, l+1, loopCount, depth, vars)
 			if err != nil {
+				stepError = err
+				stepDuration := time.Since(stepStartTime).Milliseconds()
+
 				if err == context.Canceled {
+					// Emit cancelled event
+					a.EmitSessionEventFull(SessionEvent{
+						DeviceID: deviceId,
+						StepID:   step.ID,
+						Type:     "workflow_step_cancelled",
+						Category: "workflow",
+						Level:    "warn",
+						Title:    fmt.Sprintf("Step %d cancelled: %s", executedCount, step.Name),
+						Duration: stepDuration,
+						Detail: map[string]interface{}{
+							"stepIndex": executedCount,
+							"stepType":  step.Type,
+						},
+					})
 					return context.Canceled
 				}
+
+				// Emit step error event
+				success := false
+				a.EmitSessionEventFull(SessionEvent{
+					DeviceID: deviceId,
+					StepID:   step.ID,
+					Type:     "workflow_step_error",
+					Category: "workflow",
+					Level:    "error",
+					Title:    fmt.Sprintf("Step %d failed: %s", executedCount, step.Name),
+					Duration: stepDuration,
+					Success:  &success,
+					Detail: map[string]interface{}{
+						"stepIndex": executedCount,
+						"stepType":  step.Type,
+						"error":     err.Error(),
+					},
+				})
+
 				if step.OnError == "continue" {
 					goto check_cancel
 				}
@@ -305,6 +424,27 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 				return context.Canceled
 			default:
 			}
+		}
+
+		// Emit step completed event (after all loop iterations)
+		if stepError == nil {
+			stepDuration := time.Since(stepStartTime).Milliseconds()
+			success := true
+			a.EmitSessionEventFull(SessionEvent{
+				DeviceID: deviceId,
+				StepID:   step.ID,
+				Type:     "workflow_step_end",
+				Category: "workflow",
+				Level:    "info",
+				Title:    fmt.Sprintf("Step %d completed: %s", executedCount, step.Name),
+				Duration: stepDuration,
+				Success:  &success,
+				Detail: map[string]interface{}{
+					"stepIndex": executedCount,
+					"stepType":  step.Type,
+					"result":    stepResult,
+				},
+			})
 		}
 
 		// Determine Next Step

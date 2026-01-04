@@ -5,12 +5,41 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
+
+// logcatLinePattern matches Android logcat time format: "01-04 12:34:56.789 D/Tag( 1234): message"
+var logcatLinePattern = regexp.MustCompile(`^\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s+([VDIWEF])/([^(]+)\(\s*\d+\):\s*(.*)`)
+
+// parseLogcatLine extracts level, tag, and message from a logcat line
+func parseLogcatLine(line string) (level, tag, message string, ok bool) {
+	matches := logcatLinePattern.FindStringSubmatch(line)
+	if len(matches) < 4 {
+		return "", "", "", false
+	}
+	return matches[1], strings.TrimSpace(matches[2]), matches[3], true
+}
+
+// logcatLevelToSessionLevel converts Android log level to session level
+func logcatLevelToSessionLevel(androidLevel string) string {
+	switch androidLevel {
+	case "E", "F": // Error, Fatal
+		return "error"
+	case "W":
+		return "warn"
+	case "I":
+		return "info"
+	case "D":
+		return "debug"
+	default: // V (Verbose)
+		return "verbose"
+	}
+}
 
 // StartLogcat starts the logcat stream for a device
 func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex bool, excludeFilter string, excludeUseRegex bool) error {
@@ -154,10 +183,11 @@ func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex b
 		reader := bufio.NewReader(stdout)
 
 		var (
-			chunk      []string
-			maxChunk   = 200
-			flushInter = 100 * time.Millisecond
-			lastFlush  = time.Now()
+			chunk            []string
+			maxChunk         = 200
+			flushInter       = 100 * time.Millisecond
+			lastFlush        = time.Now()
+			lastLogEventTime = time.Now()
 		)
 
 		for {
@@ -199,6 +229,26 @@ func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex b
 					}
 				} else {
 					continue
+				}
+			}
+
+			// Emit session event for Error and Warning level logs
+			// Rate limited to prevent UI flooding (max 5 events/sec)
+			if level, tag, message, ok := parseLogcatLine(line); ok {
+				if level == "E" || level == "W" || level == "F" {
+					if level == "F" || time.Since(lastLogEventTime) > 200*time.Millisecond {
+						lastLogEventTime = time.Now()
+						sessionLevel := logcatLevelToSessionLevel(level)
+						a.EmitSessionEvent(deviceId, "logcat", "log", sessionLevel,
+							fmt.Sprintf("[%s] %s", tag, message),
+							map[string]interface{}{
+								"tag":         tag,
+								"message":     message,
+								"level":       level,
+								"packageName": packageName,
+								"raw":         strings.TrimSpace(line),
+							})
+					}
 				}
 			}
 

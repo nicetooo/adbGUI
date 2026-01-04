@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { main } from "../../wailsjs/go/models";
 
 interface AppInfoModalProps {
-  visible: boolean;
+  open: boolean;
   onCancel: () => void;
   selectedAppInfo: main.AppPackage | null;
   infoLoading: boolean;
@@ -20,7 +20,7 @@ interface AppInfoModalProps {
 }
 
 const AppInfoModal: React.FC<AppInfoModalProps> = ({
-  visible,
+  open,
   onCancel,
   selectedAppInfo,
   infoLoading,
@@ -74,7 +74,7 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({
           )}
         </div>
       }
-      open={visible}
+      open={open}
       onCancel={onCancel}
       footer={[
         <Button key="close" onClick={onCancel}>
@@ -125,209 +125,207 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({
                 <ReloadOutlined spin style={{ fontSize: 24, color: "#1890ff" }} />
               </div>
             )}
-            
+
             {/* 紧凑的信息展示区 */}
-            <div style={{ 
-              marginBottom: 16, 
-              padding: "8px 12px", 
-              background: "#f5f5f5", 
+            <div style={{
+              marginBottom: 16,
+              padding: "8px 12px",
+              background: "#f5f5f5",
               borderRadius: 6,
               fontSize: 13,
               display: "flex",
               flexWrap: "wrap",
               gap: "12px 24px"
             }}>
-               <div style={{ display: "flex", alignItems: "center" }}>
-                  <span style={{ color: "#666", marginRight: 4 }}>Version:</span>
-                  <span style={{ fontWeight: 500 }}>
-                    {selectedAppInfo.versionName || "N/A"} 
-                    <span style={{ color: "#999", marginLeft: 4 }}>({selectedAppInfo.versionCode || 0})</span>
-                  </span>
-               </div>
-               <div style={{ display: "flex", alignItems: "center" }}>
-                  <span style={{ color: "#666", marginRight: 4 }}>SDK:</span>
-                  <span style={{ fontWeight: 500 }}>
-                    Min {selectedAppInfo.minSdkVersion || "?"} / Target {selectedAppInfo.targetSdkVersion || "?"}
-                  </span>
-               </div>
-            </div>
-                <Tabs
-                  defaultActiveKey="permissions"
-                  type="card"
-                  size="small"
-                  items={[
-                    {
-                      key: "permissions",
-                      label: `${t("app_info.permissions")} (${
-                        selectedAppInfo.permissions?.length || 0
-                      })`,
-                      children: (
-                        <Card
-                          size="small"
-                          title={
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                              }}
-                            >
-                              <span>{t("app_info.permissions")}</span>
-                              <Input
-                                placeholder={t("app_info.search_permissions")}
-                                size="small"
-                                style={{ width: 200 }}
-                                allowClear
-                                value={permissionSearch}
-                                onChange={(e) =>
-                                  setPermissionSearch(e.target.value)
-                                }
-                              />
-                            </div>
-                          }
-                        >
-                          <div style={{ maxHeight: 300, overflowY: "auto" }}>
-                            {selectedAppInfo.permissions &&
-                            selectedAppInfo.permissions.length > 0 ? (
-                              selectedAppInfo.permissions
-                                .filter((p) =>
-                                  p
-                                    .toLowerCase()
-                                    .includes(permissionSearch.toLowerCase())
-                                )
-                                .map((p, i) => (
-                                  <div
-                                    key={i}
-                                    style={{
-                                      fontSize: 12,
-                                      padding: "4px 8px",
-                                      borderBottom: "1px solid #f0f0f0",
-                                    }}
-                                  >
-                                    {p.replace("android.permission.", "")}
-                                  </div>
-                                ))
-                            ) : (
-                              <p
-                                style={{
-                                  color: "#bfbfbf",
-                                  fontStyle: "italic",
-                                  textAlign: "center",
-                                  padding: "20px 0",
-                                }}
-                              >
-                                {t("app_info.no_permissions")}
-                              </p>
-                            )}
-                          </div>
-                        </Card>
-                      ),
-                    },
-                    {
-                      key: "activities",
-                      label: `${t("app_info.activities")} (${
-                        selectedAppInfo.activities?.length || 0
-                      })`,
-                      children: (
-                        <Card
-                          size="small"
-                          title={
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                              }}
-                            >
-                              <span>{t("app_info.activities")}</span>
-                              <Input
-                                placeholder={t("app_info.search_activities")}
-                                size="small"
-                                style={{ width: 200 }}
-                                allowClear
-                                value={activitySearch}
-                                onChange={(e) =>
-                                  setActivitySearch(e.target.value)
-                                }
-                              />
-                            </div>
-                          }
-                        >
-                          <div style={{ maxHeight: 300, overflowY: "auto" }}>
-                            {selectedAppInfo.activities &&
-                            selectedAppInfo.activities.length > 0 ? (
-                              selectedAppInfo.activities
-                                .filter((a) =>
-                                  a
-                                    .toLowerCase()
-                                    .includes(activitySearch.toLowerCase())
-                                )
-                                .sort((a, b) => {
-                                  const aLaunchable =
-                                    selectedAppInfo.launchableActivities?.includes(
-                                      a
-                                    );
-                                  const bLaunchable =
-                                    selectedAppInfo.launchableActivities?.includes(
-                                      b
-                                    );
-                                  if (aLaunchable && !bLaunchable) return -1;
-                                  if (!aLaunchable && bLaunchable) return 1;
-                                  return a.localeCompare(b);
-                                })
-                                .map((a, i) => (
-                                  <div
-                                    key={i}
-                                    style={{
-                                      fontSize: 12,
-                                      padding: "6px 8px",
-                                      borderBottom: "1px solid #f0f0f0",
-                                      display: "flex",
-                                      justifyContent: "space-between",
-                                      alignItems: "center",
-                                    }}
-                                  >
-                                    <span
-                                      style={{
-                                        fontFamily: "monospace",
-                                        wordBreak: "break-all",
-                                        marginRight: 8,
-                                      }}
-                                    >
-                                      {a.includes("/") ? a.split("/")[1] : a}
-                                    </span>
-                                    {selectedAppInfo.launchableActivities?.includes(
-                                      a
-                                    ) && (
-                                      <Button
-                                        size="small"
-                                        icon={<PlayCircleOutlined />}
-                                        onClick={() => handleStartActivity(a)}
-                                      >
-                                        {t("app_info.launch")}
-                                      </Button>
-                                    )}
-                                  </div>
-                                ))
-                            ) : (
-                              <p
-                                style={{
-                                  color: "#bfbfbf",
-                                  fontStyle: "italic",
-                                  textAlign: "center",
-                                  padding: "20px 0",
-                                }}
-                              >
-                                {t("app_info.no_activities")}
-                              </p>
-                            )}
-                          </div>
-                        </Card>
-                      ),
-                    },
-                  ]}
-                />
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <span style={{ color: "#666", marginRight: 4 }}>Version:</span>
+                <span style={{ fontWeight: 500 }}>
+                  {selectedAppInfo.versionName || "N/A"}
+                  <span style={{ color: "#999", marginLeft: 4 }}>({selectedAppInfo.versionCode || 0})</span>
+                </span>
               </div>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <span style={{ color: "#666", marginRight: 4 }}>SDK:</span>
+                <span style={{ fontWeight: 500 }}>
+                  Min {selectedAppInfo.minSdkVersion || "?"} / Target {selectedAppInfo.targetSdkVersion || "?"}
+                </span>
+              </div>
+            </div>
+            <Tabs
+              defaultActiveKey="permissions"
+              type="card"
+              size="small"
+              items={[
+                {
+                  key: "permissions",
+                  label: `${t("app_info.permissions")} (${selectedAppInfo.permissions?.length || 0
+                    })`,
+                  children: (
+                    <Card
+                      size="small"
+                      title={
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                        >
+                          <span>{t("app_info.permissions")}</span>
+                          <Input
+                            placeholder={t("app_info.search_permissions")}
+                            size="small"
+                            style={{ width: 200 }}
+                            allowClear
+                            value={permissionSearch}
+                            onChange={(e) =>
+                              setPermissionSearch(e.target.value)
+                            }
+                          />
+                        </div>
+                      }
+                    >
+                      <div style={{ maxHeight: 300, overflowY: "auto" }}>
+                        {selectedAppInfo.permissions &&
+                          selectedAppInfo.permissions.length > 0 ? (
+                          selectedAppInfo.permissions
+                            .filter((p) =>
+                              p
+                                .toLowerCase()
+                                .includes(permissionSearch.toLowerCase())
+                            )
+                            .map((p, i) => (
+                              <div
+                                key={i}
+                                style={{
+                                  fontSize: 12,
+                                  padding: "4px 8px",
+                                  borderBottom: "1px solid #f0f0f0",
+                                }}
+                              >
+                                {p.replace("android.permission.", "")}
+                              </div>
+                            ))
+                        ) : (
+                          <p
+                            style={{
+                              color: "#bfbfbf",
+                              fontStyle: "italic",
+                              textAlign: "center",
+                              padding: "20px 0",
+                            }}
+                          >
+                            {t("app_info.no_permissions")}
+                          </p>
+                        )}
+                      </div>
+                    </Card>
+                  ),
+                },
+                {
+                  key: "activities",
+                  label: `${t("app_info.activities")} (${selectedAppInfo.activities?.length || 0
+                    })`,
+                  children: (
+                    <Card
+                      size="small"
+                      title={
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                        >
+                          <span>{t("app_info.activities")}</span>
+                          <Input
+                            placeholder={t("app_info.search_activities")}
+                            size="small"
+                            style={{ width: 200 }}
+                            allowClear
+                            value={activitySearch}
+                            onChange={(e) =>
+                              setActivitySearch(e.target.value)
+                            }
+                          />
+                        </div>
+                      }
+                    >
+                      <div style={{ maxHeight: 300, overflowY: "auto" }}>
+                        {selectedAppInfo.activities &&
+                          selectedAppInfo.activities.length > 0 ? (
+                          selectedAppInfo.activities
+                            .filter((a) =>
+                              a
+                                .toLowerCase()
+                                .includes(activitySearch.toLowerCase())
+                            )
+                            .sort((a, b) => {
+                              const aLaunchable =
+                                selectedAppInfo.launchableActivities?.includes(
+                                  a
+                                );
+                              const bLaunchable =
+                                selectedAppInfo.launchableActivities?.includes(
+                                  b
+                                );
+                              if (aLaunchable && !bLaunchable) return -1;
+                              if (!aLaunchable && bLaunchable) return 1;
+                              return a.localeCompare(b);
+                            })
+                            .map((a, i) => (
+                              <div
+                                key={i}
+                                style={{
+                                  fontSize: 12,
+                                  padding: "6px 8px",
+                                  borderBottom: "1px solid #f0f0f0",
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontFamily: "monospace",
+                                    wordBreak: "break-all",
+                                    marginRight: 8,
+                                  }}
+                                >
+                                  {a.includes("/") ? a.split("/")[1] : a}
+                                </span>
+                                {selectedAppInfo.launchableActivities?.includes(
+                                  a
+                                ) && (
+                                    <Button
+                                      size="small"
+                                      icon={<PlayCircleOutlined />}
+                                      onClick={() => handleStartActivity(a)}
+                                    >
+                                      {t("app_info.launch")}
+                                    </Button>
+                                  )}
+                              </div>
+                            ))
+                        ) : (
+                          <p
+                            style={{
+                              color: "#bfbfbf",
+                              fontStyle: "italic",
+                              textAlign: "center",
+                              padding: "20px 0",
+                            }}
+                          >
+                            {t("app_info.no_activities")}
+                          </p>
+                        )}
+                      </div>
+                    </Card>
+                  ),
+                },
+              ]}
+            />
+          </div>
         )
       )}
     </Modal>

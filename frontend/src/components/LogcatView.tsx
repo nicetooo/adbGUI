@@ -12,7 +12,7 @@ import {
 } from "@ant-design/icons";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import DeviceSelector from "./DeviceSelector";
-import { useDeviceStore, useLogcatStore } from "../stores";
+import { useDeviceStore, useLogcatStore, FilterPreset } from "../stores";
 // @ts-ignore
 import { main } from "../../wailsjs/go/models";
 // @ts-ignore
@@ -47,16 +47,21 @@ export default function LogcatView() {
     setExcludeFilter,
     setExcludeUseRegex,
     toggleLogcat,
+
+    // UI State & Actions
+    packages, setPackages,
+    appRunningStatus, setAppRunningStatus,
+    autoScroll, setAutoScroll,
+    levelFilter, setLevelFilter,
+    matchCase, setMatchCase,
+    matchWholeWord, setMatchWholeWord,
+    savedFilters, setSavedFilters,
   } = useLogcatStore();
 
-  // Logcat local state
-  const [packages, setPackages] = useState<main.AppPackage[]>([]);
-  const [appRunningStatus, setAppRunningStatus] = useState<boolean>(false);
-
-  const [autoScroll, setAutoScroll] = useState(true);
-  const [levelFilter, setLevelFilter] = useState<string[]>([]);
-  const [matchCase, setMatchCase] = useState(false);
-  const [matchWholeWord, setMatchWholeWord] = useState(false);
+  // Logcat local state managed by store now
+  // Modal states (transient)
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [newFilterName, setNewFilterName] = useState("");
 
   useEffect(() => {
     const fetchPackageList = async () => {
@@ -78,7 +83,7 @@ export default function LogcatView() {
         try {
           const running = await IsAppRunning(selectedDevice, selectedPackage);
           setAppRunningStatus(running);
-        } catch {}
+        } catch { }
       } else {
         setAppRunningStatus(false);
       }
@@ -147,31 +152,16 @@ export default function LogcatView() {
     }
   }, [logFilter, useRegex, matchCase, matchWholeWord]);
 
-  // Filter Presets state
-  interface FilterPreset {
-    id: string;
-    name: string;
-    pattern: string;
-    isRegex: boolean;
-  }
-  const [savedFilters, setSavedFilters] = useState<FilterPreset[]>(() => {
-    try {
-      const saved = localStorage.getItem("adbGUI_logcat_filters");
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  // Persist filters
-  useEffect(() => {
-    localStorage.setItem("adbGUI_logcat_filters", JSON.stringify(savedFilters));
-  }, [savedFilters]);
+  // Filter Presets state handled by store
+  // Persistent filters handled by store actions
 
   // Selected presets for Pre-Filter
-  const [selectedPresetIds, setSelectedPresetIds] = useState<string[]>([]);
-  // Selected presets for Exclude Filter
-  const [selectedExcludePresetIds, setSelectedExcludePresetIds] = useState<string[]>([]);
+  const {
+    selectedPresetIds,
+    selectedExcludePresetIds,
+    setSelectedPresetIds,
+    setSelectedExcludePresetIds,
+  } = useLogcatStore();
 
   // Update pre-filter when presets selection changes
   useEffect(() => {
@@ -184,10 +174,10 @@ export default function LogcatView() {
     if (selected.length === 0) return;
 
     const parts = selected.map(f => {
-       if (f.isRegex) return `(${f.pattern})`;
-       return `(${f.pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`;
+      if (f.isRegex) return `(${f.pattern})`;
+      return `(${f.pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`;
     });
-    
+
     const combinedPattern = parts.join("|");
     if (setPreFilter) setPreFilter(combinedPattern);
     if (setPreUseRegex) setPreUseRegex(true);
@@ -204,23 +194,23 @@ export default function LogcatView() {
     if (selected.length === 0) return;
 
     const parts = selected.map(f => {
-       if (f.isRegex) return `(${f.pattern})`;
-       return `(${f.pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`;
+      if (f.isRegex) return `(${f.pattern})`;
+      return `(${f.pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`;
     });
-    
+
     const combinedPattern = parts.join("|");
     if (setExcludeFilter) setExcludeFilter(combinedPattern);
     if (setExcludeUseRegex) setExcludeUseRegex(true);
   }, [selectedExcludePresetIds, savedFilters, setExcludeFilter, setExcludeUseRegex]);
 
   // Save Filter Modal state
-  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
-  const [newFilterName, setNewFilterName] = useState("");
+  // Save Filter Modal state (moved to top)
+
 
   const handleSaveFilter = () => {
     if (!logFilter) {
-       message.warning("Please enter a filter pattern first.");
-       return;
+      message.warning("Please enter a filter pattern first.");
+      return;
     }
     setNewFilterName(logFilter);
     setIsSaveModalOpen(true);
@@ -248,7 +238,7 @@ export default function LogcatView() {
 
     const { regex, invalid } = filterInfo;
     const hasLevelFilter = levelFilter.length > 0;
-    
+
     // Always prefer using the pre-calculated regex if it's valid.
     // This ensures 'Match Case' and 'Whole Word' are respected.
     const useRegexEngine = !invalid && !!regex;
@@ -267,11 +257,11 @@ export default function LogcatView() {
         if (useRegexEngine) {
           // Use the unified regex engine (handles Case and Whole Word correctly)
           if (regex!.test(line)) return true;
-          
+
           // Support for legacy |-separated segments if user explicitly typed | in regex mode
           if (useRegex && logFilter.includes("|")) {
-             // Already handled by the combined regex usually, but keeping for robustness
-             // Actually, the main regex already contains the | if user typed it.
+            // Already handled by the combined regex usually, but keeping for robustness
+            // Actually, the main regex already contains the | if user typed it.
           }
           return false;
         } else {
@@ -434,11 +424,12 @@ export default function LogcatView() {
             placeholder={t("logcat.apps_placeholder")}
             disabled={isLogging}
             allowClear
-            filterOption={(input, option) =>
-              (option?.children as unknown as string)
-                .toLowerCase()
-                .indexOf(input.toLowerCase()) >= 0
-            }
+            filterOption={(input, option) => {
+              const children = option?.children;
+              if (!children) return false;
+              const text = typeof children === 'string' ? children : String(children);
+              return text.toLowerCase().indexOf(input.toLowerCase()) >= 0;
+            }}
           >
             {packages.map((p) => (
               <Option key={p.name} value={p.name}>
@@ -455,8 +446,8 @@ export default function LogcatView() {
           </Select>
           {selectedPackage && (
             <Tooltip title={appRunningStatus ? t("apps.force_stop") : t("apps.launch_app")}>
-              <Button 
-                icon={appRunningStatus ? <StopOutlined /> : <PlayCircleOutlined />} 
+              <Button
+                icon={appRunningStatus ? <StopOutlined /> : <PlayCircleOutlined />}
                 onClick={appRunningStatus ? () => {
                   ForceStopApp(selectedDevice, selectedPackage).then(() => setAppRunningStatus(false));
                 } : handleStartApp}
@@ -498,11 +489,11 @@ export default function LogcatView() {
               value={selectedPresetIds}
               onChange={setSelectedPresetIds}
               optionLabelProp="filterName"
-              options={savedFilters.map(f => ({ 
+              options={savedFilters.map(f => ({
                 label: (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span>{f.name}</span>
-                    <DeleteOutlined 
+                    <DeleteOutlined
                       className="delete-preset-icon"
                       style={{ color: "#999", fontSize: '12px' }}
                       onMouseEnter={(e) => e.currentTarget.style.color = "#ff4d4f"}
@@ -514,7 +505,7 @@ export default function LogcatView() {
                       }}
                     />
                   </div>
-                ), 
+                ),
                 value: f.id,
                 filterName: f.name
               }))}
@@ -523,7 +514,7 @@ export default function LogcatView() {
             />
           </div>
           <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, fontSize: "11px", color: "#666", minWidth: 150 }}>
-             <InfoCircleOutlined /> <span>{t("logcat.pre_filter_info") || "Only matching logs are buffered"}</span>
+            <InfoCircleOutlined /> <span>{t("logcat.pre_filter_info") || "Only matching logs are buffered"}</span>
           </div>
         </div>
 
@@ -538,11 +529,11 @@ export default function LogcatView() {
               value={selectedExcludePresetIds}
               onChange={setSelectedExcludePresetIds}
               optionLabelProp="filterName"
-              options={savedFilters.map(f => ({ 
+              options={savedFilters.map(f => ({
                 label: (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span>{f.name}</span>
-                    <DeleteOutlined 
+                    <DeleteOutlined
                       className="delete-preset-icon"
                       style={{ color: "#999", fontSize: '12px' }}
                       onMouseEnter={(e) => e.currentTarget.style.color = "#ff4d4f"}
@@ -554,7 +545,7 @@ export default function LogcatView() {
                       }}
                     />
                   </div>
-                ), 
+                ),
                 value: f.id,
                 filterName: f.name
               }))}
@@ -563,7 +554,7 @@ export default function LogcatView() {
             />
           </div>
           <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, fontSize: "11px", color: "#ff7875", minWidth: 150 }}>
-             <StopOutlined /> <span>{t("logcat.exclude_filter_info") || "Matching logs will be dropped"}</span>
+            <StopOutlined /> <span>{t("logcat.exclude_filter_info") || "Matching logs will be dropped"}</span>
           </div>
         </div>
 
@@ -657,24 +648,24 @@ export default function LogcatView() {
                 </div>
               }
             />
-             {logFilter && (
-                <div
-                  style={{
-                    position: "absolute", top: "100%", left: 0, fontSize: "10px",
-                    color: filterInfo.invalid ? "#f5222d" : "#888", marginTop: 2,
-                    fontFamily: "monospace", whiteSpace: "nowrap", overflow: "hidden",
-                    textOverflow: "ellipsis", width: "100%", zIndex: 10
-                  }}
-                >
-                  {filterInfo.invalid
-                    ? t("logcat.invalid_regex")
-                    : `${t("logcat.filter_pattern") || "Pattern"}: /${filterInfo.pattern}/${matchCase ? "" : "i"}`}
-                </div>
-              )}
+            {logFilter && (
+              <div
+                style={{
+                  position: "absolute", top: "100%", left: 0, fontSize: "10px",
+                  color: filterInfo.invalid ? "#f5222d" : "#888", marginTop: 2,
+                  fontFamily: "monospace", whiteSpace: "nowrap", overflow: "hidden",
+                  textOverflow: "ellipsis", width: "100%", zIndex: 10
+                }}
+              >
+                {filterInfo.invalid
+                  ? t("logcat.invalid_regex")
+                  : `${t("logcat.filter_pattern") || "Pattern"}: /${filterInfo.pattern}/${matchCase ? "" : "i"}`}
+              </div>
+            )}
           </div>
-          
+
           <div style={{ flexShrink: 0 }}>
-             <Checkbox.Group
+            <Checkbox.Group
               options={[
                 { label: <span style={{ color: getLogColor("E") }}>{t("logcat.level.error")}</span>, value: "E" },
                 { label: <span style={{ color: getLogColor("W") }}>{t("logcat.level.warn")}</span>, value: "W" },
@@ -735,8 +726,8 @@ export default function LogcatView() {
             }}
           />
         )}
-       </div>
-      
+      </div>
+
       {/* Save Filter Modal */}
       <Modal
         title={t("logcat.save_filter")}
@@ -748,9 +739,9 @@ export default function LogcatView() {
         centered
       >
         <div style={{ marginBottom: 8 }}>{t("logcat.enter_filter_name")}</div>
-        <Input 
-          value={newFilterName} 
-          onChange={e => setNewFilterName(e.target.value)} 
+        <Input
+          value={newFilterName}
+          onChange={e => setNewFilterName(e.target.value)}
           placeholder={t("logcat.filter_name_placeholder") || "Filter Name"}
           autoFocus
           onPressEnter={confirmSaveFilter}

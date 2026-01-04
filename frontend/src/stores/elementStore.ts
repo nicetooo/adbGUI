@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
 
 const EventsOn = (window as any).runtime.EventsOn;
 const EventsOff = (window as any).runtime.EventsOff;
@@ -103,9 +104,9 @@ export function findElementAtPoint(node: UINode | null, x: number, y: number): U
   for (const child of node.nodes || []) {
     const found = findElementAtPoint(child, x, y);
     if (found) {
-      const bounds = parseBounds(found.bounds);
-      if (bounds) {
-        const area = (bounds.x2 - bounds.x1) * (bounds.y2 - bounds.y1);
+      const boundsArr = parseBounds(found.bounds);
+      if (boundsArr) {
+        const area = (boundsArr.x2 - boundsArr.x1) * (boundsArr.y2 - boundsArr.y1);
         if (area < bestArea) {
           bestArea = area;
           bestMatch = found;
@@ -373,158 +374,170 @@ interface ElementState {
   subscribeToEvents: () => () => void;
 }
 
-export const useElementStore = create<ElementState>((set, get) => ({
-  // Initial state
-  hierarchy: null,
-  rawXml: null,
-  isLoading: false,
-  lastFetchTime: null,
-  lastFetchDeviceId: null,
-  selectedNode: null,
-  highlightedNode: null,
-  isPickerOpen: false,
-  pickerCallback: null,
+export const useElementStore = create<ElementState>()(
+  immer((set, get) => ({
+    // Initial state
+    hierarchy: null,
+    rawXml: null,
+    isLoading: false,
+    lastFetchTime: null,
+    lastFetchDeviceId: null,
+    selectedNode: null,
+    highlightedNode: null,
+    isPickerOpen: false,
+    pickerCallback: null,
 
-  // Actions
-  fetchHierarchy: async (deviceId: string, force = false) => {
-    const { lastFetchTime, lastFetchDeviceId, rawXml } = get();
+    // Actions
+    fetchHierarchy: async (deviceId: string, force = false) => {
+      const { lastFetchTime, lastFetchDeviceId, rawXml } = get();
 
-    // Cache check: skip if same device and fetched within 2 seconds
-    const now = Date.now();
-    if (!force && lastFetchDeviceId === deviceId && lastFetchTime && now - lastFetchTime < 2000) {
-      return get().hierarchy;
-    }
-
-    set({ isLoading: true });
-    try {
-      const result = await (window as any).go.main.App.GetUIHierarchy(deviceId);
-
-      // Only update if content changed
-      if (result.rawXml !== rawXml) {
-        set({
-          hierarchy: result.root,
-          rawXml: result.rawXml,
-          lastFetchTime: now,
-          lastFetchDeviceId: deviceId,
-          isLoading: false,
-        });
-      } else {
-        set({ isLoading: false, lastFetchTime: now });
+      // Cache check: skip if same device and fetched within 2 seconds
+      const now = Date.now();
+      if (!force && lastFetchDeviceId === deviceId && lastFetchTime && now - lastFetchTime < 2000) {
+        return get().hierarchy;
       }
-      return result.root;
-    } catch (err) {
-      console.error('Failed to fetch UI hierarchy:', err);
-      set({ isLoading: false });
-      throw err;
-    }
-  },
 
-  clearHierarchy: () => {
-    set({
-      hierarchy: null,
-      rawXml: null,
-      selectedNode: null,
-      highlightedNode: null,
-      lastFetchTime: null,
-      lastFetchDeviceId: null,
-    });
-  },
+      set((state: ElementState) => {
+        state.isLoading = true;
+      });
+      try {
+        const result = await (window as any).go.main.App.GetUIHierarchy(deviceId);
 
-  setSelectedNode: (node: UINode | null) => {
-    set({ selectedNode: node });
-  },
-
-  setHighlightedNode: (node: UINode | null) => {
-    set({ highlightedNode: node });
-  },
-
-  openElementPicker: (callback: (selector: ElementSelector | null) => void) => {
-    set({
-      isPickerOpen: true,
-      pickerCallback: callback,
-      selectedNode: null,
-    });
-  },
-
-  closeElementPicker: () => {
-    const { pickerCallback } = get();
-    if (pickerCallback) {
-      pickerCallback(null);
-    }
-    set({
-      isPickerOpen: false,
-      pickerCallback: null,
-      selectedNode: null,
-    });
-  },
-
-  confirmElementPicker: (selector: ElementSelector) => {
-    const { pickerCallback } = get();
-    if (pickerCallback) {
-      pickerCallback(selector);
-    }
-    set({
-      isPickerOpen: false,
-      pickerCallback: null,
-      selectedNode: null,
-    });
-  },
-
-  // Backend element operations
-  clickElement: async (deviceId: string, selector: ElementSelector) => {
-    await (window as any).go.main.App.ClickElement(
-      { Cancelled: false } as any, // context placeholder
-      deviceId,
-      selector,
-      null // use default config
-    );
-  },
-
-  inputText: async (deviceId: string, selector: ElementSelector, text: string) => {
-    await (window as any).go.main.App.InputTextToElement(
-      { Cancelled: false } as any,
-      deviceId,
-      selector,
-      text,
-      false, // clearFirst
-      null
-    );
-  },
-
-  waitForElement: async (deviceId: string, selector: ElementSelector, timeout = 10000) => {
-    await (window as any).go.main.App.WaitForElement(
-      { Cancelled: false } as any,
-      deviceId,
-      selector,
-      timeout
-    );
-  },
-
-  getElementProperties: async (deviceId: string, selector: ElementSelector) => {
-    return await (window as any).go.main.App.GetElementProperties(deviceId, selector);
-  },
-
-  // Event subscription
-  subscribeToEvents: () => {
-    // Listen for UI hierarchy updates from other sources
-    const handleHierarchyUpdate = (data: any) => {
-      if (data.root) {
-        set({
-          hierarchy: data.root,
-          rawXml: data.rawXml,
-          lastFetchTime: Date.now(),
-          lastFetchDeviceId: data.deviceId,
+        // Only update if content changed
+        if (result.rawXml !== rawXml) {
+          set((state: ElementState) => {
+            state.hierarchy = result.root;
+            state.rawXml = result.rawXml;
+            state.lastFetchTime = now;
+            state.lastFetchDeviceId = deviceId;
+            state.isLoading = false;
+          });
+        } else {
+          set((state: ElementState) => {
+            state.isLoading = false;
+            state.lastFetchTime = now;
+          });
+        }
+        return result.root;
+      } catch (err) {
+        console.error('Failed to fetch UI hierarchy:', err);
+        set((state: ElementState) => {
+          state.isLoading = false;
         });
+        throw err;
       }
-    };
+    },
 
-    EventsOn('ui-hierarchy-updated', handleHierarchyUpdate);
+    clearHierarchy: () => {
+      set((state: ElementState) => {
+        state.hierarchy = null;
+        state.rawXml = null;
+        state.selectedNode = null;
+        state.highlightedNode = null;
+        state.lastFetchTime = null;
+        state.lastFetchDeviceId = null;
+      });
+    },
 
-    return () => {
-      EventsOff('ui-hierarchy-updated');
-    };
-  },
-}));
+    setSelectedNode: (node: UINode | null) => {
+      set((state: ElementState) => {
+        state.selectedNode = node;
+      });
+    },
 
-// Export helper functions for use in components
+    setHighlightedNode: (node: UINode | null) => {
+      set((state: ElementState) => {
+        state.highlightedNode = node;
+      });
+    },
+
+    openElementPicker: (callback: (selector: ElementSelector | null) => void) => {
+      set((state: ElementState) => {
+        state.isPickerOpen = true;
+        state.pickerCallback = callback;
+        state.selectedNode = null;
+      });
+    },
+
+    closeElementPicker: () => {
+      const { pickerCallback } = get();
+      if (pickerCallback) {
+        pickerCallback(null);
+      }
+      set((state: ElementState) => {
+        state.isPickerOpen = false;
+        state.pickerCallback = null;
+        state.selectedNode = null;
+      });
+    },
+
+    confirmElementPicker: (selector: ElementSelector) => {
+      const { pickerCallback } = get();
+      if (pickerCallback) {
+        pickerCallback(selector);
+      }
+      set((state: ElementState) => {
+        state.isPickerOpen = false;
+        state.pickerCallback = null;
+        state.selectedNode = null;
+      });
+    },
+
+    // Backend element operations
+    clickElement: async (deviceId: string, selector: ElementSelector) => {
+      await (window as any).go.main.App.ClickElement(
+        { Cancelled: false } as any, // context placeholder
+        deviceId,
+        selector,
+        null // use default config
+      );
+    },
+
+    inputText: async (deviceId: string, selector: ElementSelector, text: string) => {
+      await (window as any).go.main.App.InputTextToElement(
+        { Cancelled: false } as any,
+        deviceId,
+        selector,
+        text,
+        false, // clearFirst
+        null
+      );
+    },
+
+    waitForElement: async (deviceId: string, selector: ElementSelector, timeout = 10000) => {
+      await (window as any).go.main.App.WaitForElement(
+        { Cancelled: false } as any,
+        deviceId,
+        selector,
+        timeout
+      );
+    },
+
+    getElementProperties: async (deviceId: string, selector: ElementSelector) => {
+      return await (window as any).go.main.App.GetElementProperties(deviceId, selector);
+    },
+
+    // Event subscription
+    subscribeToEvents: () => {
+      // Listen for UI hierarchy updates from other sources
+      const handleHierarchyUpdate = (data: any) => {
+        if (data.root) {
+          set((state: ElementState) => {
+            state.hierarchy = data.root;
+            state.rawXml = data.rawXml;
+            state.lastFetchTime = Date.now();
+            state.lastFetchDeviceId = data.deviceId;
+          });
+        }
+      };
+
+      EventsOn('ui-hierarchy-updated', handleHierarchyUpdate);
+
+      return () => {
+        EventsOff('ui-hierarchy-updated');
+      };
+    },
+  }))
+);
+
 export { parseBounds as parseElementBounds };

@@ -1,17 +1,80 @@
 package main
 
 import (
+	"fmt"
 	"os/exec"
+	"sync"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"Gaze/proxy"
 )
 
+// proxyDeviceId tracks which device the proxy is monitoring for session events
+var (
+	proxyDeviceId string
+	proxyDeviceMu sync.RWMutex
+)
+
+// SetProxyDevice sets which device the proxy is monitoring (for session events)
+func (a *App) SetProxyDevice(deviceId string) {
+	proxyDeviceMu.Lock()
+	proxyDeviceId = deviceId
+	proxyDeviceMu.Unlock()
+}
+
+// GetProxyDevice returns the currently monitored device
+func (a *App) GetProxyDevice() string {
+	proxyDeviceMu.RLock()
+	defer proxyDeviceMu.RUnlock()
+	return proxyDeviceId
+}
+
 // StartProxy starts the internal HTTP/HTTPS proxy
 func (a *App) StartProxy(port int) (string, error) {
 	err := proxy.GetProxy().Start(port, func(req proxy.RequestLog) {
+		// Emit to UI
 		wailsRuntime.EventsEmit(a.ctx, "proxy_request", req)
+
+		// Emit to session (only for completed requests with status code, skip partial updates)
+		if req.StatusCode > 0 && !req.PartialUpdate {
+			proxyDeviceMu.RLock()
+			deviceId := proxyDeviceId
+			proxyDeviceMu.RUnlock()
+
+			if deviceId != "" {
+				// Filter out static resources - only show API requests in timeline
+				if isStaticResource(req.URL, req.ContentType) {
+					return
+				}
+
+				// Determine event type and level
+				eventType := "network_request"
+				level := "info"
+				if req.StatusCode >= 400 && req.StatusCode < 500 {
+					level = "warn"
+				} else if req.StatusCode >= 500 {
+					level = "error"
+				}
+
+				title := fmt.Sprintf("%s %s → %d", req.Method, req.URL, req.StatusCode)
+				if len(title) > 100 {
+					title = title[:97] + "..."
+				}
+
+				a.EmitSessionEvent(deviceId, eventType, "network", level, title,
+					map[string]interface{}{
+						"id":          req.Id,
+						"method":      req.Method,
+						"url":         req.URL,
+						"statusCode":  req.StatusCode,
+						"contentType": req.ContentType,
+						"bodySize":    req.BodySize,
+						"isHttps":     req.IsHTTPS,
+						"isWs":        req.IsWs,
+					})
+			}
+		}
 	})
 	if err != nil {
 		return "", err
@@ -89,4 +152,117 @@ func (a *App) InstallProxyCert(deviceId string) (string, error) {
 // SetProxyLatency sets the artificial latency in milliseconds
 func (a *App) SetProxyLatency(latencyMs int) {
 	proxy.GetProxy().SetLatency(latencyMs)
+}
+
+// isStaticResource checks if a request is for a static resource (image, css, js, font, etc.)
+// Returns true if it should be filtered out from the timeline
+func isStaticResource(url, contentType string) bool {
+	// Check by content type first (most reliable)
+	if contentType != "" {
+		staticContentTypes := []string{
+			"image/",
+			"text/css",
+			"text/javascript",
+			"application/javascript",
+			"application/x-javascript",
+			"font/",
+			"application/font",
+			"application/x-font",
+			"video/",
+			"audio/",
+		}
+
+		// Normalize content type (remove charset, etc.)
+		ctLower := contentType
+		for idx := 0; idx < len(contentType); idx++ {
+			if contentType[idx] == ';' {
+				ctLower = contentType[:idx]
+				break
+			}
+		}
+
+		for _, ct := range staticContentTypes {
+			if len(ctLower) >= len(ct) {
+				match := true
+				for j := 0; j < len(ct); j++ {
+					c1 := ctLower[j]
+					c2 := ct[j]
+					if c1 >= 'A' && c1 <= 'Z' {
+						c1 += 32
+					}
+					if c1 != byte(c2) {
+						match = false
+						break
+					}
+				}
+				if match && (len(ctLower) == len(ct) || ctLower[len(ct)] == '/' || ctLower[len(ct)] == ';') {
+					return true
+				}
+			}
+		}
+	}
+
+	// Check by URL extension as fallback
+	// Extract path part (before ? or #)
+	pathEnd := len(url)
+	for i := 0; i < len(url); i++ {
+		if url[i] == '?' || url[i] == '#' {
+			pathEnd = i
+			break
+		}
+	}
+
+	if pathEnd == 0 {
+		return false
+	}
+
+	path := url[:pathEnd]
+
+	// Find the last dot in the path
+	lastDot := -1
+	for i := len(path) - 1; i >= 0; i-- {
+		if path[i] == '.' {
+			lastDot = i
+			break
+		}
+		if path[i] == '/' {
+			// No extension found before path separator
+			break
+		}
+	}
+
+	if lastDot == -1 || lastDot == len(path)-1 {
+		return false
+	}
+
+	// Extract extension (including the dot)
+	ext := path[lastDot:]
+
+	// Convert to lowercase
+	extLower := ""
+	for i := 0; i < len(ext); i++ {
+		c := ext[i]
+		if c >= 'A' && c <= 'Z' {
+			extLower += string(c + 32)
+		} else {
+			extLower += string(c)
+		}
+	}
+
+	// Check against known static extensions
+	staticExtensions := []string{
+		".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".ico", ".bmp",
+		".css", ".js", ".mjs",
+		".woff", ".woff2", ".ttf", ".eot", ".otf",
+		".mp4", ".webm", ".ogg", ".mp3", ".wav",
+		".pdf", ".zip", ".tar", ".gz",
+	}
+
+	for _, staticExt := range staticExtensions {
+		if extLower == staticExt {
+			return true
+		}
+	}
+
+	return false
 }

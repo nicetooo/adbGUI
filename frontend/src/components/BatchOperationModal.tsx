@@ -30,7 +30,7 @@ import { useDeviceStore, Device, BatchOperation, BatchResult } from "../stores";
 const { Text } = Typography;
 
 interface BatchOperationModalProps {
-  visible: boolean;
+  open: boolean;
   onClose: () => void;
   selectedDeviceIds: string[];
   devices: Device[];
@@ -39,7 +39,7 @@ interface BatchOperationModalProps {
 type OperationType = BatchOperation['type'];
 
 const BatchOperationModal: React.FC<BatchOperationModalProps> = ({
-  visible,
+  open,
   onClose,
   selectedDeviceIds,
   devices,
@@ -65,18 +65,18 @@ const BatchOperationModal: React.FC<BatchOperationModalProps> = ({
 
   // Subscribe to batch progress events
   useEffect(() => {
-    if (visible) {
+    if (open) {
       const unsubscribe = subscribeToBatchEvents();
       return () => unsubscribe();
     }
-  }, [visible, subscribeToBatchEvents]);
+  }, [open, subscribeToBatchEvents]);
 
   // Reset state when modal opens
   useEffect(() => {
-    if (visible) {
+    if (open) {
       setExecuted(false);
     }
-  }, [visible]);
+  }, [open]);
 
   const getDeviceLabel = (deviceId: string) => {
     const device = devices.find(d => d.id === deviceId);
@@ -271,7 +271,7 @@ const BatchOperationModal: React.FC<BatchOperationModalProps> = ({
   return (
     <Modal
       title={t("batch.title") || "Batch Operation"}
-      open={visible}
+      open={open}
       onCancel={handleClose}
       width={600}
       footer={[

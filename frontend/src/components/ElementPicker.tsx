@@ -33,7 +33,7 @@ import { useElementStore, type ElementSelector } from "../stores/elementStore";
 export type { ElementSelector } from "../stores/elementStore";
 
 interface ElementPickerProps {
-  visible: boolean;
+  open: boolean;
   onSelect: (selector: ElementSelector) => void;
   onCancel: () => void;
 }
@@ -129,7 +129,7 @@ const generateAllSelectors = (node: any): ElementSelector[] => {
 };
 
 const ElementPicker: React.FC<ElementPickerProps> = ({
-  visible,
+  open,
   onSelect,
   onCancel,
 }) => {
@@ -413,12 +413,12 @@ const ElementPicker: React.FC<ElementPickerProps> = ({
 
   // Refresh hierarchy when modal opens
   useEffect(() => {
-    if (visible && selectedDevice) {
+    if (open && selectedDevice) {
       fetchUIHierarchy(selectedDevice);
       setSelectedNode(null);
       setSelectedSelectorIndex(0);
     }
-  }, [visible, selectedDevice]);
+  }, [open, selectedDevice]);
 
   const availableSelectors = useMemo(() => {
     if (!selectedNode) return [];
@@ -559,7 +559,7 @@ const ElementPicker: React.FC<ElementPickerProps> = ({
           {t("workflow.element_picker")}
         </Space>
       }
-      open={visible}
+      open={open}
       onCancel={onCancel}
       width="85%"
       styles={{ body: { padding: 0 } }}
