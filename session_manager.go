@@ -347,7 +347,7 @@ func (a *App) StartBatchSync() {
 		return // Already running
 	}
 
-	batchSyncTicker = time.NewTicker(100 * time.Millisecond)
+	batchSyncTicker = time.NewTicker(1 * time.Second)
 	batchSyncStop = make(chan struct{})
 
 	go func() {

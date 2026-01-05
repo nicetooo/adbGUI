@@ -211,41 +211,55 @@ export const useLogcatStore = create<LogcatState>()(
           const filteredLines: string[] = [];
 
           for (const event of logEvents) {
-            const line = event.detail?.raw || event.title;
-            if (!line) continue;
-
-            let shouldKeep = true;
-
-            // 1. Pre-filter (Include)
-            if (preFilter.trim()) {
-              try {
-                if (preUseRegex) {
-                  const regex = new RegExp(preFilter, 'i');
-                  if (!regex.test(line)) shouldKeep = false;
-                } else {
-                  if (!line.toLowerCase().includes(preFilter.toLowerCase())) shouldKeep = false;
-                }
-              } catch {
-                if (!line.toLowerCase().includes(preFilter.toLowerCase())) shouldKeep = false;
-              }
+            let linesToProcess: string[] = [];
+            
+            if (Array.isArray(event.detail)) {
+                // Aggregated event from backend
+                linesToProcess = event.detail.map((d: any) => d.raw).filter(Boolean);
+            } else if (event.detail && event.detail.raw) {
+                // Single event (legacy)
+                linesToProcess = [event.detail.raw];
+            } else {
+                // Fallback for title-only events
+                linesToProcess = [event.title];
             }
 
-            // 2. Exclude filter (Negative)
-            if (shouldKeep && excludeFilter.trim()) {
-              try {
-                if (excludeUseRegex) {
-                  const regex = new RegExp(excludeFilter, 'i');
-                  if (regex.test(line)) shouldKeep = false;
-                } else {
-                  if (line.toLowerCase().includes(excludeFilter.toLowerCase())) shouldKeep = false;
-                }
-              } catch {
-                if (line.toLowerCase().includes(excludeFilter.toLowerCase())) shouldKeep = false;
-              }
-            }
+            for (const line of linesToProcess) {
+                if (!line) continue;
 
-            if (shouldKeep) {
-              filteredLines.push(line);
+                let shouldKeep = true;
+
+                // 1. Pre-filter (Include)
+                if (preFilter.trim()) {
+                  try {
+                    if (preUseRegex) {
+                      const regex = new RegExp(preFilter, 'i');
+                      if (!regex.test(line)) shouldKeep = false;
+                    } else {
+                      if (!line.toLowerCase().includes(preFilter.toLowerCase())) shouldKeep = false;
+                    }
+                  } catch {
+                    if (!line.toLowerCase().includes(preFilter.toLowerCase())) shouldKeep = false;
+                  }
+                }
+
+                // 2. Exclude filter (Negative)
+                if (shouldKeep && excludeFilter.trim()) {
+                  try {
+                    if (excludeUseRegex) {
+                      const regex = new RegExp(excludeFilter, 'i');
+                      if (regex.test(line)) shouldKeep = false;
+                    } else {
+                      if (line.toLowerCase().includes(excludeFilter.toLowerCase())) shouldKeep = false;
+                    }
+                  } catch {
+                    if (line.toLowerCase().includes(excludeFilter.toLowerCase())) shouldKeep = false;
+                  }
+                }
+
+                if (shouldKeep) {
+                  filteredLines.push(line);
+                }
             }
           }
 

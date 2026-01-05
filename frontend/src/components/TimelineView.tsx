@@ -507,6 +507,7 @@ const TimelineView = () => {
 
                   // Network Event - Tabbed View
                   if (selectedEvent.category === 'network') {
+                    // ... (keep existing network logic)
                     const d = selectedEvent.detail as any;
                     const items = [
                       {
@@ -575,6 +576,60 @@ const TimelineView = () => {
                       }
                     ];
                     return <Tabs items={items} size="small" style={{ marginTop: 0 }} />;
+                  }
+
+                  // Aggregated Logcat View
+                  if (Array.isArray(selectedEvent.detail) && selectedEvent.type === 'logcat') {
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <Text type="secondary" style={{ fontSize: 11 }}>Aggregated Logs ({selectedEvent.detail.length})</Text>
+                        </div>
+                        <div style={{
+                          flex: 1,
+                          overflow: 'auto',
+                          background: token.colorFillAlter,
+                          borderRadius: 6,
+                          border: `1px solid ${token.colorBorderSecondary}`,
+                        }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, fontFamily: 'Menlo, Monaco, Consolas, monospace' }}>
+                            <thead style={{ position: 'sticky', top: 0, background: token.colorFillAlter, zIndex: 1 }}>
+                              <tr>
+                                <th style={{ textAlign: 'left', padding: '4px 8px', color: token.colorTextSecondary, fontWeight: 500, borderBottom: `1px solid ${token.colorBorderSecondary}`, whiteSpace: 'nowrap' }}>Time</th>
+                                <th style={{ textAlign: 'left', padding: '4px 8px', color: token.colorTextSecondary, fontWeight: 500, borderBottom: `1px solid ${token.colorBorderSecondary}`, whiteSpace: 'nowrap' }}>Level/Tag</th>
+                                <th style={{ textAlign: 'left', padding: '4px 8px', color: token.colorTextSecondary, fontWeight: 500, borderBottom: `1px solid ${token.colorBorderSecondary}` }}>Message</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {selectedEvent.detail.map((log: any, idx: number) => {
+                                // Extract time provided it matches standard format (MM-DD HH:MM:SS.ms)
+                                // Standard `logcat -v time` format: 01-01 00:00:00.000
+                                const timeStr = log.raw ? log.raw.substring(6, 18) : '';
+
+                                return (
+                                  <tr key={idx} style={{ background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)' }}>
+                                    <td style={{ padding: '2px 8px', verticalAlign: 'top', whiteSpace: 'nowrap', color: token.colorTextTertiary }}>
+                                      {timeStr}
+                                    </td>
+                                    <td style={{ padding: '2px 8px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                                      <span style={{
+                                        color: levelStyles[log.level]?.color,
+                                        fontWeight: log.level === 'E' || log.level === 'W' ? 600 : 400
+                                      }}>
+                                        {log.level}/{log.tag}
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: '2px 8px', verticalAlign: 'top', wordBreak: 'break-all', color: token.colorText }}>
+                                      {log.message}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
                   }
 
                   // Default - JSON View

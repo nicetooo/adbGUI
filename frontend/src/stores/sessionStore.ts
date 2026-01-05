@@ -156,27 +156,8 @@ export const useSessionStore = create<SessionState>()(
     loadTimeline: async (sessionId: string, filter?: SessionFilter) => {
       const timeline = await (window as any).go.main.App.GetSessionTimeline(sessionId, filter || null);
       
-      // Deduplicate timeline (Network events may have updates)
-      const dedupedTimeline: SessionEvent[] = [];
-      const idMap = new Map<string, number>(); // RequestId -> Index
-
-      (timeline || []).forEach((event: SessionEvent) => {
-        const reqId = event.category === 'network' ? (event.detail as any)?.id : undefined;
-        if (reqId) {
-          if (idMap.has(reqId)) {
-             // Replace existing event with newer version
-             dedupedTimeline[idMap.get(reqId)!] = event;
-          } else {
-             dedupedTimeline.push(event);
-             idMap.set(reqId, dedupedTimeline.length - 1);
-          }
-        } else {
-          dedupedTimeline.push(event);
-        }
-      });
-
       set((state: SessionState) => {
-        state.timeline = dedupedTimeline;
+        state.timeline = timeline || [];
         state.activeSessionId = sessionId;
       });
     },
@@ -185,7 +166,6 @@ export const useSessionStore = create<SessionState>()(
     clearTimeline: () => {
       set((state: SessionState) => {
         state.timeline = [];
-        state.activeSessionId = null;
       });
     },
 
@@ -249,6 +229,14 @@ export const useSessionStore = create<SessionState>()(
       // Handle batch of session events (unified event source)
       const handleSessionEventsBatch = (events: SessionEvent[]) => {
         const { activeSessionId } = get();
+        
+        if (events.length > 0) {
+            // Check for mismatch
+            // const firstSessionId = events[0].sessionId;
+            // if (activeSessionId && firstSessionId !== activeSessionId) {
+            //     console.warn(`[SessionStore] Event mismatch! Active: ${activeSessionId}, Event: ${firstSessionId}`);
+            // }
+        }
 
         // Only add to timeline if it's for the active session
         const matchingEvents = events.filter(e => e.sessionId === activeSessionId);
@@ -266,13 +254,12 @@ export const useSessionStore = create<SessionState>()(
                   );
                   
                   if (existingIndex !== -1) {
-                      // Update existing event
                       state.timeline[existingIndex] = newEvent;
                   } else {
                       state.timeline.push(newEvent);
                   }
                } else {
-                   // Not a network event or no ID, just push
+                   // Default push
                    state.timeline.push(newEvent);
                }
             });

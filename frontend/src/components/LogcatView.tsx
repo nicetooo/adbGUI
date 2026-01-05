@@ -343,46 +343,77 @@ export default function LogcatView() {
     const color = getLogColor(level);
     const { highlighter, invalid } = filterInfo;
 
-    if (!logFilter || invalid || !highlighter) {
-      return <span style={{ color }}>{text}</span>;
+    // Parse logcat -v time format: "01-04 12:34:56.789 D/Tag( 1234): message"
+    // Regex to capture: Time, Level, Tag, Message
+    // Adjusted simplified parsing for performance
+    const match = text.match(/^(\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s+([VDIWEF])\/(.*?)\(\s*\d+\):\s*(.*)$/);
+
+    let time = "";
+    let levelTag = "";
+    let message = text;
+
+    if (match) {
+      time = match[1].substring(6); // Remove Date, keep Time (HH:mm:ss.ms)
+      levelTag = `${match[2]}/${match[3].trim()}`;
+      message = match[4];
+    } else {
+      // Fallback for non-standard lines
+      levelTag = level;
     }
 
-    try {
+    const renderHighlight = (content: string) => {
+      if (!logFilter || invalid || !highlighter) return content;
+
       const parts: React.ReactNode[] = [];
       let lastIndex = 0;
-      let match;
+      let m;
       const activeHighlighter = highlighter;
       activeHighlighter.lastIndex = 0;
 
-      while ((match = activeHighlighter.exec(text)) !== null) {
-        if (match.index > lastIndex) {
-          parts.push(text.substring(lastIndex, match.index));
+      while ((m = activeHighlighter.exec(content)) !== null) {
+        if (m.index > lastIndex) {
+          parts.push(content.substring(lastIndex, m.index));
         }
         parts.push(
-          <mark
-            key={match.index}
-            style={{
-              backgroundColor: "#ffcc00",
-              color: "#000",
-              borderRadius: "2px",
-              padding: "0 1px",
-            }}
-          >
-            {match[0]}
+          <mark key={m.index} style={{ backgroundColor: "#ffcc00", color: "#000", borderRadius: "2px", padding: "0 1px" }}>
+            {m[0]}
           </mark>
         );
         lastIndex = activeHighlighter.lastIndex;
-        if (match[0].length === 0) activeHighlighter.lastIndex++;
+        if (m[0].length === 0) activeHighlighter.lastIndex++;
       }
-
-      if (lastIndex < text.length) {
-        parts.push(text.substring(lastIndex));
+      if (lastIndex < content.length) {
+        parts.push(content.substring(lastIndex));
       }
+      return parts.length > 0 ? parts : content;
+    };
 
-      return <span style={{ color }}>{parts.length > 0 ? parts : text}</span>;
-    } catch (e) {
-      return <span style={{ color }}>{text}</span>;
-    }
+    return (
+      <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+        {time && (
+          <span style={{
+            flexBasis: 90, flexShrink: 0, color: '#666',
+            fontFamily: 'Menlo, Monaco, Consolas, monospace', fontSize: 11
+          }}>
+            {time}
+          </span>
+        )}
+        <span style={{
+          flexBasis: 140, flexShrink: 0, color: color, fontWeight: 500,
+          fontFamily: 'Menlo, Monaco, Consolas, monospace', fontSize: 11,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+        }}>
+          {renderHighlight(levelTag)}
+        </span>
+        <span style={{
+          flex: 1, color: token.colorText,
+          fontFamily: 'Menlo, Monaco, Consolas, monospace', fontSize: 11,
+          wordBreak: 'break-all'
+        }}>
+          {renderHighlight(message)}
+        </span>
+      </div>
+    );
   };
 
   const handleRemovePreset = (id: string) => {

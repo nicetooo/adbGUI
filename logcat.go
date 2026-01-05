@@ -42,6 +42,7 @@ func logcatLevelToSessionLevel(androidLevel string) string {
 }
 
 // StartLogcat starts the logcat stream for a device
+// StartLogcat starts the logcat stream for a device
 func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex bool, excludeFilter string, excludeUseRegex bool) error {
 	a.updateLastActive(deviceId)
 
@@ -179,8 +180,13 @@ func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex b
 		}()
 	}
 
+	// Channel for parsed log events
+	logEvtChan := make(chan map[string]interface{}, 1000)
+
+	// Reader & Filter Routine
 	go func() {
 		reader := bufio.NewReader(stdout)
+		defer close(logEvtChan)
 
 		for {
 			line, err := reader.ReadString('\n')
@@ -224,18 +230,104 @@ func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex b
 				}
 			}
 
-			// Emit ALL logs to Session (no rate limiting - batch sync handles performance)
 			if level, tag, message, ok := parseLogcatLine(line); ok {
-				sessionLevel := logcatLevelToSessionLevel(level)
-				a.EmitSessionEvent(deviceId, "logcat", "log", sessionLevel,
-					fmt.Sprintf("[%s] %s", tag, message),
-					map[string]interface{}{
-						"tag":         tag,
-						"message":     message,
-						"level":       level,
-						"packageName": packageName,
-						"raw":         strings.TrimSpace(line),
-					})
+				logEvtChan <- map[string]interface{}{
+					"tag":         tag,
+					"message":     message,
+					"level":       level,
+					"packageName": packageName,
+					"raw":         strings.TrimSpace(line),
+				}
+			}
+		}
+	}()
+
+	// Aggregator & Emitter Routine
+	go func() {
+		var buffer []map[string]interface{}
+		var lastTag string
+		var lastLevel string
+		var lastActivityTime time.Time
+
+		// Regular ticker as requested (300ms)
+		flushTicker := time.NewTicker(300 * time.Millisecond)
+		defer flushTicker.Stop()
+
+		flush := func() {
+			if len(buffer) == 0 {
+				return
+			}
+
+			sessionLevel := logcatLevelToSessionLevel(lastLevel)
+			title := fmt.Sprintf("[%s] %s", lastTag, buffer[0]["message"])
+
+			if len(buffer) > 1 {
+				title = fmt.Sprintf("Logcat Output (%d entries) - %s", len(buffer), lastTag)
+			}
+
+			// Emit complete aggregated event
+			a.EmitSessionEvent(deviceId, "logcat", "log", sessionLevel, title, buffer)
+
+			// Clear buffer
+			buffer = nil
+		}
+
+		for {
+			select {
+			case evt, ok := <-logEvtChan:
+				if !ok {
+					flush()
+					return
+				}
+
+				tag := evt["tag"].(string)
+				level := evt["level"].(string)
+				now := time.Now()
+
+				// Flush IMMEDIATELY if Tag or Level changes
+				// This ensures we don't mix different types
+				if len(buffer) > 0 {
+					if tag != lastTag || level != lastLevel {
+						flush()
+					}
+				}
+
+				if len(buffer) == 0 {
+					lastTag = tag
+					lastLevel = level
+				}
+
+				buffer = append(buffer, evt)
+				lastActivityTime = now
+
+				// Safety valve: Flush if buffer gets massive (e.g. infinite loop of same log)
+				if len(buffer) >= 2000 {
+					flush()
+				}
+
+			case <-flushTicker.C:
+				// Ticker fires every 300ms.
+				// User requirement: "If aggregating (active), wait. If done/idle, flush."
+
+				// If buffer is empty, nothing to do.
+				if len(buffer) == 0 {
+					continue
+				}
+
+				// Check if we are "active"
+				// If we received a log recently (e.g. < 100ms ago), we assume we are in the middle of a burst.
+				// In this case, we SKIP the timer flush to avoid splitting the burst.
+				timeSinceLastLog := time.Since(lastActivityTime)
+				if timeSinceLastLog < 100*time.Millisecond {
+					continue
+				}
+
+				// If we haven't received logs for >100ms, assume the specific aggregation "block" has finished (paused).
+				flush()
+
+			case <-ctx.Done():
+				flush()
+				return
 			}
 		}
 	}()
