@@ -36,6 +36,10 @@ type DeviceMonitor struct {
 	// Logcat 监听 (用于应用事件)
 	logcatCmd    *exec.Cmd
 	logcatCancel context.CancelFunc
+
+	// Touch 事件监听
+	touchCmd    *exec.Cmd
+	touchCancel context.CancelFunc
 }
 
 // BatteryState 电池状态
@@ -89,6 +93,9 @@ func (m *DeviceMonitor) Start() {
 
 	// 启动 logcat 监听应用事件
 	go m.watchAppEvents()
+
+	// 启动触摸事件监听
+	go m.watchTouchEvents()
 }
 
 // Stop 停止监控
@@ -99,6 +106,12 @@ func (m *DeviceMonitor) Stop() {
 	}
 	if m.logcatCmd != nil && m.logcatCmd.Process != nil {
 		_ = m.logcatCmd.Process.Kill()
+	}
+	if m.touchCancel != nil {
+		m.touchCancel()
+	}
+	if m.touchCmd != nil && m.touchCmd.Process != nil {
+		_ = m.touchCmd.Process.Kill()
 	}
 }
 
@@ -253,6 +266,7 @@ func (m *DeviceMonitor) checkCurrentActivity() {
 
 // watchAppEvents 监听应用事件 (崩溃、ANR 等)
 func (m *DeviceMonitor) watchAppEvents() {
+	log.Printf("[DeviceMonitor] watchAppEvents starting for device: %s", m.deviceID)
 	ctx, cancel := context.WithCancel(m.ctx)
 	m.logcatCancel = cancel
 
@@ -261,32 +275,45 @@ func (m *DeviceMonitor) watchAppEvents() {
 	_ = clearCmd.Run()
 
 	// 监听关键事件
-	// ActivityManager: 应用启动/停止
+	// ActivityTaskManager: Activity 启动/显示 (Android 10+)
+	// ActivityManager: 应用启动/停止 (旧版本)
 	// AndroidRuntime: 崩溃
 	// ANRManager: ANR
 	cmd := exec.CommandContext(ctx, m.app.adbPath, "-s", m.deviceID, "logcat",
 		"-v", "time",
-		"ActivityManager:I", "AndroidRuntime:E", "ANRManager:E", "*:S")
+		"ActivityTaskManager:I", "ActivityManager:I", "AndroidRuntime:E", "ANRManager:E", "*:S")
 	m.logcatCmd = cmd
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		log.Printf("[DeviceMonitor] watchAppEvents stdout pipe error: %v", err)
 		return
 	}
 
 	if err := cmd.Start(); err != nil {
+		log.Printf("[DeviceMonitor] watchAppEvents start error: %v", err)
 		return
 	}
 
+	log.Printf("[DeviceMonitor] watchAppEvents logcat started successfully")
+
 	reader := bufio.NewReader(stdout)
+	lineCount := 0
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
+			log.Printf("[DeviceMonitor] watchAppEvents read error: %v", err)
 			break
+		}
+
+		lineCount++
+		if lineCount <= 5 || lineCount%100 == 0 {
+			log.Printf("[DeviceMonitor] watchAppEvents line %d: %s", lineCount, strings.TrimSpace(line))
 		}
 
 		m.processAppLogLine(line)
 	}
+	log.Printf("[DeviceMonitor] watchAppEvents ended, total lines: %d", lineCount)
 }
 
 // processAppLogLine 处理应用相关日志
@@ -295,16 +322,19 @@ func (m *DeviceMonitor) processAppLogLine(line string) {
 
 	// 检测应用启动
 	if strings.Contains(line, "START u0") && strings.Contains(line, "cmp=") {
+		log.Printf("[DeviceMonitor] Detected START: %s", line)
 		// 解析 cmp=pkg/activity
 		if match := regexp.MustCompile(`cmp=([^/]+)/([^\s}]+)`).FindStringSubmatch(line); len(match) >= 3 {
 			pkg := match[1]
 			activity := match[2]
+			log.Printf("[DeviceMonitor] Emitting activity_start: %s/%s", pkg, activity)
 			m.emitActivityEvent(pkg, activity, "start")
 		}
 	}
 
 	// 检测 Activity 恢复
 	if strings.Contains(line, "Displayed") {
+		log.Printf("[DeviceMonitor] Detected Displayed: %s", line)
 		if match := regexp.MustCompile(`Displayed ([^/]+)/([^\s:]+)`).FindStringSubmatch(line); len(match) >= 3 {
 			pkg := match[1]
 			activity := match[2]
@@ -315,6 +345,7 @@ func (m *DeviceMonitor) processAppLogLine(line string) {
 					launchTime = t
 				}
 			}
+			log.Printf("[DeviceMonitor] Emitting activity_displayed: %s/%s (%dms)", pkg, activity, launchTime)
 			m.emitActivityDisplayed(pkg, activity, launchTime)
 		}
 	}
@@ -337,6 +368,144 @@ func (m *DeviceMonitor) processAppLogLine(line string) {
 			m.emitProcessDied(match[1], match[2])
 		}
 	}
+}
+
+// ========================================
+// Touch Events via getevent
+// ========================================
+
+// watchTouchEvents 监听触摸事件
+func (m *DeviceMonitor) watchTouchEvents() {
+	log.Printf("[DeviceMonitor] watchTouchEvents starting for device: %s", m.deviceID)
+	ctx, cancel := context.WithCancel(m.ctx)
+	m.touchCancel = cancel
+
+	// 使用 getevent 监听触摸事件
+	// -l: 使用标签而不是数字
+	// -t: 显示时间戳
+	cmd := exec.CommandContext(ctx, m.app.adbPath, "-s", m.deviceID, "shell", "getevent", "-lt")
+	m.touchCmd = cmd
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Printf("[DeviceMonitor] watchTouchEvents stdout pipe error: %v", err)
+		return
+	}
+
+	if err := cmd.Start(); err != nil {
+		log.Printf("[DeviceMonitor] watchTouchEvents start error: %v", err)
+		return
+	}
+
+	log.Printf("[DeviceMonitor] watchTouchEvents getevent started successfully")
+
+	reader := bufio.NewReader(stdout)
+	var currentTouch *touchState
+	lineCount := 0
+
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			log.Printf("[DeviceMonitor] watchTouchEvents read error: %v", err)
+			break
+		}
+
+		lineCount++
+		line = strings.TrimSpace(line)
+
+		// 解析触摸事件
+		// 格式: [timestamp] /dev/input/eventX: EV_ABS ABS_MT_POSITION_X value
+		if strings.Contains(line, "ABS_MT_POSITION_X") {
+			x := parseTouchValue(line)
+			if currentTouch == nil {
+				currentTouch = &touchState{}
+			}
+			currentTouch.x = x
+		} else if strings.Contains(line, "ABS_MT_POSITION_Y") {
+			y := parseTouchValue(line)
+			if currentTouch == nil {
+				currentTouch = &touchState{}
+			}
+			currentTouch.y = y
+		} else if strings.Contains(line, "BTN_TOUCH") && strings.Contains(line, "DOWN") {
+			if currentTouch == nil {
+				currentTouch = &touchState{}
+			}
+			currentTouch.action = "down"
+			currentTouch.timestamp = time.Now().UnixMilli()
+		} else if strings.Contains(line, "BTN_TOUCH") && strings.Contains(line, "UP") {
+			if currentTouch != nil && currentTouch.action == "down" {
+				// 触摸抬起，发送完整的触摸事件
+				duration := time.Now().UnixMilli() - currentTouch.timestamp
+				m.emitTouchEvent(currentTouch.x, currentTouch.y, "tap", duration)
+				currentTouch = nil
+			}
+		} else if strings.Contains(line, "SYN_REPORT") {
+			// 同步事件，可以在这里处理滑动等手势
+			if currentTouch != nil && currentTouch.action == "" {
+				// 移动事件
+				currentTouch.action = "move"
+			}
+		}
+	}
+
+	log.Printf("[DeviceMonitor] watchTouchEvents ended, total lines: %d", lineCount)
+}
+
+// touchState 触摸状态
+type touchState struct {
+	x         int
+	y         int
+	action    string // down, up, move
+	timestamp int64
+}
+
+// parseTouchValue 从 getevent 行中解析值
+func parseTouchValue(line string) int {
+	// 格式: [timestamp] /dev/input/eventX: EV_ABS ABS_MT_POSITION_X 00000123
+	parts := strings.Fields(line)
+	if len(parts) >= 4 {
+		// 最后一个是十六进制值
+		hexVal := parts[len(parts)-1]
+		if val, err := strconv.ParseInt(hexVal, 16, 32); err == nil {
+			return int(val)
+		}
+	}
+	return 0
+}
+
+// emitTouchEvent 发送触摸事件
+func (m *DeviceMonitor) emitTouchEvent(x, y int, action string, duration int64) {
+	if m.app.eventPipeline == nil {
+		return
+	}
+
+	title := fmt.Sprintf("👆 Touch %s at (%d, %d)", action, x, y)
+	if duration > 500 {
+		title = fmt.Sprintf("👆 Long press at (%d, %d) - %dms", x, y, duration)
+		action = "long_press"
+	}
+
+	log.Printf("[DeviceMonitor] emitTouchEvent: %s", title)
+
+	data, _ := json.Marshal(map[string]interface{}{
+		"action":   action,
+		"x":        x,
+		"y":        y,
+		"duration": duration,
+	})
+
+	m.app.eventPipeline.Emit(UnifiedEvent{
+		DeviceID:  m.deviceID,
+		Timestamp: time.Now().UnixMilli(),
+		Duration:  duration,
+		Source:    SourceTouch,
+		Category:  CategoryInteraction,
+		Type:      "touch",
+		Level:     LevelInfo,
+		Title:     title,
+		Data:      data,
+	})
 }
 
 // ========================================

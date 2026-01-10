@@ -670,6 +670,7 @@ const EventTimeline = () => {
     activeSessionId,
     visibleEvents,
     totalEventCount,
+    filteredEventCount,
     filter,
     timeIndex,
     bookmarks,
@@ -703,6 +704,35 @@ const EventTimeline = () => {
     const unsubscribe = subscribeToEvents();
     return () => unsubscribe();
   }, [subscribeToEvents]);
+
+  // Also listen for session changes to update the dropdown list
+  // Note: We use the same reference for cleanup since EventsOffAll removes by handler
+  useEffect(() => {
+    const EventsOn = (window as any).runtime?.EventsOn;
+    if (!EventsOn) return;
+
+    let isMounted = true;
+    const currentDevice = selectedDevice;
+
+    const refreshSessionList = async () => {
+      if (isMounted && currentDevice) {
+        const list = await (window as any).go.main.App.ListStoredSessions(currentDevice, 50);
+        if (isMounted) {
+          setSessionList(list || []);
+        }
+      }
+    };
+
+    EventsOn('session-started', refreshSessionList);
+    EventsOn('session-ended', refreshSessionList);
+
+    return () => {
+      isMounted = false;
+      // Note: Don't use EventsOff here as it removes ALL handlers for the event
+      // which would break subscribeToEvents. The handlers will be garbage collected
+      // when this effect cleans up.
+    };
+  }, [selectedDevice]);
 
   // Load sessions when device changes
   useEffect(() => {
@@ -876,6 +906,9 @@ const EventTimeline = () => {
         // Reload the session to get the updated data
         if (sessionId) {
           await loadSession(sessionId);
+          // Also refresh the session list so it appears in dropdown
+          const list = await (window as any).go.main.App.ListStoredSessions(selectedDevice, 50);
+          setSessionList(list || []);
         }
       } catch (err) {
         console.error('[EventTimeline] StartSessionWithConfig error:', err);
@@ -1049,7 +1082,8 @@ const EventTimeline = () => {
       {/* Event count */}
       <div style={{ padding: '8px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
         <Text type="secondary">
-          {visibleEvents.length} / {totalEventCount} events
+          {filteredEventCount} / {totalEventCount} events
+          {visibleEvents.length < filteredEventCount && ` (showing ${visibleEvents.length})`}
         </Text>
         {currentSession?.status === 'active' && (
           <Badge status="processing" text="Recording" />

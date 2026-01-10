@@ -162,7 +162,8 @@ interface EventStoreState {
 
   // 加载状态
   isLoading: boolean;
-  totalEventCount: number;
+  totalEventCount: number;    // session 的总事件数
+  filteredEventCount: number; // 匹配过滤条件的事件数
 
   // UI 状态
   selectedEventId: string | null;
@@ -196,7 +197,7 @@ interface EventStoreActions {
   // 筛选
   setFilter: (filter: Partial<EventQuery>) => void;
   clearFilter: () => void;
-  applyFilter: () => void;
+  applyFilter: () => Promise<void>;
 
   // 可视区域
   setVisibleRange: (start: number, end: number) => void;
@@ -247,6 +248,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
     filter: {},
     isLoading: false,
     totalEventCount: 0,
+    filteredEventCount: 0,
     selectedEventId: null,
     isTimelineOpen: false,
     autoScroll: true,
@@ -336,6 +338,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
         set(state => {
           state.visibleEvents = result?.events || [];
           state.totalEventCount = result?.total || 0;
+          state.filteredEventCount = result?.total || 0; // 初始无过滤时，filteredCount = totalCount
           state.isLoading = false;
         });
 
@@ -458,8 +461,10 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
 
         // 过滤新事件
         const newFiltered = filterEvents(relevantEvents, filter);
+        // 更新匹配过滤条件的事件数
+        state.filteredEventCount += newFiltered.length;
 
-        // 只追加符合条件的新事件到可视列表（避免重新计算整个列表）
+        // 追加所有匹配过滤条件的新事件到列表（不再限制 visibleRange）
         if (newFiltered.length > 0) {
           // 如果自动滚动，更新可视范围到最新
           if (autoScroll) {
@@ -472,20 +477,12 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
             };
           }
 
-          // 追加在可视范围内的新事件
-          const inRangeEvents = newFiltered.filter(e =>
-            e.relativeTime >= state.visibleRange.start &&
-            e.relativeTime <= state.visibleRange.end
-          );
+          // 直接追加所有匹配的新事件
+          state.visibleEvents = [...state.visibleEvents, ...newFiltered];
 
-          if (inRangeEvents.length > 0) {
-            // 追加而不是重新创建数组
-            state.visibleEvents = [...state.visibleEvents, ...inRangeEvents];
-
-            // 限制可视事件数量，防止内存溢出
-            if (state.visibleEvents.length > 2000) {
-              state.visibleEvents = state.visibleEvents.slice(-1500);
-            }
+          // 限制列表数量，防止内存溢出（保留最新的 2000 条）
+          if (state.visibleEvents.length > 2000) {
+            state.visibleEvents = state.visibleEvents.slice(-2000);
           }
         }
       });
@@ -657,30 +654,85 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
       get().applyFilter();
     },
 
-    applyFilter: () => {
-      const { activeSessionId, filter, visibleRange, liveEvents, loadEventsInRange } = get();
+    applyFilter: async () => {
+      const { activeSessionId, filter, liveEvents, sessions } = get();
 
       if (!activeSessionId) return;
 
-      // 清除缓存，重新加载
+      // 清除缓存
       set(state => {
         state.pageCache.clear();
+        state.isLoading = true;
       });
 
-      // 如果有实时数据，先从实时数据筛选
-      const allLive = liveEvents.getAll();
-      if (allLive.length > 0) {
-        const filtered = filterEvents(allLive, filter);
+      try {
+        // 获取 session 总事件数（不带过滤条件）
+        const totalResult = await (window as any).go.main.App.QuerySessionEvents({
+          sessionId: activeSessionId,
+          limit: 1, // 只需要 total 数量
+        });
+        const sessionTotalCount = totalResult?.total || 0;
+
+        // 数据库是 source of truth，查询符合过滤条件的事件
+        const query = {
+          sessionId: activeSessionId,
+          ...filter,
+          limit: 2000, // 显示列表最多 2000 条
+        };
+
+        const result = await (window as any).go.main.App.QuerySessionEvents(query);
+        const dbEvents = result?.events || [];
+
+        // 获取当前 session 状态
+        const currentSession = sessions.get(activeSessionId);
+        const isLiveSession = currentSession?.status === 'active';
+
+        // 过滤后匹配的总数（从数据库查询结果）
+        const filteredTotal = result?.total || 0;
+
+        if (isLiveSession) {
+          // Live session: 合并数据库事件 + 内存中尚未持久化的新事件
+          const liveEventsArray = liveEvents.getAll();
+          const filteredLive = filterEvents(liveEventsArray, filter);
+
+          // 找出内存中有但数据库中还没有的事件（通过 ID 去重）
+          const dbEventIds = new Set(dbEvents.map(e => e.id));
+          const newLiveEvents = filteredLive.filter(e => !dbEventIds.has(e.id));
+
+          // 合并并按时间排序
+          const mergedEvents = [...dbEvents, ...newLiveEvents]
+            .sort((a, b) => a.relativeTime - b.relativeTime);
+
+          // 限制显示数量（保留最新的 2000 条）
+          const displayEvents = mergedEvents.length > 2000
+            ? mergedEvents.slice(-2000)
+            : mergedEvents;
+
+          // 计算准确的数量
+          const newEventsNotInDb = liveEventsArray.filter(e => !dbEventIds.has(e.id)).length;
+          const newFilteredNotInDb = newLiveEvents.length;
+
+          set(state => {
+            state.visibleEvents = displayEvents;
+            state.totalEventCount = sessionTotalCount + newEventsNotInDb;
+            state.filteredEventCount = filteredTotal + newFilteredNotInDb;
+            state.isLoading = false;
+          });
+        } else {
+          // 非 live session：直接使用数据库结果
+          set(state => {
+            state.visibleEvents = dbEvents;
+            state.totalEventCount = sessionTotalCount;
+            state.filteredEventCount = filteredTotal;
+            state.isLoading = false;
+          });
+        }
+      } catch (err) {
+        console.error('[eventStore] applyFilter error:', err);
         set(state => {
-          state.visibleEvents = filtered.filter(e =>
-            e.relativeTime >= visibleRange.start &&
-            e.relativeTime <= visibleRange.end
-          );
+          state.isLoading = false;
         });
       }
-
-      // 同时从数据库加载
-      loadEventsInRange(visibleRange.start, visibleRange.end);
     },
 
     // ========================================

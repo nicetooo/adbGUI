@@ -118,12 +118,12 @@ export interface SessionConfig {
   monitor: MonitorConfig;
 }
 
-// 默认配置
+// 默认配置 - 全部启用
 export const defaultSessionConfig: SessionConfig = {
   logcat: { enabled: true, packageName: '' },
-  recording: { enabled: false, quality: 'medium' },
-  proxy: { enabled: false, port: 8080, mitmEnabled: false },
-  monitor: { enabled: true }, // 默认启用设备监控
+  recording: { enabled: true, quality: 'medium' },
+  proxy: { enabled: true, port: 8080, mitmEnabled: true },
+  monitor: { enabled: true },
 };
 
 // ========================================
