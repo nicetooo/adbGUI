@@ -19,6 +19,7 @@ import RecordingView from "./components/RecordingView";
 import WorkflowView from "./components/WorkflowView";
 import UIInspectorView from "./components/UIInspectorView";
 import TimelineView from "./components/TimelineView";
+import EventTimeline from "./components/EventTimeline";
 import DeviceInfoModal from "./components/DeviceInfoModal";
 import AboutModal from "./components/AboutModal";
 import WirelessConnectModal from "./components/WirelessConnectModal";
@@ -42,6 +43,7 @@ import {
   VideoCameraOutlined,
   BranchesOutlined,
   HistoryOutlined,
+  DashboardOutlined,
 } from "@ant-design/icons";
 import "./App.css";
 import { useTheme } from "./ThemeContext";
@@ -253,6 +255,7 @@ function App() {
                 { key: VIEW_KEYS.INSPECTOR, icon: <BlockOutlined />, label: t("menu.inspector") || "UI Inspector" },
                 { key: VIEW_KEYS.WORKFLOW, icon: <BranchesOutlined />, label: t("menu.workflow") },
                 { key: VIEW_KEYS.TIMELINE, icon: <HistoryOutlined />, label: t("menu.timeline") || "Timeline" },
+                { key: VIEW_KEYS.EVENTS, icon: <DashboardOutlined />, label: t("menu.events") || "Events" },
               ]}
             />
           </div>
@@ -331,6 +334,7 @@ function App() {
           {selectedKey === VIEW_KEYS.INSPECTOR && <UIInspectorView />}
           {selectedKey === VIEW_KEYS.WORKFLOW && <WorkflowView />}
           {selectedKey === VIEW_KEYS.TIMELINE && <TimelineView />}
+          {selectedKey === VIEW_KEYS.EVENTS && <EventTimeline />}
         </Content>
       </Layout>
 

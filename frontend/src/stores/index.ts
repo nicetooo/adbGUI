@@ -12,6 +12,10 @@ export type { ElementSelector, UINode, SelectorSuggestion, ElementInfo } from '.
 export { useSessionStore, formatEventTime, formatDuration, getEventIcon, getEventColor, categoryColors, levelStyles } from './sessionStore';
 export type { Session, SessionEvent, SessionFilter } from './sessionStore';
 
+// New unified event system
+export * from './eventTypes';
+export { useEventStore } from './eventStore';
+
 // New stores
 export { useProxyStore } from './proxyStore';
 export type { RequestLog, NetworkStats } from './proxyStore';

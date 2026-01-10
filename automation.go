@@ -385,6 +385,9 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 						fmt.Printf("[Automation] Touch UP at Raw(%d, %d) -> Scaled(%d, %d) [RangeX: %d-%d, RangeY: %d-%d, Screen: %dx%d]\n",
 							currentTouchX, currentTouchY, scaledX, scaledY, sess.MinX, sess.MaxX, sess.MinY, sess.MaxY, screenW, screenH)
 
+						// Emit touch event to pipeline
+						a.emitTouchEvent(deviceId, scaledX, scaledY, "tap")
+
 						// Check recording mode
 						if sess != nil && sess.RecordingMode == "precise" {
 							// Precise mode: analyze and wait for user selector choice
@@ -2591,4 +2594,31 @@ func (a *App) InputNodeText(deviceId string, bounds string, text string) error {
 	cmd := fmt.Sprintf("shell input text \"%s\"", processedText)
 	_, err = a.RunAdbCommand(deviceId, cmd)
 	return err
+}
+
+// emitTouchEvent sends a touch event to the event pipeline
+func (a *App) emitTouchEvent(deviceId string, x, y int, gestureType string) {
+	if a.eventPipeline == nil {
+		return
+	}
+
+	title := fmt.Sprintf("Touch: %s at (%d, %d)", gestureType, x, y)
+
+	data, _ := json.Marshal(map[string]interface{}{
+		"action":      "tap",
+		"x":           x,
+		"y":           y,
+		"gestureType": gestureType,
+	})
+
+	a.eventPipeline.Emit(UnifiedEvent{
+		DeviceID:  deviceId,
+		Timestamp: time.Now().UnixMilli(),
+		Source:    SourceTouch,
+		Category:  CategoryInteraction,
+		Type:      "touch",
+		Level:     LevelDebug,
+		Title:     title,
+		Data:      data,
+	})
 }

@@ -18,6 +18,8 @@ export function AssertElementText(arg1:string,arg2:main.ElementSelector,arg3:str
 
 export function CancelOpenFile(arg1:string):Promise<void>;
 
+export function CleanupOldSessionData(arg1:number):Promise<number>;
+
 export function CleanupOldSessions(arg1:time.Duration):Promise<number>;
 
 export function ClearAppData(arg1:string,arg2:string):Promise<string>;
@@ -30,9 +32,21 @@ export function CopyFile(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function CreateSession(arg1:string,arg2:string,arg3:string):Promise<string>;
 
+export function CreateSessionBookmark(arg1:string,arg2:number,arg3:string,arg4:string,arg5:string):Promise<void>;
+
+export function CreateStoredAssertion(arg1:main.Assertion,arg2:boolean):Promise<void>;
+
+export function CreateStoredAssertionJSON(arg1:string,arg2:boolean):Promise<void>;
+
 export function DeleteFile(arg1:string,arg2:string):Promise<void>;
 
 export function DeleteScriptTask(arg1:string):Promise<void>;
+
+export function DeleteSessionBookmark(arg1:string):Promise<void>;
+
+export function DeleteStoredAssertion(arg1:string):Promise<void>;
+
+export function DeleteStoredSession(arg1:string):Promise<void>;
 
 export function DeleteTouchScript(arg1:string):Promise<void>;
 
@@ -42,6 +56,8 @@ export function DisableApp(arg1:string,arg2:string):Promise<string>;
 
 export function DownloadFile(arg1:string,arg2:string):Promise<string>;
 
+export function EmitEvent(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:any):Promise<void>;
+
 export function EmitSessionEvent(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:any):Promise<void>;
 
 export function EmitSessionEventFull(arg1:main.SessionEvent):Promise<void>;
@@ -50,15 +66,23 @@ export function EmitSessionEventWithStep(arg1:string,arg2:string,arg3:string,arg
 
 export function EnableApp(arg1:string,arg2:string):Promise<string>;
 
+export function EndActiveSession(arg1:string,arg2:string):Promise<void>;
+
 export function EndSession(arg1:string,arg2:string):Promise<void>;
 
 export function EnsureActiveSession(arg1:string):Promise<string>;
+
+export function ExecuteAssertion(arg1:main.Assertion):Promise<main.AssertionResult>;
+
+export function ExecuteAssertionJSON(arg1:string):Promise<main.AssertionResult>;
 
 export function ExecuteBatchOperation(arg1:main.BatchOperation):Promise<main.BatchOperationResult>;
 
 export function ExecuteSingleTouchEvent(arg1:string,arg2:main.TouchEvent,arg3:string):Promise<void>;
 
 export function ExecuteSingleWorkflowStep(arg1:string,arg2:main.WorkflowStep):Promise<void>;
+
+export function ExecuteStoredAssertion(arg1:string):Promise<main.AssertionResult>;
 
 export function ExportAPK(arg1:string,arg2:string):Promise<string>;
 
@@ -80,9 +104,13 @@ export function GetAppInfo(arg1:string,arg2:string,arg3:boolean):Promise<main.Ap
 
 export function GetAppVersion():Promise<string>;
 
+export function GetAssertionResult(arg1:string):Promise<main.AssertionResult>;
+
 export function GetBackendLogs():Promise<Array<string>>;
 
 export function GetBestSelector(arg1:main.UINode,arg2:main.UINode):Promise<main.ElementSelector>;
+
+export function GetDeviceActiveSession(arg1:string):Promise<main.DeviceSession>;
 
 export function GetDeviceIP(arg1:string):Promise<string>;
 
@@ -96,7 +124,11 @@ export function GetElementProperties(arg1:string,arg2:main.ElementSelector):Prom
 
 export function GetElementsWithText(arg1:string,arg2:string):Promise<Array<{[key: string]: any}>>;
 
+export function GetEventSystemStats():Promise<{[key: string]: any}>;
+
 export function GetHistoryDevices():Promise<Array<main.HistoryDevice>>;
+
+export function GetInstalledPackages(arg1:string,arg2:boolean):Promise<Array<string>>;
 
 export function GetLocalIP():Promise<string>;
 
@@ -110,6 +142,8 @@ export function GetProxyStatus():Promise<boolean>;
 
 export function GetRecentEvents(arg1:string,arg2:number,arg3:Array<string>):Promise<Array<main.SessionEvent>>;
 
+export function GetRecentSessionEvents(arg1:string,arg2:number):Promise<Array<main.UnifiedEvent>>;
+
 export function GetRecordingEventCount(arg1:string):Promise<number>;
 
 export function GetRecordingStatus(arg1:string):Promise<{[key: string]: any}>;
@@ -118,11 +152,23 @@ export function GetSelectorMatchCount(arg1:main.UINode,arg2:main.ElementSelector
 
 export function GetSession(arg1:string):Promise<main.Session>;
 
+export function GetSessionBookmarks(arg1:string):Promise<Array<main.Bookmark>>;
+
 export function GetSessionMetadata(arg1:string,arg2:string):Promise<any>;
+
+export function GetSessionStats(arg1:string):Promise<{[key: string]: any}>;
+
+export function GetSessionTimeIndex(arg1:string):Promise<Array<main.TimeIndexEntry>>;
 
 export function GetSessionTimeline(arg1:string,arg2:main.SessionFilter):Promise<Array<main.SessionEvent>>;
 
 export function GetSessions(arg1:string,arg2:number):Promise<Array<main.Session>>;
+
+export function GetStoredAssertion(arg1:string):Promise<main.StoredAssertion>;
+
+export function GetStoredEvent(arg1:string):Promise<main.UnifiedEvent>;
+
+export function GetStoredSession(arg1:string):Promise<main.DeviceSession>;
 
 export function GetThumbnail(arg1:string,arg2:string,arg3:string):Promise<string>;
 
@@ -148,6 +194,10 @@ export function IsRecording(arg1:string):Promise<boolean>;
 
 export function IsRecordingTouch(arg1:string):Promise<boolean>;
 
+export function ListAssertionResults(arg1:string,arg2:number):Promise<Array<main.AssertionResult>>;
+
+export function ListAssertionTemplates(arg1:number):Promise<Array<main.StoredAssertion>>;
+
 export function ListCameras(arg1:string):Promise<Array<string>>;
 
 export function ListDisplays(arg1:string):Promise<Array<string>>;
@@ -155,6 +205,12 @@ export function ListDisplays(arg1:string):Promise<Array<string>>;
 export function ListFiles(arg1:string,arg2:string):Promise<Array<main.FileInfo>>;
 
 export function ListPackages(arg1:string,arg2:string):Promise<Array<main.AppPackage>>;
+
+export function ListStoredAssertionResults(arg1:string,arg2:number):Promise<Array<main.StoredAssertionResult>>;
+
+export function ListStoredAssertions(arg1:string,arg2:string,arg3:boolean,arg4:number):Promise<Array<main.StoredAssertion>>;
+
+export function ListStoredSessions(arg1:string,arg2:number):Promise<Array<main.DeviceSession>>;
 
 export function LoadScriptTasks():Promise<Array<main.ScriptTask>>;
 
@@ -185,6 +241,18 @@ export function PerformNodeAction(arg1:string,arg2:string,arg3:string):Promise<v
 export function PickPointOnScreen(arg1:string,arg2:number):Promise<{[key: string]: any}>;
 
 export function PlayTouchScript(arg1:string,arg2:main.TouchScript):Promise<void>;
+
+export function QuerySessionEvents(arg1:main.EventQuery):Promise<main.EventQueryResult>;
+
+export function QuickAssertCount(arg1:string,arg2:string,arg3:string,arg4:number,arg5:number):Promise<main.AssertionResult>;
+
+export function QuickAssertExists(arg1:string,arg2:string,arg3:string,arg4:string):Promise<main.AssertionResult>;
+
+export function QuickAssertNoCrashes(arg1:string,arg2:string):Promise<main.AssertionResult>;
+
+export function QuickAssertNoErrors(arg1:string,arg2:string):Promise<main.AssertionResult>;
+
+export function QuickAssertSequence(arg1:string,arg2:string,arg3:Array<string>):Promise<main.AssertionResult>;
 
 export function RemoveHistoryDevice(arg1:string):Promise<void>;
 
@@ -248,9 +316,13 @@ export function StartBatchSync():Promise<void>;
 
 export function StartDeviceMonitor():Promise<void>;
 
+export function StartDeviceStateMonitor(arg1:string):Promise<void>;
+
 export function StartLogcat(arg1:string,arg2:string,arg3:string,arg4:boolean,arg5:string,arg6:boolean):Promise<void>;
 
 export function StartNetworkMonitor(arg1:string):Promise<void>;
+
+export function StartNewSession(arg1:string,arg2:string,arg3:string):Promise<string>;
 
 export function StartProxy(arg1:number):Promise<string>;
 
@@ -258,15 +330,21 @@ export function StartRecording(arg1:string,arg2:main.ScrcpyConfig):Promise<void>
 
 export function StartScrcpy(arg1:string,arg2:main.ScrcpyConfig):Promise<void>;
 
+export function StartSessionWithConfig(arg1:string,arg2:string,arg3:main.SessionConfig):Promise<string>;
+
 export function StartTouchRecording(arg1:string,arg2:string):Promise<void>;
 
 export function StartWirelessServer():Promise<string>;
+
+export function StopAllDeviceStateMonitors():Promise<void>;
 
 export function StopAllNetworkMonitors():Promise<void>;
 
 export function StopBatchSync():Promise<void>;
 
 export function StopDeviceMonitor():Promise<void>;
+
+export function StopDeviceStateMonitor(arg1:string):Promise<void>;
 
 export function StopLogcat():Promise<void>;
 

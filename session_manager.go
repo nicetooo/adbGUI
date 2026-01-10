@@ -339,6 +339,86 @@ func (a *App) emitEventInternal(event SessionEvent) {
 	eventBufferMu.Lock()
 	eventBuffer = append(eventBuffer, event)
 	eventBufferMu.Unlock()
+
+	// Bridge to new event pipeline (if initialized)
+	if a.eventPipeline != nil {
+		a.bridgeToNewPipeline(event)
+	}
+}
+
+// bridgeToNewPipeline converts old SessionEvent to UnifiedEvent and forwards to new pipeline
+func (a *App) bridgeToNewPipeline(event SessionEvent) {
+	// Map old category to new source
+	var source EventSource
+	switch event.Category {
+	case "log":
+		source = SourceLogcat
+	case "network":
+		source = SourceNetwork
+	case "workflow", "automation":
+		source = SourceWorkflow
+	case "system":
+		source = SourceSystem
+	default:
+		source = SourceSystem
+	}
+
+	// Map old category to new category
+	var category EventCategory
+	switch event.Category {
+	case "log":
+		category = CategoryLog
+	case "network":
+		category = CategoryNetwork
+	case "workflow", "automation":
+		category = CategoryAutomation
+	case "system":
+		category = CategoryDiagnostic
+	default:
+		category = CategoryDiagnostic
+	}
+
+	// Map level
+	var level EventLevel
+	switch event.Level {
+	case "error":
+		level = LevelError
+	case "warn":
+		level = LevelWarn
+	case "info":
+		level = LevelInfo
+	case "debug":
+		level = LevelDebug
+	case "verbose":
+		level = LevelVerbose
+	default:
+		level = LevelInfo
+	}
+
+	// Convert detail to JSON
+	var data json.RawMessage
+	if event.Detail != nil {
+		data, _ = json.Marshal(event.Detail)
+	}
+
+	// Create unified event
+	unifiedEvent := UnifiedEvent{
+		ID:        event.ID,
+		SessionID: event.SessionID,
+		DeviceID:  event.DeviceID,
+		Timestamp: event.Timestamp,
+		Source:    source,
+		Category:  category,
+		Type:      event.Type,
+		Level:     level,
+		Title:     event.Title,
+		Data:      data,
+		StepID:    event.StepID,
+		Duration:  event.Duration,
+	}
+
+	// Forward to new pipeline (non-blocking)
+	go a.eventPipeline.Emit(unifiedEvent)
 }
 
 // StartBatchSync starts the batch sync ticker (call on app startup)

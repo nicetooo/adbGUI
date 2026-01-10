@@ -34,6 +34,211 @@ export namespace main {
 	        this.launchableActivities = source["launchableActivities"];
 	    }
 	}
+	export class AssertionExpected {
+	    exists?: boolean;
+	    count?: number;
+	    minCount?: number;
+	    maxCount?: number;
+	    sequence?: EventCriteria[];
+	    ordered?: boolean;
+	    minInterval?: number;
+	    maxInterval?: number;
+	    expression?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AssertionExpected(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.exists = source["exists"];
+	        this.count = source["count"];
+	        this.minCount = source["minCount"];
+	        this.maxCount = source["maxCount"];
+	        this.sequence = this.convertValues(source["sequence"], EventCriteria);
+	        this.ordered = source["ordered"];
+	        this.minInterval = source["minInterval"];
+	        this.maxInterval = source["maxInterval"];
+	        this.expression = source["expression"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class DataMatcher {
+	    path: string;
+	    operator: string;
+	    value: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new DataMatcher(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.operator = source["operator"];
+	        this.value = source["value"];
+	    }
+	}
+	export class EventCriteria {
+	    sources?: string[];
+	    categories?: string[];
+	    types?: string[];
+	    levels?: string[];
+	    titleMatch?: string;
+	    dataMatch?: DataMatcher[];
+	
+	    static createFrom(source: any = {}) {
+	        return new EventCriteria(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sources = source["sources"];
+	        this.categories = source["categories"];
+	        this.types = source["types"];
+	        this.levels = source["levels"];
+	        this.titleMatch = source["titleMatch"];
+	        this.dataMatch = this.convertValues(source["dataMatch"], DataMatcher);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class TimeRange {
+	    start: number;
+	    end: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new TimeRange(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.start = source["start"];
+	        this.end = source["end"];
+	    }
+	}
+	export class Assertion {
+	    id: string;
+	    name: string;
+	    description?: string;
+	    type: string;
+	    sessionId?: string;
+	    deviceId?: string;
+	    timeRange?: TimeRange;
+	    criteria: EventCriteria;
+	    expected: AssertionExpected;
+	    timeout?: number;
+	    createdAt: number;
+	    tags?: string[];
+	    metadata?: {[key: string]: any};
+	
+	    static createFrom(source: any = {}) {
+	        return new Assertion(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.type = source["type"];
+	        this.sessionId = source["sessionId"];
+	        this.deviceId = source["deviceId"];
+	        this.timeRange = this.convertValues(source["timeRange"], TimeRange);
+	        this.criteria = this.convertValues(source["criteria"], EventCriteria);
+	        this.expected = this.convertValues(source["expected"], AssertionExpected);
+	        this.timeout = source["timeout"];
+	        this.createdAt = source["createdAt"];
+	        this.tags = source["tags"];
+	        this.metadata = source["metadata"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	export class AssertionResult {
+	    id: string;
+	    assertionId: string;
+	    assertionName: string;
+	    sessionId: string;
+	    passed: boolean;
+	    message: string;
+	    matchedEvents?: string[];
+	    actualValue?: any;
+	    expectedValue?: any;
+	    executedAt: number;
+	    duration: number;
+	    details?: {[key: string]: any};
+	
+	    static createFrom(source: any = {}) {
+	        return new AssertionResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.assertionId = source["assertionId"];
+	        this.assertionName = source["assertionName"];
+	        this.sessionId = source["sessionId"];
+	        this.passed = source["passed"];
+	        this.message = source["message"];
+	        this.matchedEvents = source["matchedEvents"];
+	        this.actualValue = source["actualValue"];
+	        this.expectedValue = source["expectedValue"];
+	        this.executedAt = source["executedAt"];
+	        this.duration = source["duration"];
+	        this.details = source["details"];
+	    }
+	}
 	export class BatchOperation {
 	    type: string;
 	    deviceIds: string[];
@@ -113,6 +318,31 @@ export namespace main {
 		}
 	}
 	
+	export class Bookmark {
+	    id: string;
+	    sessionId: string;
+	    relativeTime: number;
+	    label: string;
+	    color?: string;
+	    type: string;
+	    createdAt: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Bookmark(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.sessionId = source["sessionId"];
+	        this.relativeTime = source["relativeTime"];
+	        this.label = source["label"];
+	        this.color = source["color"];
+	        this.type = source["type"];
+	        this.createdAt = source["createdAt"];
+	    }
+	}
+	
 	export class Device {
 	    id: string;
 	    serial: string;
@@ -176,6 +406,142 @@ export namespace main {
 	        this.memory = source["memory"];
 	        this.props = source["props"];
 	    }
+	}
+	export class ProxyConfig {
+	    enabled: boolean;
+	    port?: number;
+	    mitmEnabled?: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProxyConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.port = source["port"];
+	        this.mitmEnabled = source["mitmEnabled"];
+	    }
+	}
+	export class RecordingConfig {
+	    enabled: boolean;
+	    quality?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RecordingConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.quality = source["quality"];
+	    }
+	}
+	export class LogcatConfig {
+	    enabled: boolean;
+	    packageName?: string;
+	    preFilter?: string;
+	    excludeFilter?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new LogcatConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.packageName = source["packageName"];
+	        this.preFilter = source["preFilter"];
+	        this.excludeFilter = source["excludeFilter"];
+	    }
+	}
+	export class SessionConfig {
+	    logcat: LogcatConfig;
+	    recording: RecordingConfig;
+	    proxy: ProxyConfig;
+	
+	    static createFrom(source: any = {}) {
+	        return new SessionConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.logcat = this.convertValues(source["logcat"], LogcatConfig);
+	        this.recording = this.convertValues(source["recording"], RecordingConfig);
+	        this.proxy = this.convertValues(source["proxy"], ProxyConfig);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class DeviceSession {
+	    id: string;
+	    deviceId: string;
+	    type: string;
+	    name: string;
+	    startTime: number;
+	    endTime: number;
+	    status: string;
+	    eventCount: number;
+	    config: SessionConfig;
+	    videoPath?: string;
+	    videoDuration?: number;
+	    videoOffset?: number;
+	    metadata?: {[key: string]: any};
+	
+	    static createFrom(source: any = {}) {
+	        return new DeviceSession(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.deviceId = source["deviceId"];
+	        this.type = source["type"];
+	        this.name = source["name"];
+	        this.startTime = source["startTime"];
+	        this.endTime = source["endTime"];
+	        this.status = source["status"];
+	        this.eventCount = source["eventCount"];
+	        this.config = this.convertValues(source["config"], SessionConfig);
+	        this.videoPath = source["videoPath"];
+	        this.videoDuration = source["videoDuration"];
+	        this.videoOffset = source["videoOffset"];
+	        this.metadata = source["metadata"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class ElementActionConfig {
 	    Timeout: number;
@@ -254,6 +620,129 @@ export namespace main {
 		}
 	}
 	
+	
+	export class EventQuery {
+	    sessionId?: string;
+	    deviceId?: string;
+	    sources?: string[];
+	    categories?: string[];
+	    types?: string[];
+	    levels?: string[];
+	    startTime?: number;
+	    endTime?: number;
+	    searchText?: string;
+	    parentId?: string;
+	    stepId?: string;
+	    traceId?: string;
+	    limit?: number;
+	    offset?: number;
+	    orderDesc?: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new EventQuery(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sessionId = source["sessionId"];
+	        this.deviceId = source["deviceId"];
+	        this.sources = source["sources"];
+	        this.categories = source["categories"];
+	        this.types = source["types"];
+	        this.levels = source["levels"];
+	        this.startTime = source["startTime"];
+	        this.endTime = source["endTime"];
+	        this.searchText = source["searchText"];
+	        this.parentId = source["parentId"];
+	        this.stepId = source["stepId"];
+	        this.traceId = source["traceId"];
+	        this.limit = source["limit"];
+	        this.offset = source["offset"];
+	        this.orderDesc = source["orderDesc"];
+	    }
+	}
+	export class UnifiedEvent {
+	    id: string;
+	    sessionId: string;
+	    deviceId: string;
+	    timestamp: number;
+	    relativeTime: number;
+	    duration?: number;
+	    source: string;
+	    category: string;
+	    type: string;
+	    level: string;
+	    title: string;
+	    summary?: string;
+	    data?: number[];
+	    parentId?: string;
+	    stepId?: string;
+	    traceId?: string;
+	    aggregateCount?: number;
+	    aggregateFirst?: number;
+	    aggregateLast?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new UnifiedEvent(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.sessionId = source["sessionId"];
+	        this.deviceId = source["deviceId"];
+	        this.timestamp = source["timestamp"];
+	        this.relativeTime = source["relativeTime"];
+	        this.duration = source["duration"];
+	        this.source = source["source"];
+	        this.category = source["category"];
+	        this.type = source["type"];
+	        this.level = source["level"];
+	        this.title = source["title"];
+	        this.summary = source["summary"];
+	        this.data = source["data"];
+	        this.parentId = source["parentId"];
+	        this.stepId = source["stepId"];
+	        this.traceId = source["traceId"];
+	        this.aggregateCount = source["aggregateCount"];
+	        this.aggregateFirst = source["aggregateFirst"];
+	        this.aggregateLast = source["aggregateLast"];
+	    }
+	}
+	export class EventQueryResult {
+	    events: UnifiedEvent[];
+	    total: number;
+	    hasMore: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new EventQueryResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.events = this.convertValues(source["events"], UnifiedEvent);
+	        this.total = source["total"];
+	        this.hasMore = source["hasMore"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class FileInfo {
 	    name: string;
 	    size: number;
@@ -300,6 +789,9 @@ export namespace main {
 	        this.lastSeen = source["lastSeen"];
 	    }
 	}
+	
+	
+	
 	export class ScrcpyConfig {
 	    maxSize: number;
 	    bitRate: number;
@@ -566,6 +1058,7 @@ export namespace main {
 	        this.metadata = source["metadata"];
 	    }
 	}
+	
 	export class SessionEvent {
 	    id: string;
 	    sessionId: string;
@@ -630,6 +1123,118 @@ export namespace main {
 	        this.limit = source["limit"];
 	        this.offset = source["offset"];
 	        this.searchText = source["searchText"];
+	    }
+	}
+	export class StoredAssertion {
+	    id: string;
+	    name: string;
+	    description?: string;
+	    type: string;
+	    sessionId?: string;
+	    deviceId?: string;
+	    // Go type: struct { Start int64 "json:\"start\""; End int64 "json:\"end\"" }
+	    timeRange?: any;
+	    criteria: number[];
+	    expected: number[];
+	    timeout?: number;
+	    tags?: string[];
+	    metadata?: number[];
+	    isTemplate: boolean;
+	    createdAt: number;
+	    updatedAt: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new StoredAssertion(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.type = source["type"];
+	        this.sessionId = source["sessionId"];
+	        this.deviceId = source["deviceId"];
+	        this.timeRange = this.convertValues(source["timeRange"], Object);
+	        this.criteria = source["criteria"];
+	        this.expected = source["expected"];
+	        this.timeout = source["timeout"];
+	        this.tags = source["tags"];
+	        this.metadata = source["metadata"];
+	        this.isTemplate = source["isTemplate"];
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class StoredAssertionResult {
+	    id: string;
+	    assertionId: string;
+	    assertionName: string;
+	    sessionId: string;
+	    passed: boolean;
+	    message: string;
+	    matchedEvents?: string[];
+	    actualValue?: number[];
+	    expectedValue?: number[];
+	    executedAt: number;
+	    duration: number;
+	    details?: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new StoredAssertionResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.assertionId = source["assertionId"];
+	        this.assertionName = source["assertionName"];
+	        this.sessionId = source["sessionId"];
+	        this.passed = source["passed"];
+	        this.message = source["message"];
+	        this.matchedEvents = source["matchedEvents"];
+	        this.actualValue = source["actualValue"];
+	        this.expectedValue = source["expectedValue"];
+	        this.executedAt = source["executedAt"];
+	        this.duration = source["duration"];
+	        this.details = source["details"];
+	    }
+	}
+	
+	export class TimeIndexEntry {
+	    second: number;
+	    eventCount: number;
+	    firstEventId: string;
+	    hasError: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new TimeIndexEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.second = source["second"];
+	        this.eventCount = source["eventCount"];
+	        this.firstEventId = source["firstEventId"];
+	        this.hasError = source["hasError"];
 	    }
 	}
 	
@@ -749,6 +1354,7 @@ export namespace main {
 		    return a;
 		}
 	}
+	
 	
 	export class WorkflowStep {
 	    id: string;

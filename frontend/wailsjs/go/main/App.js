@@ -30,6 +30,10 @@ export function CancelOpenFile(arg1) {
   return window['go']['main']['App']['CancelOpenFile'](arg1);
 }
 
+export function CleanupOldSessionData(arg1) {
+  return window['go']['main']['App']['CleanupOldSessionData'](arg1);
+}
+
 export function CleanupOldSessions(arg1) {
   return window['go']['main']['App']['CleanupOldSessions'](arg1);
 }
@@ -54,12 +58,36 @@ export function CreateSession(arg1, arg2, arg3) {
   return window['go']['main']['App']['CreateSession'](arg1, arg2, arg3);
 }
 
+export function CreateSessionBookmark(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['CreateSessionBookmark'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function CreateStoredAssertion(arg1, arg2) {
+  return window['go']['main']['App']['CreateStoredAssertion'](arg1, arg2);
+}
+
+export function CreateStoredAssertionJSON(arg1, arg2) {
+  return window['go']['main']['App']['CreateStoredAssertionJSON'](arg1, arg2);
+}
+
 export function DeleteFile(arg1, arg2) {
   return window['go']['main']['App']['DeleteFile'](arg1, arg2);
 }
 
 export function DeleteScriptTask(arg1) {
   return window['go']['main']['App']['DeleteScriptTask'](arg1);
+}
+
+export function DeleteSessionBookmark(arg1) {
+  return window['go']['main']['App']['DeleteSessionBookmark'](arg1);
+}
+
+export function DeleteStoredAssertion(arg1) {
+  return window['go']['main']['App']['DeleteStoredAssertion'](arg1);
+}
+
+export function DeleteStoredSession(arg1) {
+  return window['go']['main']['App']['DeleteStoredSession'](arg1);
 }
 
 export function DeleteTouchScript(arg1) {
@@ -78,6 +106,10 @@ export function DownloadFile(arg1, arg2) {
   return window['go']['main']['App']['DownloadFile'](arg1, arg2);
 }
 
+export function EmitEvent(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['main']['App']['EmitEvent'](arg1, arg2, arg3, arg4, arg5, arg6);
+}
+
 export function EmitSessionEvent(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['main']['App']['EmitSessionEvent'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
@@ -94,12 +126,24 @@ export function EnableApp(arg1, arg2) {
   return window['go']['main']['App']['EnableApp'](arg1, arg2);
 }
 
+export function EndActiveSession(arg1, arg2) {
+  return window['go']['main']['App']['EndActiveSession'](arg1, arg2);
+}
+
 export function EndSession(arg1, arg2) {
   return window['go']['main']['App']['EndSession'](arg1, arg2);
 }
 
 export function EnsureActiveSession(arg1) {
   return window['go']['main']['App']['EnsureActiveSession'](arg1);
+}
+
+export function ExecuteAssertion(arg1) {
+  return window['go']['main']['App']['ExecuteAssertion'](arg1);
+}
+
+export function ExecuteAssertionJSON(arg1) {
+  return window['go']['main']['App']['ExecuteAssertionJSON'](arg1);
 }
 
 export function ExecuteBatchOperation(arg1) {
@@ -112,6 +156,10 @@ export function ExecuteSingleTouchEvent(arg1, arg2, arg3) {
 
 export function ExecuteSingleWorkflowStep(arg1, arg2) {
   return window['go']['main']['App']['ExecuteSingleWorkflowStep'](arg1, arg2);
+}
+
+export function ExecuteStoredAssertion(arg1) {
+  return window['go']['main']['App']['ExecuteStoredAssertion'](arg1);
 }
 
 export function ExportAPK(arg1, arg2) {
@@ -154,12 +202,20 @@ export function GetAppVersion() {
   return window['go']['main']['App']['GetAppVersion']();
 }
 
+export function GetAssertionResult(arg1) {
+  return window['go']['main']['App']['GetAssertionResult'](arg1);
+}
+
 export function GetBackendLogs() {
   return window['go']['main']['App']['GetBackendLogs']();
 }
 
 export function GetBestSelector(arg1, arg2) {
   return window['go']['main']['App']['GetBestSelector'](arg1, arg2);
+}
+
+export function GetDeviceActiveSession(arg1) {
+  return window['go']['main']['App']['GetDeviceActiveSession'](arg1);
 }
 
 export function GetDeviceIP(arg1) {
@@ -186,8 +242,16 @@ export function GetElementsWithText(arg1, arg2) {
   return window['go']['main']['App']['GetElementsWithText'](arg1, arg2);
 }
 
+export function GetEventSystemStats() {
+  return window['go']['main']['App']['GetEventSystemStats']();
+}
+
 export function GetHistoryDevices() {
   return window['go']['main']['App']['GetHistoryDevices']();
+}
+
+export function GetInstalledPackages(arg1, arg2) {
+  return window['go']['main']['App']['GetInstalledPackages'](arg1, arg2);
 }
 
 export function GetLocalIP() {
@@ -214,6 +278,10 @@ export function GetRecentEvents(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetRecentEvents'](arg1, arg2, arg3);
 }
 
+export function GetRecentSessionEvents(arg1, arg2) {
+  return window['go']['main']['App']['GetRecentSessionEvents'](arg1, arg2);
+}
+
 export function GetRecordingEventCount(arg1) {
   return window['go']['main']['App']['GetRecordingEventCount'](arg1);
 }
@@ -230,8 +298,20 @@ export function GetSession(arg1) {
   return window['go']['main']['App']['GetSession'](arg1);
 }
 
+export function GetSessionBookmarks(arg1) {
+  return window['go']['main']['App']['GetSessionBookmarks'](arg1);
+}
+
 export function GetSessionMetadata(arg1, arg2) {
   return window['go']['main']['App']['GetSessionMetadata'](arg1, arg2);
+}
+
+export function GetSessionStats(arg1) {
+  return window['go']['main']['App']['GetSessionStats'](arg1);
+}
+
+export function GetSessionTimeIndex(arg1) {
+  return window['go']['main']['App']['GetSessionTimeIndex'](arg1);
 }
 
 export function GetSessionTimeline(arg1, arg2) {
@@ -240,6 +320,18 @@ export function GetSessionTimeline(arg1, arg2) {
 
 export function GetSessions(arg1, arg2) {
   return window['go']['main']['App']['GetSessions'](arg1, arg2);
+}
+
+export function GetStoredAssertion(arg1) {
+  return window['go']['main']['App']['GetStoredAssertion'](arg1);
+}
+
+export function GetStoredEvent(arg1) {
+  return window['go']['main']['App']['GetStoredEvent'](arg1);
+}
+
+export function GetStoredSession(arg1) {
+  return window['go']['main']['App']['GetStoredSession'](arg1);
 }
 
 export function GetThumbnail(arg1, arg2, arg3) {
@@ -290,6 +382,14 @@ export function IsRecordingTouch(arg1) {
   return window['go']['main']['App']['IsRecordingTouch'](arg1);
 }
 
+export function ListAssertionResults(arg1, arg2) {
+  return window['go']['main']['App']['ListAssertionResults'](arg1, arg2);
+}
+
+export function ListAssertionTemplates(arg1) {
+  return window['go']['main']['App']['ListAssertionTemplates'](arg1);
+}
+
 export function ListCameras(arg1) {
   return window['go']['main']['App']['ListCameras'](arg1);
 }
@@ -304,6 +404,18 @@ export function ListFiles(arg1, arg2) {
 
 export function ListPackages(arg1, arg2) {
   return window['go']['main']['App']['ListPackages'](arg1, arg2);
+}
+
+export function ListStoredAssertionResults(arg1, arg2) {
+  return window['go']['main']['App']['ListStoredAssertionResults'](arg1, arg2);
+}
+
+export function ListStoredAssertions(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['ListStoredAssertions'](arg1, arg2, arg3, arg4);
+}
+
+export function ListStoredSessions(arg1, arg2) {
+  return window['go']['main']['App']['ListStoredSessions'](arg1, arg2);
 }
 
 export function LoadScriptTasks() {
@@ -364,6 +476,30 @@ export function PickPointOnScreen(arg1, arg2) {
 
 export function PlayTouchScript(arg1, arg2) {
   return window['go']['main']['App']['PlayTouchScript'](arg1, arg2);
+}
+
+export function QuerySessionEvents(arg1) {
+  return window['go']['main']['App']['QuerySessionEvents'](arg1);
+}
+
+export function QuickAssertCount(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['QuickAssertCount'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function QuickAssertExists(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['QuickAssertExists'](arg1, arg2, arg3, arg4);
+}
+
+export function QuickAssertNoCrashes(arg1, arg2) {
+  return window['go']['main']['App']['QuickAssertNoCrashes'](arg1, arg2);
+}
+
+export function QuickAssertNoErrors(arg1, arg2) {
+  return window['go']['main']['App']['QuickAssertNoErrors'](arg1, arg2);
+}
+
+export function QuickAssertSequence(arg1, arg2, arg3) {
+  return window['go']['main']['App']['QuickAssertSequence'](arg1, arg2, arg3);
 }
 
 export function RemoveHistoryDevice(arg1) {
@@ -490,12 +626,20 @@ export function StartDeviceMonitor() {
   return window['go']['main']['App']['StartDeviceMonitor']();
 }
 
+export function StartDeviceStateMonitor(arg1) {
+  return window['go']['main']['App']['StartDeviceStateMonitor'](arg1);
+}
+
 export function StartLogcat(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['main']['App']['StartLogcat'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
 export function StartNetworkMonitor(arg1) {
   return window['go']['main']['App']['StartNetworkMonitor'](arg1);
+}
+
+export function StartNewSession(arg1, arg2, arg3) {
+  return window['go']['main']['App']['StartNewSession'](arg1, arg2, arg3);
 }
 
 export function StartProxy(arg1) {
@@ -510,12 +654,20 @@ export function StartScrcpy(arg1, arg2) {
   return window['go']['main']['App']['StartScrcpy'](arg1, arg2);
 }
 
+export function StartSessionWithConfig(arg1, arg2, arg3) {
+  return window['go']['main']['App']['StartSessionWithConfig'](arg1, arg2, arg3);
+}
+
 export function StartTouchRecording(arg1, arg2) {
   return window['go']['main']['App']['StartTouchRecording'](arg1, arg2);
 }
 
 export function StartWirelessServer() {
   return window['go']['main']['App']['StartWirelessServer']();
+}
+
+export function StopAllDeviceStateMonitors() {
+  return window['go']['main']['App']['StopAllDeviceStateMonitors']();
 }
 
 export function StopAllNetworkMonitors() {
@@ -528,6 +680,10 @@ export function StopBatchSync() {
 
 export function StopDeviceMonitor() {
   return window['go']['main']['App']['StopDeviceMonitor']();
+}
+
+export function StopDeviceStateMonitor(arg1) {
+  return window['go']['main']['App']['StopDeviceStateMonitor'](arg1);
 }
 
 export function StopLogcat() {

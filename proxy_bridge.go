@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strconv"
@@ -9,6 +10,8 @@ import (
 	"time"
 
 	"Gaze/proxy"
+
+	"github.com/google/uuid"
 )
 
 // proxyDeviceId tracks which device the proxy is monitoring for session events
@@ -51,11 +54,11 @@ func (a *App) StartProxy(port int) (string, error) {
 		}
 
 		// Determine level based on status code
-		level := "info"
+		level := LevelInfo
 		if req.StatusCode >= 400 && req.StatusCode < 500 {
-			level = "warn"
+			level = LevelWarn
 		} else if req.StatusCode >= 500 {
-			level = "error"
+			level = LevelError
 		}
 
 		title := fmt.Sprintf("%s %s → %d", req.Method, req.URL, req.StatusCode)
@@ -72,8 +75,9 @@ func (a *App) StartProxy(port int) (string, error) {
 			}
 		}
 
-		a.EmitSessionEvent(deviceId, "network_request", "network", level, title,
-			map[string]interface{}{
+		// Emit via eventPipeline (processEvent will set SessionID based on deviceID)
+		if a.eventPipeline != nil {
+			dataMap := map[string]interface{}{
 				"id":              req.Id,
 				"method":          req.Method,
 				"url":             req.URL,
@@ -87,7 +91,22 @@ func (a *App) StartProxy(port int) (string, error) {
 				"requestBody":     req.Body,
 				"responseHeaders": req.RespHeaders,
 				"responseBody":    req.RespBody,
+			}
+			dataBytes, _ := json.Marshal(dataMap)
+
+			a.eventPipeline.Emit(UnifiedEvent{
+				ID:        uuid.New().String(),
+				DeviceID:  deviceId,
+				Timestamp: time.Now().UnixMilli(),
+				Duration:  durationMs,
+				Source:    SourceNetwork,
+				Category:  CategoryNetwork,
+				Type:      "network_request",
+				Level:     level,
+				Title:     title,
+				Data:      dataBytes,
 			})
+		}
 	})
 	if err != nil {
 		return "", err

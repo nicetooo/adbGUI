@@ -1,86 +1,63 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 
-const EventsOn = (window as any).runtime.EventsOn;
-const EventsOff = (window as any).runtime.EventsOff;
+// Import types from eventTypes (new unified types)
+import {
+  UnifiedEvent,
+  DeviceSession,
+  SessionFilter,
+  categoryConfig,
+  levelConfig,
+  eventTypeConfig,
+  formatTimestamp,
+  formatDuration as formatDurationUtil,
+  getEventIcon as getEventIconUtil,
+  getEventColor as getEventColorUtil,
+} from './eventTypes';
+
+// Re-export types for backward compatibility
+export type { UnifiedEvent, DeviceSession, SessionFilter };
+
+// Legacy type aliases
+export type SessionEvent = UnifiedEvent;
+export type Session = DeviceSession;
+
+const EventsOn = (window as any).runtime?.EventsOn;
+const EventsOff = (window as any).runtime?.EventsOff;
 
 // ========================================
 // Unified Session Store
 // Cross-module event correlation and timeline tracking
+// (Legacy store - maintained for backward compatibility)
+// For new code, prefer using eventStore.ts
 // ========================================
 
-export interface SessionEvent {
-  id: string;
-  sessionId: string;
-  deviceId: string;
-  timestamp: number; // Unix milliseconds
-  type: string;      // e.g., "workflow_step_start", "logcat", "network_request"
-  category: string;  // "workflow", "log", "network", "automation", "system"
-  level: string;     // "info", "warn", "error", "debug", "verbose"
-  title: string;
-  detail?: any;
-  stepId?: string;
-  duration?: number;
-  success?: boolean;
-}
-
-export interface Session {
-  id: string;
-  deviceId: string;
-  type: string;      // "workflow", "recording", "debug", "manual"
-  name: string;
-  startTime: number;
-  endTime: number;   // 0 if active
-  status: string;    // "active", "completed", "failed", "cancelled"
-  eventCount: number;
-  metadata?: Record<string, any>;
-}
-
-export interface SessionFilter {
-  categories?: string[];
-  types?: string[];
-  levels?: string[];
-  stepId?: string;
-  startTime?: number;
-  endTime?: number;
-  searchText?: string;
-}
-
-// Category colors for timeline display
+// Category colors for timeline display (legacy - use categoryConfig from eventTypes)
 export const categoryColors: Record<string, string> = {
-  workflow: '#1890ff',   // Blue
-  log: '#52c41a',        // Green
-  network: '#722ed1',    // Purple
-  automation: '#fa8c16', // Orange
-  system: '#8c8c8c',     // Gray
+  workflow: categoryConfig.automation?.color || '#1890ff',
+  log: categoryConfig.log?.color || '#52c41a',
+  network: categoryConfig.network?.color || '#722ed1',
+  automation: categoryConfig.automation?.color || '#fa8c16',
+  system: categoryConfig.diagnostic?.color || '#8c8c8c',
+  state: categoryConfig.state?.color || '#1890ff',
+  interaction: categoryConfig.interaction?.color || '#fa8c16',
+  diagnostic: categoryConfig.diagnostic?.color || '#8c8c8c',
 };
 
-// Level icons/colors
+// Level icons/colors (legacy - use levelConfig from eventTypes)
 export const levelStyles: Record<string, { color: string; icon: string }> = {
-  error: { color: '#ff4d4f', icon: '❌' },
-  warn: { color: '#faad14', icon: '⚠️' },
-  info: { color: '#1890ff', icon: 'ℹ️' },
-  debug: { color: '#8c8c8c', icon: '🔧' },
-  verbose: { color: '#bfbfbf', icon: '📝' },
+  error: { color: levelConfig.error.color, icon: levelConfig.error.icon },
+  warn: { color: levelConfig.warn.color, icon: levelConfig.warn.icon },
+  info: { color: levelConfig.info.color, icon: levelConfig.info.icon },
+  debug: { color: levelConfig.debug.color, icon: levelConfig.debug.icon },
+  verbose: { color: levelConfig.verbose.color, icon: levelConfig.verbose.icon },
+  fatal: { color: levelConfig.fatal.color, icon: levelConfig.fatal.icon },
 };
 
-// Event type icons
-export const eventTypeIcons: Record<string, string> = {
-  session_start: '🚀',
-  session_end: '🏁',
-  workflow_start: '▶️',
-  workflow_step_start: '🔷',
-  workflow_step_end: '✅',
-  workflow_step_error: '❌',
-  workflow_step_cancelled: '⏹️',
-  workflow_completed: '🏁',
-  workflow_error: '❌',
-  logcat: '📝',
-  network_request: '🌐',
-  network_response: '📥',
-  ui_action: '👆',
-  screenshot: '📸',
-};
+// Event type icons (legacy - use eventTypeConfig from eventTypes)
+export const eventTypeIcons: Record<string, string> = Object.fromEntries(
+  Object.entries(eventTypeConfig).map(([key, value]) => [key, value.icon])
+);
 
 interface SessionState {
   // Active sessions

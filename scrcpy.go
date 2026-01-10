@@ -35,7 +35,7 @@ func (a *App) StartScrcpy(deviceId string, config ScrcpyConfig) error {
 		args = append(args, "--max-size", fmt.Sprintf("%d", config.MaxSize))
 	}
 	if config.BitRate > 0 {
-		args = append(args, "--video-bit-rate", fmt.Sprintf("%dM", config.BitRate))
+		args = append(args, "--video-bit-rate", fmt.Sprintf("%d", config.BitRate))
 	}
 	if config.MaxFps > 0 {
 		args = append(args, "--max-fps", fmt.Sprintf("%d", config.MaxFps))
@@ -223,7 +223,7 @@ func (a *App) StartRecording(deviceId string, config ScrcpyConfig) error {
 		args = append(args, "--max-size", fmt.Sprintf("%d", config.MaxSize))
 	}
 	if config.BitRate > 0 {
-		args = append(args, "--video-bit-rate", fmt.Sprintf("%dM", config.BitRate))
+		args = append(args, "--video-bit-rate", fmt.Sprintf("%d", config.BitRate))
 	}
 	if config.MaxFps > 0 {
 		args = append(args, "--max-fps", fmt.Sprintf("%d", config.MaxFps))
