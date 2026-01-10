@@ -29,6 +29,7 @@ import {
   ClockCircleOutlined,
   FileTextOutlined,
   FilterOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useDeviceStore } from '../stores';
@@ -100,11 +101,12 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
   const [loading, setLoading] = useState(false);
   const [selectedSession, setSelectedSession] = useState<DeviceSession | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const [videoModalOpen, setVideoModalOpen] = useState(false);
-  const [videoPath, setVideoPath] = useState<string>('');
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [renameModalOpen, setRenameModalOpen] = useState(false);
+  const [renameSession, setRenameSession] = useState<DeviceSession | null>(null);
+  const [newName, setNewName] = useState('');
 
   // Load sessions
   const loadSessions = useCallback(async () => {
@@ -161,16 +163,44 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
     setDetailModalOpen(true);
   }, []);
 
-  // Play video
-  const handlePlayVideo = useCallback((session: DeviceSession) => {
+  // Play video with system player
+  const handlePlayVideo = useCallback(async (session: DeviceSession) => {
     if (session.videoPath) {
-      setVideoPath(session.videoPath);
-      setSelectedSession(session);
-      setVideoModalOpen(true);
+      try {
+        await (window as any).go.main.App.OpenFile(session.videoPath);
+        message.success('正在打开视频播放器');
+      } catch (err) {
+        console.error('Failed to open video:', err);
+        message.error('打开视频失败: ' + (err as Error).message);
+      }
     } else {
       message.warning('该 Session 没有录屏文件');
     }
   }, []);
+
+  // Open rename modal
+  const handleOpenRename = useCallback((session: DeviceSession) => {
+    setRenameSession(session);
+    setNewName(session.name || '');
+    setRenameModalOpen(true);
+  }, []);
+
+  // Rename session
+  const handleRename = useCallback(async () => {
+    if (!renameSession || !newName.trim()) return;
+
+    try {
+      await (window as any).go.main.App.RenameStoredSession(renameSession.id, newName.trim());
+      message.success('重命名成功');
+      setRenameModalOpen(false);
+      setRenameSession(null);
+      setNewName('');
+      loadSessions();
+    } catch (err) {
+      console.error('Failed to rename session:', err);
+      message.error('重命名失败');
+    }
+  }, [renameSession, newName, loadSessions]);
 
   // Filter sessions
   const filteredSessions = useMemo(() => {
@@ -275,7 +305,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
     {
       title: '操作',
       key: 'actions',
-      width: 150,
+      width: 180,
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
@@ -289,6 +319,14 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
               />
             </Tooltip>
           )}
+          <Tooltip title="重命名">
+            <Button
+              type="text"
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => handleOpenRename(record)}
+            />
+          </Tooltip>
           <Tooltip title="查看详情">
             <Button
               type="text"
@@ -508,47 +546,27 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
         )}
       </Modal>
 
-      {/* Video Player Modal */}
+      {/* Rename Modal */}
       <Modal
-        title={
-          <Space>
-            <VideoCameraOutlined />
-            <span>录屏回放</span>
-            {selectedSession && <Text type="secondary">- {selectedSession.name}</Text>}
-          </Space>
-        }
-        open={videoModalOpen}
+        title="重命名 Session"
+        open={renameModalOpen}
         onCancel={() => {
-          setVideoModalOpen(false);
-          setVideoPath('');
+          setRenameModalOpen(false);
+          setRenameSession(null);
+          setNewName('');
         }}
-        footer={null}
-        width={900}
-        centered
-        destroyOnClose
+        onOk={handleRename}
+        okText="确定"
+        cancelText="取消"
+        width={400}
       >
-        {videoPath && (
-          <div style={{ textAlign: 'center' }}>
-            <video
-              controls
-              autoPlay
-              style={{
-                maxWidth: '100%',
-                maxHeight: '70vh',
-                borderRadius: 8,
-                backgroundColor: '#000',
-              }}
-            >
-              <source src={`file://${videoPath}`} type="video/mp4" />
-              您的浏览器不支持视频播放
-            </video>
-            <div style={{ marginTop: 12 }}>
-              <Text type="secondary" copyable={{ text: videoPath }}>
-                {videoPath}
-              </Text>
-            </div>
-          </div>
-        )}
+        <Input
+          placeholder="输入新名称"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          onPressEnter={handleRename}
+          autoFocus
+        />
       </Modal>
     </div>
   );

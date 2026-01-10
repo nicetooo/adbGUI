@@ -450,6 +450,10 @@ export function MoveFile(arg1, arg2, arg3) {
   return window['go']['main']['App']['MoveFile'](arg1, arg2, arg3);
 }
 
+export function OpenFile(arg1) {
+  return window['go']['main']['App']['OpenFile'](arg1);
+}
+
 export function OpenFileOnHost(arg1, arg2) {
   return window['go']['main']['App']['OpenFileOnHost'](arg1, arg2);
 }
@@ -504,6 +508,10 @@ export function QuickAssertSequence(arg1, arg2, arg3) {
 
 export function RemoveHistoryDevice(arg1) {
   return window['go']['main']['App']['RemoveHistoryDevice'](arg1);
+}
+
+export function RenameStoredSession(arg1, arg2) {
+  return window['go']['main']['App']['RenameStoredSession'](arg1, arg2);
 }
 
 export function RenameTouchScript(arg1, arg2) {

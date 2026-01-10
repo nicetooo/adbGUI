@@ -709,6 +709,14 @@ func (a *App) DeleteStoredSession(sessionID string) error {
 	return a.eventStore.DeleteSession(sessionID)
 }
 
+// RenameStoredSession renames a session
+func (a *App) RenameStoredSession(sessionID, newName string) error {
+	if a.eventStore == nil {
+		return nil
+	}
+	return a.eventStore.RenameSession(sessionID, newName)
+}
+
 // GetSessionTimeIndex gets the time index for a session
 func (a *App) GetSessionTimeIndex(sessionID string) ([]TimeIndexEntry, error) {
 	if a.eventStore == nil {

@@ -538,6 +538,13 @@ func (s *EventStore) UpdateSession(session *DeviceSession) error {
 	return err
 }
 
+// RenameSession 重命名 Session
+func (s *EventStore) RenameSession(id, newName string) error {
+	_, err := s.db.Exec(`UPDATE sessions SET name = ?, updated_at = ? WHERE id = ?`,
+		newName, time.Now().UnixMilli(), id)
+	return err
+}
+
 // GetSession 获取 Session
 func (s *EventStore) GetSession(id string) (*DeviceSession, error) {
 	row := s.db.QueryRow(`

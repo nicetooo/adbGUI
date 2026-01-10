@@ -228,6 +228,8 @@ export function Mkdir(arg1:string,arg2:string):Promise<void>;
 
 export function MoveFile(arg1:string,arg2:string,arg3:string):Promise<void>;
 
+export function OpenFile(arg1:string):Promise<void>;
+
 export function OpenFileOnHost(arg1:string,arg2:string):Promise<void>;
 
 export function OpenPath(arg1:string):Promise<void>;
@@ -255,6 +257,8 @@ export function QuickAssertNoErrors(arg1:string,arg2:string):Promise<main.Assert
 export function QuickAssertSequence(arg1:string,arg2:string,arg3:Array<string>):Promise<main.AssertionResult>;
 
 export function RemoveHistoryDevice(arg1:string):Promise<void>;
+
+export function RenameStoredSession(arg1:string,arg2:string):Promise<void>;
 
 export function RenameTouchScript(arg1:string,arg2:string):Promise<void>;
 

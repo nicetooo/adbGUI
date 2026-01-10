@@ -482,3 +482,21 @@ func (a *App) OpenPath(path string) error {
 	}
 	return cmd.Start()
 }
+
+// OpenFile opens a file with the default system application (e.g., video player for videos)
+func (a *App) OpenFile(path string) error {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return fmt.Errorf("file not found: %s", path)
+	}
+
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", "", filepath.Clean(path))
+	case "darwin":
+		cmd = exec.Command("open", path)
+	default:
+		cmd = exec.Command("xdg-open", path)
+	}
+	return cmd.Start()
+}
