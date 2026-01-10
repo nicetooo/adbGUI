@@ -696,8 +696,8 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           const filteredLive = filterEvents(liveEventsArray, filter);
 
           // 找出内存中有但数据库中还没有的事件（通过 ID 去重）
-          const dbEventIds = new Set(dbEvents.map(e => e.id));
-          const newLiveEvents = filteredLive.filter(e => !dbEventIds.has(e.id));
+          const dbEventIds = new Set(dbEvents.map((e: UnifiedEvent) => e.id));
+          const newLiveEvents = filteredLive.filter((e: UnifiedEvent) => !dbEventIds.has(e.id));
 
           // 合并并按时间排序
           const mergedEvents = [...dbEvents, ...newLiveEvents]

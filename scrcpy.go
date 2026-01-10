@@ -217,7 +217,7 @@ func (a *App) StartRecording(deviceId string, config ScrcpyConfig) error {
 	}
 	a.scrcpyMu.Unlock()
 
-	args := []string{"-s", deviceId, "--no-window", "--record", config.RecordPath}
+	args := []string{"-s", deviceId, "--no-window", "--no-audio-playback", "--record", config.RecordPath}
 
 	if config.MaxSize > 0 {
 		args = append(args, "--max-size", fmt.Sprintf("%d", config.MaxSize))
