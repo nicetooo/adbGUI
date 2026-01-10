@@ -20,6 +20,7 @@ import WorkflowView from "./components/WorkflowView";
 import UIInspectorView from "./components/UIInspectorView";
 import TimelineView from "./components/TimelineView";
 import EventTimeline from "./components/EventTimeline";
+import SessionManager from "./components/SessionManager";
 import DeviceInfoModal from "./components/DeviceInfoModal";
 import AboutModal from "./components/AboutModal";
 import WirelessConnectModal from "./components/WirelessConnectModal";
@@ -44,6 +45,7 @@ import {
   BranchesOutlined,
   HistoryOutlined,
   DashboardOutlined,
+  DatabaseOutlined,
 } from "@ant-design/icons";
 import "./App.css";
 import { useTheme } from "./ThemeContext";
@@ -256,6 +258,7 @@ function App() {
                 { key: VIEW_KEYS.WORKFLOW, icon: <BranchesOutlined />, label: t("menu.workflow") },
                 { key: VIEW_KEYS.TIMELINE, icon: <HistoryOutlined />, label: t("menu.timeline") || "Timeline" },
                 { key: VIEW_KEYS.EVENTS, icon: <DashboardOutlined />, label: t("menu.events") || "Events" },
+                { key: VIEW_KEYS.SESSIONS, icon: <DatabaseOutlined />, label: "Sessions" },
               ]}
             />
           </div>
@@ -335,6 +338,7 @@ function App() {
           {selectedKey === VIEW_KEYS.WORKFLOW && <WorkflowView />}
           {selectedKey === VIEW_KEYS.TIMELINE && <TimelineView />}
           {selectedKey === VIEW_KEYS.EVENTS && <EventTimeline />}
+          {selectedKey === VIEW_KEYS.SESSIONS && <SessionManager />}
         </Content>
       </Layout>
 

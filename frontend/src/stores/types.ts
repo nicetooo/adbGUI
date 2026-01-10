@@ -42,7 +42,7 @@ export interface RecordStatus {
 }
 
 // Navigation types
-export type ViewKey = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12';
+export type ViewKey = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12' | '13';
 
 export const VIEW_KEYS = {
   DEVICES: '1' as ViewKey,
@@ -57,6 +57,7 @@ export const VIEW_KEYS = {
   INSPECTOR: '10' as ViewKey,
   TIMELINE: '11' as ViewKey,
   EVENTS: '12' as ViewKey,
+  SESSIONS: '13' as ViewKey,
 } as const;
 
 export const VIEW_NAME_MAP: Record<string, ViewKey> = {
@@ -72,6 +73,7 @@ export const VIEW_NAME_MAP: Record<string, ViewKey> = {
   inspector: VIEW_KEYS.INSPECTOR,
   timeline: VIEW_KEYS.TIMELINE,
   events: VIEW_KEYS.EVENTS,
+  sessions: VIEW_KEYS.SESSIONS,
 };
 
 // Batch operation types
