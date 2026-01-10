@@ -407,6 +407,18 @@ export namespace main {
 	        this.props = source["props"];
 	    }
 	}
+	export class MonitorConfig {
+	    enabled: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new MonitorConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	    }
+	}
 	export class ProxyConfig {
 	    enabled: boolean;
 	    port?: number;
@@ -459,6 +471,7 @@ export namespace main {
 	    logcat: LogcatConfig;
 	    recording: RecordingConfig;
 	    proxy: ProxyConfig;
+	    monitor: MonitorConfig;
 	
 	    static createFrom(source: any = {}) {
 	        return new SessionConfig(source);
@@ -469,6 +482,7 @@ export namespace main {
 	        this.logcat = this.convertValues(source["logcat"], LogcatConfig);
 	        this.recording = this.convertValues(source["recording"], RecordingConfig);
 	        this.proxy = this.convertValues(source["proxy"], ProxyConfig);
+	        this.monitor = this.convertValues(source["monitor"], MonitorConfig);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -789,6 +803,7 @@ export namespace main {
 	        this.lastSeen = source["lastSeen"];
 	    }
 	}
+	
 	
 	
 	

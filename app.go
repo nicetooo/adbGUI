@@ -80,6 +80,10 @@ type App struct {
 	deviceMonitorCancel context.CancelFunc
 	deviceMonitorMu     sync.Mutex
 
+	// Session device monitors (per device)
+	sessionMonitors   map[string]*DeviceMonitor
+	sessionMonitorsMu sync.Mutex
+
 	// Event System (new)
 	eventStore       *EventStore
 	eventPipeline    *EventPipeline
@@ -97,6 +101,7 @@ func NewApp(version string) *App {
 		lastActive:        make(map[string]int64),
 		idToSerial:        make(map[string]string),
 		reconnectCooldown: make(map[string]time.Time),
+		sessionMonitors:   make(map[string]*DeviceMonitor),
 		version:           version,
 	}
 	app.initPersistentCache()
@@ -549,6 +554,19 @@ func (a *App) StartSessionWithConfig(deviceID, name string, config SessionConfig
 		}()
 	}
 
+	if config.Monitor.Enabled {
+		log.Printf("[StartSessionWithConfig] Starting device monitor")
+		a.sessionMonitorsMu.Lock()
+		// Stop existing monitor for this device if any
+		if existing := a.sessionMonitors[deviceID]; existing != nil {
+			existing.Stop()
+		}
+		monitor := NewDeviceMonitor(a, deviceID)
+		a.sessionMonitors[deviceID] = monitor
+		a.sessionMonitorsMu.Unlock()
+		monitor.Start()
+	}
+
 	return sessionID
 }
 
@@ -589,6 +607,15 @@ func (a *App) EndActiveSession(sessionID, status string) {
 		if session.Config.Proxy.Enabled {
 			log.Printf("[EndActiveSession] Stopping proxy")
 			a.StopProxy()
+		}
+		if session.Config.Monitor.Enabled {
+			log.Printf("[EndActiveSession] Stopping device monitor")
+			a.sessionMonitorsMu.Lock()
+			if monitor := a.sessionMonitors[session.DeviceID]; monitor != nil {
+				monitor.Stop()
+				delete(a.sessionMonitors, session.DeviceID)
+			}
+			a.sessionMonitorsMu.Unlock()
 		}
 	}
 

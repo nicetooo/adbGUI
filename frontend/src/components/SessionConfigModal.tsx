@@ -16,6 +16,7 @@ import {
   FileTextOutlined,
   VideoCameraOutlined,
   GlobalOutlined,
+  DashboardOutlined,
 } from '@ant-design/icons';
 import { SessionConfig, defaultSessionConfig } from '../stores/eventTypes';
 import { GetInstalledPackages } from '../../wailsjs/go/main/App';
@@ -214,7 +215,7 @@ const SessionConfigModal: React.FC<SessionConfigModalProps> = ({
       </Card>
 
       {/* Proxy Config */}
-      <Card size="small" bodyStyle={{ padding: 12 }}>
+      <Card size="small" style={{ marginBottom: 12 }} bodyStyle={{ padding: 12 }}>
         <Space style={{ width: '100%', justifyContent: 'space-between' }}>
           <Space>
             <GlobalOutlined style={{ fontSize: 18, color: '#722ed1' }} />
@@ -249,6 +250,23 @@ const SessionConfigModal: React.FC<SessionConfigModalProps> = ({
             </Space>
           </div>
         )}
+      </Card>
+
+      {/* Monitor Config */}
+      <Card size="small" bodyStyle={{ padding: 12 }}>
+        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+          <Space>
+            <DashboardOutlined style={{ fontSize: 18, color: '#13c2c2' }} />
+            <Text strong>Device Monitor</Text>
+          </Space>
+          <Switch
+            checked={config.monitor.enabled}
+            onChange={(checked) => updateConfig(['monitor', 'enabled'], checked)}
+          />
+        </Space>
+        <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 12 }}>
+          Monitor battery, network, screen state, app lifecycle, touch events, and performance metrics
+        </Text>
       </Card>
 
       <Text

@@ -101,6 +101,7 @@ type SessionConfig struct {
 	Logcat    LogcatConfig    `json:"logcat"`
 	Recording RecordingConfig `json:"recording"`
 	Proxy     ProxyConfig     `json:"proxy"`
+	Monitor   MonitorConfig   `json:"monitor"`
 }
 
 type LogcatConfig struct {
@@ -119,6 +120,10 @@ type ProxyConfig struct {
 	Enabled     bool `json:"enabled"`
 	Port        int  `json:"port,omitempty"`
 	MitmEnabled bool `json:"mitmEnabled,omitempty"`
+}
+
+type MonitorConfig struct {
+	Enabled bool `json:"enabled"` // 设备状态监控 (电池、网络、屏幕、应用生命周期)
 }
 
 type DeviceSession struct {

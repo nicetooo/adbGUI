@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -82,6 +83,7 @@ func NewDeviceMonitor(app *App, deviceID string) *DeviceMonitor {
 
 // Start 启动监控
 func (m *DeviceMonitor) Start() {
+	log.Printf("[DeviceMonitor] Starting for device: %s", m.deviceID)
 	// 启动状态轮询
 	go m.pollDeviceState()
 
@@ -342,7 +344,9 @@ func (m *DeviceMonitor) processAppLogLine(line string) {
 // ========================================
 
 func (m *DeviceMonitor) emitBatteryEvent(state *BatteryState) {
+	log.Printf("[DeviceMonitor] emitBatteryEvent: level=%d, status=%s", state.Level, state.Status)
 	if m.app.eventPipeline == nil {
+		log.Printf("[DeviceMonitor] emitBatteryEvent: eventPipeline is nil!")
 		return
 	}
 

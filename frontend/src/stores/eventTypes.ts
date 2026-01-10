@@ -107,10 +107,15 @@ export interface ProxyConfig {
   mitmEnabled?: boolean;
 }
 
+export interface MonitorConfig {
+  enabled: boolean; // 设备状态监控 (电池、网络、屏幕、应用生命周期)
+}
+
 export interface SessionConfig {
   logcat: LogcatConfig;
   recording: RecordingConfig;
   proxy: ProxyConfig;
+  monitor: MonitorConfig;
 }
 
 // 默认配置
@@ -118,6 +123,7 @@ export const defaultSessionConfig: SessionConfig = {
   logcat: { enabled: true, packageName: '' },
   recording: { enabled: false, quality: 'medium' },
   proxy: { enabled: false, port: 8080, mitmEnabled: false },
+  monitor: { enabled: true }, // 默认启用设备监控
 };
 
 // ========================================
