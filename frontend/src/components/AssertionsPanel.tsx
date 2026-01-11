@@ -53,6 +53,7 @@ import {
   ListAssertionResults,
   GetSessionEventTypes,
   PreviewAssertionMatch,
+  CreateStoredAssertionJSON,
 } from '../../wailsjs/go/main/App';
 import type { main } from '../../wailsjs/go/models';
 
@@ -248,8 +249,17 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
           break;
       }
 
-      // Use JSON version to avoid TypeScript class issues
-      const result = await ExecuteAssertionJSON(JSON.stringify(assertion));
+      const assertionJSON = JSON.stringify(assertion);
+
+      // 保存断言定义（用户可以稍后删除）
+      try {
+        await CreateStoredAssertionJSON(assertionJSON, false);
+      } catch (saveErr) {
+        console.warn('Failed to save assertion:', saveErr);
+      }
+
+      // 执行断言
+      const result = await ExecuteAssertionJSON(assertionJSON);
       if (result) {
         const displayResult: AssertionResultDisplay = {
           id: result.id,
