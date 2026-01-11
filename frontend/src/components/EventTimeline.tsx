@@ -851,14 +851,16 @@ const EventTimeline = () => {
     bookmarks,
     isLoading,
     autoScroll,
-    hasMoreEvents,
+    hasMoreNewer,
+    hasMoreOlder,
     loadSession,
     startSession,
     endSession,
     setFilter,
     applyFilter,
     loadEventsInRange,
-    loadMoreEvents,
+    loadNewerEvents,
+    loadOlderEvents,
     createBookmark,
     subscribeToEvents,
     setAutoScroll,
@@ -981,21 +983,30 @@ const EventTimeline = () => {
     }
   }, [visibleEvents.length, autoScroll, rowVirtualizer]);
 
-  // Infinite scroll - load more events when near bottom
+  // Bidirectional infinite scroll - load older events at top, newer at bottom
   useEffect(() => {
     const container = listRef.current;
     if (!container) return;
 
     let isLoadingMore = false;
     const handleScroll = () => {
-      if (isLoadingMore || !hasMoreEvents || isLoading) return;
+      if (isLoadingMore || isLoading) return;
 
       const { scrollTop, scrollHeight, clientHeight } = container;
-      // Load more when within 200px of the bottom
-      if (scrollHeight - scrollTop - clientHeight < 200) {
+
+      // Load older events when near the top (scroll up)
+      if (hasMoreOlder && scrollTop < 200) {
         isLoadingMore = true;
-        console.log('[EventTimeline] Near bottom, loading more events...');
-        loadMoreEvents().finally(() => {
+        console.log('[EventTimeline] Near top, loading older events...');
+        loadOlderEvents().finally(() => {
+          isLoadingMore = false;
+        });
+      }
+      // Load newer events when near the bottom (scroll down)
+      else if (hasMoreNewer && scrollHeight - scrollTop - clientHeight < 200) {
+        isLoadingMore = true;
+        console.log('[EventTimeline] Near bottom, loading newer events...');
+        loadNewerEvents().finally(() => {
           isLoadingMore = false;
         });
       }
@@ -1003,7 +1014,7 @@ const EventTimeline = () => {
 
     container.addEventListener('scroll', handleScroll);
     return () => container.removeEventListener('scroll', handleScroll);
-  }, [hasMoreEvents, isLoading, loadMoreEvents]);
+  }, [hasMoreNewer, hasMoreOlder, isLoading, loadNewerEvents, loadOlderEvents]);
 
   // Update current time based on scroll position
   useEffect(() => {
@@ -1368,8 +1379,8 @@ const EventTimeline = () => {
                     />
                   );
                 })}
-                {/* Loading more indicator */}
-                {hasMoreEvents && (
+                {/* Loading more indicator at bottom */}
+                {hasMoreNewer && (
                   <div
                     style={{
                       position: 'absolute',
@@ -1384,7 +1395,27 @@ const EventTimeline = () => {
                     {isLoading ? (
                       <span>加载更多事件...</span>
                     ) : (
-                      <span style={{ fontSize: 12 }}>↓ 滚动加载更多 ({visibleEvents.length} / {filteredEventCount})</span>
+                      <span style={{ fontSize: 12 }}>↓ 滚动加载更新事件 ({visibleEvents.length} / {filteredEventCount})</span>
+                    )}
+                  </div>
+                )}
+                {/* Loading older indicator at top */}
+                {hasMoreOlder && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: -40,
+                      left: 0,
+                      width: '100%',
+                      padding: '12px',
+                      textAlign: 'center',
+                      color: token.colorTextSecondary,
+                    }}
+                  >
+                    {isLoading ? (
+                      <span>加载更多事件...</span>
+                    ) : (
+                      <span style={{ fontSize: 12 }}>↑ 滚动加载更老事件</span>
                     )}
                   </div>
                 )}

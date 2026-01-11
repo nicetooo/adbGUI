@@ -189,7 +189,8 @@ interface EventStoreActions {
 
   // 按需加载
   loadEventsInRange: (startTime: number, endTime: number) => Promise<void>;
-  loadMoreEvents: () => Promise<void>;  // 加载更多事件（无限滚动）
+  loadNewerEvents: () => Promise<void>;  // 加载更新的事件（向下滚动）
+  loadOlderEvents: () => Promise<void>;  // 加载更老的事件（向上滚动）
   loadPage: (page: number, pageSize?: number) => Promise<EventQueryResult>;
   searchEvents: (query: string) => Promise<UnifiedEvent[]>;
   loadEvent: (eventId: string) => Promise<UnifiedEvent | null>;
@@ -253,7 +254,8 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
     isLoading: false,
     totalEventCount: 0,
     filteredEventCount: 0,
-    hasMoreEvents: false,
+    hasMoreNewer: false,
+    hasMoreOlder: false,
     currentOffset: 0,
     selectedEventId: null,
     isTimelineOpen: false,
@@ -358,8 +360,10 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           state.totalEventCount = sessionEventCount;
           state.filteredEventCount = sessionEventCount;
           state.currentOffset = events.length;
-          // 如果加载的事件数等于 limit，说明可能还有更多
-          state.hasMoreEvents = events.length >= 1000;
+          // 从头开始加载，没有更老的事件
+          state.hasMoreOlder = false;
+          // 如果加载的事件数等于 limit，说明可能还有更新的事件
+          state.hasMoreNewer = events.length >= 1000;
           state.isLoading = false;
         });
 
@@ -565,18 +569,18 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
       }
     },
 
-    loadMoreEvents: async () => {
-      const { activeSessionId, filter, visibleEvents, hasMoreEvents, isLoading, totalEventCount } = get();
+    loadNewerEvents: async () => {
+      const { activeSessionId, filter, visibleEvents, hasMoreNewer, isLoading } = get();
 
-      if (!activeSessionId || isLoading || !hasMoreEvents) {
-        console.log('[eventStore] loadMoreEvents: skipping', { activeSessionId, isLoading, hasMoreEvents });
+      if (!activeSessionId || isLoading || !hasMoreNewer) {
+        console.log('[eventStore] loadNewerEvents: skipping', { activeSessionId, isLoading, hasMoreNewer });
         return;
       }
 
       // 获取最后一个事件的时间，从那之后继续加载
       const lastEvent = visibleEvents[visibleEvents.length - 1];
       if (!lastEvent) {
-        console.log('[eventStore] loadMoreEvents: no last event');
+        console.log('[eventStore] loadNewerEvents: no last event');
         return;
       }
 
@@ -593,11 +597,11 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           limit: pageSize,
         };
 
-        console.log('[eventStore] loadMoreEvents: querying from time', startTime);
+        console.log('[eventStore] loadNewerEvents: querying from time', startTime);
         const result = await (window as any).go.main.App.QuerySessionEvents(query);
         const newEvents = result?.events || [];
 
-        console.log('[eventStore] loadMoreEvents: got', newEvents.length, 'events');
+        console.log('[eventStore] loadNewerEvents: got', newEvents.length, 'events');
 
         set(state => {
           // 追加新事件（去重）
@@ -608,11 +612,77 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           // 保持最多 2000 条，移除最前面的旧事件
           if (combined.length > 2000) {
             combined = combined.slice(-2000);
+            state.hasMoreOlder = true; // 移除了旧事件，说明有更老的可以加载
           }
 
           state.visibleEvents = combined;
           state.currentOffset = state.visibleEvents.length;
-          state.hasMoreEvents = newEvents.length >= pageSize; // 如果返回了满页，可能还有更多
+          state.hasMoreNewer = newEvents.length >= pageSize; // 如果返回了满页，可能还有更多
+        });
+
+      } finally {
+        set(state => { state.isLoading = false; });
+      }
+    },
+
+    loadOlderEvents: async () => {
+      const { activeSessionId, filter, visibleEvents, hasMoreOlder, isLoading } = get();
+
+      if (!activeSessionId || isLoading || !hasMoreOlder) {
+        console.log('[eventStore] loadOlderEvents: skipping', { activeSessionId, isLoading, hasMoreOlder });
+        return;
+      }
+
+      // 获取第一个事件的时间，从那之前继续加载
+      const firstEvent = visibleEvents[0];
+      if (!firstEvent) {
+        console.log('[eventStore] loadOlderEvents: no first event');
+        return;
+      }
+
+      set(state => { state.isLoading = true; });
+
+      try {
+        const pageSize = 1000;
+        // 查询比第一个事件更老的事件（endTime < firstEvent.relativeTime）
+        const endTime = firstEvent.relativeTime - 1;
+        const query: EventQuery = {
+          sessionId: activeSessionId,
+          ...filter,
+          endTime: endTime,
+          limit: pageSize,
+        };
+
+        console.log('[eventStore] loadOlderEvents: querying before time', endTime);
+        const result = await (window as any).go.main.App.QuerySessionEvents(query);
+        let olderEvents = result?.events || [];
+
+        console.log('[eventStore] loadOlderEvents: got', olderEvents.length, 'events');
+
+        // 后端返回的是按时间升序，取最后 pageSize 条（最接近 endTime 的）
+        // 如果返回满页，说明可能还有更老的
+        const hasMore = olderEvents.length >= pageSize;
+        // 由于查询是 endTime < X，返回的是从头开始的，我们需要最接近 endTime 的
+        // 后端应该返回最新的 pageSize 条满足条件的事件
+        // 如果返回超过 pageSize，取最后 pageSize 条
+        if (olderEvents.length > pageSize) {
+          olderEvents = olderEvents.slice(-pageSize);
+        }
+
+        set(state => {
+          // 在前面添加旧事件（去重）
+          const existingIds = new Set(state.visibleEvents.map(e => e.id));
+          const uniqueOlderEvents = olderEvents.filter((e: UnifiedEvent) => !existingIds.has(e.id));
+          let combined = [...uniqueOlderEvents, ...state.visibleEvents];
+
+          // 保持最多 2000 条，移除最后面的新事件
+          if (combined.length > 2000) {
+            combined = combined.slice(0, 2000);
+            state.hasMoreNewer = true; // 移除了新事件，说明有更新的可以加载
+          }
+
+          state.visibleEvents = combined;
+          state.hasMoreOlder = hasMore; // 如果返回了满页，可能还有更老的
         });
 
       } finally {
