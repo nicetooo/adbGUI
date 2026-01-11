@@ -991,17 +991,15 @@ const EventTimeline = () => {
     let isLoadingMore = false;
 
     const handleScroll = () => {
+      if (isLoadingMore) return;
+
       const { scrollTop, scrollHeight, clientHeight } = container;
-      const distanceToBottom = scrollHeight - scrollTop - clientHeight;
       // 计算滚动位置百分比
       const scrollPercent = scrollHeight > clientHeight ? (scrollTop / (scrollHeight - clientHeight)) * 100 : 0;
-
-      if (isLoadingMore || isLoading) return;
 
       // 滚动超过 70% 时加载更新的事件
       if (hasMoreNewer && scrollPercent > 70) {
         isLoadingMore = true;
-        console.log('[EventTimeline] Scroll > 70%, loading newer events...', { scrollPercent, distanceToBottom });
         loadNewerEvents().finally(() => {
           isLoadingMore = false;
         });
@@ -1009,7 +1007,6 @@ const EventTimeline = () => {
       // 滚动小于 30% 时加载更老的事件
       else if (hasMoreOlder && scrollPercent < 30) {
         isLoadingMore = true;
-        console.log('[EventTimeline] Scroll < 30%, loading older events...', { scrollPercent, scrollTop });
         loadOlderEvents().finally(() => {
           isLoadingMore = false;
         });
@@ -1018,7 +1015,7 @@ const EventTimeline = () => {
 
     container.addEventListener('scroll', handleScroll);
     return () => container.removeEventListener('scroll', handleScroll);
-  }, [hasMoreNewer, hasMoreOlder, isLoading, loadNewerEvents, loadOlderEvents]);
+  }, [hasMoreNewer, hasMoreOlder, loadNewerEvents, loadOlderEvents]);
 
   // Update current time based on scroll position
   useEffect(() => {
@@ -1391,36 +1388,13 @@ const EventTimeline = () => {
                       top: rowVirtualizer.getTotalSize(),
                       left: 0,
                       width: '100%',
-                      padding: '12px',
+                      padding: '8px',
                       textAlign: 'center',
                       color: token.colorTextSecondary,
+                      fontSize: 12,
                     }}
                   >
-                    {isLoading ? (
-                      <span>加载更多事件...</span>
-                    ) : (
-                      <span style={{ fontSize: 12 }}>↓ 滚动加载更新事件 ({visibleEvents.length} / {filteredEventCount})</span>
-                    )}
-                  </div>
-                )}
-                {/* Loading older indicator at top */}
-                {hasMoreOlder && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: -40,
-                      left: 0,
-                      width: '100%',
-                      padding: '12px',
-                      textAlign: 'center',
-                      color: token.colorTextSecondary,
-                    }}
-                  >
-                    {isLoading ? (
-                      <span>加载更多事件...</span>
-                    ) : (
-                      <span style={{ fontSize: 12 }}>↑ 滚动加载更老事件</span>
-                    )}
+                    ↓ 继续滚动加载更多 ({visibleEvents.length} / {totalEventCount})
                   </div>
                 )}
               </div>
