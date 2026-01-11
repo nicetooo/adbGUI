@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, Button, InputNumber, Space, Typography, Tag, message, Modal, Divider, Switch, Tooltip, Radio, Input, Drawer, Tabs, theme, Form, Table, Popconfirm } from 'antd';
+import { Card, Button, InputNumber, Space, Typography, Tag, message, Modal, Divider, Switch, Tooltip, Radio, Input, Tabs, theme, Form, Table, Popconfirm } from 'antd';
 import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, EditOutlined, BlockOutlined, SendOutlined, PlusOutlined } from '@ant-design/icons';
 import DeviceSelector from './DeviceSelector';
 import { useDeviceStore, useProxyStore, RequestLog as StoreRequestLog } from '../stores';
@@ -60,7 +60,6 @@ const ProxyView: React.FC = () => {
         isBypassModalOpen,
         newPattern,
         selectedLog,
-        detailsDrawerOpen,
         netStats,
         dlLimit,
         ulLimit,
@@ -78,7 +77,6 @@ const ProxyView: React.FC = () => {
         setBypassModalOpen,
         setNewPattern,
         selectLog,
-        setDetailsDrawerOpen,
         setNetStats,
         setSpeedLimits,
         addBypassPattern,
@@ -754,29 +752,31 @@ const ProxyView: React.FC = () => {
                 </div>
             </Card>
 
-            <Card
-                style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-                styles={{ body: { flex: 1, overflow: 'hidden', padding: 0, display: 'flex', flexDirection: 'column' } }}
-                size="small"
-                title={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <Radio.Group size="small" value={filterType} onChange={e => setFilterType(e.target.value)} buttonStyle="solid">
-                            <Radio.Button value="ALL">{t('proxy.filter_all')}</Radio.Button>
-                            <Radio.Button value="HTTP">{t('proxy.filter_http')}</Radio.Button>
-                            <Radio.Button value="WS">{t('proxy.filter_ws')}</Radio.Button>
-                        </Radio.Group>
-                        <Input
-                            placeholder={t('proxy.search_placeholder')}
-                            size="small"
-                            allowClear
-                            style={{ maxWidth: 400 }}
-                            value={searchText}
-                            onChange={e => setSearchText(e.target.value)}
-                        />
-                        <Button size="small" type="link" onClick={() => clearLogs()} icon={<DeleteOutlined />} style={{ padding: 0 }}>{t('proxy.clear_logs')}</Button>
-                    </div>
-                }
-            >
+            {/* Request List and Detail Panel Container */}
+            <div style={{ flex: 1, display: 'flex', gap: 12, overflow: 'hidden' }}>
+                <Card
+                    style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}
+                    styles={{ body: { flex: 1, overflow: 'hidden', padding: 0, display: 'flex', flexDirection: 'column' } }}
+                    size="small"
+                    title={
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <Radio.Group size="small" value={filterType} onChange={e => setFilterType(e.target.value)} buttonStyle="solid">
+                                <Radio.Button value="ALL">{t('proxy.filter_all')}</Radio.Button>
+                                <Radio.Button value="HTTP">{t('proxy.filter_http')}</Radio.Button>
+                                <Radio.Button value="WS">{t('proxy.filter_ws')}</Radio.Button>
+                            </Radio.Group>
+                            <Input
+                                placeholder={t('proxy.search_placeholder')}
+                                size="small"
+                                allowClear
+                                style={{ maxWidth: 400 }}
+                                value={searchText}
+                                onChange={e => setSearchText(e.target.value)}
+                            />
+                            <Button size="small" type="link" onClick={() => clearLogs()} icon={<DeleteOutlined />} style={{ padding: 0 }}>{t('proxy.clear_logs')}</Button>
+                        </div>
+                    }
+                >
                 {/* Virtual Table Header - Fixed widths */}
                 <div style={{ display: 'grid', gridTemplateColumns: '80px 70px 60px 1fr 80px 80px', padding: '8px 12px', background: token.colorFillAlter, borderBottom: `1px solid ${token.colorBorderSecondary}`, fontWeight: 'bold', fontSize: '12px', color: token.colorTextSecondary }}>
                     <div>{t('proxy.col_time')}</div>
@@ -812,14 +812,15 @@ const ProxyView: React.FC = () => {
                                 >
                                     {/* Main Row Content */}
                                     <div
-                                        onClick={() => { selectLog(record); setDetailsDrawerOpen(true); }}
+                                        onClick={() => selectLog(record)}
                                         style={{
                                             display: 'grid',
                                             gridTemplateColumns: '80px 70px 60px 1fr 80px 80px',
                                             padding: '6px 12px',
                                             fontSize: '12px',
                                             cursor: 'pointer',
-                                            alignItems: 'center'
+                                            alignItems: 'center',
+                                            background: selectedLog?.id === record.id ? token.colorPrimaryBg : 'transparent',
                                         }}
                                     >
                                         <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#888' }}>{record.time}</div>
@@ -849,49 +850,51 @@ const ProxyView: React.FC = () => {
                 </div>
             </Card>
 
-            <Drawer
-                title={t('proxy.details')}
-                placement="right"
-                onClose={() => setDetailsDrawerOpen(false)}
-                open={detailsDrawerOpen}
-                width="50%"
-                style={{ minWidth: 500 }}
-                styles={{ body: { padding: '0' } }}
-            >
+                {/* Detail Panel */}
                 {selectedLog && (
-                    <div style={{ padding: 16 }}>
+                    <Card
+                        size="small"
+                        style={{ width: '50%', minWidth: 400, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+                        styles={{ body: { flex: 1, overflow: 'auto', padding: 16 } }}
+                        title={
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Text strong>{t('proxy.details')}</Text>
+                                <Space size="small">
+                                    <Button
+                                        type="text"
+                                        size="small"
+                                        icon={<CopyOutlined />}
+                                        onClick={() => handleCopyCurl(selectedLog)}
+                                    >
+                                        cURL
+                                    </Button>
+                                    <Button
+                                        type="text"
+                                        size="small"
+                                        icon={<SendOutlined />}
+                                        onClick={() => openResendModal(selectedLog)}
+                                    >
+                                        {t('proxy.resend')}
+                                    </Button>
+                                    <Button
+                                        type="text"
+                                        size="small"
+                                        icon={<DeleteOutlined />}
+                                        onClick={() => selectLog(null)}
+                                    />
+                                </Space>
+                            </div>
+                        }
+                    >
                         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                            <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                                    <Text type="secondary" style={{ fontSize: 12 }}>{t('proxy.col_url')}</Text>
-                                    <Space size="small">
-                                        <Button
-                                            type="text"
-                                            size="small"
-                                            icon={<CopyOutlined />}
-                                            onClick={() => handleCopyCurl(selectedLog)}
-                                        >
-                                            cURL
-                                        </Button>
-                                        <Button
-                                            type="text"
-                                            size="small"
-                                            icon={<SendOutlined />}
-                                            onClick={() => openResendModal(selectedLog)}
-                                        >
-                                            {t('proxy.resend')}
-                                        </Button>
-                                    </Space>
-                                </div>
-                                <div style={{ wordBreak: 'break-all', fontFamily: 'monospace', background: token.colorFillTertiary, padding: 8, borderRadius: 4, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                                    <Tag color={selectedLog.method === 'GET' ? 'green' : 'blue'} style={{ flexShrink: 0 }}>{selectedLog.method}</Tag>
-                                    <Text copyable={{ text: selectedLog.url }} style={{ fontFamily: 'monospace', fontSize: '13px', flex: 1, wordBreak: 'break-all' }}>{selectedLog.url}</Text>
-                                </div>
+                            <div style={{ wordBreak: 'break-all', fontFamily: 'monospace', background: token.colorFillTertiary, padding: 8, borderRadius: 4, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                <Tag color={selectedLog.method === 'GET' ? 'green' : 'blue'} style={{ flexShrink: 0 }}>{selectedLog.method}</Tag>
+                                <Text copyable={{ text: selectedLog.url }} style={{ fontFamily: 'monospace', fontSize: '13px', flex: 1, wordBreak: 'break-all' }}>{selectedLog.url}</Text>
                             </div>
 
                             {(selectedLog.method === 'CONNECT') ? (
-                                <div style={{ textAlign: 'center', padding: '40px 20px', background: '#f5f5f5', borderRadius: 8 }}>
-                                    <LockOutlined style={{ fontSize: 48, color: '#bfbfbf', marginBottom: 16 }} />
+                                <div style={{ textAlign: 'center', padding: '40px 20px', background: token.colorFillAlter, borderRadius: 8 }}>
+                                    <LockOutlined style={{ fontSize: 48, color: token.colorTextDisabled, marginBottom: 16 }} />
                                     <br />
                                     <Text type="secondary" style={{ fontStyle: 'italic' }}>
                                         {t('proxy.tunnel_info')}
@@ -903,7 +906,6 @@ const ProxyView: React.FC = () => {
                                     const urlObj = new URL(selectedLog.url);
                                     queryParams = Array.from(urlObj.searchParams.entries());
                                 } catch (e) {
-                                    // Fallback for non-standard URLs
                                     if (selectedLog.url.includes('?')) {
                                         const search = selectedLog.url.split('?')[1];
                                         queryParams = search.split('&').map(p => {
@@ -913,61 +915,57 @@ const ProxyView: React.FC = () => {
                                     }
                                 }
                                 return (
-                                    <Tabs defaultActiveKey="request" items={[
+                                    <Tabs defaultActiveKey="request" size="small" items={[
                                         {
                                             key: 'request',
                                             label: t('proxy.request'),
                                             children: (
-                                                <Space direction="vertical" size="middle" style={{ width: '100%', paddingTop: 12 }}>
-                                                    {/* Query Params */}
+                                                <Space direction="vertical" size="middle" style={{ width: '100%', paddingTop: 8 }}>
                                                     {queryParams.length > 0 && (
                                                         <div>
-                                                            <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 'bold', color: '#999', borderBottom: '1px solid #eee', paddingBottom: 4 }}>{t('proxy.query_params')}</div>
+                                                            <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 'bold', color: token.colorTextSecondary, borderBottom: `1px solid ${token.colorBorderSecondary}`, paddingBottom: 4 }}>{t('proxy.query_params')}</div>
                                                             <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px' }}>
                                                                 {queryParams.map(([k, v], idx) => (
                                                                     <React.Fragment key={idx}>
-                                                                        <Text style={{ fontSize: '12px', color: '#888', textAlign: 'right', fontWeight: 500 }}>{k}:</Text>
-                                                                        <Text copyable={{ text: v }} style={{ fontSize: '12px', fontFamily: 'monospace', wordBreak: 'break-all', color: '#1677ff' }}>{v}</Text>
+                                                                        <Text style={{ fontSize: '12px', color: token.colorTextSecondary, textAlign: 'right', fontWeight: 500 }}>{k}:</Text>
+                                                                        <Text copyable={{ text: v }} style={{ fontSize: '12px', fontFamily: 'monospace', wordBreak: 'break-all', color: token.colorLink }}>{v}</Text>
                                                                     </React.Fragment>
                                                                 ))}
                                                             </div>
                                                         </div>
                                                     )}
-
-                                                    {/* Request Headers */}
                                                     {selectedLog.headers && Object.keys(selectedLog.headers).length > 0 && (
                                                         <div>
-                                                            <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 'bold', color: '#999', borderBottom: '1px solid #eee', paddingBottom: 4 }}>{t('proxy.headers')}</div>
+                                                            <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 'bold', color: token.colorTextSecondary, borderBottom: `1px solid ${token.colorBorderSecondary}`, paddingBottom: 4 }}>{t('proxy.headers')}</div>
                                                             <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px' }}>
                                                                 {Object.entries(selectedLog.headers).map(([k, v]) => (
                                                                     <React.Fragment key={k}>
-                                                                        <Text style={{ fontSize: '12px', color: '#888', textAlign: 'right', fontWeight: 500 }}>{k}:</Text>
+                                                                        <Text style={{ fontSize: '12px', color: token.colorTextSecondary, textAlign: 'right', fontWeight: 500 }}>{k}:</Text>
                                                                         <Text copyable={{ text: (v as string[]).join(', ') }} style={{ fontSize: '12px', fontFamily: 'monospace', wordBreak: 'break-all' }}>{(v as string[]).join(', ')}</Text>
                                                                     </React.Fragment>
                                                                 ))}
                                                             </div>
                                                         </div>
                                                     )}
-
-                                                    {/* Request Body */}
                                                     {selectedLog.previewBody && (
                                                         <div>
-                                                            <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 'bold', color: '#999', borderBottom: '1px solid #eee', paddingBottom: 4 }}>{t('proxy.body')}</div>
+                                                            <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 'bold', color: token.colorTextSecondary, borderBottom: `1px solid ${token.colorBorderSecondary}`, paddingBottom: 4 }}>{t('proxy.body')}</div>
                                                             <div style={{ position: 'relative' }}>
-                                                                <div style={{
+                                                                <pre style={{
                                                                     padding: '12px',
-                                                                    background: '#fafafa',
-                                                                    border: '1px solid #eee',
+                                                                    background: token.colorFillAlter,
+                                                                    border: `1px solid ${token.colorBorderSecondary}`,
                                                                     borderRadius: '4px',
                                                                     fontFamily: 'monospace',
                                                                     fontSize: '12px',
                                                                     whiteSpace: 'pre-wrap',
                                                                     overflow: 'auto',
-                                                                    maxHeight: '400px',
-                                                                    color: '#333'
+                                                                    maxHeight: '300px',
+                                                                    margin: 0,
+                                                                    wordBreak: 'break-all'
                                                                 }}>
                                                                     {formatBody(selectedLog.previewBody)}
-                                                                </div>
+                                                                </pre>
                                                                 <div style={{ position: 'absolute', top: 8, right: 8 }}>
                                                                     <Text copyable={{ text: formatBody(selectedLog.previewBody) }} />
                                                                 </div>
@@ -984,48 +982,45 @@ const ProxyView: React.FC = () => {
                                             key: 'response',
                                             label: `${t('proxy.response')} ${selectedLog.statusCode ? '(' + selectedLog.statusCode + ')' : ''}`,
                                             children: selectedLog.statusCode ? (
-                                                <Space direction="vertical" size="middle" style={{ width: '100%', paddingTop: 12 }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                                <Space direction="vertical" size="middle" style={{ width: '100%', paddingTop: 8 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                         <Tag color={selectedLog.statusCode >= 400 ? 'error' : 'success'} style={{ fontSize: 14, padding: '2px 8px' }}>
                                                             {selectedLog.statusCode}
                                                         </Tag>
                                                         {selectedLog.contentType && <Tag>{selectedLog.contentType.split(';')[0]}</Tag>}
                                                     </div>
-
-                                                    {/* Response Headers */}
                                                     {selectedLog.respHeaders && Object.keys(selectedLog.respHeaders).length > 0 && (
                                                         <div>
-                                                            <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 'bold', color: '#999', borderBottom: '1px solid #eee', paddingBottom: 4 }}>{t('proxy.headers')}</div>
+                                                            <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 'bold', color: token.colorTextSecondary, borderBottom: `1px solid ${token.colorBorderSecondary}`, paddingBottom: 4 }}>{t('proxy.headers')}</div>
                                                             <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px' }}>
                                                                 {Object.entries(selectedLog.respHeaders).map(([k, v]) => (
                                                                     <React.Fragment key={k}>
-                                                                        <Text style={{ fontSize: '12px', color: '#888', textAlign: 'right', fontWeight: 500 }}>{k}:</Text>
+                                                                        <Text style={{ fontSize: '12px', color: token.colorTextSecondary, textAlign: 'right', fontWeight: 500 }}>{k}:</Text>
                                                                         <Text copyable={{ text: (v as string[]).join(', ') }} style={{ fontSize: '12px', fontFamily: 'monospace', wordBreak: 'break-all' }}>{(v as string[]).join(', ')}</Text>
                                                                     </React.Fragment>
                                                                 ))}
                                                             </div>
                                                         </div>
                                                     )}
-
-                                                    {/* Response Body */}
                                                     {selectedLog.respBody && (
                                                         <div>
-                                                            <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 'bold', color: '#999', borderBottom: '1px solid #eee', paddingBottom: 4 }}>{t('proxy.body')}</div>
+                                                            <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 'bold', color: token.colorTextSecondary, borderBottom: `1px solid ${token.colorBorderSecondary}`, paddingBottom: 4 }}>{t('proxy.body')}</div>
                                                             <div style={{ position: 'relative' }}>
-                                                                <div style={{
+                                                                <pre style={{
                                                                     padding: '12px',
-                                                                    background: '#f9f9f9',
-                                                                    border: '1px solid #eee',
+                                                                    background: token.colorFillAlter,
+                                                                    border: `1px solid ${token.colorBorderSecondary}`,
                                                                     borderRadius: '4px',
                                                                     fontFamily: 'monospace',
                                                                     fontSize: '12px',
                                                                     whiteSpace: 'pre-wrap',
                                                                     overflow: 'auto',
-                                                                    maxHeight: '500px',
-                                                                    color: '#333'
+                                                                    maxHeight: '400px',
+                                                                    margin: 0,
+                                                                    wordBreak: 'break-all'
                                                                 }}>
                                                                     {formatBody(selectedLog.respBody)}
-                                                                </div>
+                                                                </pre>
                                                                 <div style={{ position: 'absolute', top: 8, right: 8 }}>
                                                                     <Text copyable={{ text: formatBody(selectedLog.respBody) }} />
                                                                 </div>
@@ -1037,8 +1032,8 @@ const ProxyView: React.FC = () => {
                                                     )}
                                                 </Space>
                                             ) : (
-                                                <div style={{ padding: '80px 20px', textAlign: 'center' }}>
-                                                    <HourglassOutlined style={{ fontSize: 48, color: '#bfbfbf', marginBottom: 16 }} />
+                                                <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+                                                    <HourglassOutlined style={{ fontSize: 48, color: token.colorTextDisabled, marginBottom: 16 }} />
                                                     <br />
                                                     <Text type="secondary" italic>{t('proxy.waiting_for_response')}</Text>
                                                 </div>
@@ -1048,9 +1043,9 @@ const ProxyView: React.FC = () => {
                                 );
                             })()}
                         </Space>
-                    </div>
+                    </Card>
                 )}
-            </Drawer>
+            </div>
 
             <Modal
                 title={
