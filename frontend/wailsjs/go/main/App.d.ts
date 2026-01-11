@@ -154,6 +154,12 @@ export function GetSession(arg1:string):Promise<main.Session>;
 
 export function GetSessionBookmarks(arg1:string):Promise<Array<main.Bookmark>>;
 
+export function GetSessionEventLevels(arg1:string):Promise<Array<string>>;
+
+export function GetSessionEventSources(arg1:string):Promise<Array<string>>;
+
+export function GetSessionEventTypes(arg1:string):Promise<Array<string>>;
+
 export function GetSessionMetadata(arg1:string,arg2:string):Promise<any>;
 
 export function GetSessionStats(arg1:string):Promise<{[key: string]: any}>;
@@ -243,6 +249,8 @@ export function PerformNodeAction(arg1:string,arg2:string,arg3:string):Promise<v
 export function PickPointOnScreen(arg1:string,arg2:number):Promise<{[key: string]: any}>;
 
 export function PlayTouchScript(arg1:string,arg2:main.TouchScript):Promise<void>;
+
+export function PreviewAssertionMatch(arg1:string,arg2:Array<string>,arg3:string):Promise<number>;
 
 export function QuerySessionEvents(arg1:main.EventQuery):Promise<main.EventQueryResult>;
 

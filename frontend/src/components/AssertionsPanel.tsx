@@ -2,7 +2,7 @@
  * AssertionsPanel - 断言验证面板
  * 允许用户创建和执行各种断言来验证设备/应用行为
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Card,
   Button,
@@ -23,6 +23,7 @@ import {
   Spin,
   Divider,
   InputNumber,
+  Alert,
 } from 'antd';
 import {
   CheckCircleOutlined,
@@ -37,6 +38,8 @@ import {
   NumberOutlined,
   DeleteOutlined,
   ClearOutlined,
+  QuestionCircleOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 // @ts-ignore
@@ -48,6 +51,8 @@ import {
   QuickAssertNoCrashes,
   QuickAssertSequence,
   ListAssertionResults,
+  GetSessionEventTypes,
+  PreviewAssertionMatch,
 } from '../../wailsjs/go/main/App';
 import type { main } from '../../wailsjs/go/models';
 
@@ -75,6 +80,61 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
   const [results, setResults] = useState<AssertionResultDisplay[]>([]);
   const [customModalOpen, setCustomModalOpen] = useState(false);
   const [form] = Form.useForm();
+
+  // UI/UX enhancement states
+  const [availableEventTypes, setAvailableEventTypes] = useState<string[]>([]);
+  const [loadingEventTypes, setLoadingEventTypes] = useState(false);
+  const [previewCount, setPreviewCount] = useState<number | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Load event types when modal opens
+  useEffect(() => {
+    if (customModalOpen && sessionId) {
+      setLoadingEventTypes(true);
+      GetSessionEventTypes(sessionId)
+        .then((types: string[]) => {
+          setAvailableEventTypes(types || []);
+        })
+        .catch((err: unknown) => {
+          console.error('Failed to load event types:', err);
+        })
+        .finally(() => {
+          setLoadingEventTypes(false);
+        });
+    }
+  }, [customModalOpen, sessionId]);
+
+  // Preview match count when criteria changes
+  const updatePreview = useCallback(async (eventTypes: string[], titleMatch: string) => {
+    if (!sessionId) {
+      setPreviewCount(null);
+      return;
+    }
+
+    setPreviewLoading(true);
+    try {
+      const count = await PreviewAssertionMatch(sessionId, eventTypes || [], titleMatch || '');
+      setPreviewCount(count);
+    } catch (err) {
+      console.error('Failed to preview match:', err);
+      setPreviewCount(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [sessionId]);
+
+  // Debounced preview update
+  const handleFormValuesChange = useCallback((changedValues: any, allValues: any) => {
+    const eventTypes = allValues.eventTypes || [];
+    const titleMatch = allValues.titleMatch || '';
+
+    // Only update preview if we have some criteria
+    if (eventTypes.length > 0 || titleMatch) {
+      updatePreview(eventTypes, titleMatch);
+    } else {
+      setPreviewCount(null);
+    }
+  }, [updatePreview]);
 
   // 执行快捷断言
   const executeQuickAssertion = useCallback(async (
@@ -157,7 +217,7 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
 
     setLoading(true);
     try {
-      // Build assertion object
+      // Build assertion object - eventTypes is now an array from Select
       const assertion: Record<string, any> = {
         id: `custom_${Date.now()}`,
         name: values.name || 'Custom Assertion',
@@ -165,7 +225,7 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
         sessionId: sessionId,
         deviceId: deviceId,
         criteria: {
-          types: values.eventTypes ? values.eventTypes.split(',').map((s: string) => s.trim()) : undefined,
+          types: Array.isArray(values.eventTypes) ? values.eventTypes : undefined,
           titleMatch: values.titleMatch || undefined,
         },
         expected: {},
@@ -390,27 +450,46 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
       <Modal
         title={t('assertions.create_custom')}
         open={customModalOpen}
-        onCancel={() => setCustomModalOpen(false)}
+        onCancel={() => {
+          setCustomModalOpen(false);
+          setPreviewCount(null);
+          form.resetFields();
+        }}
         footer={null}
-        width={500}
+        width={520}
       >
         <Form
           form={form}
           layout="vertical"
           onFinish={executeCustomAssertion}
+          onValuesChange={handleFormValuesChange}
         >
           <Form.Item
             name="name"
-            label={t('assertions.assertion_name')}
-            rules={[{ required: true }]}
+            label={
+              <Space>
+                {t('assertions.assertion_name')}
+                <Tooltip title={t('assertions.name_tooltip')}>
+                  <QuestionCircleOutlined style={{ color: '#999' }} />
+                </Tooltip>
+              </Space>
+            }
+            rules={[{ required: true, message: t('assertions.name_required') }]}
           >
             <Input placeholder={t('assertions.name_placeholder')} />
           </Form.Item>
 
           <Form.Item
             name="type"
-            label={t('assertions.assertion_type')}
-            rules={[{ required: true }]}
+            label={
+              <Space>
+                {t('assertions.assertion_type')}
+                <Tooltip title={t('assertions.type_tooltip')}>
+                  <QuestionCircleOutlined style={{ color: '#999' }} />
+                </Tooltip>
+              </Space>
+            }
+            rules={[{ required: true, message: t('assertions.type_required') }]}
           >
             <Select
               placeholder={t('assertions.select_type')}
@@ -424,40 +503,114 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
 
           <Form.Item
             name="eventTypes"
-            label={t('assertions.event_types')}
-            extra={t('assertions.event_types_extra')}
+            label={
+              <Space>
+                {t('assertions.event_types')}
+                <Tooltip title={t('assertions.event_types_tooltip')}>
+                  <QuestionCircleOutlined style={{ color: '#999' }} />
+                </Tooltip>
+              </Space>
+            }
           >
-            <Input placeholder={t('assertions.event_types_placeholder')} />
+            <Select
+              mode="multiple"
+              placeholder={t('assertions.event_types_placeholder')}
+              loading={loadingEventTypes}
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              options={availableEventTypes.map(type => ({
+                label: type,
+                value: type,
+              }))}
+              notFoundContent={
+                loadingEventTypes ? (
+                  <Spin size="small" />
+                ) : availableEventTypes.length === 0 ? (
+                  <Text type="secondary">{t('assertions.no_event_types')}</Text>
+                ) : null
+              }
+            />
           </Form.Item>
 
           <Form.Item
             name="titleMatch"
-            label={t('assertions.title_match')}
+            label={
+              <Space>
+                {t('assertions.title_match')}
+                <Tooltip title={t('assertions.title_match_tooltip')}>
+                  <QuestionCircleOutlined style={{ color: '#999' }} />
+                </Tooltip>
+              </Space>
+            }
+            rules={[
+              {
+                validator: async (_, value) => {
+                  if (value) {
+                    try {
+                      new RegExp(value);
+                    } catch (e) {
+                      throw new Error(t('assertions.invalid_regex'));
+                    }
+                  }
+                },
+              },
+            ]}
           >
-            <Input placeholder={t('assertions.title_match_placeholder')} />
+            <Input
+              placeholder={t('assertions.title_match_placeholder')}
+              prefix={<SearchOutlined style={{ color: '#999' }} />}
+            />
           </Form.Item>
+
+          {/* Match Preview */}
+          {previewCount !== null && (
+            <Alert
+              type={previewCount > 0 ? 'info' : 'warning'}
+              showIcon
+              icon={previewLoading ? <Spin size="small" /> : undefined}
+              message={
+                previewLoading
+                  ? t('assertions.previewing')
+                  : t('assertions.preview_count', { count: previewCount })
+              }
+              style={{ marginBottom: 16 }}
+            />
+          )}
 
           <Form.Item noStyle shouldUpdate={(prev, curr) => prev.type !== curr.type}>
             {({ getFieldValue }) =>
               getFieldValue('type') === 'count' && (
-                <Space>
-                  <Form.Item name="minCount" label={t('assertions.min_count')}>
-                    <InputNumber min={0} />
+                <Space style={{ width: '100%' }}>
+                  <Form.Item
+                    name="minCount"
+                    label={t('assertions.min_count')}
+                    style={{ marginBottom: 16 }}
+                  >
+                    <InputNumber min={0} style={{ width: 120 }} />
                   </Form.Item>
-                  <Form.Item name="maxCount" label={t('assertions.max_count')}>
-                    <InputNumber min={0} />
+                  <Form.Item
+                    name="maxCount"
+                    label={t('assertions.max_count')}
+                    style={{ marginBottom: 16 }}
+                  >
+                    <InputNumber min={0} style={{ width: 120 }} />
                   </Form.Item>
                 </Space>
               )
             }
           </Form.Item>
 
-          <Form.Item>
+          <Form.Item style={{ marginBottom: 0, marginTop: 8 }}>
             <Space>
               <Button type="primary" htmlType="submit" loading={loading}>
                 {t('assertions.execute')}
               </Button>
-              <Button onClick={() => setCustomModalOpen(false)}>
+              <Button onClick={() => {
+                setCustomModalOpen(false);
+                setPreviewCount(null);
+                form.resetFields();
+              }}>
                 {t('common.cancel')}
               </Button>
             </Space>

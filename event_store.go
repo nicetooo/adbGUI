@@ -1150,6 +1150,96 @@ func (s *EventStore) GetSessionStats(sessionID string) (map[string]interface{}, 
 	return stats, nil
 }
 
+// GetEventTypes 获取 Session 中所有事件类型
+func (s *EventStore) GetEventTypes(sessionID string) ([]string, error) {
+	rows, err := s.db.Query(`
+		SELECT DISTINCT type FROM events
+		WHERE session_id = ? AND type != ''
+		ORDER BY type
+	`, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var types []string
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err == nil && t != "" {
+			types = append(types, t)
+		}
+	}
+	return types, nil
+}
+
+// GetEventSources 获取 Session 中所有事件来源
+func (s *EventStore) GetEventSources(sessionID string) ([]string, error) {
+	rows, err := s.db.Query(`
+		SELECT DISTINCT source FROM events
+		WHERE session_id = ?
+		ORDER BY source
+	`, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sources []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err == nil && s != "" {
+			sources = append(sources, s)
+		}
+	}
+	return sources, nil
+}
+
+// GetEventLevels 获取 Session 中所有事件级别
+func (s *EventStore) GetEventLevels(sessionID string) ([]string, error) {
+	rows, err := s.db.Query(`
+		SELECT DISTINCT level FROM events
+		WHERE session_id = ?
+		ORDER BY level
+	`, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var levels []string
+	for rows.Next() {
+		var l string
+		if err := rows.Scan(&l); err == nil && l != "" {
+			levels = append(levels, l)
+		}
+	}
+	return levels, nil
+}
+
+// PreviewAssertionMatch 预览断言匹配的事件数量
+func (s *EventStore) PreviewAssertionMatch(sessionID string, types []string, titleMatch string) (int, error) {
+	query := `SELECT COUNT(*) FROM events WHERE session_id = ?`
+	args := []interface{}{sessionID}
+
+	if len(types) > 0 {
+		placeholders := make([]string, len(types))
+		for i := range types {
+			placeholders[i] = "?"
+			args = append(args, types[i])
+		}
+		query += ` AND type IN (` + strings.Join(placeholders, ",") + `)`
+	}
+
+	if titleMatch != "" {
+		query += ` AND title REGEXP ?`
+		args = append(args, titleMatch)
+	}
+
+	var count int
+	err := s.db.QueryRow(query, args...).Scan(&count)
+	return count, err
+}
+
 // CleanupOldSessions 清理旧 Session
 func (s *EventStore) CleanupOldSessions(maxAge time.Duration) (int, error) {
 	cutoff := time.Now().Add(-maxAge).UnixMilli()

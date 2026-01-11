@@ -302,6 +302,18 @@ export function GetSessionBookmarks(arg1) {
   return window['go']['main']['App']['GetSessionBookmarks'](arg1);
 }
 
+export function GetSessionEventLevels(arg1) {
+  return window['go']['main']['App']['GetSessionEventLevels'](arg1);
+}
+
+export function GetSessionEventSources(arg1) {
+  return window['go']['main']['App']['GetSessionEventSources'](arg1);
+}
+
+export function GetSessionEventTypes(arg1) {
+  return window['go']['main']['App']['GetSessionEventTypes'](arg1);
+}
+
 export function GetSessionMetadata(arg1, arg2) {
   return window['go']['main']['App']['GetSessionMetadata'](arg1, arg2);
 }
@@ -480,6 +492,10 @@ export function PickPointOnScreen(arg1, arg2) {
 
 export function PlayTouchScript(arg1, arg2) {
   return window['go']['main']['App']['PlayTouchScript'](arg1, arg2);
+}
+
+export function PreviewAssertionMatch(arg1, arg2, arg3) {
+  return window['go']['main']['App']['PreviewAssertionMatch'](arg1, arg2, arg3);
 }
 
 export function QuerySessionEvents(arg1) {

@@ -733,6 +733,38 @@ func (a *App) GetSessionStats(sessionID string) (map[string]interface{}, error) 
 	return a.eventStore.GetSessionStats(sessionID)
 }
 
+// GetSessionEventTypes gets distinct event types in a session
+func (a *App) GetSessionEventTypes(sessionID string) ([]string, error) {
+	if a.eventStore == nil {
+		return []string{}, nil
+	}
+	return a.eventStore.GetEventTypes(sessionID)
+}
+
+// GetSessionEventSources gets distinct event sources in a session
+func (a *App) GetSessionEventSources(sessionID string) ([]string, error) {
+	if a.eventStore == nil {
+		return []string{}, nil
+	}
+	return a.eventStore.GetEventSources(sessionID)
+}
+
+// GetSessionEventLevels gets distinct event levels in a session
+func (a *App) GetSessionEventLevels(sessionID string) ([]string, error) {
+	if a.eventStore == nil {
+		return []string{}, nil
+	}
+	return a.eventStore.GetEventLevels(sessionID)
+}
+
+// PreviewAssertionMatch previews the count of events matching assertion criteria
+func (a *App) PreviewAssertionMatch(sessionID string, types []string, titleMatch string) (int, error) {
+	if a.eventStore == nil {
+		return 0, nil
+	}
+	return a.eventStore.PreviewAssertionMatch(sessionID, types, titleMatch)
+}
+
 // GetRecentSessionEvents gets recent events from memory for a session
 func (a *App) GetRecentSessionEvents(sessionID string, count int) []UnifiedEvent {
 	if a.eventPipeline == nil {
