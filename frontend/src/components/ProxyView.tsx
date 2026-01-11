@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, Button, InputNumber, Space, Typography, Tag, message, Modal, Divider, Switch, Tooltip, Radio, Input, Tabs, theme, Form, Table, Popconfirm } from 'antd';
-import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, EditOutlined, BlockOutlined, SendOutlined, PlusOutlined } from '@ant-design/icons';
+import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, EditOutlined, BlockOutlined, SendOutlined, PlusOutlined, CloseOutlined } from '@ant-design/icons';
 import DeviceSelector from './DeviceSelector';
 import { useDeviceStore, useProxyStore, RequestLog as StoreRequestLog } from '../stores';
 // @ts-ignore
@@ -879,7 +879,7 @@ const ProxyView: React.FC = () => {
                                     <Button
                                         type="text"
                                         size="small"
-                                        icon={<DeleteOutlined />}
+                                        icon={<CloseOutlined />}
                                         onClick={() => selectLog(null)}
                                     />
                                 </Space>
