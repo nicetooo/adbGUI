@@ -16,27 +16,27 @@ jobs:
             platform: darwin
             arch: amd64
             name: x86_64
-            output: adbGUI.app
+            output: Gaze.app
           - os: macos-latest
             platform: darwin
             arch: arm64
             name: arm64
-            output: adbGUI.app
+            output: Gaze.app
           - os: macos-latest
             platform: darwin
             arch: universal
             name: universal
-            output: adbGUI.app
+            output: Gaze.app
           - os: windows-latest
             platform: windows
             arch: amd64
             name: x86_64
-            output: adbGUI.exe
+            output: Gaze.exe
           - os: ubuntu-22.04
             platform: linux
             arch: amd64
             name: x86_64
-            output: adbGUI
+            output: Gaze
 
     runs-on: ${{ matrix.os }}
     defaults:
@@ -104,27 +104,27 @@ jobs:
         if: matrix.platform == 'darwin'
         run: |
           cd build/bin
-          zip -r ../../adbGUI-macOS-${{ matrix.name }}.zip adbGUI.app
+          zip -r ../../Gaze-macOS-${{ matrix.name }}.zip Gaze.app
 
       - name: Package Artifacts (Windows)
         if: matrix.platform == 'windows'
         run: |
           cd build/bin
-          7z a ../../adbGUI-Windows-${{ matrix.name }}.zip adbGUI.exe
+          7z a ../../Gaze-Windows-${{ matrix.name }}.zip Gaze.exe
 
       - name: Package Artifacts (Linux)
         if: matrix.platform == 'linux'
         run: |
           cd build/bin
-          tar -czvf ../../adbGUI-Linux-${{ matrix.name }}.tar.gz adbGUI
+          tar -czvf ../../Gaze-Linux-${{ matrix.name }}.tar.gz Gaze
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            adbGUI-macOS-*.zip
-            adbGUI-Windows-*.zip
-            adbGUI-Linux-*.tar.gz
+            Gaze-macOS-*.zip
+            Gaze-Windows-*.zip
+            Gaze-Linux-*.tar.gz
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
