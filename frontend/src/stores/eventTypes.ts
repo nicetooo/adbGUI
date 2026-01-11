@@ -368,38 +368,38 @@ export interface Bookmark {
 // UI Display Helpers
 // ========================================
 
-// Source 显示配置
+// Source 显示配置 - 使用 Ant Design 预设颜色名称以适配主题
 export const sourceConfig: Record<EventSource, { label: string; icon: string; color: string }> = {
-  logcat: { label: 'Logcat', icon: '📝', color: '#52c41a' },
-  network: { label: 'Network', icon: '🌐', color: '#722ed1' },
-  device: { label: 'Device', icon: '📱', color: '#13c2c2' },
-  app: { label: 'App', icon: '📦', color: '#1890ff' },
-  ui: { label: 'UI', icon: '🖼️', color: '#eb2f96' },
-  touch: { label: 'Touch', icon: '👆', color: '#fa8c16' },
-  workflow: { label: 'Workflow', icon: '⚙️', color: '#2f54eb' },
-  perf: { label: 'Perf', icon: '📊', color: '#faad14' },
-  system: { label: 'System', icon: '🔧', color: '#8c8c8c' },
-  assertion: { label: 'Assert', icon: '✅', color: '#52c41a' },
+  logcat: { label: 'Logcat', icon: '📝', color: 'green' },
+  network: { label: 'Network', icon: '🌐', color: 'purple' },
+  device: { label: 'Device', icon: '📱', color: 'cyan' },
+  app: { label: 'App', icon: '📦', color: 'blue' },
+  ui: { label: 'UI', icon: '🖼️', color: 'magenta' },
+  touch: { label: 'Touch', icon: '👆', color: 'orange' },
+  workflow: { label: 'Workflow', icon: '⚙️', color: 'geekblue' },
+  perf: { label: 'Perf', icon: '📊', color: 'gold' },
+  system: { label: 'System', icon: '🔧', color: 'default' },
+  assertion: { label: 'Assert', icon: '✅', color: 'green' },
 };
 
-// Category 显示配置
+// Category 显示配置 - 使用 Ant Design 预设颜色名称以适配主题
 export const categoryConfig: Record<EventCategory, { label: string; color: string }> = {
-  log: { label: 'Log', color: '#52c41a' },
-  network: { label: 'Network', color: '#722ed1' },
-  state: { label: 'State', color: '#1890ff' },
-  interaction: { label: 'Interaction', color: '#fa8c16' },
-  automation: { label: 'Automation', color: '#2f54eb' },
-  diagnostic: { label: 'Diagnostic', color: '#8c8c8c' },
+  log: { label: 'Log', color: 'green' },
+  network: { label: 'Network', color: 'purple' },
+  state: { label: 'State', color: 'blue' },
+  interaction: { label: 'Interaction', color: 'orange' },
+  automation: { label: 'Automation', color: 'geekblue' },
+  diagnostic: { label: 'Diagnostic', color: 'default' },
 };
 
-// Level 显示配置
+// Level 显示配置 - 使用 Ant Design 预设颜色名称以适配主题
 export const levelConfig: Record<EventLevel, { label: string; color: string; icon: string; priority: number }> = {
-  verbose: { label: 'Verbose', color: '#bfbfbf', icon: '📋', priority: 0 },
-  debug: { label: 'Debug', color: '#8c8c8c', icon: '🔧', priority: 1 },
-  info: { label: 'Info', color: '#1890ff', icon: 'ℹ️', priority: 2 },
-  warn: { label: 'Warn', color: '#faad14', icon: '⚠️', priority: 3 },
-  error: { label: 'Error', color: '#ff4d4f', icon: '❌', priority: 4 },
-  fatal: { label: 'Fatal', color: '#cf1322', icon: '💀', priority: 5 },
+  verbose: { label: 'Verbose', color: 'default', icon: '📋', priority: 0 },
+  debug: { label: 'Debug', color: 'default', icon: '🔧', priority: 1 },
+  info: { label: 'Info', color: 'blue', icon: 'ℹ️', priority: 2 },
+  warn: { label: 'Warn', color: 'gold', icon: '⚠️', priority: 3 },
+  error: { label: 'Error', color: 'red', icon: '❌', priority: 4 },
+  fatal: { label: 'Fatal', color: 'red', icon: '💀', priority: 5 },
 };
 
 // Event Type 显示配置
@@ -518,7 +518,7 @@ export function getEventColor(event: UnifiedEvent): string {
   if (event.level === 'warn') {
     return levelConfig.warn.color;
   }
-  return categoryConfig[event.category]?.color || sourceConfig[event.source]?.color || '#8c8c8c';
+  return categoryConfig[event.category]?.color || sourceConfig[event.source]?.color || 'default';
 }
 
 /**
