@@ -957,20 +957,12 @@ const EventTimeline = () => {
 
   // Get current session - use sessionsVersion to force recompute
   const currentSession = useMemo(() => {
-    console.log('[EventTimeline] Computing currentSession, activeSessionId:', activeSessionId, 'sessions size:', sessions.size, 'version:', sessionsVersion);
     if (!activeSessionId) {
-      console.log('[EventTimeline] No activeSessionId, returning null');
       return null;
     }
     const session = sessions.get(activeSessionId);
-    console.log('[EventTimeline] Got session from map:', session);
     return session || null;
   }, [sessions, activeSessionId, sessionsVersion]);
-
-  // Debug: log when currentSession changes
-  useEffect(() => {
-    console.log('[EventTimeline] currentSession changed:', currentSession?.status, currentSession?.id);
-  }, [currentSession]);
 
   // Session duration
   const sessionDuration = useMemo(() => {
@@ -1067,7 +1059,6 @@ const EventTimeline = () => {
 
   // Handlers
   const handleSessionSelect = useCallback((sessionId: string) => {
-    console.log('[EventTimeline] handleSessionSelect called with:', sessionId);
     if (sessionId) {
       setTimeRange(null); // Clear time range when switching sessions
       loadSession(sessionId);
@@ -1176,16 +1167,12 @@ const EventTimeline = () => {
   }, [deleteBookmark]);
 
   const handleStartSession = useCallback(() => {
-    console.log('[EventTimeline] handleStartSession called, opening config modal');
     if (selectedDevice) {
       setConfigModalOpen(true);
-    } else {
-      console.warn('[EventTimeline] No device selected!');
     }
   }, [selectedDevice]);
 
   const handleStartWithConfig = useCallback(async (name: string, config: SessionConfig) => {
-    console.log('[EventTimeline] handleStartWithConfig called:', { name, config });
     setConfigModalOpen(false);
     if (selectedDevice) {
       try {
@@ -1194,7 +1181,6 @@ const EventTimeline = () => {
           name,
           config
         );
-        console.log('[EventTimeline] StartSessionWithConfig returned sessionId:', sessionId);
         // Reload the session to get the updated data
         if (sessionId) {
           await loadSession(sessionId);
