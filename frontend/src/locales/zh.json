@@ -164,7 +164,10 @@
     "error_msg": "断言错误",
     "clear_all": "清空全部",
     "previewing": "正在预览...",
-    "preview_count": "当前条件匹配 {{count}} 个事件"
+    "preview_count": "当前条件匹配 {{count}} 个事件",
+    "saved_assertions": "已保存断言",
+    "deleted": "已删除",
+    "delete_failed": "删除失败"
   },
   "timeline": {
     "title": "会话时间线",

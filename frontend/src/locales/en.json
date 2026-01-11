@@ -163,7 +163,10 @@
     "error_msg": "Assertion error",
     "clear_all": "Clear All",
     "previewing": "Previewing...",
-    "preview_count": "Current criteria matches {{count}} events"
+    "preview_count": "Current criteria matches {{count}} events",
+    "saved_assertions": "Saved Assertions",
+    "deleted": "Deleted",
+    "delete_failed": "Delete failed"
   },
   "timeline": {
     "title": "Session Timeline",

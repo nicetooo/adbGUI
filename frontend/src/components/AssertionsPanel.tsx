@@ -54,6 +54,9 @@ import {
   GetSessionEventTypes,
   PreviewAssertionMatch,
   CreateStoredAssertionJSON,
+  ListStoredAssertions,
+  DeleteStoredAssertion,
+  ExecuteStoredAssertion,
 } from '../../wailsjs/go/main/App';
 import type { main } from '../../wailsjs/go/models';
 
@@ -75,6 +78,13 @@ interface AssertionResultDisplay {
   matchedCount: number;
 }
 
+interface StoredAssertionDisplay {
+  id: string;
+  name: string;
+  type: string;
+  createdAt: number;
+}
+
 const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }) => {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
@@ -87,6 +97,39 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
   const [loadingEventTypes, setLoadingEventTypes] = useState(false);
   const [previewCount, setPreviewCount] = useState<number | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Stored assertions
+  const [storedAssertions, setStoredAssertions] = useState<StoredAssertionDisplay[]>([]);
+  const [loadingStored, setLoadingStored] = useState(false);
+
+  // Load stored assertions when sessionId changes
+  const loadStoredAssertions = useCallback(async () => {
+    if (!sessionId) {
+      setStoredAssertions([]);
+      return;
+    }
+
+    setLoadingStored(true);
+    try {
+      const assertions = await ListStoredAssertions(sessionId, '', false, 50);
+      if (assertions) {
+        setStoredAssertions(assertions.map((a: any) => ({
+          id: a.id,
+          name: a.name,
+          type: a.type,
+          createdAt: a.createdAt,
+        })));
+      }
+    } catch (err) {
+      console.error('Failed to load stored assertions:', err);
+    } finally {
+      setLoadingStored(false);
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
+    loadStoredAssertions();
+  }, [loadStoredAssertions]);
 
   // Load event types when modal opens
   useEffect(() => {
@@ -254,6 +297,8 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
       // 保存断言定义（用户可以稍后删除）
       try {
         await CreateStoredAssertionJSON(assertionJSON, false);
+        // 刷新已保存断言列表
+        loadStoredAssertions();
       } catch (saveErr) {
         console.warn('Failed to save assertion:', saveErr);
       }
@@ -285,7 +330,7 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
     } finally {
       setLoading(false);
     }
-  }, [sessionId, deviceId, form, t]);
+  }, [sessionId, deviceId, form, t, loadStoredAssertions]);
 
   // 加载历史结果
   const loadHistory = useCallback(async () => {
@@ -318,6 +363,47 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
   const clearAllResults = useCallback(() => {
     setResults([]);
   }, []);
+
+  // 执行已保存的断言
+  const executeStoredAssertionById = useCallback(async (assertionId: string) => {
+    setLoading(true);
+    try {
+      const result = await ExecuteStoredAssertion(assertionId);
+      if (result) {
+        const displayResult: AssertionResultDisplay = {
+          id: result.id,
+          name: result.assertionName,
+          passed: result.passed,
+          message: result.message,
+          executedAt: result.executedAt,
+          duration: result.duration,
+          matchedCount: result.matchedEvents?.length || 0,
+        };
+        setResults(prev => [displayResult, ...prev]);
+
+        if (result.passed) {
+          message.success(`${t('assertions.passed_msg')}: ${result.assertionName}`);
+        } else {
+          message.error(`${t('assertions.failed_msg')}: ${result.message}`);
+        }
+      }
+    } catch (err) {
+      message.error(`${t('assertions.error_msg')}: ${err}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [t]);
+
+  // 删除已保存的断言
+  const deleteStoredAssertionById = useCallback(async (assertionId: string) => {
+    try {
+      await DeleteStoredAssertion(assertionId);
+      setStoredAssertions(prev => prev.filter(a => a.id !== assertionId));
+      message.success(t('assertions.deleted'));
+    } catch (err) {
+      message.error(`${t('assertions.delete_failed')}: ${err}`);
+    }
+  }, [t]);
 
   // Quick assertion buttons
   const quickAssertions = [
@@ -367,7 +453,8 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
         <Text type="secondary" style={{ fontSize: 12, marginBottom: 8, display: 'block' }}>
           {t('assertions.quick_checks')}
         </Text>
-        <Space wrap>
+        <Space wrap size={[8, 8]}>
+          {/* 内置快捷断言 */}
           {quickAssertions.map(qa => (
             <Tooltip key={qa.key} title={qa.description}>
               <Button
@@ -379,6 +466,31 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
                 {qa.label}
               </Button>
             </Tooltip>
+          ))}
+          {/* 已保存的断言 */}
+          {storedAssertions.map(item => (
+            <Button.Group key={item.id} size="small">
+              <Tooltip title={t('assertions.execute')}>
+                <Button
+                  size="small"
+                  loading={loading}
+                  onClick={() => executeStoredAssertionById(item.id)}
+                >
+                  {item.name}
+                </Button>
+              </Tooltip>
+              <Tooltip title={t('common.delete')}>
+                <Button
+                  size="small"
+                  icon={<DeleteOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteStoredAssertionById(item.id);
+                  }}
+                  danger
+                />
+              </Tooltip>
+            </Button.Group>
           ))}
         </Space>
       </div>
