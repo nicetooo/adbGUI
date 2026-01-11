@@ -145,8 +145,8 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
 
     // If range is too small (< 100ms), treat as click to seek
     if (end - start < 100) {
-      onSeek(start);
       onTimeRangeChange(null);
+      onSeek(start);
     } else {
       onTimeRangeChange({ start, end });
     }
@@ -1030,43 +1030,63 @@ const EventTimeline = () => {
   const handleSeek = useCallback((time: number) => {
     const targetTime = Math.round(time);
     setAutoScroll(false);
+    // 立即更新黄线位置，提供即时视觉反馈
+    setCurrentTime(targetTime);
 
-    if (visibleEvents.length > 0) {
-      // 二分查找最接近目标时间的事件
+    // 获取当前状态
+    const { visibleEvents: currentEvents, activeSessionId, totalEventCount } = useEventStore.getState();
+
+    // 二分查找并滚动的函数
+    const scrollToTime = (events: UnifiedEvent[]) => {
+      if (events.length === 0) return;
+
       let left = 0;
-      let right = visibleEvents.length - 1;
+      let right = events.length - 1;
 
       while (left < right) {
         const mid = Math.floor((left + right) / 2);
-        if (visibleEvents[mid].relativeTime < targetTime) {
+        if (events[mid].relativeTime < targetTime) {
           left = mid + 1;
         } else {
           right = mid;
         }
       }
 
-      // 检查 left 和 left-1 哪个更接近
       let closestIndex = left;
       if (left > 0) {
-        const diffLeft = Math.abs(visibleEvents[left].relativeTime - targetTime);
-        const diffPrev = Math.abs(visibleEvents[left - 1].relativeTime - targetTime);
+        const diffLeft = Math.abs(events[left].relativeTime - targetTime);
+        const diffPrev = Math.abs(events[left - 1].relativeTime - targetTime);
         if (diffPrev < diffLeft) {
           closestIndex = left - 1;
         }
       }
 
-      const foundEvent = visibleEvents[closestIndex];
+      const foundEvent = events[closestIndex];
       if (foundEvent) {
         setCurrentTime(foundEvent.relativeTime);
-      } else {
-        setCurrentTime(targetTime);
       }
-
       rowVirtualizer.scrollToIndex(closestIndex, { align: 'center', behavior: 'smooth' });
+    };
+
+    // 检查是否需要重新加载
+    const needReload = currentEvents.length === 0 ||
+      currentEvents.length < totalEventCount * 0.9 ||
+      (currentEvents.length > 0 && (
+        targetTime < currentEvents[0].relativeTime - 1000 ||
+        targetTime > currentEvents[currentEvents.length - 1].relativeTime + 1000
+      ));
+
+    if (needReload && activeSessionId) {
+      // 需要重新加载，异步执行
+      loadSession(activeSessionId).then(() => {
+        const { visibleEvents: events } = useEventStore.getState();
+        scrollToTime(events);
+      });
     } else {
-      setCurrentTime(targetTime);
+      // 直接用当前事件滚动
+      scrollToTime(currentEvents);
     }
-  }, [visibleEvents, setAutoScroll, rowVirtualizer]);
+  }, [setAutoScroll, rowVirtualizer, loadSession]);
 
   const handleCreateBookmark = useCallback(() => {
     if (activeSessionId && currentTime) {
