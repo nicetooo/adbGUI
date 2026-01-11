@@ -55,9 +55,8 @@ export const VIEW_KEYS = {
   RECORDING: '8' as ViewKey,
   WORKFLOW: '9' as ViewKey,
   INSPECTOR: '10' as ViewKey,
-  TIMELINE: '11' as ViewKey,
-  EVENTS: '12' as ViewKey,
-  SESSIONS: '13' as ViewKey,
+  EVENTS: '11' as ViewKey,
+  SESSIONS: '12' as ViewKey,
 } as const;
 
 export const VIEW_NAME_MAP: Record<string, ViewKey> = {
@@ -71,7 +70,6 @@ export const VIEW_NAME_MAP: Record<string, ViewKey> = {
   recording: VIEW_KEYS.RECORDING,
   workflow: VIEW_KEYS.WORKFLOW,
   inspector: VIEW_KEYS.INSPECTOR,
-  timeline: VIEW_KEYS.TIMELINE,
   events: VIEW_KEYS.EVENTS,
   sessions: VIEW_KEYS.SESSIONS,
 };

@@ -18,7 +18,6 @@ import ProxyView from "./components/ProxyView";
 import RecordingView from "./components/RecordingView";
 import WorkflowView from "./components/WorkflowView";
 import UIInspectorView from "./components/UIInspectorView";
-import TimelineView from "./components/TimelineView";
 import EventTimeline from "./components/EventTimeline";
 import SessionManager from "./components/SessionManager";
 import DeviceInfoModal from "./components/DeviceInfoModal";
@@ -43,7 +42,6 @@ import {
   BlockOutlined,
   VideoCameraOutlined,
   BranchesOutlined,
-  HistoryOutlined,
   DashboardOutlined,
   DatabaseOutlined,
 } from "@ant-design/icons";
@@ -256,7 +254,6 @@ function App() {
                 { key: VIEW_KEYS.RECORDING, icon: <VideoCameraOutlined />, label: t("menu.recording") },
                 { key: VIEW_KEYS.INSPECTOR, icon: <BlockOutlined />, label: t("menu.inspector") },
                 { key: VIEW_KEYS.WORKFLOW, icon: <BranchesOutlined />, label: t("menu.workflow") },
-                { key: VIEW_KEYS.TIMELINE, icon: <HistoryOutlined />, label: t("menu.timeline") },
                 { key: VIEW_KEYS.EVENTS, icon: <DashboardOutlined />, label: t("menu.events") },
                 { key: VIEW_KEYS.SESSIONS, icon: <DatabaseOutlined />, label: t("menu.sessions") },
               ]}
@@ -336,7 +333,6 @@ function App() {
           {selectedKey === VIEW_KEYS.RECORDING && <RecordingView />}
           {selectedKey === VIEW_KEYS.INSPECTOR && <UIInspectorView />}
           {selectedKey === VIEW_KEYS.WORKFLOW && <WorkflowView />}
-          {selectedKey === VIEW_KEYS.TIMELINE && <TimelineView />}
           {selectedKey === VIEW_KEYS.EVENTS && <EventTimeline />}
           {selectedKey === VIEW_KEYS.SESSIONS && <SessionManager />}
         </Content>
