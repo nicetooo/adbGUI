@@ -202,29 +202,34 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
           userSelect: 'none',
         }}
       >
-        {/* Event density bars */}
-        <div style={{ display: 'flex', height: 36, alignItems: 'flex-end', padding: '0 2px' }}>
-          {Array.from({ length: Math.min(totalSeconds, 300) }).map((_, i) => {
+        {/* Event density bars - 使用绝对定位让每个条形正确对应时间位置 */}
+        <div style={{ position: 'relative', height: 36 }}>
+          {Array.from({ length: Math.max(totalSeconds, 1) }).map((_, i) => {
             const entry = indexMap.get(i);
-            const height = entry ? Math.max(4, (entry.eventCount / maxCount) * 28) : 0;
+            const height = entry ? Math.max(4, (entry.eventCount / maxCount) * 30) : 0;
             const hasError = entry?.hasError;
             const secStart = i * 1000;
             const secEnd = (i + 1) * 1000;
             const isInSelection = hasSelection && secStart < selectionEnd! && secEnd > selectionStart!;
 
+            // 使用百分比定位，确保条形位置与时间轴对齐
+            const leftPercent = (i / totalSeconds) * 100;
+            const widthPercent = (1 / totalSeconds) * 100;
+
             return (
               <div
                 key={i}
                 style={{
-                  flex: 1,
-                  minWidth: 2,
-                  maxWidth: 6,
+                  position: 'absolute',
+                  left: `${leftPercent}%`,
+                  width: `calc(${widthPercent}% - 1px)`,
                   height,
+                  bottom: 0,
                   background: hasError ? token.colorError : token.colorPrimary,
-                  opacity: isInSelection ? 1 : (hasError ? 0.8 : 0.5),
-                  marginRight: 1,
+                  opacity: isInSelection ? 1 : (hasError ? 0.9 : 0.7),
                   borderRadius: 1,
                 }}
+                title={entry ? `${i}s: ${entry.eventCount} events` : `${i}s: 0 events`}
               />
             );
           })}
@@ -293,10 +298,15 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
           transform: 'translateX(-50%)',
           fontSize: 9,
           color: token.colorTextTertiary,
-          pointerEvents: 'none',
           whiteSpace: 'nowrap',
         }}>
-          索引: {timeIndex.length}条 / {totalSeconds}秒
+          <input
+            type="text"
+            readOnly
+            value={`索引:${timeIndex.length} 秒:${totalSeconds} maxCount:${maxCount} 事件总数:${Array.from(indexMap.values()).reduce((s, e) => s + e.eventCount, 0)} 首条:${timeIndex[0]?.second}s=${timeIndex[0]?.eventCount} 末条:${timeIndex[timeIndex.length-1]?.second}s=${timeIndex[timeIndex.length-1]?.eventCount}`}
+            style={{ width: '100%', background: '#fff3', border: 'none', fontSize: 11, color: 'inherit', padding: '2px 4px', borderRadius: 2 }}
+            onClick={(e) => (e.target as HTMLInputElement).select()}
+          />
         </div>
 
         {/* Selection time labels */}
@@ -851,16 +861,12 @@ const EventTimeline = () => {
     bookmarks,
     isLoading,
     autoScroll,
-    hasMoreNewer,
-    hasMoreOlder,
     loadSession,
     startSession,
     endSession,
     setFilter,
     applyFilter,
     loadEventsInRange,
-    loadNewerEvents,
-    loadOlderEvents,
     createBookmark,
     subscribeToEvents,
     setAutoScroll,
@@ -983,39 +989,6 @@ const EventTimeline = () => {
     }
   }, [visibleEvents.length, autoScroll, rowVirtualizer]);
 
-  // Bidirectional infinite scroll - load older events at top, newer at bottom
-  useEffect(() => {
-    const container = listRef.current;
-    if (!container) return;
-
-    let isLoadingMore = false;
-
-    const handleScroll = () => {
-      if (isLoadingMore) return;
-
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      // 计算滚动位置百分比
-      const scrollPercent = scrollHeight > clientHeight ? (scrollTop / (scrollHeight - clientHeight)) * 100 : 0;
-
-      // 滚动超过 70% 时加载更新的事件
-      if (hasMoreNewer && scrollPercent > 70) {
-        isLoadingMore = true;
-        loadNewerEvents().finally(() => {
-          isLoadingMore = false;
-        });
-      }
-      // 滚动小于 30% 时加载更老的事件
-      else if (hasMoreOlder && scrollPercent < 30) {
-        isLoadingMore = true;
-        loadOlderEvents().finally(() => {
-          isLoadingMore = false;
-        });
-      }
-    };
-
-    container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, [hasMoreNewer, hasMoreOlder, loadNewerEvents, loadOlderEvents]);
 
   // Update current time based on scroll position
   useEffect(() => {
@@ -1380,23 +1353,6 @@ const EventTimeline = () => {
                     />
                   );
                 })}
-                {/* Loading more indicator at bottom */}
-                {hasMoreNewer && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: rowVirtualizer.getTotalSize(),
-                      left: 0,
-                      width: '100%',
-                      padding: '8px',
-                      textAlign: 'center',
-                      color: token.colorTextSecondary,
-                      fontSize: 12,
-                    }}
-                  >
-                    ↓ 继续滚动加载更多 ({visibleEvents.length} / {totalEventCount})
-                  </div>
-                )}
               </div>
             </div>
           )}

@@ -342,32 +342,24 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           console.error('[eventStore] loadSession index/bookmarks error:', err);
         });
 
-        // 查询事件数据 - 从头开始加载（时间升序）
+        // 查询所有事件数据
         console.log('[eventStore] loadSession calling QuerySessionEvents...');
         const result = await (window as any).go.main.App.QuerySessionEvents({
           sessionId: sessionId,
-          startTime: 0,
-          limit: 1000,
+          limit: 0,  // 0 表示不限制，加载全部
         });
-        console.log('[eventStore] loadSession got events:', result?.events?.length || 0, 'total:', result?.total);
 
         const events = result?.events || [];
-        // 使用 session 的 eventCount 作为总数
-        const sessionEventCount = session?.eventCount || 0;
+        console.log('[eventStore] loadSession loaded all events:', events.length);
 
         set(state => {
           state.visibleEvents = events;
-          state.totalEventCount = sessionEventCount;
-          state.filteredEventCount = sessionEventCount;
-          state.currentOffset = events.length;
-          // 从头开始加载，没有更老的事件
+          state.totalEventCount = events.length;
+          state.filteredEventCount = events.length;
           state.hasMoreOlder = false;
-          // 如果加载的事件数等于 limit，说明可能还有更新的事件
-          state.hasMoreNewer = events.length >= 1000;
+          state.hasMoreNewer = false;
           state.isLoading = false;
         });
-
-        console.log('[eventStore] loadSession complete, loaded:', events.length, 'total:', sessionEventCount, 'hasMore:', events.length >= 1000);
 
       } catch (err) {
         console.error('[eventStore] loadSession error:', err);
