@@ -56,7 +56,7 @@ import {
   CreateStoredAssertionJSON,
   ListStoredAssertions,
   DeleteStoredAssertion,
-  ExecuteStoredAssertion,
+  ExecuteStoredAssertionInSession,
 } from '../../wailsjs/go/main/App';
 import type { main } from '../../wailsjs/go/models';
 
@@ -102,16 +102,12 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
   const [storedAssertions, setStoredAssertions] = useState<StoredAssertionDisplay[]>([]);
   const [loadingStored, setLoadingStored] = useState(false);
 
-  // Load stored assertions when sessionId changes
+  // Load stored assertions (global, not bound to session)
   const loadStoredAssertions = useCallback(async () => {
-    if (!sessionId) {
-      setStoredAssertions([]);
-      return;
-    }
-
     setLoadingStored(true);
     try {
-      const assertions = await ListStoredAssertions(sessionId, '', false, 50);
+      // Pass empty sessionId to get all assertions (global)
+      const assertions = await ListStoredAssertions('', '', false, 50);
       if (assertions) {
         setStoredAssertions(assertions.map((a: any) => ({
           id: a.id,
@@ -119,14 +115,18 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
           type: a.type,
           createdAt: a.createdAt,
         })));
+      } else {
+        setStoredAssertions([]);
       }
     } catch (err) {
       console.error('Failed to load stored assertions:', err);
+      setStoredAssertions([]);
     } finally {
       setLoadingStored(false);
     }
-  }, [sessionId]);
+  }, []);
 
+  // Load stored assertions on mount
   useEffect(() => {
     loadStoredAssertions();
   }, [loadStoredAssertions]);
@@ -262,12 +262,14 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
     setLoading(true);
     try {
       // Build assertion object - eventTypes is now an array from Select
+      // Note: assertions are global, not bound to specific session
       const assertion: Record<string, any> = {
         id: `custom_${Date.now()}`,
         name: values.name || 'Custom Assertion',
         type: values.type,
-        sessionId: sessionId,
-        deviceId: deviceId,
+        // Don't bind to session - assertions are global templates
+        sessionId: '',
+        deviceId: '',
         criteria: {
           types: Array.isArray(values.eventTypes) ? values.eventTypes : undefined,
           titleMatch: values.titleMatch || undefined,
@@ -292,19 +294,19 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
           break;
       }
 
-      const assertionJSON = JSON.stringify(assertion);
-
-      // 保存断言定义（用户可以稍后删除）
+      // 保存断言模板（不绑定 session）
+      const templateJSON = JSON.stringify(assertion);
       try {
-        await CreateStoredAssertionJSON(assertionJSON, false);
+        await CreateStoredAssertionJSON(templateJSON, false);
         // 刷新已保存断言列表
         loadStoredAssertions();
       } catch (saveErr) {
-        console.warn('Failed to save assertion:', saveErr);
+        console.error('Failed to save assertion:', saveErr);
       }
 
-      // 执行断言
-      const result = await ExecuteAssertionJSON(assertionJSON);
+      // 执行断言（需要当前 session）
+      const execAssertion = { ...assertion, sessionId, deviceId };
+      const result = await ExecuteAssertionJSON(JSON.stringify(execAssertion));
       if (result) {
         const displayResult: AssertionResultDisplay = {
           id: result.id,
@@ -366,9 +368,15 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
 
   // 执行已保存的断言
   const executeStoredAssertionById = useCallback(async (assertionId: string) => {
+    if (!sessionId) {
+      message.warning(t('assertions.select_session_first'));
+      return;
+    }
+
     setLoading(true);
     try {
-      const result = await ExecuteStoredAssertion(assertionId);
+      // Execute with current session context (for global assertions)
+      const result = await ExecuteStoredAssertionInSession(assertionId, sessionId, deviceId);
       if (result) {
         const displayResult: AssertionResultDisplay = {
           id: result.id,
@@ -392,7 +400,7 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [sessionId, deviceId, t]);
 
   // 删除已保存的断言
   const deleteStoredAssertionById = useCallback(async (assertionId: string) => {

@@ -1108,6 +1108,69 @@ func (a *App) ExecuteStoredAssertion(assertionID string) (*AssertionResult, erro
 	return a.assertionEngine.ExecuteAssertion(&assertion)
 }
 
+// ExecuteStoredAssertionInSession executes a stored assertion in a specific session context
+func (a *App) ExecuteStoredAssertionInSession(assertionID, sessionID, deviceID string) (*AssertionResult, error) {
+	if a.assertionEngine == nil {
+		return nil, fmt.Errorf("assertion engine not initialized")
+	}
+
+	stored, err := a.assertionEngine.GetStoredAssertion(assertionID)
+	if err != nil {
+		return nil, err
+	}
+	if stored == nil {
+		return nil, fmt.Errorf("assertion not found: %s", assertionID)
+	}
+
+	// Convert StoredAssertion to Assertion
+	var criteria EventCriteria
+	if err := json.Unmarshal(stored.Criteria, &criteria); err != nil {
+		return nil, fmt.Errorf("invalid criteria: %v", err)
+	}
+	var expected AssertionExpected
+	if err := json.Unmarshal(stored.Expected, &expected); err != nil {
+		return nil, fmt.Errorf("invalid expected: %v", err)
+	}
+	var metadata map[string]interface{}
+	if len(stored.Metadata) > 0 {
+		json.Unmarshal(stored.Metadata, &metadata)
+	}
+
+	// Use provided sessionID/deviceID to override stored values (for global assertions)
+	effectiveSessionID := sessionID
+	if effectiveSessionID == "" {
+		effectiveSessionID = stored.SessionID
+	}
+	effectiveDeviceID := deviceID
+	if effectiveDeviceID == "" {
+		effectiveDeviceID = stored.DeviceID
+	}
+
+	assertion := Assertion{
+		ID:          stored.ID,
+		Name:        stored.Name,
+		Description: stored.Description,
+		Type:        AssertionType(stored.Type),
+		SessionID:   effectiveSessionID,
+		DeviceID:    effectiveDeviceID,
+		Criteria:    criteria,
+		Expected:    expected,
+		Timeout:     stored.Timeout,
+		Tags:        stored.Tags,
+		Metadata:    metadata,
+		CreatedAt:   stored.CreatedAt,
+	}
+
+	if stored.TimeRange != nil {
+		assertion.TimeRange = &TimeRange{
+			Start: stored.TimeRange.Start,
+			End:   stored.TimeRange.End,
+		}
+	}
+
+	return a.assertionEngine.ExecuteAssertion(&assertion)
+}
+
 // ListStoredAssertionResults lists persisted assertion results
 func (a *App) ListStoredAssertionResults(sessionID string, limit int) ([]StoredAssertionResult, error) {
 	if a.assertionEngine == nil {

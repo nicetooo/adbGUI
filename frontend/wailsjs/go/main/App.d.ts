@@ -84,6 +84,8 @@ export function ExecuteSingleWorkflowStep(arg1:string,arg2:main.WorkflowStep):Pr
 
 export function ExecuteStoredAssertion(arg1:string):Promise<main.AssertionResult>;
 
+export function ExecuteStoredAssertionInSession(arg1:string,arg2:string,arg3:string):Promise<main.AssertionResult>;
+
 export function ExportAPK(arg1:string,arg2:string):Promise<string>;
 
 export function FindAllElementsBySelector(arg1:main.UINode,arg2:main.ElementSelector):Promise<Array<main.UINode>>;

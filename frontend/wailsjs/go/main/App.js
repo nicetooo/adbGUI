@@ -162,6 +162,10 @@ export function ExecuteStoredAssertion(arg1) {
   return window['go']['main']['App']['ExecuteStoredAssertion'](arg1);
 }
 
+export function ExecuteStoredAssertionInSession(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ExecuteStoredAssertionInSession'](arg1, arg2, arg3);
+}
+
 export function ExportAPK(arg1, arg2) {
   return window['go']['main']['App']['ExportAPK'](arg1, arg2);
 }
