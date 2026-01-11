@@ -581,6 +581,32 @@ const ProxyView: React.FC = () => {
         });
     };
 
+    // Create mock from request
+    const createMockFromRequest = (log: StoreRequestLog) => {
+        // Extract URL pattern (use path with wildcard for query params)
+        let urlPattern = log.url;
+        try {
+            const urlObj = new URL(log.url);
+            urlPattern = `*${urlObj.pathname}*`;
+        } catch (e) {
+            // Use full URL as pattern if parsing fails
+            urlPattern = `*${log.url.split('?')[0]}*`;
+        }
+
+        setEditingMockRule(null);
+        mockForm.resetFields();
+        mockForm.setFieldsValue({
+            urlPattern,
+            method: log.method,
+            statusCode: log.statusCode || 200,
+            contentType: log.contentType?.split(';')[0] || 'application/json',
+            body: log.respBody || '',
+            delay: 0,
+            description: `Mock for ${log.method} ${urlPattern}`,
+        });
+        setMockModalOpen(true);
+    };
+
     const filteredLogs = logs.filter(log => {
         // Filter by type (ALL, HTTP, WS)
         if (filterType === "HTTP" && log.isWs) return false;
@@ -875,6 +901,14 @@ const ProxyView: React.FC = () => {
                                         onClick={() => openResendModal(selectedLog)}
                                     >
                                         {t('proxy.resend')}
+                                    </Button>
+                                    <Button
+                                        type="text"
+                                        size="small"
+                                        icon={<BlockOutlined />}
+                                        onClick={() => createMockFromRequest(selectedLog)}
+                                    >
+                                        Mock
                                     </Button>
                                     <Button
                                         type="text"
