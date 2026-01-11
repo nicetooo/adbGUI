@@ -546,9 +546,9 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
                     <Text strong style={{ flex: 1, fontSize: 13 }}>
                       {item.name}
                     </Text>
-                    <Tag color={item.passed ? 'success' : 'error'}>
-                      {item.passed ? t('assertions.pass') : t('assertions.fail')}
-                    </Tag>
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      {new Date(item.executedAt).toLocaleTimeString()} | {item.duration}ms | {item.matchedCount} {t('assertions.matched')}
+                    </Text>
                     <Tooltip title={t('common.delete')}>
                       <Button
                         type="text"
@@ -558,16 +558,6 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
                         style={{ color: '#ff4d4f' }}
                       />
                     </Tooltip>
-                  </div>
-                  <Text type="secondary" style={{ fontSize: 12, marginLeft: 22 }}>
-                    {item.message}
-                  </Text>
-                  <div style={{ marginLeft: 22, marginTop: 4 }}>
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      {new Date(item.executedAt).toLocaleTimeString()} |
-                      {item.duration}ms |
-                      {item.matchedCount} {t('assertions.matched')}
-                    </Text>
                   </div>
                 </div>
               </List.Item>
