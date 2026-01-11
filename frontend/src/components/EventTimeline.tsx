@@ -98,16 +98,8 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
   const indexMap = useMemo(() => {
     const map = new Map<number, TimeIndexEntry>();
     timeIndex.forEach(entry => map.set(entry.second, entry));
-    // Debug logging
-    console.log('[TimeRuler] timeIndex entries:', timeIndex.length, 'totalSeconds:', totalSeconds);
-    if (timeIndex.length > 0) {
-      const minSec = Math.min(...timeIndex.map(e => e.second));
-      const maxSec = Math.max(...timeIndex.map(e => e.second));
-      const totalEvents = timeIndex.reduce((sum, e) => sum + e.eventCount, 0);
-      console.log('[TimeRuler] Second range:', minSec, '-', maxSec, 'total events:', totalEvents);
-    }
     return map;
-  }, [timeIndex, totalSeconds]);
+  }, [timeIndex]);
 
   const maxCount = useMemo(() => {
     let max = 1;
@@ -252,7 +244,7 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
           />
         )}
 
-        {/* Current position indicator - always visible */}
+        {/* Current position indicator (yellow) */}
         {sessionDuration > 0 && (
           <div
             style={{
@@ -288,25 +280,6 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
           pointerEvents: 'none',
         }}>
           {formatRelativeTime(sessionDuration)}
-        </div>
-
-        {/* Debug: show time index stats */}
-        <div style={{
-          position: 'absolute',
-          top: 2,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          fontSize: 9,
-          color: token.colorTextTertiary,
-          whiteSpace: 'nowrap',
-        }}>
-          <input
-            type="text"
-            readOnly
-            value={`索引:${timeIndex.length} 秒:${totalSeconds} maxCount:${maxCount} 事件总数:${Array.from(indexMap.values()).reduce((s, e) => s + e.eventCount, 0)} 首条:${timeIndex[0]?.second}s=${timeIndex[0]?.eventCount} 末条:${timeIndex[timeIndex.length-1]?.second}s=${timeIndex[timeIndex.length-1]?.eventCount}`}
-            style={{ width: '100%', background: '#fff3', border: 'none', fontSize: 11, color: 'inherit', padding: '2px 4px', borderRadius: 2 }}
-            onClick={(e) => (e.target as HTMLInputElement).select()}
-          />
         </div>
 
         {/* Selection time labels */}
@@ -369,6 +342,7 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
           </Button>
         </div>
       )}
+
     </div>
   );
 });
@@ -990,15 +964,15 @@ const EventTimeline = () => {
   }, [visibleEvents.length, autoScroll, rowVirtualizer]);
 
 
-  // Update current time based on scroll position
+  // Update current time based on scroll position - only when auto-scroll is enabled
   useEffect(() => {
-    if (visibleEvents.length > 0) {
+    if (autoScroll && visibleEvents.length > 0) {
       const lastVisible = visibleEvents[visibleEvents.length - 1];
       if (lastVisible) {
         setCurrentTime(lastVisible.relativeTime);
       }
     }
-  }, [visibleEvents]);
+  }, [visibleEvents, autoScroll]);
 
   // Handle filter changes
   useEffect(() => {
@@ -1053,37 +1027,46 @@ const EventTimeline = () => {
     }
   }, []);
 
-  const handleSeek = useCallback(async (time: number) => {
-    // 确保时间是整数（后端需要 int64）
+  const handleSeek = useCallback((time: number) => {
     const targetTime = Math.round(time);
-    console.log('[EventTimeline] handleSeek to time:', targetTime);
-    setCurrentTime(targetTime);
-    setAutoScroll(false); // 手动跳转时关闭自动滚动
+    setAutoScroll(false);
 
-    // 加载包含目标时间前后的事件
-    await loadEventsInRange(Math.max(0, targetTime - 30000), targetTime + 30000);
+    if (visibleEvents.length > 0) {
+      // 二分查找最接近目标时间的事件
+      let left = 0;
+      let right = visibleEvents.length - 1;
 
-    // 在加载完成后，找到最接近目标时间的事件并滚动到它
-    requestAnimationFrame(() => {
-      const events = useEventStore.getState().visibleEvents;
-      if (events.length > 0) {
-        // 找到最接近目标时间的事件索引
-        let closestIndex = 0;
-        let closestDiff = Math.abs(events[0].relativeTime - time);
-
-        for (let i = 1; i < events.length; i++) {
-          const diff = Math.abs(events[i].relativeTime - time);
-          if (diff < closestDiff) {
-            closestDiff = diff;
-            closestIndex = i;
-          }
+      while (left < right) {
+        const mid = Math.floor((left + right) / 2);
+        if (visibleEvents[mid].relativeTime < targetTime) {
+          left = mid + 1;
+        } else {
+          right = mid;
         }
-
-        console.log('[EventTimeline] scrolling to index:', closestIndex, 'time:', events[closestIndex]?.relativeTime);
-        rowVirtualizer.scrollToIndex(closestIndex, { align: 'center', behavior: 'smooth' });
       }
-    });
-  }, [loadEventsInRange, setAutoScroll, rowVirtualizer]);
+
+      // 检查 left 和 left-1 哪个更接近
+      let closestIndex = left;
+      if (left > 0) {
+        const diffLeft = Math.abs(visibleEvents[left].relativeTime - targetTime);
+        const diffPrev = Math.abs(visibleEvents[left - 1].relativeTime - targetTime);
+        if (diffPrev < diffLeft) {
+          closestIndex = left - 1;
+        }
+      }
+
+      const foundEvent = visibleEvents[closestIndex];
+      if (foundEvent) {
+        setCurrentTime(foundEvent.relativeTime);
+      } else {
+        setCurrentTime(targetTime);
+      }
+
+      rowVirtualizer.scrollToIndex(closestIndex, { align: 'center', behavior: 'smooth' });
+    } else {
+      setCurrentTime(targetTime);
+    }
+  }, [visibleEvents, setAutoScroll, rowVirtualizer]);
 
   const handleCreateBookmark = useCallback(() => {
     if (activeSessionId && currentTime) {
