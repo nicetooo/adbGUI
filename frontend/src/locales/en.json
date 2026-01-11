@@ -645,7 +645,12 @@
     "no_mock_rules": "No mock rules defined",
     "mock_rule_added": "Mock rule added",
     "mock_rule_updated": "Mock rule updated",
-    "mock_rule_deleted": "Mock rule deleted"
+    "mock_rule_deleted": "Mock rule deleted",
+    "cert_trusted": "Certificate is trusted on device",
+    "cert_not_trusted": "Certificate NOT trusted - HTTPS decryption will fail",
+    "cert_checking": "Checking certificate trust status...",
+    "cert_pending": "Waiting for HTTPS traffic to verify certificate trust",
+    "cert_install_hint": "Push certificate to device"
   },
   "batch": {
     "title": "Batch Operation",

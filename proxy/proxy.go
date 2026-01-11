@@ -61,6 +61,8 @@ type ProxyServer struct {
 	latency     time.Duration // Artificial latency
 
 	mockRules map[string]*MockRule // Mock response rules
+
+	hasDecryptedHTTPS bool // Track if we've seen decrypted HTTPS traffic
 }
 
 // GetPort returns the port the proxy is running on
@@ -241,6 +243,7 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 	}
 	p.OnRequest = onRequest
 	p.port = port
+	p.hasDecryptedHTTPS = false // Reset on start
 
 	// Initialize CertManager
 	home, _ := os.UserHomeDir()
@@ -426,6 +429,14 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 		}
 
 		p.debugLog("RESP: %d for %s (Proto: %s, Type: %s, Mocked: %v)", resp.StatusCode, id, resp.Proto, resp.Header.Get("Content-Type"), mocked)
+
+		// Track if we've successfully decrypted HTTPS traffic
+		// This is used to verify certificate trust status
+		if req != nil && req.URL != nil && req.URL.Scheme == "https" && resp.StatusCode > 0 {
+			p.mu.Lock()
+			p.hasDecryptedHTTPS = true
+			p.mu.Unlock()
+		}
 
 		// Update log with response headers
 		log := p.logRequest(id, req, resp)
@@ -723,6 +734,13 @@ func (p *ProxyServer) GetCertPath() string {
 		return p.certMgr.CertPath
 	}
 	return ""
+}
+
+// HasRecentDecryptedHTTPS checks if there are any successfully decrypted HTTPS requests
+func (p *ProxyServer) HasRecentDecryptedHTTPS() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.hasDecryptedHTTPS
 }
 
 // --- Helpers ---

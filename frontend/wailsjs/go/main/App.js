@@ -34,6 +34,10 @@ export function CancelOpenFile(arg1) {
   return window['go']['main']['App']['CancelOpenFile'](arg1);
 }
 
+export function CheckCertTrust(arg1) {
+  return window['go']['main']['App']['CheckCertTrust'](arg1);
+}
+
 export function CleanupOldSessionData(arg1) {
   return window['go']['main']['App']['CleanupOldSessionData'](arg1);
 }

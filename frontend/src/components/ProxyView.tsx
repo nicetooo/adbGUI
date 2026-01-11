@@ -4,7 +4,7 @@ import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, 
 import DeviceSelector from './DeviceSelector';
 import { useDeviceStore, useProxyStore, RequestLog as StoreRequestLog } from '../stores';
 // @ts-ignore
-import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, RemoveMockRule, GetMockRules, ToggleMockRule } from '../../wailsjs/go/main/App';
+import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, RemoveMockRule, GetMockRules, ToggleMockRule, CheckCertTrust } from '../../wailsjs/go/main/App';
 // @ts-ignore
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -98,6 +98,37 @@ const ProxyView: React.FC = () => {
     const [mockRules, setMockRules] = useState<any[]>([]);
     const [mockForm] = Form.useForm();
     const [editingMockRule, setEditingMockRule] = useState<any>(null);
+
+    // Cert trust status: 'trusted' | 'not_trusted' | 'unknown' | 'no_proxy' | 'checking' | null
+    const [certTrustStatus, setCertTrustStatus] = useState<string | null>(null);
+
+    // Check cert trust status when MITM is enabled and proxy is running
+    useEffect(() => {
+        if (mitmEnabled && isRunning && selectedDevice) {
+            setCertTrustStatus('checking');
+            CheckCertTrust(selectedDevice).then((status: string) => {
+                setCertTrustStatus(status);
+            }).catch(() => {
+                setCertTrustStatus('unknown');
+            });
+        } else {
+            setCertTrustStatus(null);
+        }
+    }, [mitmEnabled, isRunning, selectedDevice]);
+
+    // Re-check cert status periodically when pending
+    useEffect(() => {
+        if (certTrustStatus === 'pending' && selectedDevice) {
+            const interval = setInterval(() => {
+                CheckCertTrust(selectedDevice).then((status: string) => {
+                    if (status !== 'pending') {
+                        setCertTrustStatus(status);
+                    }
+                }).catch(() => {});
+            }, 2000); // Check every 2 seconds
+            return () => clearInterval(interval);
+        }
+    }, [certTrustStatus, selectedDevice]);
 
     useEffect(() => {
         // Listen for network stats
@@ -678,9 +709,34 @@ const ProxyView: React.FC = () => {
                             </Space>
                             {mitmEnabled && (
                                 <Space size="small">
-                                    <Button size="small" icon={<DownloadOutlined />} onClick={handleInstallCert}>
-                                        Cert
-                                    </Button>
+                                    <Tooltip title={
+                                        certTrustStatus === 'trusted' ? t('proxy.cert_trusted') :
+                                        certTrustStatus === 'not_trusted' ? t('proxy.cert_not_trusted') :
+                                        certTrustStatus === 'pending' ? t('proxy.cert_pending') :
+                                        certTrustStatus === 'checking' ? t('proxy.cert_checking') :
+                                        t('proxy.cert_install_hint')
+                                    }>
+                                        <Button size="small" icon={<DownloadOutlined />} onClick={handleInstallCert}>
+                                            Cert
+                                        </Button>
+                                    </Tooltip>
+                                    {certTrustStatus && certTrustStatus !== 'no_proxy' && certTrustStatus !== 'unknown' && (
+                                        <Tag
+                                            color={
+                                                certTrustStatus === 'trusted' ? 'success' :
+                                                certTrustStatus === 'not_trusted' ? 'error' :
+                                                certTrustStatus === 'pending' ? 'warning' :
+                                                certTrustStatus === 'checking' ? 'processing' :
+                                                'default'
+                                            }
+                                            style={{ marginRight: 0 }}
+                                        >
+                                            {certTrustStatus === 'trusted' ? '✓' :
+                                             certTrustStatus === 'not_trusted' ? '✗' :
+                                             certTrustStatus === 'pending' ? '?' :
+                                             certTrustStatus === 'checking' ? '...' : '?'}
+                                        </Tag>
+                                    )}
                                     <Button size="small" icon={<SettingOutlined />} onClick={() => setBypassModalOpen(true)}>
                                         Rules
                                     </Button>

@@ -222,6 +222,32 @@ func (a *App) InstallProxyCert(deviceId string) (string, error) {
 	return dest, nil
 }
 
+// CheckCertTrust checks if the device has trusted the proxy CA certificate
+// Returns: "trusted", "not_trusted", "unknown", or "no_proxy"
+func (a *App) CheckCertTrust(deviceId string) string {
+	// Check if proxy is running
+	p := proxy.GetProxy()
+	if !p.IsRunning() {
+		return "no_proxy"
+	}
+
+	// Check if MITM is enabled
+	if !p.IsMITMEnabled() {
+		return "unknown"
+	}
+
+	// Check recent proxy logs - if we have any successfully decrypted HTTPS requests
+	// (requests with response body from HTTPS URLs), the cert is trusted
+	hasDecryptedHTTPS := p.HasRecentDecryptedHTTPS()
+	if hasDecryptedHTTPS {
+		return "trusted"
+	}
+
+	// No decrypted HTTPS yet - could be trusted but no traffic, or not trusted
+	// Return "pending" to indicate we need more traffic to determine
+	return "pending"
+}
+
 // SetProxyLatency sets the artificial latency in milliseconds
 func (a *App) SetProxyLatency(latencyMs int) {
 	proxy.GetProxy().SetLatency(latencyMs)

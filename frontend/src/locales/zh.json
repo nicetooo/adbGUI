@@ -646,7 +646,12 @@
     "no_mock_rules": "暂无 Mock 规则",
     "mock_rule_added": "Mock 规则已添加",
     "mock_rule_updated": "Mock 规则已更新",
-    "mock_rule_deleted": "Mock 规则已删除"
+    "mock_rule_deleted": "Mock 规则已删除",
+    "cert_trusted": "证书已受设备信任",
+    "cert_not_trusted": "证书未信任 - HTTPS 解密将失败",
+    "cert_checking": "正在检查证书信任状态...",
+    "cert_pending": "等待 HTTPS 流量以验证证书信任状态",
+    "cert_install_hint": "推送证书到设备"
   },
   "batch": {
     "title": "批量操作",

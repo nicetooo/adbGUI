@@ -20,6 +20,8 @@ export function AssertElementText(arg1:string,arg2:main.ElementSelector,arg3:str
 
 export function CancelOpenFile(arg1:string):Promise<void>;
 
+export function CheckCertTrust(arg1:string):Promise<string>;
+
 export function CleanupOldSessionData(arg1:number):Promise<number>;
 
 export function CleanupOldSessions(arg1:time.Duration):Promise<number>;
