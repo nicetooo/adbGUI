@@ -30,9 +30,10 @@ import {
   FileTextOutlined,
   FilterOutlined,
   EditOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { useDeviceStore } from '../stores';
+import { useDeviceStore, useUIStore, useEventStore, VIEW_KEYS } from '../stores';
 import type { DeviceSession } from '../stores/eventTypes';
 
 const { Text, Title } = Typography;
@@ -95,6 +96,8 @@ interface SessionManagerProps {
 
 const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
   const { selectedDevice } = useDeviceStore();
+  const { setSelectedKey } = useUIStore();
+  const { loadSession } = useEventStore();
 
   // State
   const [sessions, setSessions] = useState<DeviceSession[]>([]);
@@ -202,6 +205,17 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
     }
   }, [renameSession, newName, loadSessions]);
 
+  // View session in Events tab
+  const handleViewInEvents = useCallback(async (session: DeviceSession) => {
+    try {
+      await loadSession(session.id);
+      setSelectedKey(VIEW_KEYS.EVENTS);
+    } catch (err) {
+      console.error('Failed to load session:', err);
+      message.error('加载 Session 失败');
+    }
+  }, [loadSession, setSelectedKey]);
+
   // Filter sessions
   const filteredSessions = useMemo(() => {
     return sessions.filter(session => {
@@ -305,10 +319,18 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
     {
       title: '操作',
       key: 'actions',
-      width: 180,
+      width: 210,
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
+          <Tooltip title="查看事件">
+            <Button
+              type="text"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => handleViewInEvents(record)}
+            />
+          </Tooltip>
           {record.videoPath && (
             <Tooltip title="播放录屏">
               <Button

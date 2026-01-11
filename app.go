@@ -658,8 +658,8 @@ func (a *App) GetInstalledPackages(deviceID string, thirdPartyOnly bool) ([]stri
 
 // QuerySessionEvents queries events from a session
 func (a *App) QuerySessionEvents(query EventQuery) (*EventQueryResult, error) {
-	log.Printf("[QuerySessionEvents] Called with sessionId=%s, startTime=%d, endTime=%d, limit=%d",
-		query.SessionID, query.StartTime, query.EndTime, query.Limit)
+	log.Printf("[QuerySessionEvents] Called with sessionId=%s, startTime=%d, endTime=%d, limit=%d, sources=%v, categories=%v",
+		query.SessionID, query.StartTime, query.EndTime, query.Limit, query.Sources, query.Categories)
 	if a.eventStore == nil {
 		log.Printf("[QuerySessionEvents] ERROR: eventStore is nil!")
 		return &EventQueryResult{Events: []UnifiedEvent{}}, nil

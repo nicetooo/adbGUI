@@ -81,11 +81,16 @@ interface TimeRulerProps {
   timeIndex: TimeIndexEntry[];
   currentTime: number;
   onSeek: (time: number) => void;
+  timeRange: { start: number; end: number } | null;
+  onTimeRangeChange: (range: { start: number; end: number } | null) => void;
 }
 
-const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime, onSeek }: TimeRulerProps) => {
+const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime, onSeek, timeRange, onTimeRangeChange }: TimeRulerProps) => {
   const { token } = theme.useToken();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<number | null>(null);
+  const [dragEnd, setDragEnd] = useState<number | null>(null);
 
   const totalSeconds = Math.ceil(sessionDuration / 1000);
 
@@ -104,86 +109,232 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
     return max;
   }, [timeIndex]);
 
-  const handleClick = (e: React.MouseEvent) => {
-    if (!containerRef.current) return;
+  // Convert x position to time
+  const posToTime = useCallback((clientX: number) => {
+    if (!containerRef.current) return 0;
     const rect = containerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
     const ratio = x / rect.width;
-    const seekTime = Math.round(ratio * sessionDuration); // 确保是整数
-    onSeek(seekTime);
-  };
+    return Math.round(ratio * sessionDuration);
+  }, [sessionDuration]);
+
+  // Handle mouse events for drag selection
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return; // Only left click
+    e.preventDefault();
+    const time = posToTime(e.clientX);
+    setIsDragging(true);
+    setDragStart(time);
+    setDragEnd(time);
+  }, [posToTime]);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging) return;
+    const time = posToTime(e.clientX);
+    setDragEnd(time);
+  }, [isDragging, posToTime]);
+
+  const handleMouseUp = useCallback((e: MouseEvent) => {
+    if (!isDragging || dragStart === null || dragEnd === null) {
+      setIsDragging(false);
+      return;
+    }
+
+    const start = Math.min(dragStart, dragEnd);
+    const end = Math.max(dragStart, dragEnd);
+
+    // If range is too small (< 100ms), treat as click to seek
+    if (end - start < 100) {
+      onSeek(start);
+      onTimeRangeChange(null);
+    } else {
+      onTimeRangeChange({ start, end });
+    }
+
+    setIsDragging(false);
+    setDragStart(null);
+    setDragEnd(null);
+  }, [isDragging, dragStart, dragEnd, onSeek, onTimeRangeChange]);
+
+  // Add/remove global mouse event listeners
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
+
+  // Calculate selection display (either from drag or from timeRange prop)
+  const selectionStart = isDragging && dragStart !== null && dragEnd !== null
+    ? Math.min(dragStart, dragEnd)
+    : timeRange?.start ?? null;
+  const selectionEnd = isDragging && dragStart !== null && dragEnd !== null
+    ? Math.max(dragStart, dragEnd)
+    : timeRange?.end ?? null;
+
+  const hasSelection = selectionStart !== null && selectionEnd !== null && selectionEnd > selectionStart;
 
   return (
-    <div
-      ref={containerRef}
-      onClick={handleClick}
-      style={{
-        height: 40,
-        background: token.colorBgContainer,
-        borderRadius: 4,
-        position: 'relative',
-        cursor: 'pointer',
-        border: `1px solid ${token.colorBorder}`,
-        overflow: 'hidden',
-      }}
-    >
-      {/* Event density bars */}
-      <div style={{ display: 'flex', height: '100%', alignItems: 'flex-end', padding: '0 2px' }}>
-        {Array.from({ length: Math.min(totalSeconds, 300) }).map((_, i) => {
-          const entry = indexMap.get(i);
-          const height = entry ? Math.max(4, (entry.eventCount / maxCount) * 32) : 0;
-          const hasError = entry?.hasError;
+    <div style={{ position: 'relative' }}>
+      <div
+        ref={containerRef}
+        onMouseDown={handleMouseDown}
+        style={{
+          height: 50,
+          background: token.colorBgContainer,
+          borderRadius: 4,
+          position: 'relative',
+          cursor: 'crosshair',
+          border: `1px solid ${token.colorBorder}`,
+          overflow: 'hidden',
+          userSelect: 'none',
+        }}
+      >
+        {/* Event density bars */}
+        <div style={{ display: 'flex', height: 36, alignItems: 'flex-end', padding: '0 2px' }}>
+          {Array.from({ length: Math.min(totalSeconds, 300) }).map((_, i) => {
+            const entry = indexMap.get(i);
+            const height = entry ? Math.max(4, (entry.eventCount / maxCount) * 28) : 0;
+            const hasError = entry?.hasError;
+            const secStart = i * 1000;
+            const secEnd = (i + 1) * 1000;
+            const isInSelection = hasSelection && secStart < selectionEnd! && secEnd > selectionStart!;
 
-          return (
-            <div
-              key={i}
-              style={{
-                flex: 1,
-                minWidth: 1,
-                maxWidth: 4,
-                height,
-                background: hasError ? token.colorError : token.colorPrimary,
-                opacity: hasError ? 0.8 : 0.4,
-                marginRight: 1,
-              }}
-            />
-          );
-        })}
+            return (
+              <div
+                key={i}
+                style={{
+                  flex: 1,
+                  minWidth: 1,
+                  maxWidth: 4,
+                  height,
+                  background: hasError ? token.colorError : (isInSelection ? token.colorPrimary : token.colorPrimary),
+                  opacity: isInSelection ? 0.9 : (hasError ? 0.6 : 0.3),
+                  marginRight: 1,
+                }}
+              />
+            );
+          })}
+        </div>
+
+        {/* Selection overlay */}
+        {hasSelection && sessionDuration > 0 && (
+          <div
+            style={{
+              position: 'absolute',
+              left: `${(selectionStart! / sessionDuration) * 100}%`,
+              width: `${((selectionEnd! - selectionStart!) / sessionDuration) * 100}%`,
+              top: 0,
+              bottom: 0,
+              background: token.colorPrimaryBg,
+              borderLeft: `2px solid ${token.colorPrimary}`,
+              borderRight: `2px solid ${token.colorPrimary}`,
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+
+        {/* Current position indicator */}
+        {sessionDuration > 0 && !hasSelection && (
+          <div
+            style={{
+              position: 'absolute',
+              left: `${(currentTime / sessionDuration) * 100}%`,
+              top: 0,
+              bottom: 0,
+              width: 2,
+              background: token.colorWarning,
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+
+        {/* Time labels */}
+        <div style={{
+          position: 'absolute',
+          bottom: 2,
+          left: 4,
+          fontSize: 10,
+          color: token.colorTextSecondary,
+          pointerEvents: 'none',
+        }}>
+          {formatRelativeTime(0)}
+        </div>
+        <div style={{
+          position: 'absolute',
+          bottom: 2,
+          right: 4,
+          fontSize: 10,
+          color: token.colorTextSecondary,
+          pointerEvents: 'none',
+        }}>
+          {formatRelativeTime(sessionDuration)}
+        </div>
+
+        {/* Selection time labels */}
+        {hasSelection && (
+          <>
+            <div style={{
+              position: 'absolute',
+              top: 2,
+              left: `${(selectionStart! / sessionDuration) * 100}%`,
+              transform: 'translateX(-50%)',
+              fontSize: 10,
+              fontWeight: 500,
+              color: token.colorPrimary,
+              background: token.colorBgContainer,
+              padding: '0 2px',
+              borderRadius: 2,
+              pointerEvents: 'none',
+            }}>
+              {formatRelativeTime(selectionStart!)}
+            </div>
+            <div style={{
+              position: 'absolute',
+              top: 2,
+              left: `${(selectionEnd! / sessionDuration) * 100}%`,
+              transform: 'translateX(-50%)',
+              fontSize: 10,
+              fontWeight: 500,
+              color: token.colorPrimary,
+              background: token.colorBgContainer,
+              padding: '0 2px',
+              borderRadius: 2,
+              pointerEvents: 'none',
+            }}>
+              {formatRelativeTime(selectionEnd!)}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Current position indicator */}
-      {sessionDuration > 0 && (
-        <div
-          style={{
-            position: 'absolute',
-            left: `${(currentTime / sessionDuration) * 100}%`,
-            top: 0,
-            bottom: 0,
-            width: 2,
-            background: token.colorWarning,
-          }}
-        />
+      {/* Selection info and clear button */}
+      {timeRange && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          marginTop: 4,
+          fontSize: 12,
+        }}>
+          <Text type="secondary">
+            Selected: {formatRelativeTime(timeRange.start)} - {formatRelativeTime(timeRange.end)}
+            {' '}({((timeRange.end - timeRange.start) / 1000).toFixed(1)}s)
+          </Text>
+          <Button
+            type="link"
+            size="small"
+            onClick={() => onTimeRangeChange(null)}
+            style={{ padding: 0, height: 'auto' }}
+          >
+            Clear selection
+          </Button>
+        </div>
       )}
-
-      {/* Time labels */}
-      <div style={{
-        position: 'absolute',
-        bottom: 2,
-        left: 4,
-        fontSize: 10,
-        color: token.colorTextSecondary
-      }}>
-        {formatRelativeTime(0)}
-      </div>
-      <div style={{
-        position: 'absolute',
-        bottom: 2,
-        right: 4,
-        fontSize: 10,
-        color: token.colorTextSecondary
-      }}>
-        {formatRelativeTime(sessionDuration)}
-      </div>
     </div>
   );
 });
@@ -694,6 +845,7 @@ const EventTimeline = () => {
   const [filterSources, setFilterSources] = useState<EventSource[]>([]);
   const [filterCategories, setFilterCategories] = useState<EventCategory[]>([]);
   const [filterLevels, setFilterLevels] = useState<EventLevel[]>([]);
+  const [timeRange, setTimeRange] = useState<{ start: number; end: number } | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [sessionList, setSessionList] = useState<DeviceSession[]>([]);
   const [assertionsPanelOpen, setAssertionsPanelOpen] = useState(true);
@@ -820,14 +972,22 @@ const EventTimeline = () => {
       categories: filterCategories.length > 0 ? filterCategories : undefined,
       levels: filterLevels.length > 0 ? filterLevels : undefined,
       searchText: searchText || undefined,
+      startTime: timeRange?.start,
+      endTime: timeRange?.end,
     });
     applyFilter();
-  }, [filterSources, filterCategories, filterLevels, searchText, setFilter, applyFilter]);
+  }, [filterSources, filterCategories, filterLevels, searchText, timeRange, setFilter, applyFilter]);
+
+  // Handle time range change
+  const handleTimeRangeChange = useCallback((range: { start: number; end: number } | null) => {
+    setTimeRange(range);
+  }, []);
 
   // Handlers
   const handleSessionSelect = useCallback((sessionId: string) => {
     console.log('[EventTimeline] handleSessionSelect called with:', sessionId);
     if (sessionId) {
+      setTimeRange(null); // Clear time range when switching sessions
       loadSession(sessionId);
     }
   }, [loadSession]);
@@ -1076,6 +1236,8 @@ const EventTimeline = () => {
           timeIndex={sessionTimeIndex}
           currentTime={currentTime}
           onSeek={handleSeek}
+          timeRange={timeRange}
+          onTimeRangeChange={handleTimeRangeChange}
         />
       )}
 
