@@ -761,6 +761,51 @@ func (e *AssertionEngine) GetStoredAssertion(id string) (*StoredAssertion, error
 	return e.store.GetAssertion(id)
 }
 
+// UpdateAssertion 更新已存储的断言
+func (e *AssertionEngine) UpdateAssertion(assertion *Assertion) error {
+	if e.store == nil {
+		return nil
+	}
+
+	now := time.Now().UnixMilli()
+
+	// 序列化 criteria 和 expected
+	criteriaJSON, err := json.Marshal(assertion.Criteria)
+	if err != nil {
+		return fmt.Errorf("marshal criteria: %w", err)
+	}
+	expectedJSON, err := json.Marshal(assertion.Expected)
+	if err != nil {
+		return fmt.Errorf("marshal expected: %w", err)
+	}
+	metadataJSON, _ := json.Marshal(assertion.Metadata)
+
+	stored := &StoredAssertion{
+		ID:          assertion.ID,
+		Name:        assertion.Name,
+		Description: assertion.Description,
+		Type:        string(assertion.Type),
+		SessionID:   assertion.SessionID,
+		DeviceID:    assertion.DeviceID,
+		Criteria:    criteriaJSON,
+		Expected:    expectedJSON,
+		Timeout:     assertion.Timeout,
+		Tags:        assertion.Tags,
+		Metadata:    metadataJSON,
+		CreatedAt:   assertion.CreatedAt,
+		UpdatedAt:   now,
+	}
+
+	if assertion.TimeRange != nil {
+		stored.TimeRange = &struct {
+			Start int64 `json:"start"`
+			End   int64 `json:"end"`
+		}{Start: assertion.TimeRange.Start, End: assertion.TimeRange.End}
+	}
+
+	return e.store.UpdateAssertion(stored)
+}
+
 // ListStoredAssertions 列出已存储的断言
 func (e *AssertionEngine) ListStoredAssertions(sessionID, deviceID string, templatesOnly bool, limit int) ([]StoredAssertion, error) {
 	if e.store == nil {

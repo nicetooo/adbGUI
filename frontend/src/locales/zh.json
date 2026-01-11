@@ -21,7 +21,9 @@
     "enter_new_name": "输入新名称",
     "clear": "清除",
     "browse": "浏览",
-    "required": "必填项"
+    "required": "必填项",
+    "save": "保存",
+    "edit": "编辑"
   },
   "menu": {
     "devices": "设备列表",
@@ -167,7 +169,11 @@
     "preview_count": "当前条件匹配 {{count}} 个事件",
     "saved_assertions": "已保存断言",
     "deleted": "已删除",
-    "delete_failed": "删除失败"
+    "delete_failed": "删除失败",
+    "edit_assertion": "编辑断言",
+    "load_failed": "加载失败",
+    "saved": "已保存",
+    "save_failed": "保存失败"
   },
   "timeline": {
     "title": "会话时间线",

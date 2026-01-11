@@ -40,6 +40,7 @@ import {
   ClearOutlined,
   QuestionCircleOutlined,
   SearchOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 // @ts-ignore
@@ -57,6 +58,8 @@ import {
   ListStoredAssertions,
   DeleteStoredAssertion,
   ExecuteStoredAssertionInSession,
+  GetStoredAssertion,
+  UpdateStoredAssertionJSON,
 } from '../../wailsjs/go/main/App';
 import type { main } from '../../wailsjs/go/models';
 
@@ -101,6 +104,11 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
   // Stored assertions
   const [storedAssertions, setStoredAssertions] = useState<StoredAssertionDisplay[]>([]);
   const [loadingStored, setLoadingStored] = useState(false);
+
+  // Edit assertion modal
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingAssertion, setEditingAssertion] = useState<any>(null);
+  const [editForm] = Form.useForm();
 
   // Load stored assertions (global, not bound to session)
   const loadStoredAssertions = useCallback(async () => {
@@ -413,6 +421,101 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
     }
   }, [t]);
 
+  // 打开编辑模态框
+  const openEditModal = useCallback(async (assertionId: string) => {
+    try {
+      const stored = await GetStoredAssertion(assertionId);
+      if (stored) {
+        // Parse criteria and expected from JSON
+        const criteria = stored.criteria ? JSON.parse(stored.criteria as unknown as string) : {};
+        const expected = stored.expected ? JSON.parse(stored.expected as unknown as string) : {};
+
+        setEditingAssertion({
+          id: stored.id,
+          name: stored.name,
+          type: stored.type,
+          criteria,
+          expected,
+          createdAt: stored.createdAt,
+        });
+
+        editForm.setFieldsValue({
+          name: stored.name,
+          type: stored.type,
+          eventTypes: criteria.types || [],
+          titleMatch: criteria.titleMatch || '',
+          minCount: expected.minCount,
+          maxCount: expected.maxCount,
+        });
+
+        setEditModalOpen(true);
+      }
+    } catch (err) {
+      message.error(`${t('assertions.load_failed')}: ${err}`);
+    }
+  }, [editForm, t]);
+
+  // 保存编辑后的断言
+  const saveEditedAssertion = useCallback(async (values: any) => {
+    if (!editingAssertion) return;
+
+    try {
+      const assertion: Record<string, any> = {
+        id: editingAssertion.id,
+        name: values.name || 'Custom Assertion',
+        type: values.type,
+        sessionId: '',
+        deviceId: '',
+        criteria: {
+          types: Array.isArray(values.eventTypes) ? values.eventTypes : undefined,
+          titleMatch: values.titleMatch || undefined,
+        },
+        expected: {},
+        createdAt: editingAssertion.createdAt,
+      };
+
+      switch (values.type) {
+        case 'exists':
+          assertion.expected = { exists: true };
+          break;
+        case 'not_exists':
+          assertion.expected = { exists: false };
+          break;
+        case 'count':
+          assertion.expected = {
+            minCount: values.minCount,
+            maxCount: values.maxCount,
+          };
+          break;
+      }
+
+      await UpdateStoredAssertionJSON(editingAssertion.id, JSON.stringify(assertion));
+      message.success(t('assertions.saved'));
+      setEditModalOpen(false);
+      editForm.resetFields();
+      setEditingAssertion(null);
+      loadStoredAssertions();
+    } catch (err) {
+      message.error(`${t('assertions.save_failed')}: ${err}`);
+    }
+  }, [editingAssertion, editForm, t, loadStoredAssertions]);
+
+  // 从编辑模态框删除断言
+  const deleteFromEditModal = useCallback(async () => {
+    if (!editingAssertion) return;
+
+    try {
+      await DeleteStoredAssertion(editingAssertion.id);
+      message.success(t('assertions.deleted'));
+      setEditModalOpen(false);
+      editForm.resetFields();
+      setEditingAssertion(null);
+      setStoredAssertions(prev => prev.filter(a => a.id !== editingAssertion.id));
+    } catch (err) {
+      message.error(`${t('assertions.delete_failed')}: ${err}`);
+    }
+  }, [editingAssertion, editForm, t]);
+
   // Quick assertion buttons
   const quickAssertions = [
     {
@@ -487,15 +590,14 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
                   {item.name}
                 </Button>
               </Tooltip>
-              <Tooltip title={t('common.delete')}>
+              <Tooltip title={t('common.edit')}>
                 <Button
                   size="small"
-                  icon={<DeleteOutlined />}
+                  icon={<EditOutlined />}
                   onClick={(e) => {
                     e.stopPropagation();
-                    deleteStoredAssertionById(item.id);
+                    openEditModal(item.id);
                   }}
-                  danger
                 />
               </Tooltip>
             </Button.Group>
@@ -734,6 +836,118 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
                 {t('common.cancel')}
               </Button>
             </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Edit Assertion Modal */}
+      <Modal
+        title={t('assertions.edit_assertion')}
+        open={editModalOpen}
+        onCancel={() => {
+          setEditModalOpen(false);
+          editForm.resetFields();
+          setEditingAssertion(null);
+        }}
+        footer={null}
+        width={520}
+      >
+        <Form
+          form={editForm}
+          layout="vertical"
+          onFinish={saveEditedAssertion}
+        >
+          <Form.Item
+            name="name"
+            label={t('assertions.assertion_name')}
+            rules={[{ required: true, message: t('assertions.name_required') }]}
+          >
+            <Input placeholder={t('assertions.name_placeholder')} />
+          </Form.Item>
+
+          <Form.Item
+            name="type"
+            label={t('assertions.assertion_type')}
+            rules={[{ required: true, message: t('assertions.type_required') }]}
+          >
+            <Select
+              placeholder={t('assertions.select_type')}
+              options={[
+                { label: t('assertions.type_exists'), value: 'exists' },
+                { label: t('assertions.type_not_exists'), value: 'not_exists' },
+                { label: t('assertions.type_count'), value: 'count' },
+              ]}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="eventTypes"
+            label={t('assertions.event_types')}
+          >
+            <Select
+              mode="multiple"
+              placeholder={t('assertions.event_types_placeholder')}
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              options={availableEventTypes.map(type => ({
+                label: type,
+                value: type,
+              }))}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="titleMatch"
+            label={t('assertions.title_match')}
+          >
+            <Input placeholder={t('assertions.title_match_placeholder')} />
+          </Form.Item>
+
+          <Form.Item
+            noStyle
+            shouldUpdate={(prev, curr) => prev.type !== curr.type}
+          >
+            {({ getFieldValue }) =>
+              getFieldValue('type') === 'count' && (
+                <Space>
+                  <Form.Item
+                    name="minCount"
+                    label={t('assertions.min_count')}
+                    style={{ marginBottom: 16 }}
+                  >
+                    <InputNumber min={0} style={{ width: 120 }} />
+                  </Form.Item>
+                  <Form.Item
+                    name="maxCount"
+                    label={t('assertions.max_count')}
+                    style={{ marginBottom: 16 }}
+                  >
+                    <InputNumber min={0} style={{ width: 120 }} />
+                  </Form.Item>
+                </Space>
+              )
+            }
+          </Form.Item>
+
+          <Form.Item style={{ marginBottom: 0, marginTop: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Button danger onClick={deleteFromEditModal}>
+                <DeleteOutlined /> {t('common.delete')}
+              </Button>
+              <Space>
+                <Button onClick={() => {
+                  setEditModalOpen(false);
+                  editForm.resetFields();
+                  setEditingAssertion(null);
+                }}>
+                  {t('common.cancel')}
+                </Button>
+                <Button type="primary" htmlType="submit">
+                  {t('common.save')}
+                </Button>
+              </Space>
+            </div>
           </Form.Item>
         </Form>
       </Modal>

@@ -1031,6 +1031,23 @@ func (a *App) GetStoredAssertion(assertionID string) (*StoredAssertion, error) {
 	return a.assertionEngine.GetStoredAssertion(assertionID)
 }
 
+// UpdateStoredAssertionJSON updates an existing stored assertion
+func (a *App) UpdateStoredAssertionJSON(assertionID string, assertionJSON string) error {
+	if a.assertionEngine == nil {
+		return fmt.Errorf("assertion engine not initialized")
+	}
+
+	var assertion Assertion
+	if err := json.Unmarshal([]byte(assertionJSON), &assertion); err != nil {
+		return fmt.Errorf("invalid assertion JSON: %v", err)
+	}
+
+	// Ensure ID matches
+	assertion.ID = assertionID
+
+	return a.assertionEngine.UpdateAssertion(&assertion)
+}
+
 // ListStoredAssertions lists stored assertions
 func (a *App) ListStoredAssertions(sessionID, deviceID string, templatesOnly bool, limit int) ([]StoredAssertion, error) {
 	if a.assertionEngine == nil {

@@ -21,7 +21,9 @@
     "enter_new_name": "Enter new name",
     "clear": "Clear",
     "browse": "Browse",
-    "required": "Required"
+    "required": "Required",
+    "save": "Save",
+    "edit": "Edit"
   },
   "menu": {
     "devices": "Devices",
@@ -166,7 +168,11 @@
     "preview_count": "Current criteria matches {{count}} events",
     "saved_assertions": "Saved Assertions",
     "deleted": "Deleted",
-    "delete_failed": "Delete failed"
+    "delete_failed": "Delete failed",
+    "edit_assertion": "Edit Assertion",
+    "load_failed": "Load failed",
+    "saved": "Saved",
+    "save_failed": "Save failed"
   },
   "timeline": {
     "title": "Session Timeline",

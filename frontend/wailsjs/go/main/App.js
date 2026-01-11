@@ -782,6 +782,10 @@ export function UninstallApp(arg1, arg2) {
   return window['go']['main']['App']['UninstallApp'](arg1, arg2);
 }
 
+export function UpdateStoredAssertionJSON(arg1, arg2) {
+  return window['go']['main']['App']['UpdateStoredAssertionJSON'](arg1, arg2);
+}
+
 export function UploadFile(arg1, arg2, arg3) {
   return window['go']['main']['App']['UploadFile'](arg1, arg2, arg3);
 }
