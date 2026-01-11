@@ -211,6 +211,7 @@ type RequestLog struct {
 	BodySize      int64               `json:"bodySize"`
 	IsWs          bool                `json:"isWs"`
 	PartialUpdate bool                `json:"partialUpdate"` // If true, only update specific fields in UI
+	Mocked        bool                `json:"mocked"`        // If true, response was from mock rule
 }
 
 var currentProxy *ProxyServer
@@ -370,6 +371,9 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 			fmt.Printf("[MOCK DEBUG] >>> RETURNING MOCK RESPONSE for %s %s (Rule: %s, Status: %d)\n", r.Method, r.URL.String(), mockRule.ID, mockRule.StatusCode)
 			p.debugLog("  -> MOCK RESPONSE (Rule: %s)", mockRule.ID)
 
+			// Mark as mocked in UserData
+			ctx.UserData = id + "|mocked"
+
 			// Apply mock delay
 			if mockRule.Delay > 0 {
 				time.Sleep(time.Duration(mockRule.Delay) * time.Millisecond)
@@ -405,7 +409,13 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 
 	// Configure Response Handling (Logging, Download Rate Limit)
 	p.proxy.OnResponse().DoFunc(func(resp *http.Response, ctx *goproxy.ProxyCtx) *http.Response {
-		id, _ := ctx.UserData.(string)
+		userData, _ := ctx.UserData.(string)
+		id := userData
+		mocked := false
+		if strings.HasSuffix(userData, "|mocked") {
+			id = strings.TrimSuffix(userData, "|mocked")
+			mocked = true
+		}
 		if id == "" {
 			id = fmt.Sprintf("%d-%d", ctx.Session, time.Now().UnixNano())
 		}
@@ -415,10 +425,11 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 			req = ctx.Req
 		}
 
-		p.debugLog("RESP: %d for %s (Proto: %s, Type: %s)", resp.StatusCode, id, resp.Proto, resp.Header.Get("Content-Type"))
+		p.debugLog("RESP: %d for %s (Proto: %s, Type: %s, Mocked: %v)", resp.StatusCode, id, resp.Proto, resp.Header.Get("Content-Type"), mocked)
 
 		// Update log with response headers
 		log := p.logRequest(id, req, resp)
+		log.Mocked = mocked
 		_ = log // Ensure used if Body is nil
 
 		p.mu.Lock()

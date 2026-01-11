@@ -124,6 +124,7 @@ func (a *App) StartProxy(port int) (string, error) {
 			"requestBody":     req.Body,
 			"responseHeaders": req.RespHeaders,
 			"responseBody":    req.RespBody,
+			"mocked":          req.Mocked,
 		}
 
 		a.EmitSessionEventFull(SessionEvent{

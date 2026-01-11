@@ -38,6 +38,7 @@ interface RequestLog {
     respHeaders?: Record<string, string[]>;
     respBody?: string;
     isWs?: boolean;
+    mocked?: boolean;
 }
 
 const ProxyView: React.FC = () => {
@@ -159,6 +160,7 @@ const ProxyView: React.FC = () => {
                     respHeaders: detail.responseHeaders,
                     respBody: detail.responseBody,
                     isWs: detail.isWs || false,
+                    mocked: detail.mocked || false,
                 };
 
                 // Use getState() to get current logs (avoid stale closure)
@@ -804,7 +806,7 @@ const ProxyView: React.FC = () => {
                     }
                 >
                 {/* Virtual Table Header - Fixed widths */}
-                <div style={{ display: 'grid', gridTemplateColumns: '80px 70px 60px 1fr 80px 80px', padding: '8px 12px', background: token.colorFillAlter, borderBottom: `1px solid ${token.colorBorderSecondary}`, fontWeight: 'bold', fontSize: '12px', color: token.colorTextSecondary }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '80px 70px 80px 1fr 80px 80px', padding: '8px 12px', background: token.colorFillAlter, borderBottom: `1px solid ${token.colorBorderSecondary}`, fontWeight: 'bold', fontSize: '12px', color: token.colorTextSecondary }}>
                     <div>{t('proxy.col_time')}</div>
                     <div>{t('proxy.col_method')}</div>
                     <div>{t('proxy.col_stat')}</div>
@@ -841,7 +843,7 @@ const ProxyView: React.FC = () => {
                                         onClick={() => selectLog(record)}
                                         style={{
                                             display: 'grid',
-                                            gridTemplateColumns: '80px 70px 60px 1fr 80px 80px',
+                                            gridTemplateColumns: '80px 70px 80px 1fr 80px 80px',
                                             padding: '6px 12px',
                                             fontSize: '12px',
                                             cursor: 'pointer',
@@ -861,6 +863,7 @@ const ProxyView: React.FC = () => {
                                         </div>
                                         <div>
                                             <Tag color={record.statusCode && record.statusCode >= 400 ? 'red' : record.statusCode && record.statusCode >= 300 ? 'orange' : 'success'} style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>{record.statusCode || '-'}</Tag>
+                                            {record.mocked && <Tag color="magenta" style={{ marginLeft: 2, transform: 'scale(0.7)', transformOrigin: 'left center' }}>M</Tag>}
                                         </div>
                                         <div title={record.url} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: token.colorLink }}>
                                             {record.url}
@@ -1021,6 +1024,7 @@ const ProxyView: React.FC = () => {
                                                         <Tag color={selectedLog.statusCode >= 400 ? 'error' : 'success'} style={{ fontSize: 14, padding: '2px 8px' }}>
                                                             {selectedLog.statusCode}
                                                         </Tag>
+                                                        {selectedLog.mocked && <Tag color="magenta">Mocked</Tag>}
                                                         {selectedLog.contentType && <Tag>{selectedLog.contentType.split(';')[0]}</Tag>}
                                                     </div>
                                                     {selectedLog.respHeaders && Object.keys(selectedLog.respHeaders).length > 0 && (
@@ -1179,6 +1183,7 @@ const ProxyView: React.FC = () => {
                     <div style={{ flex: 1, marginTop: 16, padding: 12, background: token.colorFillAlter, borderRadius: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
                         <Space style={{ marginBottom: 8, flexShrink: 0 }}>
                             <Tag color={resendResponse.statusCode >= 400 ? 'error' : 'success'}>{resendResponse.statusCode}</Tag>
+                            {resendResponse.mocked && <Tag color="magenta">Mocked</Tag>}
                             <Text type="secondary">{resendResponse.duration}ms</Text>
                             <Text type="secondary">{formatBytes(resendResponse.bodySize)}</Text>
                             {resendResponse.contentType && <Text type="secondary">{resendResponse.contentType.split(';')[0]}</Text>}

@@ -17,6 +17,7 @@ export interface RequestLog {
   respHeaders?: Record<string, string[]>;
   respBody?: string;
   isWs?: boolean;
+  mocked?: boolean;
   timestamp?: number;
   duration?: number;
   partialUpdate?: boolean;
