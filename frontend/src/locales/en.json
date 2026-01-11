@@ -34,7 +34,9 @@
     "recording": "Recording",
     "workflow": "Workflow",
     "inspector": "UI Inspector",
-    "timeline": "Timeline"
+    "timeline": "Timeline",
+    "events": "Events",
+    "sessions": "Sessions"
   },
   "timeline": {
     "title": "Event Timeline",

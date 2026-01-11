@@ -35,7 +35,9 @@
     "automation": "触控自动化",
     "recording": "触控录制",
     "workflow": "工作流编排",
-    "timeline": "事件时间线"
+    "timeline": "会话时间线",
+    "events": "事件监控",
+    "sessions": "会话管理"
   },
   "timeline": {
     "title": "事件时间线",

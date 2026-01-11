@@ -252,13 +252,13 @@ function App() {
                 { key: VIEW_KEYS.FILES, icon: <FolderOutlined />, label: t("menu.files") },
                 { key: VIEW_KEYS.SHELL, icon: <CodeOutlined />, label: t("menu.shell") },
                 { key: VIEW_KEYS.LOGCAT, icon: <FileTextOutlined />, label: t("menu.logcat") },
-                { key: VIEW_KEYS.PROXY, icon: <GlobalOutlined />, label: t("menu.proxy") || "Proxy" },
+                { key: VIEW_KEYS.PROXY, icon: <GlobalOutlined />, label: t("menu.proxy") },
                 { key: VIEW_KEYS.RECORDING, icon: <VideoCameraOutlined />, label: t("menu.recording") },
-                { key: VIEW_KEYS.INSPECTOR, icon: <BlockOutlined />, label: t("menu.inspector") || "UI Inspector" },
+                { key: VIEW_KEYS.INSPECTOR, icon: <BlockOutlined />, label: t("menu.inspector") },
                 { key: VIEW_KEYS.WORKFLOW, icon: <BranchesOutlined />, label: t("menu.workflow") },
-                { key: VIEW_KEYS.TIMELINE, icon: <HistoryOutlined />, label: t("menu.timeline") || "Timeline" },
-                { key: VIEW_KEYS.EVENTS, icon: <DashboardOutlined />, label: t("menu.events") || "Events" },
-                { key: VIEW_KEYS.SESSIONS, icon: <DatabaseOutlined />, label: "Sessions" },
+                { key: VIEW_KEYS.TIMELINE, icon: <HistoryOutlined />, label: t("menu.timeline") },
+                { key: VIEW_KEYS.EVENTS, icon: <DashboardOutlined />, label: t("menu.events") },
+                { key: VIEW_KEYS.SESSIONS, icon: <DatabaseOutlined />, label: t("menu.sessions") },
               ]}
             />
           </div>
