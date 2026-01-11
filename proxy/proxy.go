@@ -49,6 +49,7 @@ type ProxyServer struct {
 	listener           net.Listener
 	mu                 sync.Mutex
 	running            bool
+	port               int
 	OnRequest          func(RequestLog) // Callback for request logging
 	mitmEnabled        bool             // HTTPS Decrypt
 	wsEnabled          bool             // WebSocket support
@@ -60,6 +61,13 @@ type ProxyServer struct {
 	latency     time.Duration // Artificial latency
 
 	mockRules map[string]*MockRule // Mock response rules
+}
+
+// GetPort returns the port the proxy is running on
+func (p *ProxyServer) GetPort() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.port
 }
 
 // SetLatency sets the artificial latency in milliseconds
@@ -224,6 +232,7 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 		return fmt.Errorf("proxy already running")
 	}
 	p.OnRequest = onRequest
+	p.port = port
 
 	// Initialize CertManager
 	home, _ := os.UserHomeDir()

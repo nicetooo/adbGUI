@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -328,9 +330,21 @@ func isStaticResource(url, contentType string) bool {
 
 // ResendRequest sends an HTTP request with optional modifications
 // Returns the response status, headers, and body
+// When proxy is running, routes through proxy to apply mock rules
 func (a *App) ResendRequest(method, url string, headers map[string]string, body string) (map[string]interface{}, error) {
 	client := &http.Client{
 		Timeout: 30 * time.Second,
+	}
+
+	// If proxy is running, route through it to apply mock rules
+	if proxy.GetProxy().IsRunning() {
+		proxyURL, _ := neturl.Parse(fmt.Sprintf("http://127.0.0.1:%d", proxy.GetProxy().GetPort()))
+		client.Transport = &http.Transport{
+			Proxy: http.ProxyURL(proxyURL),
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true, // Trust proxy's certificate
+			},
+		}
 	}
 
 	var reqBody io.Reader
