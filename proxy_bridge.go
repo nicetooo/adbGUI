@@ -2,12 +2,10 @@ package main
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	neturl "net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -341,23 +339,91 @@ func isStaticResource(url, contentType string) bool {
 	return false
 }
 
+// matchMockRuleLocal checks if a request matches any enabled mock rule
+func matchMockRuleLocal(method, url string) *MockRule {
+	mockRulesMu.RLock()
+	defer mockRulesMu.RUnlock()
+
+	for _, rule := range mockRules {
+		if !rule.Enabled {
+			continue
+		}
+		// Check method (empty means match all)
+		if rule.Method != "" && rule.Method != method {
+			continue
+		}
+		// Check URL pattern
+		if matchPatternLocal(url, rule.URLPattern) {
+			return rule
+		}
+	}
+	return nil
+}
+
+// matchPatternLocal checks if a URL matches a pattern with * wildcards
+func matchPatternLocal(url, pattern string) bool {
+	if pattern == "*" {
+		return true
+	}
+	parts := strings.Split(pattern, "*")
+	if len(parts) == 1 {
+		return url == pattern
+	}
+	pos := 0
+	for i, part := range parts {
+		if part == "" {
+			continue
+		}
+		idx := strings.Index(url[pos:], part)
+		if idx == -1 {
+			return false
+		}
+		if i == 0 && idx != 0 {
+			return false
+		}
+		pos += idx + len(part)
+	}
+	if !strings.HasSuffix(pattern, "*") && pos != len(url) {
+		return false
+	}
+	return true
+}
+
 // ResendRequest sends an HTTP request with optional modifications
 // Returns the response status, headers, and body
-// When proxy is running, routes through proxy to apply mock rules
+// Checks mock rules first, then sends actual request if no match
 func (a *App) ResendRequest(method, url string, headers map[string]string, body string) (map[string]interface{}, error) {
-	client := &http.Client{
-		Timeout: 30 * time.Second,
+	// Check for matching mock rule first (works without proxy running)
+	if mockRule := matchMockRuleLocal(method, url); mockRule != nil {
+		// Apply mock delay
+		if mockRule.Delay > 0 {
+			time.Sleep(time.Duration(mockRule.Delay) * time.Millisecond)
+		}
+
+		// Build mock response headers
+		respHeaders := make(map[string]string)
+		for k, v := range mockRule.Headers {
+			respHeaders[k] = v
+		}
+		if respHeaders["Content-Type"] == "" {
+			respHeaders["Content-Type"] = "application/json"
+		}
+
+		return map[string]interface{}{
+			"statusCode":  mockRule.StatusCode,
+			"status":      fmt.Sprintf("%d %s", mockRule.StatusCode, http.StatusText(mockRule.StatusCode)),
+			"headers":     respHeaders,
+			"body":        mockRule.Body,
+			"bodySize":    len(mockRule.Body),
+			"duration":    int64(mockRule.Delay),
+			"contentType": respHeaders["Content-Type"],
+			"mocked":      true,
+		}, nil
 	}
 
-	// If proxy is running, route through it to apply mock rules
-	if proxy.GetProxy().IsRunning() {
-		proxyURL, _ := neturl.Parse(fmt.Sprintf("http://127.0.0.1:%d", proxy.GetProxy().GetPort()))
-		client.Transport = &http.Transport{
-			Proxy: http.ProxyURL(proxyURL),
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true, // Trust proxy's certificate
-			},
-		}
+	// No mock match, send actual request
+	client := &http.Client{
+		Timeout: 30 * time.Second,
 	}
 
 	var reqBody io.Reader

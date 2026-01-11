@@ -224,6 +224,8 @@ export function ListStoredAssertions(arg1:string,arg2:string,arg3:boolean,arg4:n
 
 export function ListStoredSessions(arg1:string,arg2:number):Promise<Array<main.DeviceSession>>;
 
+export function LoadMockRules():Promise<void>;
+
 export function LoadScriptTasks():Promise<Array<main.ScriptTask>>;
 
 export function LoadTouchScripts():Promise<Array<main.TouchScript>>;

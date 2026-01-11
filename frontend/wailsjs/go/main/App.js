@@ -442,6 +442,10 @@ export function ListStoredSessions(arg1, arg2) {
   return window['go']['main']['App']['ListStoredSessions'](arg1, arg2);
 }
 
+export function LoadMockRules() {
+  return window['go']['main']['App']['LoadMockRules']();
+}
+
 export function LoadScriptTasks() {
   return window['go']['main']['App']['LoadScriptTasks']();
 }

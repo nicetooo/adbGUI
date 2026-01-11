@@ -81,6 +81,7 @@ func (p *ProxyServer) SetLatency(latencyMs int) {
 func (p *ProxyServer) AddMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body string, delay int) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	fmt.Printf("[MOCK DEBUG] AddMockRule: id=%s pattern=%s method=%s status=%d\n", id, urlPattern, method, statusCode)
 	if p.mockRules == nil {
 		p.mockRules = make(map[string]*MockRule)
 	}
@@ -109,14 +110,20 @@ func (p *ProxyServer) matchMockRule(method, url string) *MockRule {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	for _, rule := range p.mockRules {
+	fmt.Printf("[MOCK DEBUG] Checking %s %s against %d rules\n", method, url, len(p.mockRules))
+
+	for id, rule := range p.mockRules {
+		fmt.Printf("[MOCK DEBUG]   Rule %s: method=%s pattern=%s\n", id, rule.Method, rule.URLPattern)
 		// Check method (empty means match all)
 		if rule.Method != "" && rule.Method != method {
+			fmt.Printf("[MOCK DEBUG]     Method mismatch: %s != %s\n", rule.Method, method)
 			continue
 		}
 
 		// Check URL pattern (supports * wildcard)
-		if matchPattern(url, rule.URLPattern) {
+		matched := matchPattern(url, rule.URLPattern)
+		fmt.Printf("[MOCK DEBUG]     Pattern match: %v\n", matched)
+		if matched {
 			return rule
 		}
 	}
@@ -360,6 +367,7 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 
 		// Check for mock rules
 		if mockRule := p.matchMockRule(r.Method, r.URL.String()); mockRule != nil {
+			fmt.Printf("[MOCK DEBUG] >>> RETURNING MOCK RESPONSE for %s %s (Rule: %s, Status: %d)\n", r.Method, r.URL.String(), mockRule.ID, mockRule.StatusCode)
 			p.debugLog("  -> MOCK RESPONSE (Rule: %s)", mockRule.ID)
 
 			// Apply mock delay
@@ -474,10 +482,12 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 
 	p.mu.Lock()
 	p.running = true
+	fmt.Printf("[PROXY DEBUG] Proxy started: running=%v, port=%d, proxy=%p\n", p.running, p.port, p)
 	p.mu.Unlock()
 
 	go func() {
-		_ = p.server.Serve(p.listener)
+		err := p.server.Serve(p.listener)
+		fmt.Printf("[PROXY DEBUG] Serve() returned: err=%v, proxy=%p\n", err, p)
 		p.mu.Lock()
 		p.running = false
 		p.mu.Unlock()
@@ -633,6 +643,7 @@ func (p *ProxyServer) Stop() error {
 func (p *ProxyServer) IsRunning() bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	fmt.Printf("[PROXY DEBUG] IsRunning called: running=%v, port=%d, proxy=%p\n", p.running, p.port, p)
 	return p.running
 }
 
