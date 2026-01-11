@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -990,12 +991,31 @@ func (s *EventStore) UpsertTimeIndex(sessionID string, entry TimeIndexEntry) err
 	return err
 }
 
-// GetTimeIndex 获取时间索引
+// GetTimeIndex 直接从事件数据生成时间索引（更可靠）
 func (s *EventStore) GetTimeIndex(sessionID string) ([]TimeIndexEntry, error) {
+	// 先检查事件的时间分布
+	var minTime, maxTime int64
+	var totalCount int
+	err := s.db.QueryRow(`
+		SELECT MIN(relative_time), MAX(relative_time), COUNT(*)
+		FROM events WHERE session_id = ?
+	`, sessionID).Scan(&minTime, &maxTime, &totalCount)
+	if err != nil {
+		log.Printf("[GetTimeIndex] Failed to get time range: %v", err)
+	} else {
+		log.Printf("[GetTimeIndex] Session %s: minTime=%d, maxTime=%d, totalEvents=%d", sessionID, minTime, maxTime, totalCount)
+	}
+
+	// 直接从 events 表聚合生成，确保数据准确
 	rows, err := s.db.Query(`
-		SELECT second, event_count, first_event_id, has_error
-		FROM time_index
+		SELECT
+			relative_time / 1000 as second,
+			COUNT(*) as event_count,
+			MIN(id) as first_event_id,
+			MAX(CASE WHEN level IN ('error', 'fatal') THEN 1 ELSE 0 END) as has_error
+		FROM events
 		WHERE session_id = ?
+		GROUP BY relative_time / 1000
 		ORDER BY second
 	`, sessionID)
 	if err != nil {
@@ -1013,6 +1033,14 @@ func (s *EventStore) GetTimeIndex(sessionID string) ([]TimeIndexEntry, error) {
 		e.HasError = hasError != 0
 		entries = append(entries, e)
 	}
+
+	log.Printf("[GetTimeIndex] Session %s: returned %d time index entries", sessionID, len(entries))
+	if len(entries) > 0 {
+		log.Printf("[GetTimeIndex] First entry: second=%d, count=%d; Last entry: second=%d, count=%d",
+			entries[0].Second, entries[0].EventCount,
+			entries[len(entries)-1].Second, entries[len(entries)-1].EventCount)
+	}
+
 	return entries, rows.Err()
 }
 

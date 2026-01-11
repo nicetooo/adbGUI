@@ -164,6 +164,9 @@ interface EventStoreState {
   isLoading: boolean;
   totalEventCount: number;    // session 的总事件数
   filteredEventCount: number; // 匹配过滤条件的事件数
+  hasMoreNewer: boolean;      // 是否还有更新的事件可加载（向下滚动）
+  hasMoreOlder: boolean;      // 是否还有更老的事件可加载（向上滚动）
+  currentOffset: number;      // 当前加载偏移量
 
   // UI 状态
   selectedEventId: string | null;
@@ -186,6 +189,7 @@ interface EventStoreActions {
 
   // 按需加载
   loadEventsInRange: (startTime: number, endTime: number) => Promise<void>;
+  loadMoreEvents: () => Promise<void>;  // 加载更多事件（无限滚动）
   loadPage: (page: number, pageSize?: number) => Promise<EventQueryResult>;
   searchEvents: (query: string) => Promise<UnifiedEvent[]>;
   loadEvent: (eventId: string) => Promise<UnifiedEvent | null>;
@@ -249,6 +253,8 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
     isLoading: false,
     totalEventCount: 0,
     filteredEventCount: 0,
+    hasMoreEvents: false,
+    currentOffset: 0,
     selectedEventId: null,
     isTimelineOpen: false,
     autoScroll: true,
@@ -286,6 +292,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
         state.pageCache.clear();
         state.visibleEvents = [];
         state.visibleRange = { start: 0, end: 60000 };
+        state.filter = {}; // 重置过滤器
         state.sessionsVersion = currentState.sessionsVersion + 1;
       });
 
@@ -312,6 +319,14 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           (window as any).go.main.App.GetSessionTimeIndex(sessionId).catch(() => []),
           (window as any).go.main.App.GetSessionBookmarks(sessionId).catch(() => []),
         ]).then(([index, bookmarks]) => {
+          console.log('[eventStore] Received timeIndex:', index?.length || 0, 'entries');
+          if (index && index.length > 0) {
+            const minSec = Math.min(...index.map((e: any) => e.second));
+            const maxSec = Math.max(...index.map((e: any) => e.second));
+            const total = index.reduce((s: number, e: any) => s + e.eventCount, 0);
+            console.log('[eventStore] TimeIndex range:', minSec, '-', maxSec, 'total events:', total);
+          }
+
           const currentTimeIndex = new Map(get().timeIndex);
           const currentBookmarks = new Map(get().bookmarks);
           currentTimeIndex.set(sessionId, index || []);
@@ -325,24 +340,30 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           console.error('[eventStore] loadSession index/bookmarks error:', err);
         });
 
-        // 查询事件数据 - 这是主要的加载
+        // 查询事件数据 - 从头开始加载（时间升序）
         console.log('[eventStore] loadSession calling QuerySessionEvents...');
         const result = await (window as any).go.main.App.QuerySessionEvents({
           sessionId: sessionId,
           startTime: 0,
-          endTime: 300000, // 5 minutes range
           limit: 1000,
         });
         console.log('[eventStore] loadSession got events:', result?.events?.length || 0, 'total:', result?.total);
 
+        const events = result?.events || [];
+        // 使用 session 的 eventCount 作为总数
+        const sessionEventCount = session?.eventCount || 0;
+
         set(state => {
-          state.visibleEvents = result?.events || [];
-          state.totalEventCount = result?.total || 0;
-          state.filteredEventCount = result?.total || 0; // 初始无过滤时，filteredCount = totalCount
+          state.visibleEvents = events;
+          state.totalEventCount = sessionEventCount;
+          state.filteredEventCount = sessionEventCount;
+          state.currentOffset = events.length;
+          // 如果加载的事件数等于 limit，说明可能还有更多
+          state.hasMoreEvents = events.length >= 1000;
           state.isLoading = false;
         });
 
-        console.log('[eventStore] loadSession complete');
+        console.log('[eventStore] loadSession complete, loaded:', events.length, 'total:', sessionEventCount, 'hasMore:', events.length >= 1000);
 
       } catch (err) {
         console.error('[eventStore] loadSession error:', err);
@@ -538,6 +559,61 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           state.totalEventCount = result?.total || 0;
         });
         console.log('[eventStore] loadEventsInRange: set visibleEvents:', events.length);
+
+      } finally {
+        set(state => { state.isLoading = false; });
+      }
+    },
+
+    loadMoreEvents: async () => {
+      const { activeSessionId, filter, visibleEvents, hasMoreEvents, isLoading, totalEventCount } = get();
+
+      if (!activeSessionId || isLoading || !hasMoreEvents) {
+        console.log('[eventStore] loadMoreEvents: skipping', { activeSessionId, isLoading, hasMoreEvents });
+        return;
+      }
+
+      // 获取最后一个事件的时间，从那之后继续加载
+      const lastEvent = visibleEvents[visibleEvents.length - 1];
+      if (!lastEvent) {
+        console.log('[eventStore] loadMoreEvents: no last event');
+        return;
+      }
+
+      set(state => { state.isLoading = true; });
+
+      try {
+        const pageSize = 1000;
+        // 从最后一个事件的时间之后开始加载
+        const startTime = lastEvent.relativeTime + 1;
+        const query: EventQuery = {
+          sessionId: activeSessionId,
+          ...filter,
+          startTime: startTime,
+          limit: pageSize,
+        };
+
+        console.log('[eventStore] loadMoreEvents: querying from time', startTime);
+        const result = await (window as any).go.main.App.QuerySessionEvents(query);
+        const newEvents = result?.events || [];
+
+        console.log('[eventStore] loadMoreEvents: got', newEvents.length, 'events');
+
+        set(state => {
+          // 追加新事件（去重）
+          const existingIds = new Set(state.visibleEvents.map(e => e.id));
+          const uniqueNewEvents = newEvents.filter((e: UnifiedEvent) => !existingIds.has(e.id));
+          let combined = [...state.visibleEvents, ...uniqueNewEvents];
+
+          // 保持最多 2000 条，移除最前面的旧事件
+          if (combined.length > 2000) {
+            combined = combined.slice(-2000);
+          }
+
+          state.visibleEvents = combined;
+          state.currentOffset = state.visibleEvents.length;
+          state.hasMoreEvents = newEvents.length >= pageSize; // 如果返回了满页，可能还有更多
+        });
 
       } finally {
         set(state => { state.isLoading = false; });

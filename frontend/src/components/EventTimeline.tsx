@@ -98,8 +98,16 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
   const indexMap = useMemo(() => {
     const map = new Map<number, TimeIndexEntry>();
     timeIndex.forEach(entry => map.set(entry.second, entry));
+    // Debug logging
+    console.log('[TimeRuler] timeIndex entries:', timeIndex.length, 'totalSeconds:', totalSeconds);
+    if (timeIndex.length > 0) {
+      const minSec = Math.min(...timeIndex.map(e => e.second));
+      const maxSec = Math.max(...timeIndex.map(e => e.second));
+      const totalEvents = timeIndex.reduce((sum, e) => sum + e.eventCount, 0);
+      console.log('[TimeRuler] Second range:', minSec, '-', maxSec, 'total events:', totalEvents);
+    }
     return map;
-  }, [timeIndex]);
+  }, [timeIndex, totalSeconds]);
 
   const maxCount = useMemo(() => {
     let max = 1;
@@ -209,12 +217,13 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
                 key={i}
                 style={{
                   flex: 1,
-                  minWidth: 1,
-                  maxWidth: 4,
+                  minWidth: 2,
+                  maxWidth: 6,
                   height,
-                  background: hasError ? token.colorError : (isInSelection ? token.colorPrimary : token.colorPrimary),
-                  opacity: isInSelection ? 0.9 : (hasError ? 0.6 : 0.3),
+                  background: hasError ? token.colorError : token.colorPrimary,
+                  opacity: isInSelection ? 1 : (hasError ? 0.8 : 0.5),
                   marginRight: 1,
+                  borderRadius: 1,
                 }}
               />
             );
@@ -238,8 +247,8 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
           />
         )}
 
-        {/* Current position indicator */}
-        {sessionDuration > 0 && !hasSelection && (
+        {/* Current position indicator - always visible */}
+        {sessionDuration > 0 && (
           <div
             style={{
               position: 'absolute',
@@ -249,6 +258,7 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
               width: 2,
               background: token.colorWarning,
               pointerEvents: 'none',
+              zIndex: 10,
             }}
           />
         )}
@@ -273,6 +283,20 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
           pointerEvents: 'none',
         }}>
           {formatRelativeTime(sessionDuration)}
+        </div>
+
+        {/* Debug: show time index stats */}
+        <div style={{
+          position: 'absolute',
+          top: 2,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          fontSize: 9,
+          color: token.colorTextTertiary,
+          pointerEvents: 'none',
+          whiteSpace: 'nowrap',
+        }}>
+          索引: {timeIndex.length}条 / {totalSeconds}秒
         </div>
 
         {/* Selection time labels */}
@@ -827,12 +851,14 @@ const EventTimeline = () => {
     bookmarks,
     isLoading,
     autoScroll,
+    hasMoreEvents,
     loadSession,
     startSession,
     endSession,
     setFilter,
     applyFilter,
     loadEventsInRange,
+    loadMoreEvents,
     createBookmark,
     subscribeToEvents,
     setAutoScroll,
@@ -955,6 +981,30 @@ const EventTimeline = () => {
     }
   }, [visibleEvents.length, autoScroll, rowVirtualizer]);
 
+  // Infinite scroll - load more events when near bottom
+  useEffect(() => {
+    const container = listRef.current;
+    if (!container) return;
+
+    let isLoadingMore = false;
+    const handleScroll = () => {
+      if (isLoadingMore || !hasMoreEvents || isLoading) return;
+
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      // Load more when within 200px of the bottom
+      if (scrollHeight - scrollTop - clientHeight < 200) {
+        isLoadingMore = true;
+        console.log('[EventTimeline] Near bottom, loading more events...');
+        loadMoreEvents().finally(() => {
+          isLoadingMore = false;
+        });
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [hasMoreEvents, isLoading, loadMoreEvents]);
+
   // Update current time based on scroll position
   useEffect(() => {
     if (visibleEvents.length > 0) {
@@ -978,6 +1028,17 @@ const EventTimeline = () => {
     applyFilter();
   }, [filterSources, filterCategories, filterLevels, searchText, timeRange, setFilter, applyFilter]);
 
+  // Scroll to selected event after filter changes
+  useEffect(() => {
+    if (selectedEventId && visibleEvents.length > 0) {
+      const selectedIndex = visibleEvents.findIndex(e => e.id === selectedEventId);
+      if (selectedIndex >= 0) {
+        // Event is in the filtered list, scroll to it
+        rowVirtualizer.scrollToIndex(selectedIndex, { align: 'center', behavior: 'auto' });
+      }
+    }
+  }, [visibleEvents, selectedEventId, rowVirtualizer]);
+
   // Handle time range change
   const handleTimeRangeChange = useCallback((range: { start: number; end: number } | null) => {
     setTimeRange(range);
@@ -995,6 +1056,8 @@ const EventTimeline = () => {
   const handleEventClick = useCallback(async (event: UnifiedEvent) => {
     setSelectedEventId(event.id);
     setDetailOpen(true);
+    // 更新黄色指示器位置到该事件的时间点
+    setCurrentTime(event.relativeTime);
     // 加载完整的事件数据（包含 data 字段）
     try {
       const fullEvent = await (window as any).go.main.App.GetStoredEvent(event.id);
@@ -1305,6 +1368,26 @@ const EventTimeline = () => {
                     />
                   );
                 })}
+                {/* Loading more indicator */}
+                {hasMoreEvents && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: rowVirtualizer.getTotalSize(),
+                      left: 0,
+                      width: '100%',
+                      padding: '12px',
+                      textAlign: 'center',
+                      color: token.colorTextSecondary,
+                    }}
+                  >
+                    {isLoading ? (
+                      <span>加载更多事件...</span>
+                    ) : (
+                      <span style={{ fontSize: 12 }}>↓ 滚动加载更多 ({visibleEvents.length} / {filteredEventCount})</span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
