@@ -141,20 +141,25 @@ const ProxyView: React.FC = () => {
             const networkEvents = events.filter((e: any) => e.category === 'network');
 
             for (const event of networkEvents) {
+                // SessionEvent uses 'detail' field, not 'data'
                 const detail = event.detail || {};
+                const timeStr = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : '';
                 // Convert session event to RequestLog format
                 const log: RequestLog = {
                     id: detail.id || event.id,
-                    time: new Date(event.timestamp).toLocaleTimeString(),
-                    clientIp: '',
+                    time: timeStr,
+                    clientIp: detail.clientIp || '',
                     method: detail.method || 'UNKNOWN',
                     url: detail.url || event.title,
-                    headers: {},
-                    body: '',
+                    headers: detail.requestHeaders || {},
+                    body: detail.requestBody || '',
                     isHttps: detail.isHttps || false,
                     statusCode: detail.statusCode,
                     contentType: detail.contentType,
                     bodySize: detail.bodySize,
+                    previewBody: detail.requestBody,
+                    respHeaders: detail.responseHeaders,
+                    respBody: detail.responseBody,
                     isWs: detail.isWs || false,
                 };
 
@@ -811,7 +816,7 @@ const ProxyView: React.FC = () => {
                                             alignItems: 'center'
                                         }}
                                     >
-                                        <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#888' }}>{record.time.split(' ')[1]}</div>
+                                        <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#888' }}>{record.time}</div>
                                         <div>
                                             {record.method === 'CONNECT' ? (
                                                 <Tag color="purple" style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>TUNNEL</Tag>

@@ -410,11 +410,9 @@ func (p *EventPipeline) processEvents() {
 
 // processEvent 处理单个事件
 func (p *EventPipeline) processEvent(event UnifiedEvent) {
-	log.Printf("[EventPipeline.processEvent] Processing event: type=%s, deviceID=%s", event.Type, event.DeviceID)
 	// 1. 关联 Session
 	sessionID := p.getOrCreateSession(event.DeviceID)
 	event.SessionID = sessionID
-	log.Printf("[EventPipeline.processEvent] Associated with session: %s", sessionID)
 
 	// 2. 获取 Session 状态
 	p.sessionMu.RLock()
@@ -453,7 +451,6 @@ func (p *EventPipeline) processEvent(event UnifiedEvent) {
 	p.updateTimeIndex(event)
 
 	// 7. 写入存储
-	log.Printf("[EventPipeline.processEvent] Writing event to store: sessionID=%s, type=%s", event.SessionID, event.Type)
 	p.store.WriteEvent(event)
 
 	// 8. 添加到前端缓冲

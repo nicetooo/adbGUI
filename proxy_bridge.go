@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,6 +20,10 @@ import (
 var (
 	proxyDeviceId string
 	proxyDeviceMu sync.RWMutex
+
+	// Track emitted request IDs to avoid duplicates
+	emittedRequests   = make(map[string]bool)
+	emittedRequestsMu sync.Mutex
 )
 
 // SetProxyDevice sets which device the proxy is monitoring (for session events)
@@ -39,35 +42,30 @@ func (a *App) GetProxyDevice() string {
 
 // StartProxy starts the internal HTTP/HTTPS proxy
 func (a *App) StartProxy(port int) (string, error) {
+	// Clear emitted requests map on start
+	emittedRequestsMu.Lock()
+	emittedRequests = make(map[string]bool)
+	emittedRequestsMu.Unlock()
+
 	err := proxy.GetProxy().Start(port, func(req proxy.RequestLog) {
-		// All network events go through Session (unified event source)
-		// Skip partial updates to avoid duplicates - only emit completed requests
-		// Filter out pending requests (StatusCode 0) to avoid duplicates.
-		// We only want to emit the final event when the response is complete.
-		if req.StatusCode == 0 {
+		// Skip partial updates (body-only or pending requests)
+		if req.PartialUpdate || req.StatusCode == 0 {
 			return
 		}
 
-		proxyDeviceMu.RLock()
-		deviceId := proxyDeviceId
-		proxyDeviceMu.RUnlock()
-
-		if deviceId == "" {
+		// Deduplicate by request ID - only emit each completed request once
+		emittedRequestsMu.Lock()
+		if emittedRequests[req.Id] {
+			emittedRequestsMu.Unlock()
 			return
 		}
-
-		// Determine level based on status code
-		level := LevelInfo
-		if req.StatusCode >= 400 && req.StatusCode < 500 {
-			level = LevelWarn
-		} else if req.StatusCode >= 500 {
-			level = LevelError
+		emittedRequests[req.Id] = true
+		// Clean up old entries if map gets too large (>10000)
+		if len(emittedRequests) > 10000 {
+			emittedRequests = make(map[string]bool)
+			emittedRequests[req.Id] = true
 		}
-
-		title := fmt.Sprintf("%s %s → %d", req.Method, req.URL, req.StatusCode)
-		if len(title) > 100 {
-			title = title[:97] + "..."
-		}
+		emittedRequestsMu.Unlock()
 
 		// Calculate duration from ID (SessionId-TimestampNano)
 		var durationMs int64
@@ -78,38 +76,53 @@ func (a *App) StartProxy(port int) (string, error) {
 			}
 		}
 
-		// Emit via eventPipeline (processEvent will set SessionID based on deviceID)
-		if a.eventPipeline != nil {
-			dataMap := map[string]interface{}{
-				"id":              req.Id,
-				"method":          req.Method,
-				"url":             req.URL,
-				"statusCode":      req.StatusCode,
-				"contentType":     req.ContentType,
-				"bodySize":        req.BodySize,
-				"duration":        durationMs,
-				"isHttps":         req.IsHTTPS,
-				"isWs":            req.IsWs,
-				"requestHeaders":  req.Headers,
-				"requestBody":     req.Body,
-				"responseHeaders": req.RespHeaders,
-				"responseBody":    req.RespBody,
-			}
-			dataBytes, _ := json.Marshal(dataMap)
+		proxyDeviceMu.RLock()
+		deviceId := proxyDeviceId
+		proxyDeviceMu.RUnlock()
 
-			a.eventPipeline.Emit(UnifiedEvent{
-				ID:        uuid.New().String(),
-				DeviceID:  deviceId,
-				Timestamp: time.Now().UnixMilli(),
-				Duration:  durationMs,
-				Source:    SourceNetwork,
-				Category:  CategoryNetwork,
-				Type:      "network_request",
-				Level:     level,
-				Title:     title,
-				Data:      dataBytes,
-			})
+		// Determine level based on status code
+		level := "info"
+		if req.StatusCode >= 400 && req.StatusCode < 500 {
+			level = "warn"
+		} else if req.StatusCode >= 500 {
+			level = "error"
 		}
+
+		title := fmt.Sprintf("%s %s → %d", req.Method, req.URL, req.StatusCode)
+		if len(title) > 100 {
+			title = title[:97] + "..."
+		}
+
+		// Emit via session manager - this ensures events go to session-events-batch
+		// which ProxyView is listening to
+		detail := map[string]interface{}{
+			"id":              req.Id,
+			"method":          req.Method,
+			"url":             req.URL,
+			"statusCode":      req.StatusCode,
+			"contentType":     req.ContentType,
+			"bodySize":        req.BodySize,
+			"duration":        durationMs,
+			"isHttps":         req.IsHTTPS,
+			"isWs":            req.IsWs,
+			"clientIp":        req.ClientIP,
+			"requestHeaders":  req.Headers,
+			"requestBody":     req.Body,
+			"responseHeaders": req.RespHeaders,
+			"responseBody":    req.RespBody,
+		}
+
+		a.EmitSessionEventFull(SessionEvent{
+			ID:        uuid.New().String(),
+			DeviceID:  deviceId,
+			Timestamp: time.Now().UnixMilli(),
+			Type:      "network_request",
+			Category:  "network",
+			Level:     level,
+			Title:     title,
+			Detail:    detail,
+			Duration:  durationMs,
+		})
 	})
 	if err != nil {
 		return "", err
