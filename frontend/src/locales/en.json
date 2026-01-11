@@ -153,7 +153,8 @@
     "select_session_first": "Please select a session first",
     "passed_msg": "Assertion passed",
     "failed_msg": "Assertion failed",
-    "error_msg": "Assertion error"
+    "error_msg": "Assertion error",
+    "clear_all": "Clear All"
   },
   "timeline": {
     "title": "Session Timeline",

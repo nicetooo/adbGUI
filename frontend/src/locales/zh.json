@@ -154,7 +154,8 @@
     "select_session_first": "请先选择一个会话",
     "passed_msg": "断言通过",
     "failed_msg": "断言失败",
-    "error_msg": "断言错误"
+    "error_msg": "断言错误",
+    "clear_all": "清空全部"
   },
   "timeline": {
     "title": "会话时间线",

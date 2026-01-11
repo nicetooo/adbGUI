@@ -35,6 +35,8 @@ import {
   OrderedListOutlined,
   FieldTimeOutlined,
   NumberOutlined,
+  DeleteOutlined,
+  ClearOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 // @ts-ignore
@@ -237,6 +239,16 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
     }
   }, [sessionId]);
 
+  // 删除单个结果
+  const removeResult = useCallback((id: string) => {
+    setResults(prev => prev.filter(r => r.id !== id));
+  }, []);
+
+  // 清空所有结果
+  const clearAllResults = useCallback(() => {
+    setResults([]);
+  }, []);
+
   // Quick assertion buttons
   const quickAssertions = [
     {
@@ -305,9 +317,22 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
 
       {/* Results */}
       <div style={{ flex: 1 }}>
-        <Text type="secondary" style={{ fontSize: 12, marginBottom: 8, display: 'block' }}>
-          {t('assertions.results')} ({results.length})
-        </Text>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t('assertions.results')} ({results.length})
+          </Text>
+          {results.length > 0 && (
+            <Tooltip title={t('assertions.clear_all')}>
+              <Button
+                type="text"
+                size="small"
+                icon={<ClearOutlined />}
+                onClick={clearAllResults}
+                style={{ fontSize: 12 }}
+              />
+            </Tooltip>
+          )}
+        </div>
 
         {results.length === 0 ? (
           <Empty
@@ -334,6 +359,15 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
                     <Tag color={item.passed ? 'success' : 'error'}>
                       {item.passed ? t('assertions.pass') : t('assertions.fail')}
                     </Tag>
+                    <Tooltip title={t('common.delete')}>
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<DeleteOutlined />}
+                        onClick={() => removeResult(item.id)}
+                        style={{ color: '#ff4d4f' }}
+                      />
+                    </Tooltip>
                   </div>
                   <Text type="secondary" style={{ fontSize: 12, marginLeft: 22 }}>
                     {item.message}
