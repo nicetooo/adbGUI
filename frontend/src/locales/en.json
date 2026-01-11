@@ -34,9 +34,9 @@
     "recording": "Recording",
     "workflow": "Workflow",
     "inspector": "UI Inspector",
-    "timeline": "Timeline",
-    "events": "Events",
-    "sessions": "Sessions"
+    "timeline": "Session Timeline",
+    "events": "Session",
+    "sessions": "Session List"
   },
   "session": {
     "start_new": "Start New Session",
@@ -122,7 +122,7 @@
     "name_placeholder": "Enter new name"
   },
   "timeline": {
-    "title": "Event Timeline",
+    "title": "Session Timeline",
     "select_device": "Select Device",
     "select_session": "Select Session",
     "filter_category": "Category",

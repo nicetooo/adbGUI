@@ -36,8 +36,8 @@
     "recording": "触控录制",
     "workflow": "工作流编排",
     "timeline": "会话时间线",
-    "events": "事件监控",
-    "sessions": "会话管理"
+    "events": "会话管理",
+    "sessions": "会话列表"
   },
   "session": {
     "start_new": "开始新会话",
@@ -123,7 +123,7 @@
     "name_placeholder": "请输入新名称"
   },
   "timeline": {
-    "title": "事件时间线",
+    "title": "会话时间线",
     "select_device": "选择设备",
     "select_session": "选择会话",
     "filter_category": "分类过滤",
