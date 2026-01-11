@@ -329,7 +329,7 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
           fontSize: 12,
         }}>
           <Text type="secondary">
-            Selected: {formatRelativeTime(timeRange.start)} - {formatRelativeTime(timeRange.end)}
+            {formatRelativeTime(timeRange.start)} - {formatRelativeTime(timeRange.end)}
             {' '}({((timeRange.end - timeRange.start) / 1000).toFixed(1)}s)
           </Text>
           <Button
@@ -338,7 +338,7 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
             onClick={() => onTimeRangeChange(null)}
             style={{ padding: 0, height: 'auto' }}
           >
-            Clear selection
+            <CloseOutlined />
           </Button>
         </div>
       )}
@@ -760,6 +760,7 @@ const FilterPopover = memo(({
   onCategoriesChange,
   onLevelsChange,
 }: FilterPopoverProps) => {
+  const { t } = useTranslation();
   const allSources: EventSource[] = ['logcat', 'network', 'device', 'app', 'ui', 'touch', 'workflow', 'perf', 'system', 'assertion'];
   const allCategories: EventCategory[] = ['log', 'network', 'state', 'interaction', 'automation', 'diagnostic'];
   const allLevels: EventLevel[] = ['verbose', 'debug', 'info', 'warn', 'error', 'fatal'];
@@ -767,7 +768,7 @@ const FilterPopover = memo(({
   return (
     <div style={{ width: 300 }}>
       <div style={{ marginBottom: 12 }}>
-        <Text strong style={{ display: 'block', marginBottom: 8 }}>Sources</Text>
+        <Text strong style={{ display: 'block', marginBottom: 8 }}>{t('timeline.sources')}</Text>
         <Checkbox.Group
           value={sources}
           onChange={(v) => onSourcesChange(v as EventSource[])}
@@ -780,7 +781,7 @@ const FilterPopover = memo(({
       </div>
 
       <div style={{ marginBottom: 12 }}>
-        <Text strong style={{ display: 'block', marginBottom: 8 }}>Categories</Text>
+        <Text strong style={{ display: 'block', marginBottom: 8 }}>{t('timeline.categories')}</Text>
         <Checkbox.Group
           value={categories}
           onChange={(v) => onCategoriesChange(v as EventCategory[])}
@@ -793,7 +794,7 @@ const FilterPopover = memo(({
       </div>
 
       <div>
-        <Text strong style={{ display: 'block', marginBottom: 8 }}>Levels</Text>
+        <Text strong style={{ display: 'block', marginBottom: 8 }}>{t('timeline.levels')}</Text>
         <Checkbox.Group
           value={levels}
           onChange={(v) => onLevelsChange(v as EventLevel[])}
@@ -1171,7 +1172,7 @@ const EventTimeline = () => {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <Title level={4} style={{ margin: 0, color: token.colorText }}>
               <HistoryOutlined style={{ marginRight: 8 }} />
-              Event Timeline
+              {t('timeline.title')}
             </Title>
 
             <Space>
@@ -1180,7 +1181,7 @@ const EventTimeline = () => {
                 icon={<ThunderboltOutlined />}
                 onClick={() => setAssertionsPanelOpen(!assertionsPanelOpen)}
               >
-                Assertions
+                {t('timeline.assertions')}
               </Button>
               {currentSession?.status === 'active' ? (
                 <Button
@@ -1188,7 +1189,7 @@ const EventTimeline = () => {
                   icon={<PauseCircleOutlined />}
                   onClick={handleEndSession}
                 >
-                  End Session
+                  {t('timeline.end_session')}
                 </Button>
               ) : (
                 <Button
@@ -1197,7 +1198,7 @@ const EventTimeline = () => {
                   onClick={handleStartSession}
                   disabled={!selectedDevice}
                 >
-                  Start Session
+                  {t('timeline.start_session')}
                 </Button>
               )}
             </Space>
@@ -1207,14 +1208,14 @@ const EventTimeline = () => {
         <Space wrap style={{ marginBottom: 12 }}>
           <Select
             style={{ width: 180 }}
-            placeholder="Select Device"
+            placeholder={t('timeline.select_device')}
             value={selectedDevice || undefined}
             onChange={setSelectedDevice}
             options={deviceOptions}
           />
           <Select
             style={{ width: 280 }}
-            placeholder="Select Session"
+            placeholder={t('timeline.select_session')}
             value={activeSessionId || undefined}
             onChange={handleSessionSelect}
             options={sessionOptions}
@@ -1225,7 +1226,7 @@ const EventTimeline = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <Input
             prefix={<SearchOutlined />}
-            placeholder="Search events..."
+            placeholder={t('timeline.search_events')}
             value={searchText}
             onChange={e => setSearchText(e.target.value)}
             allowClear
@@ -1247,12 +1248,12 @@ const EventTimeline = () => {
             placement="bottomLeft"
           >
             <Badge count={activeFilterCount} size="small">
-              <Button icon={<FilterOutlined />}>Filters</Button>
+              <Button icon={<FilterOutlined />}>{t('timeline.filters')}</Button>
             </Badge>
           </Popover>
 
           <Button icon={<BookOutlined />} onClick={handleCreateBookmark}>
-            Bookmark
+            {t('timeline.bookmark')}
           </Button>
 
           <div style={{ flex: 1 }} />
@@ -1261,8 +1262,8 @@ const EventTimeline = () => {
             value={autoScroll ? 'live' : 'manual'}
             onChange={v => setAutoScroll(v === 'live')}
             options={[
-              { label: 'Live', value: 'live', icon: <PlayCircleOutlined /> },
-              { label: 'Manual', value: 'manual', icon: <PauseCircleOutlined /> },
+              { label: t('timeline.live'), value: 'live', icon: <PlayCircleOutlined /> },
+              { label: t('timeline.manual'), value: 'manual', icon: <PauseCircleOutlined /> },
             ]}
           />
 
@@ -1274,7 +1275,7 @@ const EventTimeline = () => {
               }
             }}
           >
-            Bottom
+            {t('timeline.bottom')}
           </Button>
         </div>
       </div>
@@ -1299,7 +1300,7 @@ const EventTimeline = () => {
           {visibleEvents.length < filteredEventCount && ` (showing ${visibleEvents.length})`}
         </Text>
         {currentSession?.status === 'active' && (
-          <Badge status="processing" text="Recording" />
+          <Badge status="processing" text={t('timeline.recording')} />
         )}
       </div>
 
@@ -1317,7 +1318,7 @@ const EventTimeline = () => {
             </div>
           ) : visibleEvents.length === 0 ? (
             <Empty
-              description="No events"
+              description={t('timeline.no_events')}
               style={{ marginTop: 60 }}
             />
           ) : (
