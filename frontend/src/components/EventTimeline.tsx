@@ -401,6 +401,15 @@ const EventRow = memo(({ event, isSelected, onClick, style }: EventRowProps) => 
   const color = getEventColor(event);
   const icon = getEventIcon(event);
   const isCritical = isCriticalEvent(event);
+  const isWarning = event.level === 'warn';
+
+  // Determine background color based on state and level
+  const getBackground = () => {
+    if (isSelected) return token.colorPrimaryBg;
+    if (isCritical) return token.colorErrorBg;
+    if (isWarning) return token.colorWarningBg;
+    return 'transparent';
+  };
 
   return (
     <div
@@ -411,11 +420,7 @@ const EventRow = memo(({ event, isSelected, onClick, style }: EventRowProps) => 
         alignItems: 'center',
         padding: '4px 8px',
         cursor: 'pointer',
-        background: isSelected
-          ? token.colorPrimaryBg
-          : isCritical
-            ? token.colorErrorBg
-            : 'transparent',
+        background: getBackground(),
         borderLeft: `3px solid ${color}`,
         borderBottom: `1px solid ${token.colorBorderSecondary}`,
         transition: 'background 0.15s',
