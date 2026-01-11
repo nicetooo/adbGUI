@@ -48,17 +48,28 @@ func (a *App) StartProxy(port int) (string, error) {
 	emittedRequestsMu.Unlock()
 
 	err := proxy.GetProxy().Start(port, func(req proxy.RequestLog) {
-		// Skip partial updates (body-only or pending requests)
-		if req.PartialUpdate || req.StatusCode == 0 {
+		// Skip partial updates (body-only updates without complete response)
+		if req.PartialUpdate {
 			return
 		}
 
-		// Deduplicate by request ID - only emit each completed request once
+		// Skip pending requests (status=0) - wait for response
+		if req.StatusCode == 0 {
+			return
+		}
+
+		// Deduplicate: only emit once per request, but prefer the one with response body
 		emittedRequestsMu.Lock()
-		if emittedRequests[req.Id] {
+		alreadyEmitted := emittedRequests[req.Id]
+		hasBody := req.RespBody != ""
+
+		// Skip if already emitted AND this one has no body (keep waiting for body)
+		// But if this one HAS body, emit it even if we emitted before (update with body)
+		if alreadyEmitted && !hasBody {
 			emittedRequestsMu.Unlock()
 			return
 		}
+
 		emittedRequests[req.Id] = true
 		// Clean up old entries if map gets too large (>10000)
 		if len(emittedRequests) > 10000 {

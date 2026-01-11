@@ -396,16 +396,22 @@ const ProxyView: React.FC = () => {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
-    const formatBody = (body: string) => {
+    const formatBody = (body: string, contentType?: string) => {
         if (!body) return "";
-        try {
-            // Simple heuristic to check if it might be JSON
-            if ((body.startsWith('{') && body.endsWith('}')) || (body.startsWith('[') && body.endsWith(']'))) {
-                const parsed = JSON.parse(body);
+        const trimmed = body.trim();
+
+        // Check if it's JSON by content-type or by content
+        const isJsonType = contentType?.includes('application/json');
+        const looksLikeJson = (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+                             (trimmed.startsWith('[') && trimmed.endsWith(']'));
+
+        if (isJsonType || looksLikeJson) {
+            try {
+                const parsed = JSON.parse(trimmed);
                 return JSON.stringify(parsed, null, 2);
+            } catch (e) {
+                // Not valid JSON
             }
-        } catch (e) {
-            // Not valid JSON or too large to parse quickly
         }
         return body;
     };
@@ -1114,7 +1120,8 @@ const ProxyView: React.FC = () => {
                 title={t('proxy.resend_request')}
                 open={resendModalOpen}
                 onCancel={() => setResendModalOpen(false)}
-                width={700}
+                width="50%"
+                styles={{ body: { height: '70vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}
                 footer={[
                     <Button key="cancel" onClick={() => setResendModalOpen(false)}>{t('common.cancel')}</Button>,
                     <Button key="send" type="primary" loading={resendLoading} onClick={handleResend} icon={<SendOutlined />}>
@@ -1122,7 +1129,7 @@ const ProxyView: React.FC = () => {
                     </Button>
                 ]}
             >
-                <Form form={resendForm} layout="vertical" style={{ marginTop: 16 }}>
+                <Form form={resendForm} layout="vertical" style={{ marginTop: 16, flexShrink: 0 }}>
                     <Space.Compact style={{ width: '100%' }}>
                         <Form.Item name="method" noStyle>
                             <Input style={{ width: 100 }} />
@@ -1132,23 +1139,24 @@ const ProxyView: React.FC = () => {
                         </Form.Item>
                     </Space.Compact>
                     <Form.Item name="headers" label={t('proxy.headers')} style={{ marginTop: 16 }}>
-                        <Input.TextArea rows={4} placeholder="Header-Name: value" style={{ fontFamily: 'monospace', fontSize: 12 }} />
+                        <Input.TextArea rows={3} placeholder="Header-Name: value" style={{ fontFamily: 'monospace', fontSize: 12 }} />
                     </Form.Item>
                     <Form.Item name="body" label={t('proxy.body')}>
-                        <Input.TextArea rows={6} placeholder="Request body" style={{ fontFamily: 'monospace', fontSize: 12 }} />
+                        <Input.TextArea rows={4} placeholder="Request body" style={{ fontFamily: 'monospace', fontSize: 12 }} />
                     </Form.Item>
                 </Form>
 
                 {resendResponse && (
-                    <div style={{ marginTop: 16, padding: 12, background: token.colorFillAlter, borderRadius: 8 }}>
-                        <Space style={{ marginBottom: 8 }}>
+                    <div style={{ flex: 1, marginTop: 16, padding: 12, background: token.colorFillAlter, borderRadius: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+                        <Space style={{ marginBottom: 8, flexShrink: 0 }}>
                             <Tag color={resendResponse.statusCode >= 400 ? 'error' : 'success'}>{resendResponse.statusCode}</Tag>
                             <Text type="secondary">{resendResponse.duration}ms</Text>
                             <Text type="secondary">{formatBytes(resendResponse.bodySize)}</Text>
+                            {resendResponse.contentType && <Text type="secondary">{resendResponse.contentType.split(';')[0]}</Text>}
                         </Space>
-                        <div style={{ maxHeight: 300, overflow: 'auto', padding: 8, background: token.colorBgContainer, borderRadius: 4, fontFamily: 'monospace', fontSize: 12 }}>
-                            {formatBody(resendResponse.body)}
-                        </div>
+                        <pre style={{ flex: 1, overflow: 'auto', padding: 8, margin: 0, background: token.colorBgContainer, borderRadius: 4, fontFamily: 'monospace', fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                            {formatBody(resendResponse.body, resendResponse.contentType)}
+                        </pre>
                     </div>
                 )}
             </Modal>
