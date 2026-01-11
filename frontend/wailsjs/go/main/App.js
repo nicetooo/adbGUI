@@ -14,6 +14,10 @@ export function AdbPair(arg1, arg2) {
   return window['go']['main']['App']['AdbPair'](arg1, arg2);
 }
 
+export function AddMockRule(arg1) {
+  return window['go']['main']['App']['AddMockRule'](arg1);
+}
+
 export function AnalyzeElementSelectors(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['AnalyzeElementSelectors'](arg1, arg2, arg3, arg4);
 }
@@ -264,6 +268,10 @@ export function GetLocalIP() {
 
 export function GetMITMBypassPatterns() {
   return window['go']['main']['App']['GetMITMBypassPatterns']();
+}
+
+export function GetMockRules() {
+  return window['go']['main']['App']['GetMockRules']();
 }
 
 export function GetProxyDevice() {
@@ -530,12 +538,20 @@ export function RemoveHistoryDevice(arg1) {
   return window['go']['main']['App']['RemoveHistoryDevice'](arg1);
 }
 
+export function RemoveMockRule(arg1) {
+  return window['go']['main']['App']['RemoveMockRule'](arg1);
+}
+
 export function RenameStoredSession(arg1, arg2) {
   return window['go']['main']['App']['RenameStoredSession'](arg1, arg2);
 }
 
 export function RenameTouchScript(arg1, arg2) {
   return window['go']['main']['App']['RenameTouchScript'](arg1, arg2);
+}
+
+export function ResendRequest(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['ResendRequest'](arg1, arg2, arg3, arg4);
 }
 
 export function RestartAdbServer() {
@@ -774,12 +790,20 @@ export function TapAtCoordinates(arg1, arg2, arg3) {
   return window['go']['main']['App']['TapAtCoordinates'](arg1, arg2, arg3);
 }
 
+export function ToggleMockRule(arg1, arg2) {
+  return window['go']['main']['App']['ToggleMockRule'](arg1, arg2);
+}
+
 export function TogglePinDevice(arg1) {
   return window['go']['main']['App']['TogglePinDevice'](arg1);
 }
 
 export function UninstallApp(arg1, arg2) {
   return window['go']['main']['App']['UninstallApp'](arg1, arg2);
+}
+
+export function UpdateMockRule(arg1) {
+  return window['go']['main']['App']['UpdateMockRule'](arg1);
 }
 
 export function UpdateStoredAssertionJSON(arg1, arg2) {

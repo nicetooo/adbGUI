@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -297,4 +300,155 @@ func isStaticResource(url, contentType string) bool {
 	}
 
 	return false
+}
+
+// ResendRequest sends an HTTP request with optional modifications
+// Returns the response status, headers, and body
+func (a *App) ResendRequest(method, url string, headers map[string]string, body string) (map[string]interface{}, error) {
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	var reqBody io.Reader
+	if body != "" {
+		reqBody = bytes.NewBufferString(body)
+	}
+
+	req, err := http.NewRequest(method, url, reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+
+	// Set headers
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
+	startTime := time.Now()
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	duration := time.Since(startTime).Milliseconds()
+
+	// Read response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %v", err)
+	}
+
+	// Build response headers map
+	respHeaders := make(map[string]string)
+	for k, v := range resp.Header {
+		respHeaders[k] = strings.Join(v, ", ")
+	}
+
+	return map[string]interface{}{
+		"statusCode":   resp.StatusCode,
+		"status":       resp.Status,
+		"headers":      respHeaders,
+		"body":         string(respBody),
+		"bodySize":     len(respBody),
+		"duration":     duration,
+		"contentType":  resp.Header.Get("Content-Type"),
+	}, nil
+}
+
+// MockRule defines a rule for mocking HTTP responses
+type MockRule struct {
+	ID          string            `json:"id"`
+	URLPattern  string            `json:"urlPattern"`  // URL pattern to match (supports * wildcard)
+	Method      string            `json:"method"`      // HTTP method to match (empty = all)
+	StatusCode  int               `json:"statusCode"`  // Response status code
+	Headers     map[string]string `json:"headers"`     // Response headers
+	Body        string            `json:"body"`        // Response body
+	Delay       int               `json:"delay"`       // Delay in milliseconds before responding
+	Enabled     bool              `json:"enabled"`     // Whether this rule is active
+	Description string            `json:"description"` // Optional description
+}
+
+var (
+	mockRules   = make(map[string]*MockRule)
+	mockRulesMu sync.RWMutex
+)
+
+// AddMockRule adds a new mock response rule
+func (a *App) AddMockRule(rule MockRule) string {
+	mockRulesMu.Lock()
+	defer mockRulesMu.Unlock()
+
+	if rule.ID == "" {
+		rule.ID = uuid.New().String()
+	}
+	rule.Enabled = true
+	mockRules[rule.ID] = &rule
+
+	// Register with proxy
+	proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay)
+
+	return rule.ID
+}
+
+// UpdateMockRule updates an existing mock rule
+func (a *App) UpdateMockRule(rule MockRule) error {
+	mockRulesMu.Lock()
+	defer mockRulesMu.Unlock()
+
+	if _, exists := mockRules[rule.ID]; !exists {
+		return fmt.Errorf("rule not found: %s", rule.ID)
+	}
+
+	mockRules[rule.ID] = &rule
+
+	// Update in proxy
+	proxy.GetProxy().RemoveMockRule(rule.ID)
+	if rule.Enabled {
+		proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay)
+	}
+
+	return nil
+}
+
+// RemoveMockRule removes a mock response rule
+func (a *App) RemoveMockRule(ruleID string) {
+	mockRulesMu.Lock()
+	defer mockRulesMu.Unlock()
+
+	delete(mockRules, ruleID)
+	proxy.GetProxy().RemoveMockRule(ruleID)
+}
+
+// GetMockRules returns all mock response rules
+func (a *App) GetMockRules() []*MockRule {
+	mockRulesMu.RLock()
+	defer mockRulesMu.RUnlock()
+
+	rules := make([]*MockRule, 0, len(mockRules))
+	for _, rule := range mockRules {
+		rules = append(rules, rule)
+	}
+	return rules
+}
+
+// ToggleMockRule enables or disables a mock rule
+func (a *App) ToggleMockRule(ruleID string, enabled bool) error {
+	mockRulesMu.Lock()
+	defer mockRulesMu.Unlock()
+
+	rule, exists := mockRules[ruleID]
+	if !exists {
+		return fmt.Errorf("rule not found: %s", ruleID)
+	}
+
+	rule.Enabled = enabled
+
+	if enabled {
+		proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay)
+	} else {
+		proxy.GetProxy().RemoveMockRule(rule.ID)
+	}
+
+	return nil
 }

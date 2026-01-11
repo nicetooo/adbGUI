@@ -31,6 +31,17 @@ func copyHeader(h http.Header) http.Header {
 	return h2
 }
 
+// MockRule defines a rule for mocking HTTP responses
+type MockRule struct {
+	ID         string
+	URLPattern string
+	Method     string
+	StatusCode int
+	Headers    map[string]string
+	Body       string
+	Delay      int
+}
+
 // ProxyServer handles the HTTP/HTTPS logic using goproxy
 type ProxyServer struct {
 	server             *http.Server
@@ -47,6 +58,8 @@ type ProxyServer struct {
 	upLimiter   *rate.Limiter
 	downLimiter *rate.Limiter
 	latency     time.Duration // Artificial latency
+
+	mockRules map[string]*MockRule // Mock response rules
 }
 
 // SetLatency sets the artificial latency in milliseconds
@@ -54,6 +67,91 @@ func (p *ProxyServer) SetLatency(latencyMs int) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.latency = time.Duration(latencyMs) * time.Millisecond
+}
+
+// AddMockRule adds a mock response rule
+func (p *ProxyServer) AddMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body string, delay int) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.mockRules == nil {
+		p.mockRules = make(map[string]*MockRule)
+	}
+	p.mockRules[id] = &MockRule{
+		ID:         id,
+		URLPattern: urlPattern,
+		Method:     method,
+		StatusCode: statusCode,
+		Headers:    headers,
+		Body:       body,
+		Delay:      delay,
+	}
+}
+
+// RemoveMockRule removes a mock response rule
+func (p *ProxyServer) RemoveMockRule(id string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.mockRules != nil {
+		delete(p.mockRules, id)
+	}
+}
+
+// matchMockRule checks if a request matches any mock rule and returns it
+func (p *ProxyServer) matchMockRule(method, url string) *MockRule {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	for _, rule := range p.mockRules {
+		// Check method (empty means match all)
+		if rule.Method != "" && rule.Method != method {
+			continue
+		}
+
+		// Check URL pattern (supports * wildcard)
+		if matchPattern(url, rule.URLPattern) {
+			return rule
+		}
+	}
+	return nil
+}
+
+// matchPattern checks if a URL matches a pattern with * wildcards
+func matchPattern(url, pattern string) bool {
+	// Simple wildcard matching
+	if pattern == "*" {
+		return true
+	}
+
+	// Split pattern by *
+	parts := strings.Split(pattern, "*")
+	if len(parts) == 1 {
+		// No wildcard, exact match
+		return url == pattern
+	}
+
+	// Check if URL matches pattern with wildcards
+	pos := 0
+	for i, part := range parts {
+		if part == "" {
+			continue
+		}
+		idx := strings.Index(url[pos:], part)
+		if idx == -1 {
+			return false
+		}
+		if i == 0 && idx != 0 {
+			// First part must match at start
+			return false
+		}
+		pos += idx + len(part)
+	}
+
+	// If pattern doesn't end with *, URL must end exactly
+	if !strings.HasSuffix(pattern, "*") && pos != len(url) {
+		return false
+	}
+
+	return true
 }
 
 func (p *ProxyServer) simulateLatency() {
@@ -249,6 +347,40 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 				rc:      r.Body,
 				limiter: upLimiter,
 			}
+		}
+
+		// Check for mock rules
+		if mockRule := p.matchMockRule(r.Method, r.URL.String()); mockRule != nil {
+			p.debugLog("  -> MOCK RESPONSE (Rule: %s)", mockRule.ID)
+
+			// Apply mock delay
+			if mockRule.Delay > 0 {
+				time.Sleep(time.Duration(mockRule.Delay) * time.Millisecond)
+			}
+
+			// Create mock response
+			mockResp := &http.Response{
+				StatusCode: mockRule.StatusCode,
+				Status:     fmt.Sprintf("%d %s", mockRule.StatusCode, http.StatusText(mockRule.StatusCode)),
+				Proto:      "HTTP/1.1",
+				ProtoMajor: 1,
+				ProtoMinor: 1,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(mockRule.Body)),
+				Request:    r,
+			}
+
+			// Set mock headers
+			for k, v := range mockRule.Headers {
+				mockResp.Header.Set(k, v)
+			}
+
+			// Set Content-Length if not set
+			if mockResp.Header.Get("Content-Length") == "" {
+				mockResp.Header.Set("Content-Length", fmt.Sprintf("%d", len(mockRule.Body)))
+			}
+
+			return r, mockResp
 		}
 
 		return r, nil

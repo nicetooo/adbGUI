@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, Button, InputNumber, Space, Typography, Tag, message, Modal, Divider, Switch, Tooltip, Radio, Input, Drawer, Tabs, theme } from 'antd';
-import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined } from '@ant-design/icons';
+import { Card, Button, InputNumber, Space, Typography, Tag, message, Modal, Divider, Switch, Tooltip, Radio, Input, Drawer, Tabs, theme, Form, Table, Popconfirm } from 'antd';
+import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, EditOutlined, BlockOutlined, SendOutlined, PlusOutlined } from '@ant-design/icons';
 import DeviceSelector from './DeviceSelector';
-import { useDeviceStore, useProxyStore } from '../stores';
+import { useDeviceStore, useProxyStore, RequestLog as StoreRequestLog } from '../stores';
 // @ts-ignore
-import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, SetProxyDevice } from '../../wailsjs/go/main/App';
+import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, RemoveMockRule, GetMockRules, ToggleMockRule } from '../../wailsjs/go/main/App';
 // @ts-ignore
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -87,6 +87,18 @@ const ProxyView: React.FC = () => {
 
     const logsEndRef = useRef<HTMLDivElement>(null);
     const parentRef = useRef<HTMLDivElement>(null);
+
+    // Resend request state
+    const [resendModalOpen, setResendModalOpen] = useState(false);
+    const [resendLoading, setResendLoading] = useState(false);
+    const [resendForm] = Form.useForm();
+    const [resendResponse, setResendResponse] = useState<any>(null);
+
+    // Mock rules state
+    const [mockModalOpen, setMockModalOpen] = useState(false);
+    const [mockRules, setMockRules] = useState<any[]>([]);
+    const [mockForm] = Form.useForm();
+    const [editingMockRule, setEditingMockRule] = useState<any>(null);
 
     useEffect(() => {
         // Listen for network stats
@@ -393,6 +405,173 @@ const ProxyView: React.FC = () => {
         return body;
     };
 
+    // Generate cURL command from request
+    const generateCurl = (log: StoreRequestLog): string => {
+        const parts: string[] = ['curl'];
+
+        // Method
+        if (log.method !== 'GET') {
+            parts.push(`-X ${log.method}`);
+        }
+
+        // Headers
+        if (log.headers) {
+            for (const [key, values] of Object.entries(log.headers)) {
+                // Skip pseudo-headers and host (included in URL)
+                if (key.startsWith(':') || key.toLowerCase() === 'host') continue;
+                for (const value of values) {
+                    parts.push(`-H '${key}: ${value.replace(/'/g, "'\\''")}'`);
+                }
+            }
+        }
+
+        // Body
+        if (log.previewBody && ['POST', 'PUT', 'PATCH'].includes(log.method)) {
+            const escaped = log.previewBody.replace(/'/g, "'\\''");
+            parts.push(`-d '${escaped}'`);
+        }
+
+        // URL (quoted)
+        parts.push(`'${log.url}'`);
+
+        return parts.join(' \\\n  ');
+    };
+
+    const handleCopyCurl = (log: StoreRequestLog) => {
+        const curl = generateCurl(log);
+        navigator.clipboard.writeText(curl).then(() => {
+            message.success(t('proxy.copied_curl'));
+        }).catch(() => {
+            message.error(t('proxy.copy_failed'));
+        });
+    };
+
+    // Open resend modal with pre-filled data
+    const openResendModal = (log: StoreRequestLog) => {
+        const headersStr = log.headers
+            ? Object.entries(log.headers).map(([k, v]) => `${k}: ${v.join(', ')}`).join('\n')
+            : '';
+        resendForm.setFieldsValue({
+            method: log.method,
+            url: log.url,
+            headers: headersStr,
+            body: log.previewBody || '',
+        });
+        setResendResponse(null);
+        setResendModalOpen(true);
+    };
+
+    // Handle resend request
+    const handleResend = async () => {
+        try {
+            const values = await resendForm.validateFields();
+            setResendLoading(true);
+
+            // Parse headers string to map
+            const headersMap: Record<string, string> = {};
+            if (values.headers) {
+                values.headers.split('\n').forEach((line: string) => {
+                    const idx = line.indexOf(':');
+                    if (idx > 0) {
+                        const key = line.substring(0, idx).trim();
+                        const val = line.substring(idx + 1).trim();
+                        if (key) headersMap[key] = val;
+                    }
+                });
+            }
+
+            const response = await ResendRequest(values.method, values.url, headersMap, values.body || '');
+            setResendResponse(response);
+            message.success(t('proxy.resend_success'));
+        } catch (err: any) {
+            message.error(t('proxy.resend_failed') + ': ' + String(err));
+        } finally {
+            setResendLoading(false);
+        }
+    };
+
+    // Load mock rules
+    const loadMockRules = async () => {
+        try {
+            const rules = await GetMockRules();
+            setMockRules(rules || []);
+        } catch (err) {
+            console.error('Failed to load mock rules:', err);
+        }
+    };
+
+    // Open mock rules modal
+    const openMockModal = () => {
+        loadMockRules();
+        setMockModalOpen(true);
+    };
+
+    // Add or update mock rule
+    const handleSaveMockRule = async () => {
+        try {
+            const values = await mockForm.validateFields();
+            const rule = {
+                id: editingMockRule?.id || '',
+                urlPattern: values.urlPattern,
+                method: values.method || '',
+                statusCode: values.statusCode || 200,
+                headers: { 'Content-Type': values.contentType || 'application/json' },
+                body: values.body || '',
+                delay: values.delay || 0,
+                description: values.description || '',
+                enabled: true,
+            };
+
+            if (editingMockRule) {
+                // Update existing - for now just remove and re-add
+                await RemoveMockRule(editingMockRule.id);
+            }
+            await AddMockRule(rule);
+
+            message.success(editingMockRule ? t('proxy.mock_rule_updated') : t('proxy.mock_rule_added'));
+            mockForm.resetFields();
+            setEditingMockRule(null);
+            loadMockRules();
+        } catch (err: any) {
+            message.error(String(err));
+        }
+    };
+
+    // Delete mock rule
+    const handleDeleteMockRule = async (id: string) => {
+        try {
+            await RemoveMockRule(id);
+            message.success(t('proxy.mock_rule_deleted'));
+            loadMockRules();
+        } catch (err) {
+            message.error(String(err));
+        }
+    };
+
+    // Toggle mock rule
+    const handleToggleMockRule = async (id: string, enabled: boolean) => {
+        try {
+            await ToggleMockRule(id, enabled);
+            loadMockRules();
+        } catch (err) {
+            message.error(String(err));
+        }
+    };
+
+    // Edit mock rule
+    const startEditMockRule = (rule: any) => {
+        setEditingMockRule(rule);
+        mockForm.setFieldsValue({
+            urlPattern: rule.urlPattern,
+            method: rule.method,
+            statusCode: rule.statusCode,
+            contentType: rule.headers?.['Content-Type'] || 'application/json',
+            body: rule.body,
+            delay: rule.delay,
+            description: rule.description,
+        });
+    };
+
     const filteredLogs = logs.filter(log => {
         // Filter by type (ALL, HTTP, WS)
         if (filterType === "HTTP" && log.isWs) return false;
@@ -470,6 +649,11 @@ const ProxyView: React.FC = () => {
                                     </Button>
                                 </Space>
                             )}
+                            <Tooltip title={t('proxy.mock_rules')}>
+                                <Button size="small" icon={<BlockOutlined />} onClick={openMockModal}>
+                                    Mock
+                                </Button>
+                            </Tooltip>
 
                             <Button
                                 type="primary"
@@ -667,8 +851,28 @@ const ProxyView: React.FC = () => {
                     <div style={{ padding: 16 }}>
                         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
                             <div>
-                                <Text type="secondary" style={{ fontSize: 12 }}>{t('proxy.col_url')}</Text>
-                                <div style={{ wordBreak: 'break-all', fontFamily: 'monospace', background: '#f5f5f5', padding: 8, borderRadius: 4, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                    <Text type="secondary" style={{ fontSize: 12 }}>{t('proxy.col_url')}</Text>
+                                    <Space size="small">
+                                        <Button
+                                            type="text"
+                                            size="small"
+                                            icon={<CopyOutlined />}
+                                            onClick={() => handleCopyCurl(selectedLog)}
+                                        >
+                                            cURL
+                                        </Button>
+                                        <Button
+                                            type="text"
+                                            size="small"
+                                            icon={<SendOutlined />}
+                                            onClick={() => openResendModal(selectedLog)}
+                                        >
+                                            {t('proxy.resend')}
+                                        </Button>
+                                    </Space>
+                                </div>
+                                <div style={{ wordBreak: 'break-all', fontFamily: 'monospace', background: token.colorFillTertiary, padding: 8, borderRadius: 4, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                                     <Tag color={selectedLog.method === 'GET' ? 'green' : 'blue'} style={{ flexShrink: 0 }}>{selectedLog.method}</Tag>
                                     <Text copyable={{ text: selectedLog.url }} style={{ fontFamily: 'monospace', fontSize: '13px', flex: 1, wordBreak: 'break-all' }}>{selectedLog.url}</Text>
                                 </div>
@@ -897,6 +1101,136 @@ const ProxyView: React.FC = () => {
                         ))}
                         {bypassPatterns.length === 0 && <Text type="secondary">{t('proxy.no_rules')}</Text>}
                     </Space>
+                </div>
+            </Modal>
+
+            {/* Resend Request Modal */}
+            <Modal
+                title={t('proxy.resend_request')}
+                open={resendModalOpen}
+                onCancel={() => setResendModalOpen(false)}
+                width={700}
+                footer={[
+                    <Button key="cancel" onClick={() => setResendModalOpen(false)}>{t('common.cancel')}</Button>,
+                    <Button key="send" type="primary" loading={resendLoading} onClick={handleResend} icon={<SendOutlined />}>
+                        {t('proxy.resend')}
+                    </Button>
+                ]}
+            >
+                <Form form={resendForm} layout="vertical" style={{ marginTop: 16 }}>
+                    <Space.Compact style={{ width: '100%' }}>
+                        <Form.Item name="method" noStyle>
+                            <Input style={{ width: 100 }} />
+                        </Form.Item>
+                        <Form.Item name="url" noStyle rules={[{ required: true }]}>
+                            <Input style={{ flex: 1 }} placeholder="URL" />
+                        </Form.Item>
+                    </Space.Compact>
+                    <Form.Item name="headers" label={t('proxy.headers')} style={{ marginTop: 16 }}>
+                        <Input.TextArea rows={4} placeholder="Header-Name: value" style={{ fontFamily: 'monospace', fontSize: 12 }} />
+                    </Form.Item>
+                    <Form.Item name="body" label={t('proxy.body')}>
+                        <Input.TextArea rows={6} placeholder="Request body" style={{ fontFamily: 'monospace', fontSize: 12 }} />
+                    </Form.Item>
+                </Form>
+
+                {resendResponse && (
+                    <div style={{ marginTop: 16, padding: 12, background: token.colorFillAlter, borderRadius: 8 }}>
+                        <Space style={{ marginBottom: 8 }}>
+                            <Tag color={resendResponse.statusCode >= 400 ? 'error' : 'success'}>{resendResponse.statusCode}</Tag>
+                            <Text type="secondary">{resendResponse.duration}ms</Text>
+                            <Text type="secondary">{formatBytes(resendResponse.bodySize)}</Text>
+                        </Space>
+                        <div style={{ maxHeight: 300, overflow: 'auto', padding: 8, background: token.colorBgContainer, borderRadius: 4, fontFamily: 'monospace', fontSize: 12 }}>
+                            {formatBody(resendResponse.body)}
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            {/* Mock Rules Modal */}
+            <Modal
+                title={t('proxy.mock_rules')}
+                open={mockModalOpen}
+                onCancel={() => { setMockModalOpen(false); setEditingMockRule(null); mockForm.resetFields(); }}
+                width={800}
+                footer={null}
+            >
+                <div style={{ marginBottom: 16 }}>
+                    <Form form={mockForm} layout="vertical" size="small">
+                        <Space wrap style={{ width: '100%' }}>
+                            <Form.Item name="urlPattern" label={t('proxy.url_pattern')} rules={[{ required: true }]} style={{ marginBottom: 8, minWidth: 250 }}>
+                                <Input placeholder="*/api/*" />
+                            </Form.Item>
+                            <Form.Item name="method" label={t('proxy.col_method')} style={{ marginBottom: 8, width: 100 }}>
+                                <Input placeholder="GET" />
+                            </Form.Item>
+                            <Form.Item name="statusCode" label={t('proxy.status_code')} style={{ marginBottom: 8, width: 80 }}>
+                                <InputNumber min={100} max={599} placeholder="200" />
+                            </Form.Item>
+                            <Form.Item name="delay" label={t('proxy.delay_ms')} style={{ marginBottom: 8, width: 80 }}>
+                                <InputNumber min={0} placeholder="0" />
+                            </Form.Item>
+                        </Space>
+                        <Form.Item name="contentType" label="Content-Type" style={{ marginBottom: 8 }}>
+                            <Input placeholder="application/json" />
+                        </Form.Item>
+                        <Form.Item name="body" label={t('proxy.response_body')} style={{ marginBottom: 8 }}>
+                            <Input.TextArea rows={4} placeholder='{"success": true}' style={{ fontFamily: 'monospace', fontSize: 12 }} />
+                        </Form.Item>
+                        <Form.Item name="description" label={t('proxy.description')} style={{ marginBottom: 8 }}>
+                            <Input placeholder={t('proxy.description')} />
+                        </Form.Item>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleSaveMockRule}>
+                            {editingMockRule ? t('common.save') : t('proxy.add')}
+                        </Button>
+                        {editingMockRule && (
+                            <Button style={{ marginLeft: 8 }} onClick={() => { setEditingMockRule(null); mockForm.resetFields(); }}>
+                                {t('common.cancel')}
+                            </Button>
+                        )}
+                    </Form>
+                </div>
+
+                <Divider style={{ margin: '12px 0' }} />
+
+                <div style={{ maxHeight: 300, overflow: 'auto' }}>
+                    {mockRules.length === 0 ? (
+                        <Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: 20 }}>{t('proxy.no_mock_rules')}</Text>
+                    ) : (
+                        <Table
+                            dataSource={mockRules}
+                            rowKey="id"
+                            size="small"
+                            pagination={false}
+                            columns={[
+                                { title: t('proxy.url_pattern'), dataIndex: 'urlPattern', ellipsis: true },
+                                { title: t('proxy.col_method'), dataIndex: 'method', width: 80, render: (v: string) => v || '*' },
+                                { title: t('proxy.status_code'), dataIndex: 'statusCode', width: 80 },
+                                { title: t('proxy.delay_ms'), dataIndex: 'delay', width: 80, render: (v: number) => v ? `${v}ms` : '-' },
+                                {
+                                    title: t('proxy.mock_enabled'),
+                                    dataIndex: 'enabled',
+                                    width: 80,
+                                    render: (v: boolean, record: any) => (
+                                        <Switch size="small" checked={v} onChange={(checked) => handleToggleMockRule(record.id, checked)} />
+                                    )
+                                },
+                                {
+                                    title: '',
+                                    width: 100,
+                                    render: (_: any, record: any) => (
+                                        <Space size="small">
+                                            <Button type="text" size="small" icon={<EditOutlined />} onClick={() => startEditMockRule(record)} />
+                                            <Popconfirm title={t('common.delete') + '?'} onConfirm={() => handleDeleteMockRule(record.id)}>
+                                                <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                                            </Popconfirm>
+                                        </Space>
+                                    )
+                                }
+                            ]}
+                        />
+                    )}
                 </div>
             </Modal>
 

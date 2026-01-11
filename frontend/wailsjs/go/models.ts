@@ -804,6 +804,34 @@ export namespace main {
 	    }
 	}
 	
+	export class MockRule {
+	    id: string;
+	    urlPattern: string;
+	    method: string;
+	    statusCode: number;
+	    headers: {[key: string]: string};
+	    body: string;
+	    delay: number;
+	    enabled: boolean;
+	    description: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new MockRule(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.urlPattern = source["urlPattern"];
+	        this.method = source["method"];
+	        this.statusCode = source["statusCode"];
+	        this.headers = source["headers"];
+	        this.body = source["body"];
+	        this.delay = source["delay"];
+	        this.enabled = source["enabled"];
+	        this.description = source["description"];
+	    }
+	}
 	
 	
 	
