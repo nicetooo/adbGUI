@@ -1042,10 +1042,23 @@ const EventTimeline = () => {
     }
   }, [visibleEvents, selectedEventId, rowVirtualizer]);
 
-  // Handle time range change
+  // Scroll to first event when time range is selected
+  useEffect(() => {
+    if (timeRange && visibleEvents.length > 0 && !selectedEventId) {
+      // Scroll to the first event in the filtered list
+      rowVirtualizer.scrollToIndex(0, { align: 'start', behavior: 'auto' });
+    }
+  }, [timeRange, visibleEvents.length, selectedEventId, rowVirtualizer]);
+
+  // Handle time range change - scroll to start of range
   const handleTimeRangeChange = useCallback((range: { start: number; end: number } | null) => {
     setTimeRange(range);
-  }, []);
+    if (range) {
+      // Update current time indicator to range start
+      setCurrentTime(range.start);
+      setAutoScroll(false);
+    }
+  }, [setAutoScroll]);
 
   // Handlers
   const handleSessionSelect = useCallback((sessionId: string) => {
