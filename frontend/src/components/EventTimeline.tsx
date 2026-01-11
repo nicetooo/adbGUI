@@ -459,6 +459,7 @@ interface EventDetailProps {
 
 // Network event detail component
 const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('overview');
 
   const statusColor = data.statusCode >= 500 ? '#ff4d4f' :
@@ -474,7 +475,7 @@ const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => 
 
   const formatHeaders = (headers: Record<string, string> | null) => {
     if (!headers || Object.keys(headers).length === 0) {
-      return <Text type="secondary">No headers</Text>;
+      return <Text type="secondary">{t('timeline.no_headers')}</Text>;
     }
     return (
       <div style={{ fontSize: 12 }}>
@@ -489,7 +490,7 @@ const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => 
   };
 
   const formatBody = (body: string | null, contentType: string | null) => {
-    if (!body) return <Text type="secondary">No body</Text>;
+    if (!body) return <Text type="secondary">{t('timeline.no_body')}</Text>;
 
     // Try to format as JSON if content type suggests it
     if (contentType?.includes('json')) {
@@ -535,30 +536,30 @@ const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => 
   const tabItems = [
     {
       key: 'overview',
-      label: 'Overview',
+      label: t('timeline.overview'),
       children: (
         <Descriptions column={1} size="small" bordered>
-          <Descriptions.Item label="URL">
+          <Descriptions.Item label={t('timeline.url')}>
             <Text copyable style={{ fontSize: 11, wordBreak: 'break-all' }}>
               {data.url}
             </Text>
           </Descriptions.Item>
-          <Descriptions.Item label="Method">
+          <Descriptions.Item label={t('timeline.method')}>
             <Tag color="blue">{data.method}</Tag>
           </Descriptions.Item>
-          <Descriptions.Item label="Status">
+          <Descriptions.Item label={t('timeline.status')}>
             <Tag color={statusColor}>{data.statusCode}</Tag>
           </Descriptions.Item>
-          <Descriptions.Item label="Duration">
+          <Descriptions.Item label={t('timeline.duration')}>
             {data.duration ? `${data.duration}ms` : '-'}
           </Descriptions.Item>
-          <Descriptions.Item label="Size">
+          <Descriptions.Item label={t('timeline.size')}>
             {formatSize(data.bodySize)}
           </Descriptions.Item>
-          <Descriptions.Item label="Content-Type">
+          <Descriptions.Item label={t('timeline.content_type')}>
             {data.contentType || '-'}
           </Descriptions.Item>
-          <Descriptions.Item label="Protocol">
+          <Descriptions.Item label={t('timeline.protocol')}>
             {data.isHttps ? 'HTTPS' : 'HTTP'}
             {data.isWs && ' (WebSocket)'}
           </Descriptions.Item>
@@ -567,22 +568,22 @@ const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => 
     },
     {
       key: 'reqHeaders',
-      label: 'Request Headers',
+      label: t('timeline.request_headers'),
       children: formatHeaders(data.requestHeaders),
     },
     {
       key: 'reqBody',
-      label: 'Request Body',
+      label: t('timeline.request_body'),
       children: formatBody(data.requestBody, data.requestHeaders?.['Content-Type'] || data.requestHeaders?.['content-type']),
     },
     {
       key: 'resHeaders',
-      label: 'Response Headers',
+      label: t('timeline.response_headers'),
       children: formatHeaders(data.responseHeaders),
     },
     {
       key: 'resBody',
-      label: 'Response Body',
+      label: t('timeline.response_body'),
       children: formatBody(data.responseBody, data.contentType),
     },
   ];

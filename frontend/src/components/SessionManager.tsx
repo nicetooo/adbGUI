@@ -32,6 +32,7 @@ import {
   EditOutlined,
   EyeOutlined,
 } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
 import { useDeviceStore, useUIStore, useEventStore, VIEW_KEYS } from '../stores';
 import type { DeviceSession } from '../stores/eventTypes';
@@ -79,13 +80,14 @@ const getStatusColor = (status: string): string => {
   }
 };
 
-// Get status text
-const getStatusText = (status: string): string => {
+// Get status text (will be replaced with i18n inside component)
+const getStatusText = (status: string, t?: (key: string) => string): string => {
+  if (!t) return status;
   switch (status) {
-    case 'active': return '录制中';
-    case 'completed': return '已完成';
-    case 'failed': return '失败';
-    case 'cancelled': return '已取消';
+    case 'active': return t('session_manager.status_active');
+    case 'completed': return t('session_manager.status_completed');
+    case 'failed': return t('session_manager.status_failed');
+    case 'cancelled': return t('session_manager.status_cancelled');
     default: return status;
   }
 };
@@ -95,6 +97,7 @@ interface SessionManagerProps {
 }
 
 const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
+  const { t } = useTranslation();
   const { selectedDevice } = useDeviceStore();
   const { setSelectedKey } = useUIStore();
   const { loadSession } = useEventStore();
@@ -135,13 +138,13 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
   const handleDelete = useCallback(async (sessionId: string) => {
     try {
       await (window as any).go.main.App.DeleteStoredSession(sessionId);
-      message.success('删除成功');
+      message.success(t('session_manager.delete_success'));
       loadSessions();
     } catch (err) {
       console.error('Failed to delete session:', err);
-      message.error('删除失败');
+      message.error(t('session_manager.delete_failed'));
     }
-  }, [loadSessions]);
+  }, [loadSessions, t]);
 
   // Batch delete
   const handleBatchDelete = useCallback(async () => {
@@ -151,14 +154,14 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
       for (const key of selectedRowKeys) {
         await (window as any).go.main.App.DeleteStoredSession(key as string);
       }
-      message.success(`成功删除 ${selectedRowKeys.length} 个 Session`);
+      message.success(t('session_manager.delete_success'));
       setSelectedRowKeys([]);
       loadSessions();
     } catch (err) {
       console.error('Failed to batch delete:', err);
-      message.error('批量删除失败');
+      message.error(t('session_manager.delete_failed'));
     }
-  }, [selectedRowKeys, loadSessions]);
+  }, [selectedRowKeys, loadSessions, t]);
 
   // View session detail
   const handleViewDetail = useCallback((session: DeviceSession) => {
@@ -171,15 +174,15 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
     if (session.videoPath) {
       try {
         await (window as any).go.main.App.OpenFile(session.videoPath);
-        message.success('正在打开视频播放器');
+        message.success(t('session_manager.opening_video'));
       } catch (err) {
         console.error('Failed to open video:', err);
-        message.error('打开视频失败: ' + (err as Error).message);
+        message.error(t('session_manager.open_video_failed') + ': ' + (err as Error).message);
       }
     } else {
-      message.warning('该 Session 没有录屏文件');
+      message.warning(t('session_manager.no_video'));
     }
-  }, []);
+  }, [t]);
 
   // Open rename modal
   const handleOpenRename = useCallback((session: DeviceSession) => {
@@ -194,16 +197,16 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
 
     try {
       await (window as any).go.main.App.RenameStoredSession(renameSession.id, newName.trim());
-      message.success('重命名成功');
+      message.success(t('session_manager.rename_success'));
       setRenameModalOpen(false);
       setRenameSession(null);
       setNewName('');
       loadSessions();
     } catch (err) {
       console.error('Failed to rename session:', err);
-      message.error('重命名失败');
+      message.error(t('session_manager.rename_failed'));
     }
-  }, [renameSession, newName, loadSessions]);
+  }, [renameSession, newName, loadSessions, t]);
 
   // View session in Events tab
   const handleViewInEvents = useCallback(async (session: DeviceSession) => {
@@ -212,9 +215,9 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
       setSelectedKey(VIEW_KEYS.EVENTS);
     } catch (err) {
       console.error('Failed to load session:', err);
-      message.error('加载 Session 失败');
+      message.error(t('session_manager.load_failed'));
     }
-  }, [loadSession, setSelectedKey]);
+  }, [loadSession, setSelectedKey, t]);
 
   // Filter sessions
   const filteredSessions = useMemo(() => {
@@ -249,16 +252,16 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
   // Table columns
   const columns: ColumnsType<DeviceSession> = [
     {
-      title: '名称',
+      title: t('session_manager.col_name'),
       dataIndex: 'name',
       key: 'name',
       width: 200,
       ellipsis: true,
       render: (name, record) => (
         <Space>
-          <Text strong>{name || 'Unnamed'}</Text>
+          <Text strong>{name || t('session_manager.unnamed')}</Text>
           {record.videoPath && (
-            <Tooltip title="有录屏">
+            <Tooltip title={t('session_manager.has_video')}>
               <VideoCameraOutlined style={{ color: '#1890ff' }} />
             </Tooltip>
           )}
@@ -266,16 +269,16 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
       ),
     },
     {
-      title: '状态',
+      title: t('session_manager.col_status'),
       dataIndex: 'status',
       key: 'status',
       width: 100,
       render: (status) => (
-        <Tag color={getStatusColor(status)}>{getStatusText(status)}</Tag>
+        <Tag color={getStatusColor(status)}>{getStatusText(status, t)}</Tag>
       ),
     },
     {
-      title: '开始时间',
+      title: t('session_manager.col_start_time'),
       dataIndex: 'startTime',
       key: 'startTime',
       width: 180,
@@ -284,7 +287,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
       render: (time) => formatTime(time),
     },
     {
-      title: '时长',
+      title: t('session_manager.col_duration'),
       key: 'duration',
       width: 100,
       render: (_, record) => {
@@ -295,7 +298,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
       },
     },
     {
-      title: '事件数',
+      title: t('session_manager.col_event_count'),
       dataIndex: 'eventCount',
       key: 'eventCount',
       width: 80,
@@ -303,7 +306,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
       render: (count) => count || 0,
     },
     {
-      title: '设备',
+      title: t('session_manager.col_device'),
       dataIndex: 'deviceId',
       key: 'deviceId',
       width: 150,
@@ -317,13 +320,13 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
       ),
     },
     {
-      title: '操作',
+      title: t('session_manager.col_actions'),
       key: 'actions',
       width: 210,
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
-          <Tooltip title="查看事件">
+          <Tooltip title={t('session_manager.view_events')}>
             <Button
               type="text"
               size="small"
@@ -332,7 +335,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
             />
           </Tooltip>
           {record.videoPath && (
-            <Tooltip title="播放录屏">
+            <Tooltip title={t('session_manager.play_recording')}>
               <Button
                 type="text"
                 size="small"
@@ -341,7 +344,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
               />
             </Tooltip>
           )}
-          <Tooltip title="重命名">
+          <Tooltip title={t('session_manager.rename')}>
             <Button
               type="text"
               size="small"
@@ -349,7 +352,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
               onClick={() => handleOpenRename(record)}
             />
           </Tooltip>
-          <Tooltip title="查看详情">
+          <Tooltip title={t('session_manager.view_detail')}>
             <Button
               type="text"
               size="small"
@@ -358,14 +361,14 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
             />
           </Tooltip>
           <Popconfirm
-            title="确定删除该 Session？"
-            description="删除后将无法恢复"
+            title={t('session_manager.delete_single_confirm')}
+            description={t('session_manager.delete_warning')}
             onConfirm={() => handleDelete(record.id)}
-            okText="删除"
-            cancelText="取消"
+            okText={t('common.delete')}
+            cancelText={t('common.cancel')}
             okButtonProps={{ danger: true }}
           >
-            <Tooltip title="删除">
+            <Tooltip title={t('common.delete')}>
               <Button
                 type="text"
                 size="small"
@@ -385,13 +388,13 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={6}>
           <Card size="small">
-            <Statistic title="总 Sessions" value={stats.total} prefix={<FileTextOutlined />} />
+            <Statistic title={t('session_manager.stat_total')} value={stats.total} prefix={<FileTextOutlined />} />
           </Card>
         </Col>
         <Col span={6}>
           <Card size="small">
             <Statistic
-              title="录制中"
+              title={t('session_manager.stat_active')}
               value={stats.active}
               valueStyle={{ color: '#1890ff' }}
               prefix={<ClockCircleOutlined />}
@@ -401,7 +404,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
         <Col span={6}>
           <Card size="small">
             <Statistic
-              title="有录屏"
+              title={t('session_manager.stat_with_video')}
               value={stats.withVideo}
               valueStyle={{ color: '#52c41a' }}
               prefix={<VideoCameraOutlined />}
@@ -410,18 +413,18 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
         </Col>
         <Col span={6}>
           <Card size="small">
-            <Statistic title="总事件数" value={stats.totalEvents} />
+            <Statistic title={t('session_manager.stat_total_events')} value={stats.totalEvents} />
           </Card>
         </Col>
       </Row>
 
       {/* Main Table Card */}
       <Card
-        title="Session 管理"
+        title={t('session_manager.title')}
         extra={
           <Space>
             <Input
-              placeholder="搜索名称/ID"
+              placeholder={t('session_manager.search_placeholder')}
               prefix={<SearchOutlined />}
               value={searchText}
               onChange={e => setSearchText(e.target.value)}
@@ -429,31 +432,31 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
               allowClear
             />
             <Select
-              placeholder="状态筛选"
+              placeholder={t('session_manager.status_filter')}
               value={statusFilter}
               onChange={setStatusFilter}
               style={{ width: 120 }}
               allowClear
               options={[
-                { label: '录制中', value: 'active' },
-                { label: '已完成', value: 'completed' },
-                { label: '失败', value: 'failed' },
-                { label: '已取消', value: 'cancelled' },
+                { label: t('session_manager.status_active'), value: 'active' },
+                { label: t('session_manager.status_completed'), value: 'completed' },
+                { label: t('session_manager.status_failed'), value: 'failed' },
+                { label: t('session_manager.status_cancelled'), value: 'cancelled' },
               ]}
             />
             <Button icon={<ReloadOutlined />} onClick={loadSessions}>
-              刷新
+              {t('session_manager.refresh')}
             </Button>
             {selectedRowKeys.length > 0 && (
               <Popconfirm
-                title={`确定删除选中的 ${selectedRowKeys.length} 个 Session？`}
+                title={t('session_manager.delete_confirm', { count: selectedRowKeys.length })}
                 onConfirm={handleBatchDelete}
-                okText="删除"
-                cancelText="取消"
+                okText={t('common.delete')}
+                cancelText={t('common.cancel')}
                 okButtonProps={{ danger: true }}
               >
                 <Button danger>
-                  批量删除 ({selectedRowKeys.length})
+                  {t('session_manager.batch_delete')} ({selectedRowKeys.length})
                 </Button>
               </Popconfirm>
             )}
@@ -471,26 +474,26 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
             pageSize: 20,
             showSizeChanger: true,
             showQuickJumper: true,
-            showTotal: (total) => `共 ${total} 条`,
+            showTotal: (total) => t('session_manager.total_count', { total }),
           }}
           rowSelection={{
             selectedRowKeys,
             onChange: setSelectedRowKeys,
           }}
           locale={{
-            emptyText: <Empty description="暂无 Session 数据" />,
+            emptyText: <Empty description={t('session_manager.no_data')} />,
           }}
         />
       </Card>
 
       {/* Detail Modal */}
       <Modal
-        title="Session 详情"
+        title={t('session_manager.detail_title')}
         open={detailModalOpen}
         onCancel={() => setDetailModalOpen(false)}
         footer={[
           <Button key="close" onClick={() => setDetailModalOpen(false)}>
-            关闭
+            {t('session_manager.close')}
           </Button>,
           selectedSession?.videoPath && (
             <Button
@@ -502,7 +505,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
                 handlePlayVideo(selectedSession!);
               }}
             >
-              播放录屏
+              {t('session_manager.play_video')}
             </Button>
           ),
         ].filter(Boolean)}
@@ -510,58 +513,58 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
       >
         {selectedSession && (
           <Descriptions bordered column={2} size="small">
-            <Descriptions.Item label="ID" span={2}>
+            <Descriptions.Item label={t('session_manager.session_id')} span={2}>
               <Text copyable={{ text: selectedSession.id }}>
                 {selectedSession.id}
               </Text>
             </Descriptions.Item>
-            <Descriptions.Item label="名称">{selectedSession.name || '-'}</Descriptions.Item>
-            <Descriptions.Item label="状态">
+            <Descriptions.Item label={t('session_manager.col_name')}>{selectedSession.name || '-'}</Descriptions.Item>
+            <Descriptions.Item label={t('session_manager.col_status')}>
               <Tag color={getStatusColor(selectedSession.status)}>
-                {getStatusText(selectedSession.status)}
+                {getStatusText(selectedSession.status, t)}
               </Tag>
             </Descriptions.Item>
-            <Descriptions.Item label="开始时间">
+            <Descriptions.Item label={t('session_manager.start_time')}>
               {formatTime(selectedSession.startTime)}
             </Descriptions.Item>
-            <Descriptions.Item label="结束时间">
-              {selectedSession.endTime > 0 ? formatTime(selectedSession.endTime) : '进行中'}
+            <Descriptions.Item label={t('session_manager.end_time')}>
+              {selectedSession.endTime > 0 ? formatTime(selectedSession.endTime) : t('session_manager.status_active')}
             </Descriptions.Item>
-            <Descriptions.Item label="时长">
+            <Descriptions.Item label={t('session_manager.col_duration')}>
               {formatDuration(
                 selectedSession.endTime > 0
                   ? selectedSession.endTime - selectedSession.startTime
                   : Date.now() - selectedSession.startTime
               )}
             </Descriptions.Item>
-            <Descriptions.Item label="事件数量">
+            <Descriptions.Item label={t('session_manager.event_count')}>
               {selectedSession.eventCount || 0}
             </Descriptions.Item>
-            <Descriptions.Item label="设备 ID" span={2}>
+            <Descriptions.Item label={t('session_manager.col_device')} span={2}>
               <Text copyable={{ text: selectedSession.deviceId }}>
                 {selectedSession.deviceId}
               </Text>
             </Descriptions.Item>
-            <Descriptions.Item label="录屏文件" span={2}>
+            <Descriptions.Item label={t('session_manager.video_path')} span={2}>
               {selectedSession.videoPath ? (
                 <Text copyable={{ text: selectedSession.videoPath }}>
                   {selectedSession.videoPath}
                 </Text>
               ) : (
-                <Text type="secondary">无</Text>
+                <Text type="secondary">{t('session_manager.no_video_info')}</Text>
               )}
             </Descriptions.Item>
             {selectedSession.videoDuration && selectedSession.videoDuration > 0 && (
-              <Descriptions.Item label="录屏时长">
+              <Descriptions.Item label={t('session_manager.video_duration')}>
                 {formatDuration(selectedSession.videoDuration)}
               </Descriptions.Item>
             )}
-            <Descriptions.Item label="配置" span={2}>
+            <Descriptions.Item label={t('session_manager.config_info')} span={2}>
               <Space>
-                {selectedSession.config?.logcat?.enabled && <Tag>Logcat</Tag>}
-                {selectedSession.config?.recording?.enabled && <Tag color="blue">录屏</Tag>}
-                {selectedSession.config?.proxy?.enabled && <Tag color="green">代理</Tag>}
-                {selectedSession.config?.monitor?.enabled && <Tag color="orange">监控</Tag>}
+                {selectedSession.config?.logcat?.enabled && <Tag>{t('session.logcat')}</Tag>}
+                {selectedSession.config?.recording?.enabled && <Tag color="blue">{t('session.screen_recording')}</Tag>}
+                {selectedSession.config?.proxy?.enabled && <Tag color="green">{t('session.network_proxy')}</Tag>}
+                {selectedSession.config?.monitor?.enabled && <Tag color="orange">{t('session.device_monitor')}</Tag>}
               </Space>
             </Descriptions.Item>
           </Descriptions>
@@ -570,7 +573,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
 
       {/* Rename Modal */}
       <Modal
-        title="重命名 Session"
+        title={t('session_manager.rename_title')}
         open={renameModalOpen}
         onCancel={() => {
           setRenameModalOpen(false);
@@ -578,12 +581,12 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
           setNewName('');
         }}
         onOk={handleRename}
-        okText="确定"
-        cancelText="取消"
+        okText={t('common.ok')}
+        cancelText={t('common.cancel')}
         width={400}
       >
         <Input
-          placeholder="输入新名称"
+          placeholder={t('session_manager.name_placeholder')}
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           onPressEnter={handleRename}

@@ -18,6 +18,7 @@ import {
   GlobalOutlined,
   DashboardOutlined,
 } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { SessionConfig, defaultSessionConfig } from '../stores/eventTypes';
 import { GetInstalledPackages } from '../../wailsjs/go/main/App';
 
@@ -38,6 +39,7 @@ const SessionConfigModal: React.FC<SessionConfigModalProps> = ({
   defaultName,
   deviceId,
 }) => {
+  const { t } = useTranslation();
   const [form] = Form.useForm();
   const [config, setConfig] = useState<SessionConfig>(defaultSessionConfig);
   const [packages, setPackages] = useState<string[]>([]);
@@ -94,21 +96,21 @@ const SessionConfigModal: React.FC<SessionConfigModalProps> = ({
 
   return (
     <Modal
-      title="Start New Session"
+      title={t('session.start_new')}
       open={open}
       onCancel={onCancel}
       onOk={handleOk}
-      okText="Start Session"
-      cancelText="Cancel"
+      okText={t('session.start')}
+      cancelText={t('common.cancel')}
       width={480}
     >
       <Form form={form} layout="vertical">
         <Form.Item
           name="name"
-          label="Session Name"
-          rules={[{ required: true, message: 'Please enter a session name' }]}
+          label={t('session.session_name')}
+          rules={[{ required: true, message: t('session.name_required') }]}
         >
-          <Input placeholder="Session name" />
+          <Input placeholder={t('session.session_name')} />
         </Form.Item>
       </Form>
 
@@ -123,7 +125,7 @@ const SessionConfigModal: React.FC<SessionConfigModalProps> = ({
         <Space style={{ width: '100%', justifyContent: 'space-between' }}>
           <Space>
             <FileTextOutlined style={{ fontSize: 18, color: '#52c41a' }} />
-            <Text strong>Logcat</Text>
+            <Text strong>{t('session.logcat')}</Text>
           </Space>
           <Switch
             checked={config.logcat.enabled}
@@ -132,18 +134,18 @@ const SessionConfigModal: React.FC<SessionConfigModalProps> = ({
         </Space>
         {config.logcat.enabled && (
           <div style={{ marginTop: 12 }}>
-            <Form.Item label="Package Name" style={{ marginBottom: 8 }}>
+            <Form.Item label={t('session.package_name')} style={{ marginBottom: 8 }}>
               <Select
                 showSearch
                 allowClear
-                placeholder="All packages (optional)"
+                placeholder={t('session.all_packages')}
                 value={config.logcat.packageName || undefined}
                 onChange={(value) =>
                   updateConfig(['logcat', 'packageName'], value || '')
                 }
                 options={packageOptions}
                 loading={loadingPackages}
-                notFoundContent={loadingPackages ? <Spin size="small" /> : 'No packages found'}
+                notFoundContent={loadingPackages ? <Spin size="small" /> : t('logcat.apps_placeholder')}
                 filterOption={(input, option) =>
                   (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
                 }
@@ -151,9 +153,9 @@ const SessionConfigModal: React.FC<SessionConfigModalProps> = ({
               />
             </Form.Item>
             <Space style={{ width: '100%' }}>
-              <Form.Item label="Pre-filter" style={{ marginBottom: 0, flex: 1 }}>
+              <Form.Item label={t('session.pre_filter')} style={{ marginBottom: 0, flex: 1 }}>
                 <Input
-                  placeholder="Filter keyword"
+                  placeholder={t('session.filter_keyword')}
                   value={config.logcat.preFilter}
                   onChange={(e) =>
                     updateConfig(['logcat', 'preFilter'], e.target.value)
@@ -161,11 +163,11 @@ const SessionConfigModal: React.FC<SessionConfigModalProps> = ({
                 />
               </Form.Item>
               <Form.Item
-                label="Exclude"
+                label={t('session.exclude')}
                 style={{ marginBottom: 0, flex: 1 }}
               >
                 <Input
-                  placeholder="Exclude keyword"
+                  placeholder={t('session.exclude_keyword')}
                   value={config.logcat.excludeFilter}
                   onChange={(e) =>
                     updateConfig(['logcat', 'excludeFilter'], e.target.value)
@@ -186,7 +188,7 @@ const SessionConfigModal: React.FC<SessionConfigModalProps> = ({
         <Space style={{ width: '100%', justifyContent: 'space-between' }}>
           <Space>
             <VideoCameraOutlined style={{ fontSize: 18, color: '#f5222d' }} />
-            <Text strong>Screen Recording</Text>
+            <Text strong>{t('session.screen_recording')}</Text>
           </Space>
           <Switch
             checked={config.recording.enabled}
@@ -197,16 +199,16 @@ const SessionConfigModal: React.FC<SessionConfigModalProps> = ({
         </Space>
         {config.recording.enabled && (
           <div style={{ marginTop: 12 }}>
-            <Form.Item label="Quality" style={{ marginBottom: 0 }}>
+            <Form.Item label={t('session.quality')} style={{ marginBottom: 0 }}>
               <Select
                 value={config.recording.quality}
                 onChange={(value) =>
                   updateConfig(['recording', 'quality'], value)
                 }
                 options={[
-                  { label: 'Low (480p, 2Mbps)', value: 'low' },
-                  { label: 'Medium (720p, 4Mbps)', value: 'medium' },
-                  { label: 'High (1080p, 8Mbps)', value: 'high' },
+                  { label: t('session.quality_low'), value: 'low' },
+                  { label: t('session.quality_medium'), value: 'medium' },
+                  { label: t('session.quality_high'), value: 'high' },
                 ]}
               />
             </Form.Item>
@@ -219,7 +221,7 @@ const SessionConfigModal: React.FC<SessionConfigModalProps> = ({
         <Space style={{ width: '100%', justifyContent: 'space-between' }}>
           <Space>
             <GlobalOutlined style={{ fontSize: 18, color: '#722ed1' }} />
-            <Text strong>Network Proxy</Text>
+            <Text strong>{t('session.network_proxy')}</Text>
           </Space>
           <Switch
             checked={config.proxy.enabled}
@@ -229,7 +231,7 @@ const SessionConfigModal: React.FC<SessionConfigModalProps> = ({
         {config.proxy.enabled && (
           <div style={{ marginTop: 12 }}>
             <Space style={{ width: '100%' }}>
-              <Form.Item label="Port" style={{ marginBottom: 0 }}>
+              <Form.Item label={t('session.port')} style={{ marginBottom: 0 }}>
                 <InputNumber
                   min={1024}
                   max={65535}
@@ -239,7 +241,7 @@ const SessionConfigModal: React.FC<SessionConfigModalProps> = ({
                   }
                 />
               </Form.Item>
-              <Form.Item label="HTTPS MITM" style={{ marginBottom: 0 }}>
+              <Form.Item label={t('session.https_mitm')} style={{ marginBottom: 0 }}>
                 <Switch
                   checked={config.proxy.mitmEnabled}
                   onChange={(checked) =>
@@ -257,7 +259,7 @@ const SessionConfigModal: React.FC<SessionConfigModalProps> = ({
         <Space style={{ width: '100%', justifyContent: 'space-between' }}>
           <Space>
             <DashboardOutlined style={{ fontSize: 18, color: '#13c2c2' }} />
-            <Text strong>Device Monitor</Text>
+            <Text strong>{t('session.device_monitor')}</Text>
           </Space>
           <Switch
             checked={config.monitor.enabled}
@@ -265,7 +267,7 @@ const SessionConfigModal: React.FC<SessionConfigModalProps> = ({
           />
         </Space>
         <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 12 }}>
-          Monitor battery, network, screen state, app lifecycle, touch events, and performance metrics
+          {t('session.monitor_desc')}
         </Text>
       </Card>
 
@@ -273,8 +275,7 @@ const SessionConfigModal: React.FC<SessionConfigModalProps> = ({
         type="secondary"
         style={{ display: 'block', marginTop: 12, fontSize: 12 }}
       >
-        Selected features will start automatically with the session and stop
-        when the session ends.
+        {t('session.auto_feature_note')}
       </Text>
     </Modal>
   );
