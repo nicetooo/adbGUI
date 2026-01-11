@@ -989,24 +989,28 @@ const EventTimeline = () => {
     if (!container) return;
 
     let isLoadingMore = false;
+
     const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+      // 计算滚动位置百分比
+      const scrollPercent = scrollHeight > clientHeight ? (scrollTop / (scrollHeight - clientHeight)) * 100 : 0;
+
       if (isLoadingMore || isLoading) return;
 
-      const { scrollTop, scrollHeight, clientHeight } = container;
-
-      // Load older events when near the top (scroll up)
-      if (hasMoreOlder && scrollTop < 200) {
+      // 滚动超过 70% 时加载更新的事件
+      if (hasMoreNewer && scrollPercent > 70) {
         isLoadingMore = true;
-        console.log('[EventTimeline] Near top, loading older events...');
-        loadOlderEvents().finally(() => {
+        console.log('[EventTimeline] Scroll > 70%, loading newer events...', { scrollPercent, distanceToBottom });
+        loadNewerEvents().finally(() => {
           isLoadingMore = false;
         });
       }
-      // Load newer events when near the bottom (scroll down)
-      else if (hasMoreNewer && scrollHeight - scrollTop - clientHeight < 200) {
+      // 滚动小于 30% 时加载更老的事件
+      else if (hasMoreOlder && scrollPercent < 30) {
         isLoadingMore = true;
-        console.log('[EventTimeline] Near bottom, loading newer events...');
-        loadNewerEvents().finally(() => {
+        console.log('[EventTimeline] Scroll < 30%, loading older events...', { scrollPercent, scrollTop });
+        loadOlderEvents().finally(() => {
           isLoadingMore = false;
         });
       }

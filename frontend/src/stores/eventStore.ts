@@ -607,7 +607,10 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           // 追加新事件（去重）
           const existingIds = new Set(state.visibleEvents.map(e => e.id));
           const uniqueNewEvents = newEvents.filter((e: UnifiedEvent) => !existingIds.has(e.id));
+          console.log('[eventStore] loadNewerEvents: unique new events:', uniqueNewEvents.length, 'of', newEvents.length);
+
           let combined = [...state.visibleEvents, ...uniqueNewEvents];
+          const beforeTrim = combined.length;
 
           // 保持最多 2000 条，移除最前面的旧事件
           if (combined.length > 2000) {
@@ -615,9 +618,11 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
             state.hasMoreOlder = true; // 移除了旧事件，说明有更老的可以加载
           }
 
+          console.log('[eventStore] loadNewerEvents: combined', beforeTrim, '-> trimmed to', combined.length);
           state.visibleEvents = combined;
           state.currentOffset = state.visibleEvents.length;
           state.hasMoreNewer = newEvents.length >= pageSize; // 如果返回了满页，可能还有更多
+          console.log('[eventStore] loadNewerEvents: hasMoreNewer=', state.hasMoreNewer);
         });
 
       } finally {
