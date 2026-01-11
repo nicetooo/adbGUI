@@ -116,6 +116,7 @@ func (a *App) startup(ctx context.Context) {
 	a.initEventSystem() // Initialize new event system
 	a.StartDeviceMonitor()
 	a.StartBatchSync() // Start session event batch sync (legacy, for compatibility)
+	a.LoadMockRules()  // Load saved mock rules
 }
 
 // Shutdown is called when the application is closing

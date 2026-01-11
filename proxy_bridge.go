@@ -3,11 +3,14 @@ package main
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	neturl "net/url"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -140,6 +143,16 @@ func (a *App) StartProxy(port int) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	// Register enabled mock rules with the proxy
+	mockRulesMu.RLock()
+	for _, rule := range mockRules {
+		if rule.Enabled {
+			proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay)
+		}
+	}
+	mockRulesMu.RUnlock()
+
 	return "Proxy started successfully", nil
 }
 
@@ -412,6 +425,64 @@ var (
 	mockRulesMu sync.RWMutex
 )
 
+// getMockRulesPath returns the path to the mock rules JSON file
+func getMockRulesPath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".adbGUI", "mock_rules.json")
+}
+
+// saveMockRules saves mock rules to disk
+func saveMockRules() error {
+	rules := make([]*MockRule, 0, len(mockRules))
+	for _, rule := range mockRules {
+		rules = append(rules, rule)
+	}
+
+	data, err := json.MarshalIndent(rules, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	path := getMockRulesPath()
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, data, 0644)
+}
+
+// LoadMockRules loads mock rules from disk (called on app startup)
+func (a *App) LoadMockRules() error {
+	mockRulesMu.Lock()
+	defer mockRulesMu.Unlock()
+
+	path := getMockRulesPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // No saved rules, that's fine
+		}
+		return err
+	}
+
+	var rules []*MockRule
+	if err := json.Unmarshal(data, &rules); err != nil {
+		return err
+	}
+
+	mockRules = make(map[string]*MockRule)
+	for _, rule := range rules {
+		mockRules[rule.ID] = rule
+		// Register enabled rules with proxy if it's running
+		if rule.Enabled && proxy.GetProxy().IsRunning() {
+			proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay)
+		}
+	}
+
+	return nil
+}
+
 // AddMockRule adds a new mock response rule
 func (a *App) AddMockRule(rule MockRule) string {
 	mockRulesMu.Lock()
@@ -425,6 +496,9 @@ func (a *App) AddMockRule(rule MockRule) string {
 
 	// Register with proxy
 	proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay)
+
+	// Persist to disk
+	saveMockRules()
 
 	return rule.ID
 }
@@ -446,6 +520,9 @@ func (a *App) UpdateMockRule(rule MockRule) error {
 		proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay)
 	}
 
+	// Persist to disk
+	saveMockRules()
+
 	return nil
 }
 
@@ -456,6 +533,9 @@ func (a *App) RemoveMockRule(ruleID string) {
 
 	delete(mockRules, ruleID)
 	proxy.GetProxy().RemoveMockRule(ruleID)
+
+	// Persist to disk
+	saveMockRules()
 }
 
 // GetMockRules returns all mock response rules
@@ -487,6 +567,9 @@ func (a *App) ToggleMockRule(ruleID string, enabled bool) error {
 	} else {
 		proxy.GetProxy().RemoveMockRule(rule.ID)
 	}
+
+	// Persist to disk
+	saveMockRules()
 
 	return nil
 }
