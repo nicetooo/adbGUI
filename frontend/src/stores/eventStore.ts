@@ -7,8 +7,10 @@
  * - 支持虚拟滚动的数据加载
  */
 
+import { useMemo } from 'react';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import { enableMapSet } from 'immer';
 import {
   UnifiedEvent,
   DeviceSession,
@@ -20,6 +22,9 @@ import {
   EventCategory,
   EventLevel,
 } from './eventTypes';
+
+// Enable Map/Set support in Immer
+enableMapSet();
 
 const EventsOn = (window as any).runtime?.EventsOn;
 const EventsOff = (window as any).runtime?.EventsOff;
@@ -152,6 +157,7 @@ interface EventStoreState {
 
   // 书签
   bookmarks: Map<string, Bookmark[]>;
+  bookmarksVersion: number;  // Force re-render when bookmarks change
 
   // 当前视图
   visibleRange: { start: number; end: number };
@@ -248,6 +254,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
     pageCache: new LRUCache<string, UnifiedEvent[]>(PAGE_CACHE_SIZE),
     timeIndex: new Map(),
     bookmarks: new Map(),
+    bookmarksVersion: 0,
     visibleRange: { start: 0, end: 60000 }, // 默认显示前 60 秒
     visibleEvents: [],
     filter: {},
@@ -902,15 +909,17 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
     // ========================================
 
     loadBookmarks: async (sessionId) => {
-      const bookmarks = await (window as any).go.main.App.GetSessionBookmarks(sessionId);
+      const newBookmarks = await (window as any).go.main.App.GetSessionBookmarks(sessionId);
+      const bookmarksArray = newBookmarks || [];
 
       set(state => {
-        state.bookmarks.set(sessionId, bookmarks || []);
+        state.bookmarks.set(sessionId, bookmarksArray);
+        state.bookmarksVersion++;
       });
     },
 
     createBookmark: async (relativeTime, label, color, type = 'user') => {
-      const { activeSessionId, loadBookmarks } = get();
+      const { activeSessionId } = get();
       if (!activeSessionId) return;
 
       await (window as any).go.main.App.CreateSessionBookmark(
@@ -921,16 +930,26 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
         type
       );
 
-      await loadBookmarks(activeSessionId);
+      // Reload bookmarks after creation
+      const newBookmarks = await (window as any).go.main.App.GetSessionBookmarks(activeSessionId);
+      set(state => {
+        state.bookmarks.set(activeSessionId, newBookmarks || []);
+        state.bookmarksVersion++;
+      });
     },
 
     deleteBookmark: async (bookmarkId) => {
-      const { activeSessionId, loadBookmarks } = get();
+      const { activeSessionId } = get();
 
       await (window as any).go.main.App.DeleteSessionBookmark(bookmarkId);
 
       if (activeSessionId) {
-        await loadBookmarks(activeSessionId);
+        // Reload bookmarks after deletion
+        const newBookmarks = await (window as any).go.main.App.GetSessionBookmarks(activeSessionId);
+        set(state => {
+          state.bookmarks.set(activeSessionId, newBookmarks || []);
+          state.bookmarksVersion++;
+        });
       }
     },
 
@@ -1093,13 +1112,17 @@ function filterEvents(events: UnifiedEvent[], filter: EventQuery): UnifiedEvent[
 
 /**
  * 获取当前 session 的书签
+ * Uses bookmarksVersion in selector to ensure re-renders on bookmark changes
  */
 export function useCurrentBookmarks(): Bookmark[] {
+  const version = useEventStore(state => state.bookmarksVersion);
   const activeSessionId = useEventStore(state => state.activeSessionId);
-  const bookmarks = useEventStore(state => state.bookmarks);
+  const bookmarksMap = useEventStore(state => state.bookmarks);
 
-  if (!activeSessionId) return [];
-  return bookmarks.get(activeSessionId) || [];
+  return useMemo(() => {
+    if (!activeSessionId) return [];
+    return bookmarksMap.get(activeSessionId) || [];
+  }, [activeSessionId, bookmarksMap, version]);
 }
 
 /**

@@ -14,7 +14,7 @@ export type { Session, SessionEvent, SessionFilter } from './sessionStore';
 
 // New unified event system
 export * from './eventTypes';
-export { useEventStore } from './eventStore';
+export { useEventStore, useCurrentBookmarks } from './eventStore';
 
 // New stores
 export { useProxyStore } from './proxyStore';

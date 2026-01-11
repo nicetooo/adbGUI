@@ -22,6 +22,8 @@ import {
   Popover,
   Checkbox,
   Tabs,
+  Modal,
+  List,
 } from 'antd';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
@@ -39,18 +41,22 @@ import {
   ThunderboltOutlined,
   LeftOutlined,
   RightOutlined,
+  DeleteOutlined,
+  PushpinOutlined,
 } from '@ant-design/icons';
 import AssertionsPanel from './AssertionsPanel';
 import { useTranslation } from 'react-i18next';
 import {
   useEventStore,
   useDeviceStore,
+  useCurrentBookmarks,
   type UnifiedEvent,
   type DeviceSession,
   type EventSource,
   type EventCategory,
   type EventLevel,
   type SessionConfig,
+  type Bookmark,
   sourceConfig,
   categoryConfig,
   levelConfig,
@@ -83,9 +89,11 @@ interface TimeRulerProps {
   onSeek: (time: number) => void;
   timeRange: { start: number; end: number } | null;
   onTimeRangeChange: (range: { start: number; end: number } | null) => void;
+  bookmarks?: Bookmark[];
+  onBookmarkClick?: (bookmark: Bookmark) => void;
 }
 
-const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime, onSeek, timeRange, onTimeRangeChange }: TimeRulerProps) => {
+const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime, onSeek, timeRange, onTimeRangeChange, bookmarks = [], onBookmarkClick }: TimeRulerProps) => {
   const { token } = theme.useToken();
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -259,6 +267,34 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
             }}
           />
         )}
+
+        {/* Bookmark markers */}
+        {bookmarks.map(bookmark => (
+          <Tooltip
+            key={bookmark.id}
+            title={`${bookmark.label} (${formatRelativeTime(bookmark.relativeTime)})`}
+          >
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                onBookmarkClick?.(bookmark);
+              }}
+              style={{
+                position: 'absolute',
+                left: `${(bookmark.relativeTime / sessionDuration) * 100}%`,
+                top: 0,
+                width: 0,
+                height: 0,
+                borderLeft: '6px solid transparent',
+                borderRight: '6px solid transparent',
+                borderTop: `10px solid ${bookmark.color || token.colorSuccess}`,
+                transform: 'translateX(-6px)',
+                cursor: 'pointer',
+                zIndex: 15,
+              }}
+            />
+          </Tooltip>
+        ))}
 
         {/* Time labels */}
         <div style={{
@@ -834,7 +870,6 @@ const EventTimeline = () => {
     filteredEventCount,
     filter,
     timeIndex,
-    bookmarks,
     isLoading,
     autoScroll,
     loadSession,
@@ -844,9 +879,13 @@ const EventTimeline = () => {
     applyFilter,
     loadEventsInRange,
     createBookmark,
+    deleteBookmark,
     subscribeToEvents,
     setAutoScroll,
   } = useEventStore();
+
+  // Use dedicated hook for bookmarks to ensure proper re-renders
+  const sessionBookmarks = useCurrentBookmarks();
 
   // Local state
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -860,6 +899,8 @@ const EventTimeline = () => {
   const [sessionList, setSessionList] = useState<DeviceSession[]>([]);
   const [assertionsPanelOpen, setAssertionsPanelOpen] = useState(false);
   const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [bookmarkModalOpen, setBookmarkModalOpen] = useState(false);
+  const [bookmarkLabel, setBookmarkLabel] = useState('');
 
   // Subscribe to events
   useEffect(() => {
@@ -938,6 +979,7 @@ const EventTimeline = () => {
     if (!activeSessionId) return [];
     return timeIndex.get(activeSessionId) || [];
   }, [timeIndex, activeSessionId]);
+
 
   // Selected event - 完整的事件数据（包含 data 字段）
   const [selectedEventFull, setSelectedEventFull] = useState<UnifiedEvent | null>(null);
@@ -1090,11 +1132,30 @@ const EventTimeline = () => {
     }
   }, [setAutoScroll, rowVirtualizer, loadSession]);
 
-  const handleCreateBookmark = useCallback(() => {
-    if (activeSessionId && currentTime) {
-      createBookmark(currentTime, 'User bookmark');
+  const handleOpenBookmarkModal = useCallback(() => {
+    if (activeSessionId && typeof currentTime === 'number') {
+      setBookmarkLabel(`${t('timeline.bookmark')} ${formatRelativeTime(currentTime)}`);
+      setBookmarkModalOpen(true);
     }
-  }, [activeSessionId, currentTime, createBookmark]);
+  }, [activeSessionId, currentTime, t]);
+
+  const handleConfirmBookmark = useCallback(() => {
+    if (activeSessionId && typeof currentTime === 'number' && bookmarkLabel.trim()) {
+      createBookmark(currentTime, bookmarkLabel.trim());
+      setBookmarkModalOpen(false);
+      setBookmarkLabel('');
+    }
+  }, [activeSessionId, currentTime, bookmarkLabel, createBookmark]);
+
+  const handleBookmarkClick = useCallback((bookmark: Bookmark) => {
+    // Jump to the bookmark time
+    setCurrentTime(bookmark.relativeTime);
+    handleSeek(bookmark.relativeTime);
+  }, [handleSeek]);
+
+  const handleDeleteBookmark = useCallback((bookmarkId: string) => {
+    deleteBookmark(bookmarkId);
+  }, [deleteBookmark]);
 
   const handleStartSession = useCallback(() => {
     console.log('[EventTimeline] handleStartSession called, opening config modal');
@@ -1253,9 +1314,79 @@ const EventTimeline = () => {
             </Badge>
           </Popover>
 
-          <Button icon={<BookOutlined />} onClick={handleCreateBookmark}>
-            {t('timeline.bookmark')}
-          </Button>
+          <Popover
+            trigger="click"
+            placement="bottomRight"
+            content={
+              <div style={{ width: 280 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <Text strong>{t('timeline.bookmarks')}</Text>
+                  <Button
+                    type="primary"
+                    size="small"
+                    icon={<PushpinOutlined />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenBookmarkModal();
+                    }}
+                    disabled={!activeSessionId}
+                  >
+                    {t('timeline.add_bookmark')}
+                  </Button>
+                </div>
+                {sessionBookmarks.length === 0 ? (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={t('timeline.no_bookmarks')}
+                    style={{ margin: '12px 0' }}
+                  />
+                ) : (
+                  <List
+                    size="small"
+                    dataSource={sessionBookmarks}
+                    style={{ maxHeight: 200, overflow: 'auto' }}
+                    renderItem={item => (
+                      <List.Item
+                        style={{ padding: '4px 0', cursor: 'pointer' }}
+                        onClick={() => handleBookmarkClick(item)}
+                        actions={[
+                          <Tooltip key="delete" title={t('common.delete')}>
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<DeleteOutlined />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteBookmark(item.id);
+                              }}
+                              danger
+                            />
+                          </Tooltip>
+                        ]}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <PushpinOutlined style={{ color: item.color || '#52c41a' }} />
+                          <div>
+                            <Text ellipsis style={{ maxWidth: 150 }}>{item.label}</Text>
+                            <br />
+                            <Text type="secondary" style={{ fontSize: 11 }}>
+                              {formatRelativeTime(item.relativeTime)}
+                            </Text>
+                          </div>
+                        </div>
+                      </List.Item>
+                    )}
+                  />
+                )}
+              </div>
+            }
+          >
+            <Badge count={sessionBookmarks.length} size="small" offset={[-5, 5]}>
+              <Button icon={<BookOutlined />}>
+                {t('timeline.bookmark')}
+              </Button>
+            </Badge>
+          </Popover>
 
           <div style={{ flex: 1 }} />
 
@@ -1291,6 +1422,8 @@ const EventTimeline = () => {
           onSeek={handleSeek}
           timeRange={timeRange}
           onTimeRangeChange={handleTimeRangeChange}
+          bookmarks={sessionBookmarks}
+          onBookmarkClick={handleBookmarkClick}
         />
       )}
 
@@ -1385,6 +1518,33 @@ const EventTimeline = () => {
           onStart={handleStartWithConfig}
           deviceId={selectedDevice || ''}
         />
+
+        {/* Bookmark Modal */}
+        <Modal
+          title={t('timeline.add_bookmark')}
+          open={bookmarkModalOpen}
+          onCancel={() => {
+            setBookmarkModalOpen(false);
+            setBookmarkLabel('');
+          }}
+          onOk={handleConfirmBookmark}
+          okText={t('common.ok')}
+          cancelText={t('common.cancel')}
+          width={400}
+        >
+          <div style={{ marginBottom: 16 }}>
+            <Text type="secondary">
+              {t('timeline.bookmark_time')}: {formatRelativeTime(currentTime)}
+            </Text>
+          </div>
+          <Input
+            placeholder={t('timeline.bookmark_label_placeholder')}
+            value={bookmarkLabel}
+            onChange={(e) => setBookmarkLabel(e.target.value)}
+            onPressEnter={handleConfirmBookmark}
+            autoFocus
+          />
+        </Modal>
       </div>
 
       {/* Assertions Panel */}
