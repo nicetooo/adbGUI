@@ -80,7 +80,7 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
     params?: any
   ) => {
     if (!sessionId) {
-      message.warning('Please select a session first');
+      message.warning(t('assertions.select_session_first'));
       return;
     }
 
@@ -134,22 +134,22 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
         setResults(prev => [displayResult, ...prev]);
 
         if (result.passed) {
-          message.success(`Assertion passed: ${result.assertionName}`);
+          message.success(`${t('assertions.passed_msg')}: ${result.assertionName}`);
         } else {
-          message.error(`Assertion failed: ${result.message}`);
+          message.error(`${t('assertions.failed_msg')}: ${result.message}`);
         }
       }
     } catch (err) {
-      message.error(`Assertion error: ${err}`);
+      message.error(`${t('assertions.error_msg')}: ${err}`);
     } finally {
       setLoading(false);
     }
-  }, [sessionId, deviceId]);
+  }, [sessionId, deviceId, t]);
 
   // 执行自定义断言
   const executeCustomAssertion = useCallback(async (values: any) => {
     if (!sessionId) {
-      message.warning('Please select a session first');
+      message.warning(t('assertions.select_session_first'));
       return;
     }
 
@@ -203,17 +203,17 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
         form.resetFields();
 
         if (result.passed) {
-          message.success(`Assertion passed: ${result.assertionName}`);
+          message.success(`${t('assertions.passed_msg')}: ${result.assertionName}`);
         } else {
-          message.error(`Assertion failed: ${result.message}`);
+          message.error(`${t('assertions.failed_msg')}: ${result.message}`);
         }
       }
     } catch (err) {
-      message.error(`Assertion error: ${err}`);
+      message.error(`${t('assertions.error_msg')}: ${err}`);
     } finally {
       setLoading(false);
     }
-  }, [sessionId, deviceId, form]);
+  }, [sessionId, deviceId, form, t]);
 
   // 加载历史结果
   const loadHistory = useCallback(async () => {
@@ -242,16 +242,16 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
     {
       key: 'noErrors',
       icon: <SafetyOutlined />,
-      label: 'No Errors',
-      description: 'Verify no error/fatal level events',
+      label: t('assertions.no_errors'),
+      description: t('assertions.no_errors_desc'),
       color: 'green',
       onClick: () => executeQuickAssertion('noErrors'),
     },
     {
       key: 'noCrashes',
       icon: <BugOutlined />,
-      label: 'No Crashes',
-      description: 'Verify no app crashes or ANRs',
+      label: t('assertions.no_crashes'),
+      description: t('assertions.no_crashes_desc'),
       color: 'red',
       onClick: () => executeQuickAssertion('noCrashes'),
     },
@@ -263,7 +263,7 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
       title={
         <Space>
           <ThunderboltOutlined />
-          <span>Assertions</span>
+          <span>{t('assertions.title')}</span>
           <Badge count={results.filter(r => !r.passed).length} />
         </Space>
       }
@@ -274,7 +274,7 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
           icon={<PlusOutlined />}
           onClick={() => setCustomModalOpen(true)}
         >
-          Custom
+          {t('assertions.custom')}
         </Button>
       }
       style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
@@ -283,7 +283,7 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
       {/* Quick Assertions */}
       <div style={{ marginBottom: 16 }}>
         <Text type="secondary" style={{ fontSize: 12, marginBottom: 8, display: 'block' }}>
-          Quick Checks
+          {t('assertions.quick_checks')}
         </Text>
         <Space wrap>
           {quickAssertions.map(qa => (
@@ -306,13 +306,13 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
       {/* Results */}
       <div style={{ flex: 1 }}>
         <Text type="secondary" style={{ fontSize: 12, marginBottom: 8, display: 'block' }}>
-          Results ({results.length})
+          {t('assertions.results')} ({results.length})
         </Text>
 
         {results.length === 0 ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description="No assertion results yet"
+            description={t('assertions.no_results')}
             style={{ marginTop: 24 }}
           />
         ) : (
@@ -332,7 +332,7 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
                       {item.name}
                     </Text>
                     <Tag color={item.passed ? 'success' : 'error'}>
-                      {item.passed ? 'PASS' : 'FAIL'}
+                      {item.passed ? t('assertions.pass') : t('assertions.fail')}
                     </Tag>
                   </div>
                   <Text type="secondary" style={{ fontSize: 12, marginLeft: 22 }}>
@@ -342,7 +342,7 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
                     <Text type="secondary" style={{ fontSize: 11 }}>
                       {new Date(item.executedAt).toLocaleTimeString()} |
                       {item.duration}ms |
-                      {item.matchedCount} matched
+                      {item.matchedCount} {t('assertions.matched')}
                     </Text>
                   </div>
                 </div>
@@ -354,7 +354,7 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
 
       {/* Custom Assertion Modal */}
       <Modal
-        title="Create Custom Assertion"
+        title={t('assertions.create_custom')}
         open={customModalOpen}
         onCancel={() => setCustomModalOpen(false)}
         footer={null}
@@ -367,50 +367,50 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
         >
           <Form.Item
             name="name"
-            label="Assertion Name"
+            label={t('assertions.assertion_name')}
             rules={[{ required: true }]}
           >
-            <Input placeholder="e.g., Check login success" />
+            <Input placeholder={t('assertions.name_placeholder')} />
           </Form.Item>
 
           <Form.Item
             name="type"
-            label="Assertion Type"
+            label={t('assertions.assertion_type')}
             rules={[{ required: true }]}
           >
             <Select
-              placeholder="Select type"
+              placeholder={t('assertions.select_type')}
               options={[
-                { label: 'Event Exists', value: 'exists' },
-                { label: 'Event Not Exists', value: 'not_exists' },
-                { label: 'Event Count', value: 'count' },
+                { label: t('assertions.type_exists'), value: 'exists' },
+                { label: t('assertions.type_not_exists'), value: 'not_exists' },
+                { label: t('assertions.type_count'), value: 'count' },
               ]}
             />
           </Form.Item>
 
           <Form.Item
             name="eventTypes"
-            label="Event Types"
-            extra="Comma-separated list, e.g.: activity_started, network_request"
+            label={t('assertions.event_types')}
+            extra={t('assertions.event_types_extra')}
           >
-            <Input placeholder="e.g., network_request, app_crash" />
+            <Input placeholder={t('assertions.event_types_placeholder')} />
           </Form.Item>
 
           <Form.Item
             name="titleMatch"
-            label="Title Match (Regex)"
+            label={t('assertions.title_match')}
           >
-            <Input placeholder="e.g., .*login.*" />
+            <Input placeholder={t('assertions.title_match_placeholder')} />
           </Form.Item>
 
           <Form.Item noStyle shouldUpdate={(prev, curr) => prev.type !== curr.type}>
             {({ getFieldValue }) =>
               getFieldValue('type') === 'count' && (
                 <Space>
-                  <Form.Item name="minCount" label="Min Count">
+                  <Form.Item name="minCount" label={t('assertions.min_count')}>
                     <InputNumber min={0} />
                   </Form.Item>
-                  <Form.Item name="maxCount" label="Max Count">
+                  <Form.Item name="maxCount" label={t('assertions.max_count')}>
                     <InputNumber min={0} />
                   </Form.Item>
                 </Space>
@@ -421,10 +421,10 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit" loading={loading}>
-                Execute
+                {t('assertions.execute')}
               </Button>
               <Button onClick={() => setCustomModalOpen(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
             </Space>
           </Form.Item>

@@ -858,7 +858,7 @@ const EventTimeline = () => {
   const [timeRange, setTimeRange] = useState<{ start: number; end: number } | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [sessionList, setSessionList] = useState<DeviceSession[]>([]);
-  const [assertionsPanelOpen, setAssertionsPanelOpen] = useState(true);
+  const [assertionsPanelOpen, setAssertionsPanelOpen] = useState(false);
   const [configModalOpen, setConfigModalOpen] = useState(false);
 
   // Subscribe to events
