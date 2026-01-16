@@ -442,7 +442,10 @@ func (a *App) AdbPair(address string, code string) (string, error) {
 
 // AdbConnect connects to a device using the given address
 func (a *App) AdbConnect(address string) (string, error) {
+	timer := StartOperation("device", "adb_connect").AddDetail("address", address)
+
 	if address == "" {
+		timer.EndWithError(fmt.Errorf("address is required"))
 		return "", fmt.Errorf("address is required")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -454,8 +457,19 @@ func (a *App) AdbConnect(address string) (string, error) {
 	cmd := exec.CommandContext(ctx, a.adbPath, "connect", address)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		timer.EndWithError(err)
+		LogUserAction(ActionDeviceConnect, address, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
 		return string(output), fmt.Errorf("connection failed: %w, output: %s", err, string(output))
 	}
+
+	timer.End()
+	LogUserAction(ActionDeviceConnect, address, map[string]interface{}{
+		"success": true,
+		"output":  string(output),
+	})
 	return string(output), nil
 }
 

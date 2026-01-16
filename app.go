@@ -88,6 +88,7 @@ type App struct {
 	eventStore       *EventStore
 	eventPipeline    *EventPipeline
 	assertionEngine  *AssertionEngine
+	eventSystemMu    sync.RWMutex
 	dataDir          string
 }
 
@@ -121,6 +122,9 @@ func (a *App) startup(ctx context.Context) {
 
 // Shutdown is called when the application is closing
 func (a *App) Shutdown(ctx context.Context) {
+	LogAppState(StateShuttingDown, map[string]interface{}{
+		"reason": "application_close",
+	})
 	a.StopBatchSync() // Stop session event batch sync (legacy)
 	a.shutdownEventSystem() // Shutdown new event system
 	a.scrcpyMu.Lock()
@@ -139,6 +143,9 @@ func (a *App) Shutdown(ctx context.Context) {
 	a.scrcpyMu.Unlock()
 	a.StopLogcat()
 	a.StopDeviceMonitor()
+
+	LogAppState(StateStopped, nil)
+	CloseLogger()
 }
 
 // GetAppVersion returns the application version
@@ -445,13 +452,18 @@ func (a *App) initEventSystem() {
 
 // shutdownEventSystem shuts down the event system
 func (a *App) shutdownEventSystem() {
+	a.eventSystemMu.Lock()
+	defer a.eventSystemMu.Unlock()
+
 	if a.eventPipeline != nil {
 		a.eventPipeline.Stop()
+		a.eventPipeline = nil
 	}
 	if a.eventStore != nil {
 		if err := a.eventStore.Close(); err != nil {
 			a.Log("Error closing event store: %v", err)
 		}
+		a.eventStore = nil
 	}
 }
 
@@ -677,7 +689,7 @@ func (a *App) QuerySessionEvents(query EventQuery) (*EventQueryResult, error) {
 // GetStoredEvent gets a single event by ID
 func (a *App) GetStoredEvent(eventID string) (*UnifiedEvent, error) {
 	if a.eventStore == nil {
-		return nil, nil
+		return nil, fmt.Errorf("event store not initialized")
 	}
 	return a.eventStore.GetEvent(eventID)
 }
@@ -687,7 +699,7 @@ func (a *App) GetStoredSession(sessionID string) (*DeviceSession, error) {
 	log.Printf("[GetStoredSession] Called with sessionID=%s", sessionID)
 	if a.eventStore == nil {
 		log.Printf("[GetStoredSession] ERROR: eventStore is nil!")
-		return nil, nil
+		return nil, fmt.Errorf("event store not initialized")
 	}
 	session, err := a.eventStore.GetSession(sessionID)
 	log.Printf("[GetStoredSession] Result: session=%+v, err=%v", session, err)
@@ -729,7 +741,7 @@ func (a *App) GetSessionTimeIndex(sessionID string) ([]TimeIndexEntry, error) {
 // GetSessionStats gets statistics for a session
 func (a *App) GetSessionStats(sessionID string) (map[string]interface{}, error) {
 	if a.eventStore == nil {
-		return nil, nil
+		return nil, fmt.Errorf("event store not initialized")
 	}
 	return a.eventStore.GetSessionStats(sessionID)
 }
@@ -1195,4 +1207,47 @@ func (a *App) ListStoredAssertionResults(sessionID string, limit int) ([]StoredA
 		return nil, fmt.Errorf("assertion engine not initialized")
 	}
 	return a.assertionEngine.ListStoredResults(sessionID, limit)
+}
+
+// ========================================
+// Persistent Log API Methods (exposed to frontend)
+// ========================================
+
+// GetLogFilePath returns the current log file path
+func (a *App) GetLogFilePath() string {
+	return GetLogFilePath()
+}
+
+// GetLogDir returns the log directory path
+func (a *App) GetLogDir() string {
+	return GetLogDir()
+}
+
+// ListLogFiles returns all log files
+func (a *App) ListLogFiles() ([]string, error) {
+	return ListLogFiles()
+}
+
+// ReadRecentLogs reads the most recent log lines
+func (a *App) ReadRecentLogs(lines int) ([]string, error) {
+	return ReadRecentLogs(lines)
+}
+
+// OpenLogDir opens the log directory in the system file manager
+func (a *App) OpenLogDir() error {
+	logDir := GetLogDir()
+	if logDir == "" {
+		return fmt.Errorf("log directory not available")
+	}
+
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", logDir)
+	case "windows":
+		cmd = exec.Command("explorer", logDir)
+	default:
+		cmd = exec.Command("xdg-open", logDir)
+	}
+	return cmd.Start()
 }

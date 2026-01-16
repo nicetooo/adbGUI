@@ -1245,6 +1245,11 @@ func (a *App) resolveSmartTapCoords(deviceId string, selector *ElementSelector, 
 
 // PlayTouchScript plays back a recorded touch script
 func (a *App) PlayTouchScript(deviceId string, script TouchScript) error {
+	LogUserAction(ActionScriptRun, deviceId, map[string]interface{}{
+		"script_name": script.Name,
+		"event_count": len(script.Events),
+	})
+
 	touchPlaybackMu.Lock()
 	if _, exists := touchPlaybackCancel[deviceId]; exists {
 		touchPlaybackMu.Unlock()
@@ -1257,6 +1262,9 @@ func (a *App) PlayTouchScript(deviceId string, script TouchScript) error {
 
 	go func() {
 		defer func() {
+			// Clean up pause state first (in case task was paused when it ended)
+			cleanupTaskPause(deviceId)
+
 			touchPlaybackMu.Lock()
 			delete(touchPlaybackCancel, deviceId)
 			touchPlaybackMu.Unlock()
@@ -1459,6 +1467,20 @@ func (a *App) checkPause(deviceId string) {
 	if paused && ch != nil {
 		<-ch // Wait until channel is closed (resumed)
 	}
+}
+
+// cleanupTaskPause cleans up pause state for a device when task ends
+// This should be called in defer when a task goroutine exits (normal or abnormal)
+func cleanupTaskPause(deviceId string) {
+	taskPauseMu.Lock()
+	defer taskPauseMu.Unlock()
+
+	if ch, exists := taskPauseSignal[deviceId]; exists {
+		// Close channel to unblock any waiting goroutines
+		close(ch)
+		delete(taskPauseSignal, deviceId)
+	}
+	delete(taskIsPaused, deviceId)
 }
 
 // getScriptsPath returns the path to the scripts directory
@@ -1673,6 +1695,11 @@ func (a *App) DeleteScriptTask(name string) error {
 
 // RunScriptTask executes a composite task
 func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
+	LogUserAction(ActionScriptRun, deviceId, map[string]interface{}{
+		"task_name":  task.Name,
+		"step_count": len(task.Steps),
+	})
+
 	touchPlaybackMu.Lock()
 	if _, exists := touchPlaybackCancel[deviceId]; exists {
 		touchPlaybackMu.Unlock()
@@ -1685,6 +1712,9 @@ func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
 
 	go func() {
 		defer func() {
+			// Clean up pause state first (in case task was paused when it ended)
+			cleanupTaskPause(deviceId)
+
 			touchPlaybackMu.Lock()
 			delete(touchPlaybackCancel, deviceId)
 			touchPlaybackMu.Unlock()

@@ -45,6 +45,10 @@ func (a *App) GetProxyDevice() string {
 
 // StartProxy starts the internal HTTP/HTTPS proxy
 func (a *App) StartProxy(port int) (string, error) {
+	LogUserAction(ActionProxyStart, "", map[string]interface{}{
+		"port": port,
+	})
+
 	// Clear emitted requests map on start
 	emittedRequestsMu.Lock()
 	emittedRequests = make(map[string]bool)
@@ -157,6 +161,8 @@ func (a *App) StartProxy(port int) (string, error) {
 
 // StopProxy stops the internal proxy
 func (a *App) StopProxy() (string, error) {
+	LogUserAction(ActionProxyStop, "", nil)
+
 	err := proxy.GetProxy().Stop()
 	if err != nil {
 		return "", err

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -34,9 +33,8 @@ type EventPipeline struct {
 	frontendBufferMu sync.Mutex
 	frontendTicker   *time.Ticker
 
-	// 时间索引缓存
-	timeIndexCache map[string]map[int]*TimeIndexEntry // sessionId -> second -> entry
-	timeIndexMu    sync.RWMutex
+	// 时间索引缓存 (LRU)
+	timeIndexCache *TimeIndexLRUCache
 
 	// 背压控制
 	backpressure *BackpressureController
@@ -112,6 +110,132 @@ func (r *RingBuffer) Size() int {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.count
+}
+
+// ========================================
+// TimeIndexLRUCache - 时间索引 LRU 缓存
+// ========================================
+
+const DefaultTimeIndexCacheCapacity = 20 // 最多缓存 20 个 Session 的时间索引
+
+// TimeIndexLRUCache 时间索引的 LRU 缓存
+type TimeIndexLRUCache struct {
+	capacity int
+	cache    map[string]map[int]*TimeIndexEntry
+	order    []string // 访问顺序，最近访问的在末尾
+	mu       sync.RWMutex
+}
+
+// NewTimeIndexLRUCache 创建新的 LRU 缓存
+func NewTimeIndexLRUCache(capacity int) *TimeIndexLRUCache {
+	if capacity <= 0 {
+		capacity = DefaultTimeIndexCacheCapacity
+	}
+	return &TimeIndexLRUCache{
+		capacity: capacity,
+		cache:    make(map[string]map[int]*TimeIndexEntry),
+		order:    make([]string, 0, capacity),
+	}
+}
+
+// Get 获取 session 的时间索引，同时更新访问顺序
+func (c *TimeIndexLRUCache) Get(sessionID string) (map[int]*TimeIndexEntry, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	index, exists := c.cache[sessionID]
+	if exists {
+		c.moveToEnd(sessionID)
+	}
+	return index, exists
+}
+
+// GetOrCreate 获取或创建 session 的时间索引
+func (c *TimeIndexLRUCache) GetOrCreate(sessionID string) map[int]*TimeIndexEntry {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if index, exists := c.cache[sessionID]; exists {
+		c.moveToEnd(sessionID)
+		return index
+	}
+
+	// 创建新的
+	c.evictIfNeeded()
+	index := make(map[int]*TimeIndexEntry)
+	c.cache[sessionID] = index
+	c.order = append(c.order, sessionID)
+	return index
+}
+
+// Set 设置 session 的时间索引
+func (c *TimeIndexLRUCache) Set(sessionID string, index map[int]*TimeIndexEntry) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if _, exists := c.cache[sessionID]; exists {
+		c.cache[sessionID] = index
+		c.moveToEnd(sessionID)
+		return
+	}
+
+	c.evictIfNeeded()
+	c.cache[sessionID] = index
+	c.order = append(c.order, sessionID)
+}
+
+// Delete 删除 session 的时间索引
+func (c *TimeIndexLRUCache) Delete(sessionID string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	delete(c.cache, sessionID)
+	c.removeFromOrder(sessionID)
+}
+
+// GetAll 获取所有缓存的时间索引（用于持久化）
+func (c *TimeIndexLRUCache) GetAll() map[string]map[int]*TimeIndexEntry {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	// 返回浅拷贝
+	result := make(map[string]map[int]*TimeIndexEntry, len(c.cache))
+	for k, v := range c.cache {
+		result[k] = v
+	}
+	return result
+}
+
+// Size 返回当前缓存的 session 数量
+func (c *TimeIndexLRUCache) Size() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.cache)
+}
+
+// moveToEnd 将 sessionID 移到访问顺序末尾（内部方法，需要持有锁）
+func (c *TimeIndexLRUCache) moveToEnd(sessionID string) {
+	c.removeFromOrder(sessionID)
+	c.order = append(c.order, sessionID)
+}
+
+// removeFromOrder 从访问顺序中移除（内部方法，需要持有锁）
+func (c *TimeIndexLRUCache) removeFromOrder(sessionID string) {
+	for i, id := range c.order {
+		if id == sessionID {
+			c.order = append(c.order[:i], c.order[i+1:]...)
+			break
+		}
+	}
+}
+
+// evictIfNeeded 如果超出容量则驱逐最老的条目（内部方法，需要持有锁）
+func (c *TimeIndexLRUCache) evictIfNeeded() {
+	for len(c.cache) >= c.capacity && len(c.order) > 0 {
+		oldest := c.order[0]
+		c.order = c.order[1:]
+		delete(c.cache, oldest)
+	}
 }
 
 // ========================================
@@ -272,7 +396,7 @@ func NewEventPipeline(ctx, wailsCtx context.Context, store *EventStore) *EventPi
 		sessions:       make(map[string]*SessionState),
 		deviceSession:  make(map[string]string),
 		frontendBuffer: make([]UnifiedEvent, 0, 100),
-		timeIndexCache: make(map[string]map[int]*TimeIndexEntry),
+		timeIndexCache: NewTimeIndexLRUCache(DefaultTimeIndexCacheCapacity),
 		backpressure:   NewBackpressureController(2000),
 		stopChan:       make(chan struct{}),
 	}
@@ -316,7 +440,7 @@ func (p *EventPipeline) Stop() {
 func (p *EventPipeline) loadActiveSessions() {
 	sessions, err := p.store.ListSessions("", 100)
 	if err != nil {
-		fmt.Printf("Failed to load sessions: %v\n", err)
+		LogError("event").Err(err).Msg("Failed to load sessions")
 		return
 	}
 
@@ -334,7 +458,7 @@ func (p *EventPipeline) loadActiveSessions() {
 			}
 			p.sessions[session.ID] = state
 			p.deviceSession[session.DeviceID] = session.ID
-			p.timeIndexCache[session.ID] = make(map[int]*TimeIndexEntry)
+			p.timeIndexCache.GetOrCreate(session.ID)
 		}
 	}
 }
@@ -496,11 +620,11 @@ func (p *EventPipeline) getOrCreateSession(deviceID string) string {
 
 	p.sessions[sessionID] = state
 	p.deviceSession[deviceID] = sessionID
-	p.timeIndexCache[sessionID] = make(map[int]*TimeIndexEntry)
+	p.timeIndexCache.GetOrCreate(sessionID)
 
 	// 持久化
 	if err := p.store.CreateSession(session); err != nil {
-		fmt.Printf("Failed to create session: %v\n", err)
+		LogError("event").Err(err).Str("sessionId", sessionID).Msg("Failed to create session")
 	}
 
 	// 通知前端
@@ -513,14 +637,8 @@ func (p *EventPipeline) getOrCreateSession(deviceID string) string {
 func (p *EventPipeline) updateTimeIndex(event UnifiedEvent) {
 	second := int(event.RelativeTime / 1000)
 
-	p.timeIndexMu.Lock()
-	defer p.timeIndexMu.Unlock()
-
-	sessionIndex := p.timeIndexCache[event.SessionID]
-	if sessionIndex == nil {
-		sessionIndex = make(map[int]*TimeIndexEntry)
-		p.timeIndexCache[event.SessionID] = sessionIndex
-	}
+	// LRU 缓存内部已有锁保护
+	sessionIndex := p.timeIndexCache.GetOrCreate(event.SessionID)
 
 	entry := sessionIndex[second]
 	if entry == nil {
@@ -595,21 +713,22 @@ func (p *EventPipeline) timeIndexPersister() {
 
 // persistTimeIndex 持久化时间索引
 func (p *EventPipeline) persistTimeIndex() {
-	p.timeIndexMu.Lock()
+	// LRU 缓存的 GetAll 方法返回快照
+	allCache := p.timeIndexCache.GetAll()
+
 	// 复制需要持久化的数据
 	toSave := make(map[string][]TimeIndexEntry)
-	for sessionID, entries := range p.timeIndexCache {
+	for sessionID, entries := range allCache {
 		for _, entry := range entries {
 			toSave[sessionID] = append(toSave[sessionID], *entry)
 		}
 	}
-	p.timeIndexMu.Unlock()
 
 	// 批量写入数据库
 	for sessionID, entries := range toSave {
 		for _, entry := range entries {
 			if err := p.store.UpsertTimeIndex(sessionID, entry); err != nil {
-				fmt.Printf("Failed to persist time index: %v\n", err)
+				LogError("event").Err(err).Str("sessionId", sessionID).Msg("Failed to persist time index")
 			}
 		}
 	}
@@ -621,13 +740,13 @@ func (p *EventPipeline) persistTimeIndex() {
 
 // StartSession 开始新 Session
 func (p *EventPipeline) StartSession(deviceID, sessionType, name string, config *SessionConfig) string {
-	log.Printf("[EventPipeline.StartSession] Starting session for device=%s, type=%s, name=%s", deviceID, sessionType, name)
+	SessionLog().Str("deviceId", deviceID).Str("type", sessionType).Str("name", name).Msg("Starting session")
 	p.sessionMu.Lock()
 	defer p.sessionMu.Unlock()
 
 	// 结束旧 Session
 	if oldID, ok := p.deviceSession[deviceID]; ok {
-		log.Printf("[EventPipeline.StartSession] Ending old session: %s", oldID)
+		SessionLog().Str("oldSessionId", oldID).Msg("Ending old session")
 		if state := p.sessions[oldID]; state != nil {
 			state.Session.EndTime = time.Now().UnixMilli()
 			state.Session.Status = "completed"
@@ -639,7 +758,7 @@ func (p *EventPipeline) StartSession(deviceID, sessionType, name string, config 
 
 	sessionID := uuid.New().String()
 	now := time.Now().UnixMilli()
-	log.Printf("[EventPipeline.StartSession] Created sessionID=%s at %d", sessionID, now)
+	SessionLog().Str("sessionId", sessionID).Int64("startTime", now).Msg("Created new session")
 
 	session := &DeviceSession{
 		ID:        sessionID,
@@ -664,10 +783,10 @@ func (p *EventPipeline) StartSession(deviceID, sessionType, name string, config 
 
 	p.sessions[sessionID] = state
 	p.deviceSession[deviceID] = sessionID
-	p.timeIndexCache[sessionID] = make(map[int]*TimeIndexEntry)
+	p.timeIndexCache.GetOrCreate(sessionID)
 
 	p.store.CreateSession(session)
-	log.Printf("[EventPipeline.StartSession] Session saved to store, emitting session-started event")
+	SessionLog().Str("sessionId", sessionID).Msg("Session saved to store")
 	wailsRuntime.EventsEmit(p.wailsCtx, "session-started", session)
 
 	// 发送 session_start 事件
@@ -683,7 +802,7 @@ func (p *EventPipeline) StartSession(deviceID, sessionType, name string, config 
 		Title:     "Session started: " + name,
 	})
 
-	log.Printf("[EventPipeline.StartSession] Session started successfully: %s", sessionID)
+	SessionLog().Str("sessionId", sessionID).Msg("Session started successfully")
 	return sessionID
 }
 

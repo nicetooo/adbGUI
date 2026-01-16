@@ -36,6 +36,23 @@ var assets embed.FS
 var version = "v0.0.0-dev"
 
 func main() {
+	// Initialize persistent logging system
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		configDir = os.TempDir()
+	}
+	appDataPath := filepath.Join(configDir, "Gaze")
+	if err := InitLogger(PersistentLogConfig(appDataPath)); err != nil {
+		fmt.Printf("Failed to initialize persistent logger: %v\n", err)
+	}
+
+	// Log application startup
+	LogAppState(StateStarting, map[string]interface{}{
+		"version":  version,
+		"platform": runtime.GOOS,
+		"arch":     runtime.GOARCH,
+	})
+
 	// Create an instance of the app structure
 	app := NewApp(version)
 
@@ -44,7 +61,7 @@ func main() {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 		sig := <-sigChan
-		os.Stderr.WriteString(fmt.Sprintf("\n[SIGNAL RECEIVED: %v]\n", sig))
+		LogInfo("main").Str("signal", sig.String()).Msg("Signal received, shutting down")
 		wailsRuntime.Quit(app.ctx)
 		time.Sleep(200 * time.Millisecond)
 		os.Exit(0)
@@ -62,7 +79,7 @@ func main() {
 		}))
 		customAppMenu.Append(menu.Separator())
 		customAppMenu.Append(menu.Text("Quit Gaze", keys.CmdOrCtrl("q"), func(_ *menu.CallbackData) {
-			os.Stderr.WriteString("\n[MENU QUIT CLICKED]\n")
+			LogInfo("main").Msg("Menu quit clicked")
 			wailsRuntime.Quit(app.ctx)
 		}))
 
@@ -72,7 +89,7 @@ func main() {
 	}
 
 	// Create application with options
-	err := wails.Run(&options.App{
+	err = wails.Run(&options.App{
 		Title:     "Gaze",
 		Width:     1280,
 		Height:    720,
@@ -86,6 +103,9 @@ func main() {
 		HideWindowOnClose: true,
 		OnStartup: func(ctx context.Context) {
 			app.startup(ctx)
+			LogAppState(StateReady, map[string]interface{}{
+				"startup_complete": true,
+			})
 
 			// Initialize system tray
 			if runtime.GOOS == "darwin" {
@@ -161,7 +181,7 @@ func main() {
 						}
 					}()
 				}, func() {
-					os.Stderr.WriteString("\n[SYSTRAY EXITING]\n")
+					LogInfo("main").Msg("Systray exiting")
 					os.Exit(0)
 				})
 				start()

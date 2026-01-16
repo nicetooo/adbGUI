@@ -18,10 +18,19 @@ import (
 
 // StartScrcpy starts scrcpy for the given device with custom configuration
 func (a *App) StartScrcpy(deviceId string, config ScrcpyConfig) error {
+	timer := StartOperation("scrcpy", "start_mirror").AddDetail("device_id", deviceId)
+
 	a.updateLastActive(deviceId)
 	if deviceId == "" {
+		timer.EndWithError(fmt.Errorf("no device specified"))
 		return fmt.Errorf("no device specified")
 	}
+
+	LogUserAction(ActionScrcpyStart, deviceId, map[string]interface{}{
+		"video_source": config.VideoSource,
+		"max_fps":      config.MaxFps,
+		"bit_rate":     config.BitRate,
+	})
 
 	a.scrcpyMu.Lock()
 	if cmd, exists := a.scrcpyCmds[deviceId]; exists && cmd.Process != nil {
@@ -148,6 +157,8 @@ func (a *App) StartScrcpy(deviceId string, config ScrcpyConfig) error {
 	a.scrcpyMu.Lock()
 	a.scrcpyCmds[deviceId] = cmd
 	a.scrcpyMu.Unlock()
+
+	timer.End()
 
 	startTime := time.Now()
 

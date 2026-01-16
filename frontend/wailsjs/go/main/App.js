@@ -270,6 +270,14 @@ export function GetLocalIP() {
   return window['go']['main']['App']['GetLocalIP']();
 }
 
+export function GetLogDir() {
+  return window['go']['main']['App']['GetLogDir']();
+}
+
+export function GetLogFilePath() {
+  return window['go']['main']['App']['GetLogFilePath']();
+}
+
 export function GetMITMBypassPatterns() {
   return window['go']['main']['App']['GetMITMBypassPatterns']();
 }
@@ -430,6 +438,10 @@ export function ListFiles(arg1, arg2) {
   return window['go']['main']['App']['ListFiles'](arg1, arg2);
 }
 
+export function ListLogFiles() {
+  return window['go']['main']['App']['ListLogFiles']();
+}
+
 export function ListPackages(arg1, arg2) {
   return window['go']['main']['App']['ListPackages'](arg1, arg2);
 }
@@ -490,6 +502,10 @@ export function OpenFileOnHost(arg1, arg2) {
   return window['go']['main']['App']['OpenFileOnHost'](arg1, arg2);
 }
 
+export function OpenLogDir() {
+  return window['go']['main']['App']['OpenLogDir']();
+}
+
 export function OpenPath(arg1) {
   return window['go']['main']['App']['OpenPath'](arg1);
 }
@@ -540,6 +556,10 @@ export function QuickAssertNoErrors(arg1, arg2) {
 
 export function QuickAssertSequence(arg1, arg2, arg3) {
   return window['go']['main']['App']['QuickAssertSequence'](arg1, arg2, arg3);
+}
+
+export function ReadRecentLogs(arg1) {
+  return window['go']['main']['App']['ReadRecentLogs'](arg1);
 }
 
 export function RemoveHistoryDevice(arg1) {

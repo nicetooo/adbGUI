@@ -138,6 +138,10 @@ export function GetInstalledPackages(arg1:string,arg2:boolean):Promise<Array<str
 
 export function GetLocalIP():Promise<string>;
 
+export function GetLogDir():Promise<string>;
+
+export function GetLogFilePath():Promise<string>;
+
 export function GetMITMBypassPatterns():Promise<Array<string>>;
 
 export function GetMockRules():Promise<Array<main.MockRule>>;
@@ -218,6 +222,8 @@ export function ListDisplays(arg1:string):Promise<Array<string>>;
 
 export function ListFiles(arg1:string,arg2:string):Promise<Array<main.FileInfo>>;
 
+export function ListLogFiles():Promise<Array<string>>;
+
 export function ListPackages(arg1:string,arg2:string):Promise<Array<main.AppPackage>>;
 
 export function ListStoredAssertionResults(arg1:string,arg2:number):Promise<Array<main.StoredAssertionResult>>;
@@ -248,6 +254,8 @@ export function OpenFile(arg1:string):Promise<void>;
 
 export function OpenFileOnHost(arg1:string,arg2:string):Promise<void>;
 
+export function OpenLogDir():Promise<void>;
+
 export function OpenPath(arg1:string):Promise<void>;
 
 export function OpenSettings(arg1:string,arg2:string,arg3:string):Promise<string>;
@@ -273,6 +281,8 @@ export function QuickAssertNoCrashes(arg1:string,arg2:string):Promise<main.Asser
 export function QuickAssertNoErrors(arg1:string,arg2:string):Promise<main.AssertionResult>;
 
 export function QuickAssertSequence(arg1:string,arg2:string,arg3:Array<string>):Promise<main.AssertionResult>;
+
+export function ReadRecentLogs(arg1:number):Promise<Array<string>>;
 
 export function RemoveHistoryDevice(arg1:string):Promise<void>;
 

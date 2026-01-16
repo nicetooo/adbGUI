@@ -341,7 +341,11 @@ func (a *App) emitEventInternal(event SessionEvent) {
 	eventBufferMu.Unlock()
 
 	// Bridge to new event pipeline (if initialized)
-	if a.eventPipeline != nil {
+	a.eventSystemMu.RLock()
+	pipeline := a.eventPipeline
+	a.eventSystemMu.RUnlock()
+
+	if pipeline != nil {
 		a.bridgeToNewPipeline(event)
 	}
 }
