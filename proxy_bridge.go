@@ -24,9 +24,11 @@ var (
 	proxyDeviceId string
 	proxyDeviceMu sync.RWMutex
 
-	// Track emitted request IDs to avoid duplicates
-	emittedRequests   = make(map[string]bool)
+	// Track emitted request IDs to avoid duplicates (with TTL-based cleanup)
+	emittedRequests   = make(map[string]int64) // requestId -> timestamp (unix nano)
 	emittedRequestsMu sync.Mutex
+	emittedRequestsTTL = int64(5 * 60 * 1e9) // 5 minutes in nanoseconds
+	emittedRequestsMax = 5000                 // Max entries before cleanup
 )
 
 // SetProxyDevice sets which device the proxy is monitoring (for session events)
@@ -51,7 +53,7 @@ func (a *App) StartProxy(port int) (string, error) {
 
 	// Clear emitted requests map on start
 	emittedRequestsMu.Lock()
-	emittedRequests = make(map[string]bool)
+	emittedRequests = make(map[string]int64)
 	emittedRequestsMu.Unlock()
 
 	err := proxy.GetProxy().Start(port, func(req proxy.RequestLog) {
@@ -67,7 +69,8 @@ func (a *App) StartProxy(port int) (string, error) {
 
 		// Deduplicate: only emit once per request, but prefer the one with response body
 		emittedRequestsMu.Lock()
-		alreadyEmitted := emittedRequests[req.Id]
+		now := time.Now().UnixNano()
+		emittedAt, alreadyEmitted := emittedRequests[req.Id]
 		hasBody := req.RespBody != ""
 
 		// Skip if already emitted AND this one has no body (keep waiting for body)
@@ -77,12 +80,32 @@ func (a *App) StartProxy(port int) (string, error) {
 			return
 		}
 
-		emittedRequests[req.Id] = true
-		// Clean up old entries if map gets too large (>10000)
-		if len(emittedRequests) > 10000 {
-			emittedRequests = make(map[string]bool)
-			emittedRequests[req.Id] = true
+		emittedRequests[req.Id] = now
+
+		// TTL-based cleanup: remove expired entries when map gets large
+		if len(emittedRequests) > emittedRequestsMax {
+			// Clean up entries older than TTL
+			for id, ts := range emittedRequests {
+				if now-ts > emittedRequestsTTL {
+					delete(emittedRequests, id)
+				}
+			}
+			// If still too large after TTL cleanup, remove oldest half
+			if len(emittedRequests) > emittedRequestsMax {
+				// Find median timestamp and remove older entries
+				count := 0
+				target := len(emittedRequests) / 2
+				for id := range emittedRequests {
+					if count >= target {
+						break
+					}
+					delete(emittedRequests, id)
+					count++
+				}
+			}
 		}
+		// Suppress unused variable warning
+		_ = emittedAt
 		emittedRequestsMu.Unlock()
 
 		// Calculate duration from ID (SessionId-TimestampNano)
@@ -157,6 +180,45 @@ func (a *App) StartProxy(port int) (string, error) {
 	mockRulesMu.RUnlock()
 
 	return "Proxy started successfully", nil
+}
+
+// SetupProxyForDevice configures adb reverse and device proxy settings
+// This allows the device to connect to the proxy via localhost through adb tunnel
+func (a *App) SetupProxyForDevice(deviceId string, port int) error {
+	if deviceId == "" {
+		return fmt.Errorf("no device specified")
+	}
+
+	// 1. Setup adb reverse: device's localhost:port -> host's localhost:port
+	reverseCmd := exec.Command(a.adbPath, "-s", deviceId, "reverse", "tcp:"+strconv.Itoa(port), "tcp:"+strconv.Itoa(port))
+	if out, err := reverseCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("adb reverse failed: %v, output: %s", err, string(out))
+	}
+
+	// 2. Set device proxy to localhost (traffic goes through adb tunnel)
+	proxyCmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "settings", "put", "global", "http_proxy", fmt.Sprintf("127.0.0.1:%d", port))
+	if out, err := proxyCmd.CombinedOutput(); err != nil {
+		// Try to clean up reverse on failure
+		exec.Command(a.adbPath, "-s", deviceId, "reverse", "--remove", "tcp:"+strconv.Itoa(port)).Run()
+		return fmt.Errorf("set proxy failed: %v, output: %s", err, string(out))
+	}
+
+	return nil
+}
+
+// CleanupProxyForDevice removes adb reverse and clears device proxy settings
+func (a *App) CleanupProxyForDevice(deviceId string, port int) error {
+	if deviceId == "" {
+		return nil
+	}
+
+	// 1. Clear device proxy
+	exec.Command(a.adbPath, "-s", deviceId, "shell", "settings", "put", "global", "http_proxy", ":0").Run()
+
+	// 2. Remove adb reverse
+	exec.Command(a.adbPath, "-s", deviceId, "reverse", "--remove", "tcp:"+strconv.Itoa(port)).Run()
+
+	return nil
 }
 
 // StopProxy stops the internal proxy

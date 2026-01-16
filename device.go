@@ -18,6 +18,50 @@ import (
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+// sessionEnsuredDevices 追踪已确保 session 的设备，避免重复 goroutine
+var (
+	sessionEnsuredDevices   = make(map[string]bool)
+	sessionEnsuredDevicesMu sync.Mutex
+)
+
+// deviceIDPattern 用于验证 deviceId 格式
+// 支持以下格式:
+// - USB 序列号: 字母数字下划线，如 "1234567890ABCDEF", "emulator-5554"
+// - 无线设备: IP:端口，如 "192.168.1.100:5555"
+// - mDNS 设备: 如 "adb-xxxxx._adb-tls-connect._tcp."
+var deviceIDPattern = regexp.MustCompile(`^[a-zA-Z0-9._:\-]+$`)
+
+// ValidateDeviceID 验证 deviceId 格式是否安全
+// 返回 error 如果格式无效
+func ValidateDeviceID(deviceId string) error {
+	if deviceId == "" {
+		return fmt.Errorf("device ID cannot be empty")
+	}
+	if len(deviceId) > 256 {
+		return fmt.Errorf("device ID too long (max 256 characters)")
+	}
+	if !deviceIDPattern.MatchString(deviceId) {
+		return fmt.Errorf("invalid device ID format: contains illegal characters")
+	}
+	// 检查是否包含危险字符序列
+	dangerousPatterns := []string{";", "&&", "||", "|", "`", "$", "(", ")", "{", "}", "<", ">", "!", "'", "\"", "\\"}
+	for _, p := range dangerousPatterns {
+		if strings.Contains(deviceId, p) {
+			return fmt.Errorf("invalid device ID format: contains dangerous character '%s'", p)
+		}
+	}
+	return nil
+}
+
+// MustValidateDeviceID 验证 deviceId，如果无效则记录警告并返回 false
+func MustValidateDeviceID(deviceId string) bool {
+	if err := ValidateDeviceID(deviceId); err != nil {
+		LogWarn("device").Str("deviceId", deviceId).Err(err).Msg("Invalid device ID rejected")
+		return false
+	}
+	return true
+}
+
 // GetDevices returns a list of connected ADB devices
 func (a *App) GetDevices(forceLog bool) ([]Device, error) {
 	a.mu.Lock()
@@ -311,19 +355,23 @@ func (a *App) GetDevices(forceLog bool) ([]Device, error) {
 	a.idToSerialMu.Unlock()
 
 	// 7. Populating Metadata and Sorting
-	a.lastActiveMu.RLock()
-	a.pinnedMu.RLock()
+	var lastActiveMap map[string]int64
+	var pinnedSerial string
+	if a.cacheService != nil {
+		lastActiveMap = a.cacheService.GetAllLastActive()
+		pinnedSerial = a.cacheService.GetPinnedSerial()
+	}
 	for i := range finalDevices {
 		d := finalDevices[i]
-		if ts, ok := a.lastActive[d.Serial]; ok {
-			d.LastActive = ts
+		if lastActiveMap != nil {
+			if ts, ok := lastActiveMap[d.Serial]; ok {
+				d.LastActive = ts
+			}
 		}
-		if d.Serial == a.pinnedSerial {
+		if d.Serial == pinnedSerial {
 			d.IsPinned = true
 		}
 	}
-	a.pinnedMu.RUnlock()
-	a.lastActiveMu.RUnlock()
 
 	sort.SliceStable(finalDevices, func(i, j int) bool {
 		if finalDevices[i].IsPinned != finalDevices[j].IsPinned {
@@ -338,13 +386,37 @@ func (a *App) GetDevices(forceLog bool) ([]Device, error) {
 	}
 
 	result := make([]Device, len(finalDevices))
+	// 收集当前活跃设备 ID，用于清理断开的设备
+	activeDeviceIDs := make(map[string]bool)
+
 	for i, d := range finalDevices {
 		result[i] = *d
 		// Auto-ensure session for active devices so logs/events are captured immediately
+		// 使用去重逻辑避免重复启动 goroutine
 		if d.State == "device" {
-			go a.EnsureActiveSession(d.ID)
+			activeDeviceIDs[d.ID] = true
+			sessionEnsuredDevicesMu.Lock()
+			if !sessionEnsuredDevices[d.ID] {
+				sessionEnsuredDevices[d.ID] = true
+				sessionEnsuredDevicesMu.Unlock()
+				go func(deviceID string) {
+					a.EnsureActiveSession(deviceID)
+				}(d.ID)
+			} else {
+				sessionEnsuredDevicesMu.Unlock()
+			}
 		}
 	}
+
+	// 清理断开设备的 session 追踪，允许重新连接时重新创建 session
+	sessionEnsuredDevicesMu.Lock()
+	for deviceID := range sessionEnsuredDevices {
+		if !activeDeviceIDs[deviceID] {
+			delete(sessionEnsuredDevices, deviceID)
+		}
+	}
+	sessionEnsuredDevicesMu.Unlock()
+
 	return result, nil
 }
 
@@ -353,8 +425,8 @@ func (a *App) GetDeviceInfo(deviceId string) (DeviceInfo, error) {
 	var info DeviceInfo
 	info.Props = make(map[string]string)
 
-	if deviceId == "" {
-		return info, fmt.Errorf("no device specified")
+	if err := ValidateDeviceID(deviceId); err != nil {
+		return info, err
 	}
 
 	runQuickCmd := func(args ...string) string {
@@ -578,6 +650,11 @@ func (a *App) RestartAdbServer() (string, error) {
 
 // RunAdbCommand executes an arbitrary ADB command
 func (a *App) RunAdbCommand(deviceId string, fullCmd string) (string, error) {
+	// 验证 deviceId 格式防止注入
+	if err := ValidateDeviceID(deviceId); err != nil {
+		return "", fmt.Errorf("invalid device ID: %w", err)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -777,10 +854,14 @@ func (a *App) tryAutoReconnect(address string) {
 
 func (a *App) loadHistoryInternal() []HistoryDevice {
 	var history []HistoryDevice
-	if a.historyPath == "" {
+	historyPath := ""
+	if a.cacheService != nil {
+		historyPath = a.cacheService.HistoryPath()
+	}
+	if historyPath == "" {
 		return history
 	}
-	data, err := os.ReadFile(a.historyPath)
+	data, err := os.ReadFile(historyPath)
 	if err != nil {
 		return history
 	}
@@ -792,14 +873,21 @@ func (a *App) loadHistoryInternal() []HistoryDevice {
 }
 
 func (a *App) saveHistory(history []HistoryDevice) error {
+	historyPath := ""
+	if a.cacheService != nil {
+		historyPath = a.cacheService.HistoryPath()
+	}
+	if historyPath == "" {
+		return nil
+	}
 	data, err := json.Marshal(history)
 	if err != nil {
 		a.Log("Failed to marshal history: %v", err)
 		return err
 	}
-	err = os.WriteFile(a.historyPath, data, 0644)
+	err = os.WriteFile(historyPath, data, 0644)
 	if err != nil {
-		a.Log("Failed to write history to %s: %v", a.historyPath, err)
+		a.Log("Failed to write history to %s: %v", historyPath, err)
 		return err
 	}
 	return nil
@@ -872,13 +960,15 @@ func (a *App) RemoveHistoryDevice(deviceId string) error {
 
 // TogglePinDevice pins/unpins a device by its serial
 func (a *App) TogglePinDevice(serial string) {
-	a.pinnedMu.Lock()
-	if a.pinnedSerial == serial {
-		a.pinnedSerial = ""
-	} else {
-		a.pinnedSerial = serial
+	if a.cacheService == nil {
+		return
 	}
-	a.pinnedMu.Unlock()
+	currentPinned := a.cacheService.GetPinnedSerial()
+	if currentPinned == serial {
+		a.cacheService.SetPinnedSerial("")
+	} else {
+		a.cacheService.SetPinnedSerial(serial)
+	}
 
 	go a.saveSettings()
 }

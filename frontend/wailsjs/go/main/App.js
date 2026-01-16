@@ -46,6 +46,10 @@ export function CleanupOldSessions(arg1) {
   return window['go']['main']['App']['CleanupOldSessions'](arg1);
 }
 
+export function CleanupProxyForDevice(arg1, arg2) {
+  return window['go']['main']['App']['CleanupProxyForDevice'](arg1, arg2);
+}
+
 export function ClearAppData(arg1, arg2) {
   return window['go']['main']['App']['ClearAppData'](arg1, arg2);
 }
@@ -676,6 +680,10 @@ export function SetProxyWSEnabled(arg1) {
 
 export function SetSessionMetadata(arg1, arg2, arg3) {
   return window['go']['main']['App']['SetSessionMetadata'](arg1, arg2, arg3);
+}
+
+export function SetupProxyForDevice(arg1, arg2) {
+  return window['go']['main']['App']['SetupProxyForDevice'](arg1, arg2);
 }
 
 export function Shutdown(arg1) {

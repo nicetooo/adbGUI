@@ -21,9 +21,9 @@ func (a *App) StartScrcpy(deviceId string, config ScrcpyConfig) error {
 	timer := StartOperation("scrcpy", "start_mirror").AddDetail("device_id", deviceId)
 
 	a.updateLastActive(deviceId)
-	if deviceId == "" {
-		timer.EndWithError(fmt.Errorf("no device specified"))
-		return fmt.Errorf("no device specified")
+	if err := ValidateDeviceID(deviceId); err != nil {
+		timer.EndWithError(err)
+		return err
 	}
 
 	LogUserAction(ActionScrcpyStart, deviceId, map[string]interface{}{

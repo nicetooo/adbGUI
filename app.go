@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"Gaze/pkg/cache"
 )
 
 // Binaries are embedded in platform-specific files (bin_*.go) and bin_common.go
@@ -30,10 +31,11 @@ type App struct {
 	// Generic mutex for shared state
 	mu sync.Mutex
 
-	// aaptCache caches app label & icon so each package is processed at most once.
-	aaptCache   map[string]AppPackage
-	aaptCacheMu sync.RWMutex
-	cachePath   string
+	// Services
+	cacheService *cache.Service
+
+	// History (still managed by device.go)
+	historyMu sync.Mutex
 
 	// Scrcpy process management
 	scrcpyCmds      map[string]*exec.Cmd
@@ -48,20 +50,7 @@ type App struct {
 	httpServer *http.Server
 	localAddr  string
 
-	// History and Settings
-	historyPath  string
-	settingsPath string
-	historyMu    sync.Mutex
-
 	version string
-
-	// Last active tracking
-	lastActive   map[string]int64
-	lastActiveMu sync.RWMutex
-
-	// Device pinning
-	pinnedSerial string
-	pinnedMu     sync.RWMutex
 
 	// Runtime logs
 	runtimeLogs []string
@@ -95,17 +84,15 @@ type App struct {
 // NewApp creates a new App instance
 func NewApp(version string) *App {
 	app := &App{
-		aaptCache:         make(map[string]AppPackage),
 		scrcpyCmds:        make(map[string]*exec.Cmd),
 		scrcpyRecordCmd:   make(map[string]*exec.Cmd),
 		openFileCmds:      make(map[string]*exec.Cmd),
-		lastActive:        make(map[string]int64),
 		idToSerial:        make(map[string]string),
 		reconnectCooldown: make(map[string]time.Time),
 		sessionMonitors:   make(map[string]*DeviceMonitor),
 		version:           version,
 	}
-	app.initPersistentCache()
+	app.initCacheService()
 	return app
 }
 
@@ -113,7 +100,6 @@ func NewApp(version string) *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.setupBinaries()
-	a.initPersistentCache()
 	a.initEventSystem() // Initialize new event system
 	a.StartDeviceMonitor()
 	a.StartBatchSync() // Start session event batch sync (legacy, for compatibility)
@@ -158,16 +144,21 @@ func (a *App) Greet(name string) string {
 	return fmt.Sprintf("Hello %s, It's show time!", name)
 }
 
-// Log adds a message to the runtime logs
+// Log adds a message to the runtime logs (legacy method, forwards to zerolog)
 func (a *App) Log(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+
+	// Forward to structured logger
+	LogInfo("app").Msg(msg)
+
+	// Keep legacy runtime logs for frontend display
 	a.logsMu.Lock()
 	defer a.logsMu.Unlock()
-	msg := fmt.Sprintf("[%s] %s", time.Now().Format("15:04:05"), fmt.Sprintf(format, args...))
-	a.runtimeLogs = append(a.runtimeLogs, msg)
+	timestampedMsg := fmt.Sprintf("[%s] %s", time.Now().Format("15:04:05"), msg)
+	a.runtimeLogs = append(a.runtimeLogs, timestampedMsg)
 	if len(a.runtimeLogs) > 1000 {
 		a.runtimeLogs = a.runtimeLogs[len(a.runtimeLogs)-1000:]
 	}
-	fmt.Println(msg)
 }
 
 // GetBackendLogs returns the captured backend logs
@@ -181,7 +172,7 @@ func (a *App) GetBackendLogs() []string {
 
 // updateLastActive updates the last active timestamp for a device
 func (a *App) updateLastActive(deviceId string) {
-	if deviceId == "" {
+	if deviceId == "" || a.cacheService == nil {
 		return
 	}
 
@@ -192,107 +183,34 @@ func (a *App) updateLastActive(deviceId string) {
 	}
 	a.idToSerialMu.RUnlock()
 
-	a.lastActiveMu.Lock()
-	a.lastActive[serial] = time.Now().Unix()
-	a.lastActiveMu.Unlock()
-
+	a.cacheService.SetLastActive(serial, time.Now().Unix())
 	go a.saveSettings()
 }
 
 // Initialization functions
 
-func (a *App) initPersistentCache() {
-	configDir, err := os.UserConfigDir()
+func (a *App) initCacheService() {
+	svc, err := cache.New(cache.Config{
+		LogFunc: a.Log,
+	})
 	if err != nil {
-		configDir = os.TempDir()
+		a.Log("Error initializing cache service: %v", err)
+		return
 	}
-	appConfigDir := filepath.Join(configDir, "Gaze")
-	_ = os.MkdirAll(appConfigDir, 0755)
-	a.cachePath = filepath.Join(appConfigDir, "aapt_cache.json")
-	a.historyPath = filepath.Join(appConfigDir, "history.json")
-	a.settingsPath = filepath.Join(appConfigDir, "settings.json")
-
-	a.loadCache()
-	a.loadSettings()
+	a.cacheService = svc
 }
 
-func (a *App) loadSettings() {
-	if a.settingsPath == "" {
-		return
-	}
-	data, err := os.ReadFile(a.settingsPath)
-	if err != nil {
-		return
-	}
-	var settings AppSettings
-	if err := json.Unmarshal(data, &settings); err != nil {
-		return
-	}
-
-	a.lastActiveMu.Lock()
-	if settings.LastActive != nil {
-		a.lastActive = settings.LastActive
-	}
-	a.lastActiveMu.Unlock()
-
-	a.pinnedMu.Lock()
-	a.pinnedSerial = settings.PinnedSerial
-	a.pinnedMu.Unlock()
-}
-
+// saveSettings delegates to cache service
 func (a *App) saveSettings() {
-	if a.settingsPath == "" {
-		return
+	if a.cacheService != nil {
+		_ = a.cacheService.SaveSettings()
 	}
-
-	a.lastActiveMu.RLock()
-	lastActive := make(map[string]int64)
-	for k, v := range a.lastActive {
-		lastActive[k] = v
-	}
-	a.lastActiveMu.RUnlock()
-
-	a.pinnedMu.RLock()
-	pinnedSerial := a.pinnedSerial
-	a.pinnedMu.RUnlock()
-
-	settings := AppSettings{
-		LastActive:   lastActive,
-		PinnedSerial: pinnedSerial,
-	}
-
-	data, err := json.Marshal(settings)
-	if err != nil {
-		return
-	}
-	_ = os.WriteFile(a.settingsPath, data, 0644)
 }
 
-func (a *App) loadCache() {
-	a.aaptCacheMu.Lock()
-	defer a.aaptCacheMu.Unlock()
-
-	data, err := os.ReadFile(a.cachePath)
-	if err != nil {
-		return
-	}
-
-	_ = json.Unmarshal(data, &a.aaptCache)
-}
-
+// saveCache delegates to cache service
 func (a *App) saveCache() {
-	a.aaptCacheMu.RLock()
-	data, err := json.Marshal(a.aaptCache)
-	a.aaptCacheMu.RUnlock()
-
-	if err != nil {
-		a.Log("Error marshaling cache: %v", err)
-		return
-	}
-
-	err = os.WriteFile(a.cachePath, data, 0644)
-	if err != nil {
-		a.Log("Error saving cache to %s: %v", a.cachePath, err)
+	if a.cacheService != nil {
+		_ = a.cacheService.SaveCache()
 	}
 }
 
@@ -667,546 +585,6 @@ func (a *App) GetInstalledPackages(deviceID string, thirdPartyOnly bool) ([]stri
 	}
 
 	return packages, nil
-}
-
-// QuerySessionEvents queries events from a session
-func (a *App) QuerySessionEvents(query EventQuery) (*EventQueryResult, error) {
-	log.Printf("[QuerySessionEvents] Called with sessionId=%s, startTime=%d, endTime=%d, limit=%d, sources=%v, categories=%v",
-		query.SessionID, query.StartTime, query.EndTime, query.Limit, query.Sources, query.Categories)
-	if a.eventStore == nil {
-		log.Printf("[QuerySessionEvents] ERROR: eventStore is nil!")
-		return &EventQueryResult{Events: []UnifiedEvent{}}, nil
-	}
-	result, err := a.eventStore.QueryEvents(query)
-	if err != nil {
-		log.Printf("[QuerySessionEvents] ERROR: %v", err)
-	} else {
-		log.Printf("[QuerySessionEvents] Returned %d events, total=%d", len(result.Events), result.Total)
-	}
-	return result, err
-}
-
-// GetStoredEvent gets a single event by ID
-func (a *App) GetStoredEvent(eventID string) (*UnifiedEvent, error) {
-	if a.eventStore == nil {
-		return nil, fmt.Errorf("event store not initialized")
-	}
-	return a.eventStore.GetEvent(eventID)
-}
-
-// GetStoredSession gets a session by ID
-func (a *App) GetStoredSession(sessionID string) (*DeviceSession, error) {
-	log.Printf("[GetStoredSession] Called with sessionID=%s", sessionID)
-	if a.eventStore == nil {
-		log.Printf("[GetStoredSession] ERROR: eventStore is nil!")
-		return nil, fmt.Errorf("event store not initialized")
-	}
-	session, err := a.eventStore.GetSession(sessionID)
-	log.Printf("[GetStoredSession] Result: session=%+v, err=%v", session, err)
-	return session, err
-}
-
-// ListStoredSessions lists sessions from storage
-func (a *App) ListStoredSessions(deviceID string, limit int) ([]DeviceSession, error) {
-	if a.eventStore == nil {
-		return []DeviceSession{}, nil
-	}
-	return a.eventStore.ListSessions(deviceID, limit)
-}
-
-// DeleteStoredSession deletes a session and its events
-func (a *App) DeleteStoredSession(sessionID string) error {
-	if a.eventStore == nil {
-		return nil
-	}
-	return a.eventStore.DeleteSession(sessionID)
-}
-
-// RenameStoredSession renames a session
-func (a *App) RenameStoredSession(sessionID, newName string) error {
-	if a.eventStore == nil {
-		return nil
-	}
-	return a.eventStore.RenameSession(sessionID, newName)
-}
-
-// GetSessionTimeIndex gets the time index for a session
-func (a *App) GetSessionTimeIndex(sessionID string) ([]TimeIndexEntry, error) {
-	if a.eventStore == nil {
-		return []TimeIndexEntry{}, nil
-	}
-	return a.eventStore.GetTimeIndex(sessionID)
-}
-
-// GetSessionStats gets statistics for a session
-func (a *App) GetSessionStats(sessionID string) (map[string]interface{}, error) {
-	if a.eventStore == nil {
-		return nil, fmt.Errorf("event store not initialized")
-	}
-	return a.eventStore.GetSessionStats(sessionID)
-}
-
-// GetSessionEventTypes gets distinct event types in a session
-func (a *App) GetSessionEventTypes(sessionID string) ([]string, error) {
-	if a.eventStore == nil {
-		return []string{}, nil
-	}
-	return a.eventStore.GetEventTypes(sessionID)
-}
-
-// GetSessionEventSources gets distinct event sources in a session
-func (a *App) GetSessionEventSources(sessionID string) ([]string, error) {
-	if a.eventStore == nil {
-		return []string{}, nil
-	}
-	return a.eventStore.GetEventSources(sessionID)
-}
-
-// GetSessionEventLevels gets distinct event levels in a session
-func (a *App) GetSessionEventLevels(sessionID string) ([]string, error) {
-	if a.eventStore == nil {
-		return []string{}, nil
-	}
-	return a.eventStore.GetEventLevels(sessionID)
-}
-
-// PreviewAssertionMatch previews the count of events matching assertion criteria
-func (a *App) PreviewAssertionMatch(sessionID string, types []string, titleMatch string) (int, error) {
-	if a.eventStore == nil {
-		return 0, nil
-	}
-	return a.eventStore.PreviewAssertionMatch(sessionID, types, titleMatch)
-}
-
-// GetRecentSessionEvents gets recent events from memory for a session
-func (a *App) GetRecentSessionEvents(sessionID string, count int) []UnifiedEvent {
-	if a.eventPipeline == nil {
-		return nil
-	}
-	return a.eventPipeline.GetRecentEvents(sessionID, count)
-}
-
-// CreateSessionBookmark creates a bookmark in a session
-func (a *App) CreateSessionBookmark(sessionID string, relativeTime int64, label, color, bookmarkType string) error {
-	if a.eventStore == nil {
-		return nil
-	}
-	bookmark := &Bookmark{
-		ID:           fmt.Sprintf("bm_%d", time.Now().UnixNano()),
-		SessionID:    sessionID,
-		RelativeTime: relativeTime,
-		Label:        label,
-		Color:        color,
-		Type:         bookmarkType,
-		CreatedAt:    time.Now().UnixMilli(),
-	}
-	return a.eventStore.CreateBookmark(bookmark)
-}
-
-// GetSessionBookmarks gets bookmarks for a session
-func (a *App) GetSessionBookmarks(sessionID string) ([]Bookmark, error) {
-	if a.eventStore == nil {
-		return []Bookmark{}, nil
-	}
-	return a.eventStore.GetBookmarks(sessionID)
-}
-
-// DeleteSessionBookmark deletes a bookmark
-func (a *App) DeleteSessionBookmark(bookmarkID string) error {
-	if a.eventStore == nil {
-		return nil
-	}
-	return a.eventStore.DeleteBookmark(bookmarkID)
-}
-
-// CleanupOldSessionData cleans up old session data
-func (a *App) CleanupOldSessionData(maxAgeDays int) (int, error) {
-	if a.eventStore == nil {
-		return 0, nil
-	}
-	return a.eventStore.CleanupOldSessions(time.Duration(maxAgeDays) * 24 * time.Hour)
-}
-
-// GetEventSystemStats returns statistics about the event system
-func (a *App) GetEventSystemStats() map[string]interface{} {
-	stats := make(map[string]interface{})
-
-	if a.eventPipeline != nil {
-		stats["backpressure"] = a.eventPipeline.GetBackpressureStats()
-	}
-
-	if a.eventStore != nil {
-		stats["dataDir"] = a.dataDir
-	}
-
-	return stats
-}
-
-// ========================================
-// Assertion API Methods
-// ========================================
-
-// ExecuteAssertion executes an assertion against stored events
-func (a *App) ExecuteAssertion(assertion Assertion) (*AssertionResult, error) {
-	if a.assertionEngine == nil {
-		return nil, fmt.Errorf("assertion engine not initialized")
-	}
-	return a.assertionEngine.ExecuteAssertion(&assertion)
-}
-
-// ExecuteAssertionJSON executes an assertion from JSON (for frontend)
-func (a *App) ExecuteAssertionJSON(assertionJSON string) (*AssertionResult, error) {
-	if a.assertionEngine == nil {
-		return nil, fmt.Errorf("assertion engine not initialized")
-	}
-
-	var assertion Assertion
-	if err := json.Unmarshal([]byte(assertionJSON), &assertion); err != nil {
-		return nil, fmt.Errorf("invalid assertion JSON: %v", err)
-	}
-
-	return a.assertionEngine.ExecuteAssertion(&assertion)
-}
-
-// GetAssertionResult gets a specific assertion result
-func (a *App) GetAssertionResult(resultID string) *AssertionResult {
-	if a.assertionEngine == nil {
-		return nil
-	}
-	return a.assertionEngine.GetResult(resultID)
-}
-
-// ListAssertionResults lists assertion results for a session
-func (a *App) ListAssertionResults(sessionID string, limit int) []*AssertionResult {
-	if a.assertionEngine == nil {
-		return nil
-	}
-	return a.assertionEngine.ListResults(sessionID, limit)
-}
-
-// QuickAssertExists creates and executes a quick "exists" assertion
-func (a *App) QuickAssertExists(sessionID, deviceID, eventType, titleMatch string) (*AssertionResult, error) {
-	if a.assertionEngine == nil {
-		return nil, fmt.Errorf("assertion engine not initialized")
-	}
-
-	assertion := Assertion{
-		ID:        fmt.Sprintf("quick_%d", time.Now().UnixNano()),
-		Name:      fmt.Sprintf("Quick check: %s exists", eventType),
-		Type:      AssertExists,
-		SessionID: sessionID,
-		DeviceID:  deviceID,
-		Criteria: EventCriteria{
-			Types:      []string{eventType},
-			TitleMatch: titleMatch,
-		},
-		Expected: AssertionExpected{
-			Exists: true,
-		},
-		CreatedAt: time.Now().UnixMilli(),
-	}
-
-	return a.assertionEngine.ExecuteAssertion(&assertion)
-}
-
-// QuickAssertCount creates and executes a quick "count" assertion
-func (a *App) QuickAssertCount(sessionID, deviceID, eventType string, minCount, maxCount int) (*AssertionResult, error) {
-	if a.assertionEngine == nil {
-		return nil, fmt.Errorf("assertion engine not initialized")
-	}
-
-	assertion := Assertion{
-		ID:        fmt.Sprintf("quick_%d", time.Now().UnixNano()),
-		Name:      fmt.Sprintf("Quick count: %s", eventType),
-		Type:      AssertCount,
-		SessionID: sessionID,
-		DeviceID:  deviceID,
-		Criteria: EventCriteria{
-			Types: []string{eventType},
-		},
-		Expected: AssertionExpected{
-			MinCount: &minCount,
-			MaxCount: &maxCount,
-		},
-		CreatedAt: time.Now().UnixMilli(),
-	}
-
-	return a.assertionEngine.ExecuteAssertion(&assertion)
-}
-
-// QuickAssertNoErrors creates and executes a quick "no errors" assertion
-func (a *App) QuickAssertNoErrors(sessionID, deviceID string) (*AssertionResult, error) {
-	if a.assertionEngine == nil {
-		return nil, fmt.Errorf("assertion engine not initialized")
-	}
-
-	assertion := Assertion{
-		ID:        fmt.Sprintf("quick_%d", time.Now().UnixNano()),
-		Name:      "Quick check: no errors",
-		Type:      AssertNotExists,
-		SessionID: sessionID,
-		DeviceID:  deviceID,
-		Criteria: EventCriteria{
-			Levels: []EventLevel{LevelError, LevelFatal},
-		},
-		Expected: AssertionExpected{
-			Exists: false,
-		},
-		CreatedAt: time.Now().UnixMilli(),
-	}
-
-	return a.assertionEngine.ExecuteAssertion(&assertion)
-}
-
-// QuickAssertNoCrashes creates and executes a quick "no crashes" assertion
-func (a *App) QuickAssertNoCrashes(sessionID, deviceID string) (*AssertionResult, error) {
-	if a.assertionEngine == nil {
-		return nil, fmt.Errorf("assertion engine not initialized")
-	}
-
-	assertion := Assertion{
-		ID:        fmt.Sprintf("quick_%d", time.Now().UnixNano()),
-		Name:      "Quick check: no crashes/ANR",
-		Type:      AssertNotExists,
-		SessionID: sessionID,
-		DeviceID:  deviceID,
-		Criteria: EventCriteria{
-			Types: []string{"app_crash", "app_anr"},
-		},
-		Expected: AssertionExpected{
-			Exists: false,
-		},
-		CreatedAt: time.Now().UnixMilli(),
-	}
-
-	return a.assertionEngine.ExecuteAssertion(&assertion)
-}
-
-// QuickAssertSequence creates and executes a quick "sequence" assertion
-func (a *App) QuickAssertSequence(sessionID, deviceID string, eventTypes []string) (*AssertionResult, error) {
-	if a.assertionEngine == nil {
-		return nil, fmt.Errorf("assertion engine not initialized")
-	}
-
-	sequence := make([]EventCriteria, len(eventTypes))
-	for i, eventType := range eventTypes {
-		sequence[i] = EventCriteria{Types: []string{eventType}}
-	}
-
-	assertion := Assertion{
-		ID:        fmt.Sprintf("quick_%d", time.Now().UnixNano()),
-		Name:      fmt.Sprintf("Quick sequence: %s", strings.Join(eventTypes, " -> ")),
-		Type:      AssertSequence,
-		SessionID: sessionID,
-		DeviceID:  deviceID,
-		Criteria:  EventCriteria{},
-		Expected: AssertionExpected{
-			Sequence: sequence,
-			Ordered:  true,
-		},
-		CreatedAt: time.Now().UnixMilli(),
-	}
-
-	return a.assertionEngine.ExecuteAssertion(&assertion)
-}
-
-// ========================================
-// Assertion Management API Methods
-// ========================================
-
-// CreateStoredAssertion creates and persists a new assertion
-func (a *App) CreateStoredAssertion(assertion Assertion, saveAsTemplate bool) error {
-	if a.assertionEngine == nil {
-		return fmt.Errorf("assertion engine not initialized")
-	}
-	return a.assertionEngine.CreateAssertion(&assertion, saveAsTemplate)
-}
-
-// CreateStoredAssertionJSON creates and persists a new assertion from JSON
-func (a *App) CreateStoredAssertionJSON(assertionJSON string, saveAsTemplate bool) error {
-	if a.assertionEngine == nil {
-		return fmt.Errorf("assertion engine not initialized")
-	}
-
-	var assertion Assertion
-	if err := json.Unmarshal([]byte(assertionJSON), &assertion); err != nil {
-		return fmt.Errorf("invalid assertion JSON: %v", err)
-	}
-
-	return a.assertionEngine.CreateAssertion(&assertion, saveAsTemplate)
-}
-
-// GetStoredAssertion retrieves a stored assertion by ID
-func (a *App) GetStoredAssertion(assertionID string) (*StoredAssertion, error) {
-	if a.assertionEngine == nil {
-		return nil, fmt.Errorf("assertion engine not initialized")
-	}
-	return a.assertionEngine.GetStoredAssertion(assertionID)
-}
-
-// UpdateStoredAssertionJSON updates an existing stored assertion
-func (a *App) UpdateStoredAssertionJSON(assertionID string, assertionJSON string) error {
-	if a.assertionEngine == nil {
-		return fmt.Errorf("assertion engine not initialized")
-	}
-
-	var assertion Assertion
-	if err := json.Unmarshal([]byte(assertionJSON), &assertion); err != nil {
-		return fmt.Errorf("invalid assertion JSON: %v", err)
-	}
-
-	// Ensure ID matches
-	assertion.ID = assertionID
-
-	return a.assertionEngine.UpdateAssertion(&assertion)
-}
-
-// ListStoredAssertions lists stored assertions
-func (a *App) ListStoredAssertions(sessionID, deviceID string, templatesOnly bool, limit int) ([]StoredAssertion, error) {
-	if a.assertionEngine == nil {
-		return nil, fmt.Errorf("assertion engine not initialized")
-	}
-	return a.assertionEngine.ListStoredAssertions(sessionID, deviceID, templatesOnly, limit)
-}
-
-// ListAssertionTemplates lists assertion templates (convenience method)
-func (a *App) ListAssertionTemplates(limit int) ([]StoredAssertion, error) {
-	if a.assertionEngine == nil {
-		return nil, fmt.Errorf("assertion engine not initialized")
-	}
-	return a.assertionEngine.ListStoredAssertions("", "", true, limit)
-}
-
-// DeleteStoredAssertion deletes a stored assertion
-func (a *App) DeleteStoredAssertion(assertionID string) error {
-	if a.assertionEngine == nil {
-		return fmt.Errorf("assertion engine not initialized")
-	}
-	return a.assertionEngine.DeleteStoredAssertion(assertionID)
-}
-
-// ExecuteStoredAssertion executes a stored assertion by ID
-func (a *App) ExecuteStoredAssertion(assertionID string) (*AssertionResult, error) {
-	if a.assertionEngine == nil {
-		return nil, fmt.Errorf("assertion engine not initialized")
-	}
-
-	stored, err := a.assertionEngine.GetStoredAssertion(assertionID)
-	if err != nil {
-		return nil, err
-	}
-	if stored == nil {
-		return nil, fmt.Errorf("assertion not found: %s", assertionID)
-	}
-
-	// Convert StoredAssertion to Assertion
-	var criteria EventCriteria
-	if err := json.Unmarshal(stored.Criteria, &criteria); err != nil {
-		return nil, fmt.Errorf("invalid criteria: %v", err)
-	}
-	var expected AssertionExpected
-	if err := json.Unmarshal(stored.Expected, &expected); err != nil {
-		return nil, fmt.Errorf("invalid expected: %v", err)
-	}
-	var metadata map[string]interface{}
-	if len(stored.Metadata) > 0 {
-		json.Unmarshal(stored.Metadata, &metadata)
-	}
-
-	assertion := Assertion{
-		ID:          stored.ID,
-		Name:        stored.Name,
-		Description: stored.Description,
-		Type:        AssertionType(stored.Type),
-		SessionID:   stored.SessionID,
-		DeviceID:    stored.DeviceID,
-		Criteria:    criteria,
-		Expected:    expected,
-		Timeout:     stored.Timeout,
-		Tags:        stored.Tags,
-		Metadata:    metadata,
-		CreatedAt:   stored.CreatedAt,
-	}
-
-	if stored.TimeRange != nil {
-		assertion.TimeRange = &TimeRange{
-			Start: stored.TimeRange.Start,
-			End:   stored.TimeRange.End,
-		}
-	}
-
-	return a.assertionEngine.ExecuteAssertion(&assertion)
-}
-
-// ExecuteStoredAssertionInSession executes a stored assertion in a specific session context
-func (a *App) ExecuteStoredAssertionInSession(assertionID, sessionID, deviceID string) (*AssertionResult, error) {
-	if a.assertionEngine == nil {
-		return nil, fmt.Errorf("assertion engine not initialized")
-	}
-
-	stored, err := a.assertionEngine.GetStoredAssertion(assertionID)
-	if err != nil {
-		return nil, err
-	}
-	if stored == nil {
-		return nil, fmt.Errorf("assertion not found: %s", assertionID)
-	}
-
-	// Convert StoredAssertion to Assertion
-	var criteria EventCriteria
-	if err := json.Unmarshal(stored.Criteria, &criteria); err != nil {
-		return nil, fmt.Errorf("invalid criteria: %v", err)
-	}
-	var expected AssertionExpected
-	if err := json.Unmarshal(stored.Expected, &expected); err != nil {
-		return nil, fmt.Errorf("invalid expected: %v", err)
-	}
-	var metadata map[string]interface{}
-	if len(stored.Metadata) > 0 {
-		json.Unmarshal(stored.Metadata, &metadata)
-	}
-
-	// Use provided sessionID/deviceID to override stored values (for global assertions)
-	effectiveSessionID := sessionID
-	if effectiveSessionID == "" {
-		effectiveSessionID = stored.SessionID
-	}
-	effectiveDeviceID := deviceID
-	if effectiveDeviceID == "" {
-		effectiveDeviceID = stored.DeviceID
-	}
-
-	assertion := Assertion{
-		ID:          stored.ID,
-		Name:        stored.Name,
-		Description: stored.Description,
-		Type:        AssertionType(stored.Type),
-		SessionID:   effectiveSessionID,
-		DeviceID:    effectiveDeviceID,
-		Criteria:    criteria,
-		Expected:    expected,
-		Timeout:     stored.Timeout,
-		Tags:        stored.Tags,
-		Metadata:    metadata,
-		CreatedAt:   stored.CreatedAt,
-	}
-
-	if stored.TimeRange != nil {
-		assertion.TimeRange = &TimeRange{
-			Start: stored.TimeRange.Start,
-			End:   stored.TimeRange.End,
-		}
-	}
-
-	return a.assertionEngine.ExecuteAssertion(&assertion)
-}
-
-// ListStoredAssertionResults lists persisted assertion results
-func (a *App) ListStoredAssertionResults(sessionID string, limit int) ([]StoredAssertionResult, error) {
-	if a.assertionEngine == nil {
-		return nil, fmt.Errorf("assertion engine not initialized")
-	}
-	return a.assertionEngine.ListStoredResults(sessionID, limit)
 }
 
 // ========================================

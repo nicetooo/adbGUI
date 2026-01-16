@@ -14,13 +14,15 @@ import (
 	"sync"
 	"time"
 
+	"Gaze/pkg/cache"
+
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // ListPackages returns a list of installed packages with their type and state
 func (a *App) ListPackages(deviceId string, packageType string) ([]AppPackage, error) {
-	if deviceId == "" {
-		return nil, fmt.Errorf("no device specified")
+	if err := ValidateDeviceID(deviceId); err != nil {
+		return nil, err
 	}
 
 	if packageType == "" {
@@ -99,31 +101,31 @@ func (a *App) ListPackages(deviceId string, packageType string) ([]AppPackage, e
 
 			pkg := &packages[idx]
 
-			a.aaptCacheMu.RLock()
-			if cached, ok := a.aaptCache[pkg.Name]; ok {
-				if cached.Label != "" {
-					pkg.Label = cached.Label
-				}
-				if cached.Icon != "" {
-					pkg.Icon = cached.Icon
-				}
-				if cached.VersionName != "" {
-					pkg.VersionName = cached.VersionName
-				}
-				if cached.VersionCode != "" {
-					pkg.VersionCode = cached.VersionCode
-				}
-				if cached.MinSdkVersion != "" {
-					pkg.MinSdkVersion = cached.MinSdkVersion
-				}
-				if cached.TargetSdkVersion != "" {
-					pkg.TargetSdkVersion = cached.TargetSdkVersion
-				}
-				if len(cached.Permissions) > 0 {
-					pkg.Permissions = cached.Permissions
+			if a.cacheService != nil {
+				if cached, ok := a.cacheService.GetCachedPackage(pkg.Name); ok {
+					if cached.Label != "" {
+						pkg.Label = cached.Label
+					}
+					if cached.Icon != "" {
+						pkg.Icon = cached.Icon
+					}
+					if cached.VersionName != "" {
+						pkg.VersionName = cached.VersionName
+					}
+					if cached.VersionCode != "" {
+						pkg.VersionCode = cached.VersionCode
+					}
+					if cached.MinSdkVersion != "" {
+						pkg.MinSdkVersion = cached.MinSdkVersion
+					}
+					if cached.TargetSdkVersion != "" {
+						pkg.TargetSdkVersion = cached.TargetSdkVersion
+					}
+					if len(cached.Permissions) > 0 {
+						pkg.Permissions = cached.Permissions
+					}
 				}
 			}
-			a.aaptCacheMu.RUnlock()
 
 			if pkg.Label == "" {
 				brandMap := map[string]string{
@@ -170,9 +172,11 @@ func (a *App) ListPackages(deviceId string, packageType string) ([]AppPackage, e
 func (a *App) GetAppInfo(deviceId, packageName string, force bool) (AppPackage, error) {
 	pkg, _ := a.getAdbDetailedInfo(deviceId, packageName)
 
-	a.aaptCacheMu.RLock()
-	cached, hasCache := a.aaptCache[packageName]
-	a.aaptCacheMu.RUnlock()
+	var cached cache.AppPackage
+	var hasCache bool
+	if a.cacheService != nil {
+		cached, hasCache = a.cacheService.GetCachedPackage(packageName)
+	}
 
 	if force || !hasCache || cached.Label == "" || cached.LaunchableActivities == nil {
 		detailedPkg, err := a.getAppInfoWithAapt(deviceId, packageName)
@@ -382,11 +386,25 @@ func (a *App) getAppInfoWithAapt(deviceId, packageName string) (AppPackage, erro
 		pkg.Icon = icon
 	}
 
-	a.aaptCacheMu.Lock()
-	a.aaptCache[packageName] = pkg
-	a.aaptCacheMu.Unlock()
-
-	go a.saveCache()
+	if a.cacheService != nil {
+		// Convert to cache.AppPackage
+		cachePkg := cache.AppPackage{
+			Name:                 pkg.Name,
+			Label:                pkg.Label,
+			Icon:                 pkg.Icon,
+			Type:                 pkg.Type,
+			State:                pkg.State,
+			VersionName:          pkg.VersionName,
+			VersionCode:          pkg.VersionCode,
+			MinSdkVersion:        pkg.MinSdkVersion,
+			TargetSdkVersion:     pkg.TargetSdkVersion,
+			Permissions:          pkg.Permissions,
+			Activities:           pkg.Activities,
+			LaunchableActivities: pkg.LaunchableActivities,
+		}
+		a.cacheService.SetCachedPackage(packageName, cachePkg)
+		go a.saveCache()
+	}
 
 	return pkg, nil
 }
@@ -731,8 +749,8 @@ func (a *App) extractFileFromAPK(apkPath, filePath string) ([]byte, error) {
 // UninstallApp uninstalls an app
 func (a *App) UninstallApp(deviceId, packageName string) (string, error) {
 	a.updateLastActive(deviceId)
-	if deviceId == "" {
-		return "", fmt.Errorf("no device specified")
+	if err := ValidateDeviceID(deviceId); err != nil {
+		return "", err
 	}
 
 	a.Log("Uninstalling %s from %s", packageName, deviceId)
@@ -894,8 +912,8 @@ func (a *App) IsAppRunning(deviceId, packageName string) (bool, error) {
 
 // InstallAPK installs an APK to the specified device
 func (a *App) InstallAPK(deviceId string, path string) (string, error) {
-	if deviceId == "" {
-		return "", fmt.Errorf("no device selected")
+	if err := ValidateDeviceID(deviceId); err != nil {
+		return "", err
 	}
 
 	a.Log("Installing APK %s to device %s", path, deviceId)
@@ -911,8 +929,8 @@ func (a *App) InstallAPK(deviceId string, path string) (string, error) {
 
 // ExportAPK extracts an installed APK from the device to the local machine
 func (a *App) ExportAPK(deviceId string, packageName string) (string, error) {
-	if deviceId == "" {
-		return "", fmt.Errorf("no device specified")
+	if err := ValidateDeviceID(deviceId); err != nil {
+		return "", err
 	}
 
 	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "pm", "path", packageName)

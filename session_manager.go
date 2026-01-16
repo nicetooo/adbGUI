@@ -99,7 +99,7 @@ func (a *App) CreateSession(deviceId, sessionType, name string) string {
 	}
 
 	sessions[sessionId] = session
-	sessionEvents[sessionId] = make([]SessionEvent, 0)
+	// Note: sessionEvents memory storage removed - events stored via EventPipeline
 	activeSession[deviceId] = sessionId
 
 	// Emit session started event
@@ -190,13 +190,13 @@ func (a *App) EnsureActiveSession(deviceId string) string {
 	}
 
 	sessions[sessionId] = session
-	sessionEvents[sessionId] = make([]SessionEvent, 0)
+	// Note: sessionEvents memory storage removed - events stored via EventPipeline
 	activeSession[deviceId] = sessionId
 
 	// Emit session started event
 	wailsRuntime.EventsEmit(a.ctx, "session-started", session)
 
-	// Add start event
+	// Add start event via unified pipeline
 	event := SessionEvent{
 		ID:        uuid.New().String(),
 		SessionID: sessionId,
@@ -208,11 +208,11 @@ func (a *App) EnsureActiveSession(deviceId string) string {
 		Title:     "Auto Session started",
 	}
 
-	// Store event
-	sessionEvents[sessionId] = append(sessionEvents[sessionId], event)
+	// Forward to EventPipeline (unified storage)
+	a.bridgeToNewPipeline(event)
 	session.EventCount++
 
-	// Broadcast event
+	// Broadcast event to frontend
 	wailsRuntime.EventsEmit(a.ctx, "session-event", event)
 
 	return sessionId
@@ -322,25 +322,22 @@ func (a *App) EmitSessionEventFull(event SessionEvent) {
 	a.emitEventInternal(event)
 }
 
-// emitEventInternal stores event and adds to batch buffer (must hold sessionMu lock)
+// emitEventInternal forwards event to EventPipeline (unified storage)
+// Note: Memory storage removed - all events now go through EventPipeline -> EventStore
 func (a *App) emitEventInternal(event SessionEvent) {
-	// Store in session if active
+	// Update session event count in memory (for quick access)
 	if event.SessionID != "" {
-		events := sessionEvents[event.SessionID]
-		if len(events) < maxEventsPerSession {
-			sessionEvents[event.SessionID] = append(events, event)
-			if session, exists := sessions[event.SessionID]; exists {
-				session.EventCount++
-			}
+		if session, exists := sessions[event.SessionID]; exists {
+			session.EventCount++
 		}
 	}
 
-	// Add to batch buffer for frontend sync
+	// Add to batch buffer for frontend sync (legacy, may be removed later)
 	eventBufferMu.Lock()
 	eventBuffer = append(eventBuffer, event)
 	eventBufferMu.Unlock()
 
-	// Bridge to new event pipeline (if initialized)
+	// Forward to unified event pipeline
 	a.eventSystemMu.RLock()
 	pipeline := a.eventPipeline
 	a.eventSystemMu.RUnlock()
@@ -478,71 +475,99 @@ func (a *App) flushEventBuffer() {
 // ========================================
 
 // GetSessionTimeline returns events for a session with optional filtering
+// Now reads from EventStore instead of memory for unified event storage
 func (a *App) GetSessionTimeline(sessionId string, filter *SessionFilter) []SessionEvent {
-	sessionMu.RLock()
-	defer sessionMu.RUnlock()
+	// Use EventStore for queries (unified storage)
+	a.eventSystemMu.RLock()
+	pipeline := a.eventPipeline
+	a.eventSystemMu.RUnlock()
 
-	events, exists := sessionEvents[sessionId]
-	if !exists {
+	if pipeline == nil || pipeline.store == nil {
 		return []SessionEvent{}
 	}
 
-	if filter == nil {
-		return events
+	// Build query from filter
+	query := EventQuery{
+		SessionID: sessionId,
+		OrderDesc: false, // Oldest first for timeline
 	}
 
-	result := make([]SessionEvent, 0)
-	for _, event := range events {
-		if matchesFilter(event, filter) {
-			result = append(result, event)
+	if filter != nil {
+		if len(filter.Categories) > 0 {
+			for _, cat := range filter.Categories {
+				query.Categories = append(query.Categories, EventCategory(cat))
+			}
+		}
+		if len(filter.Types) > 0 {
+			query.Types = filter.Types
+		}
+		if len(filter.Levels) > 0 {
+			for _, lvl := range filter.Levels {
+				query.Levels = append(query.Levels, EventLevel(lvl))
+			}
+		}
+		if filter.StepID != "" {
+			query.StepID = filter.StepID
+		}
+		if filter.SearchText != "" {
+			query.SearchText = filter.SearchText
+		}
+		if filter.Limit > 0 {
+			query.Limit = filter.Limit
+		}
+		if filter.Offset > 0 {
+			query.Offset = filter.Offset
 		}
 	}
 
-	// Apply offset and limit
-	if filter.Offset > 0 && filter.Offset < len(result) {
-		result = result[filter.Offset:]
-	}
-	if filter.Limit > 0 && filter.Limit < len(result) {
-		result = result[:filter.Limit]
+	result, err := pipeline.store.QueryEvents(query)
+	if err != nil {
+		LogWarn("session_manager").Err(err).Str("sessionId", sessionId).Msg("Failed to query events from store")
+		return []SessionEvent{}
 	}
 
-	return result
+	// Convert UnifiedEvents to SessionEvents for API compatibility
+	return convertUnifiedToSessionEvents(result.Events)
 }
 
 // GetRecentEvents returns recent events across all sessions for a device
+// Now reads from EventStore instead of memory for unified event storage
 func (a *App) GetRecentEvents(deviceId string, limit int, categories []string) []SessionEvent {
-	sessionMu.RLock()
-	defer sessionMu.RUnlock()
+	// Use EventStore for queries (unified storage)
+	a.eventSystemMu.RLock()
+	pipeline := a.eventPipeline
+	a.eventSystemMu.RUnlock()
 
-	result := make([]SessionEvent, 0)
-
-	// Collect from all sessions for this device
-	for _, session := range sessions {
-		if deviceId != "" && session.DeviceID != deviceId {
-			continue
-		}
-		events := sessionEvents[session.ID]
-		for _, event := range events {
-			if len(categories) == 0 || containsString(categories, event.Category) {
-				result = append(result, event)
-			}
-		}
+	if pipeline == nil || pipeline.store == nil {
+		return []SessionEvent{}
 	}
 
-	// Sort by timestamp descending
-	for i := 0; i < len(result)-1; i++ {
-		for j := i + 1; j < len(result); j++ {
-			if result[j].Timestamp > result[i].Timestamp {
-				result[i], result[j] = result[j], result[i]
-			}
+	// Build query
+	query := EventQuery{
+		DeviceID:  deviceId,
+		OrderDesc: true, // Newest first for recent events
+	}
+
+	if len(categories) > 0 {
+		for _, cat := range categories {
+			query.Categories = append(query.Categories, EventCategory(cat))
 		}
 	}
 
-	if limit > 0 && len(result) > limit {
-		result = result[:limit]
+	if limit > 0 {
+		query.Limit = limit
+	} else {
+		query.Limit = 100 // Default limit
 	}
 
-	return result
+	result, err := pipeline.store.QueryEvents(query)
+	if err != nil {
+		LogWarn("session_manager").Err(err).Str("deviceId", deviceId).Msg("Failed to query recent events from store")
+		return []SessionEvent{}
+	}
+
+	// Convert UnifiedEvents to SessionEvents for API compatibility
+	return convertUnifiedToSessionEvents(result.Events)
 }
 
 // ========================================
@@ -610,6 +635,49 @@ func (a *App) ClearSession(sessionId string) {
 // ========================================
 // Helper Functions
 // ========================================
+
+// convertUnifiedToSessionEvents converts UnifiedEvents to SessionEvents for API compatibility
+func convertUnifiedToSessionEvents(events []UnifiedEvent) []SessionEvent {
+	result := make([]SessionEvent, len(events))
+	for i, e := range events {
+		// Convert category back to string
+		categoryStr := string(e.Category)
+		// Map new category back to old category names for compatibility
+		switch e.Category {
+		case CategoryLog:
+			categoryStr = "log"
+		case CategoryNetwork:
+			categoryStr = "network"
+		case CategoryAutomation:
+			categoryStr = "workflow"
+		case CategoryState:
+			categoryStr = "system"
+		case CategoryDiagnostic:
+			categoryStr = "system"
+		}
+
+		// Parse detail from Data JSON
+		var detail interface{}
+		if len(e.Data) > 0 {
+			_ = json.Unmarshal(e.Data, &detail)
+		}
+
+		result[i] = SessionEvent{
+			ID:        e.ID,
+			SessionID: e.SessionID,
+			DeviceID:  e.DeviceID,
+			Timestamp: e.Timestamp,
+			Type:      e.Type,
+			Category:  categoryStr,
+			Level:     string(e.Level),
+			Title:     e.Title,
+			Detail:    detail,
+			StepID:    e.StepID,
+			Duration:  e.Duration,
+		}
+	}
+	return result
+}
 
 func matchesFilter(event SessionEvent, filter *SessionFilter) bool {
 	if filter.SessionID != "" && event.SessionID != filter.SessionID {

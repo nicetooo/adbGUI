@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -87,7 +86,7 @@ func NewDeviceMonitor(app *App, deviceID string) *DeviceMonitor {
 
 // Start 启动监控
 func (m *DeviceMonitor) Start() {
-	log.Printf("[DeviceMonitor] Starting for device: %s", m.deviceID)
+	LogDebug("device_monitor").Msgf("[DeviceMonitor] Starting for device: %s", m.deviceID)
 	// 启动状态轮询
 	go m.pollDeviceState()
 
@@ -266,7 +265,7 @@ func (m *DeviceMonitor) checkCurrentActivity() {
 
 // watchAppEvents 监听应用事件 (崩溃、ANR 等)
 func (m *DeviceMonitor) watchAppEvents() {
-	log.Printf("[DeviceMonitor] watchAppEvents starting for device: %s", m.deviceID)
+	LogDebug("device_monitor").Msgf("[DeviceMonitor] watchAppEvents starting for device: %s", m.deviceID)
 	ctx, cancel := context.WithCancel(m.ctx)
 	m.logcatCancel = cancel
 
@@ -286,34 +285,34 @@ func (m *DeviceMonitor) watchAppEvents() {
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Printf("[DeviceMonitor] watchAppEvents stdout pipe error: %v", err)
+		LogDebug("device_monitor").Msgf("[DeviceMonitor] watchAppEvents stdout pipe error: %v", err)
 		return
 	}
 
 	if err := cmd.Start(); err != nil {
-		log.Printf("[DeviceMonitor] watchAppEvents start error: %v", err)
+		LogDebug("device_monitor").Msgf("[DeviceMonitor] watchAppEvents start error: %v", err)
 		return
 	}
 
-	log.Printf("[DeviceMonitor] watchAppEvents logcat started successfully")
+	LogDebug("device_monitor").Msgf("[DeviceMonitor] watchAppEvents logcat started successfully")
 
 	reader := bufio.NewReader(stdout)
 	lineCount := 0
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			log.Printf("[DeviceMonitor] watchAppEvents read error: %v", err)
+			LogDebug("device_monitor").Msgf("[DeviceMonitor] watchAppEvents read error: %v", err)
 			break
 		}
 
 		lineCount++
 		if lineCount <= 5 || lineCount%100 == 0 {
-			log.Printf("[DeviceMonitor] watchAppEvents line %d: %s", lineCount, strings.TrimSpace(line))
+			LogDebug("device_monitor").Msgf("[DeviceMonitor] watchAppEvents line %d: %s", lineCount, strings.TrimSpace(line))
 		}
 
 		m.processAppLogLine(line)
 	}
-	log.Printf("[DeviceMonitor] watchAppEvents ended, total lines: %d", lineCount)
+	LogDebug("device_monitor").Msgf("[DeviceMonitor] watchAppEvents ended, total lines: %d", lineCount)
 }
 
 // processAppLogLine 处理应用相关日志
@@ -322,19 +321,19 @@ func (m *DeviceMonitor) processAppLogLine(line string) {
 
 	// 检测应用启动
 	if strings.Contains(line, "START u0") && strings.Contains(line, "cmp=") {
-		log.Printf("[DeviceMonitor] Detected START: %s", line)
+		LogDebug("device_monitor").Msgf("[DeviceMonitor] Detected START: %s", line)
 		// 解析 cmp=pkg/activity
 		if match := regexp.MustCompile(`cmp=([^/]+)/([^\s}]+)`).FindStringSubmatch(line); len(match) >= 3 {
 			pkg := match[1]
 			activity := match[2]
-			log.Printf("[DeviceMonitor] Emitting activity_start: %s/%s", pkg, activity)
+			LogDebug("device_monitor").Msgf("[DeviceMonitor] Emitting activity_start: %s/%s", pkg, activity)
 			m.emitActivityEvent(pkg, activity, "start")
 		}
 	}
 
 	// 检测 Activity 恢复
 	if strings.Contains(line, "Displayed") {
-		log.Printf("[DeviceMonitor] Detected Displayed: %s", line)
+		LogDebug("device_monitor").Msgf("[DeviceMonitor] Detected Displayed: %s", line)
 		if match := regexp.MustCompile(`Displayed ([^/]+)/([^\s:]+)`).FindStringSubmatch(line); len(match) >= 3 {
 			pkg := match[1]
 			activity := match[2]
@@ -345,7 +344,7 @@ func (m *DeviceMonitor) processAppLogLine(line string) {
 					launchTime = t
 				}
 			}
-			log.Printf("[DeviceMonitor] Emitting activity_displayed: %s/%s (%dms)", pkg, activity, launchTime)
+			LogDebug("device_monitor").Msgf("[DeviceMonitor] Emitting activity_displayed: %s/%s (%dms)", pkg, activity, launchTime)
 			m.emitActivityDisplayed(pkg, activity, launchTime)
 		}
 	}
@@ -376,7 +375,7 @@ func (m *DeviceMonitor) processAppLogLine(line string) {
 
 // watchTouchEvents 监听触摸事件
 func (m *DeviceMonitor) watchTouchEvents() {
-	log.Printf("[DeviceMonitor] watchTouchEvents starting for device: %s", m.deviceID)
+	LogDebug("device_monitor").Msgf("[DeviceMonitor] watchTouchEvents starting for device: %s", m.deviceID)
 	ctx, cancel := context.WithCancel(m.ctx)
 	m.touchCancel = cancel
 
@@ -388,16 +387,16 @@ func (m *DeviceMonitor) watchTouchEvents() {
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Printf("[DeviceMonitor] watchTouchEvents stdout pipe error: %v", err)
+		LogDebug("device_monitor").Msgf("[DeviceMonitor] watchTouchEvents stdout pipe error: %v", err)
 		return
 	}
 
 	if err := cmd.Start(); err != nil {
-		log.Printf("[DeviceMonitor] watchTouchEvents start error: %v", err)
+		LogDebug("device_monitor").Msgf("[DeviceMonitor] watchTouchEvents start error: %v", err)
 		return
 	}
 
-	log.Printf("[DeviceMonitor] watchTouchEvents getevent started successfully")
+	LogDebug("device_monitor").Msgf("[DeviceMonitor] watchTouchEvents getevent started successfully")
 
 	reader := bufio.NewReader(stdout)
 	var currentTouch *touchState
@@ -406,7 +405,7 @@ func (m *DeviceMonitor) watchTouchEvents() {
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			log.Printf("[DeviceMonitor] watchTouchEvents read error: %v", err)
+			LogDebug("device_monitor").Msgf("[DeviceMonitor] watchTouchEvents read error: %v", err)
 			break
 		}
 
@@ -449,7 +448,7 @@ func (m *DeviceMonitor) watchTouchEvents() {
 		}
 	}
 
-	log.Printf("[DeviceMonitor] watchTouchEvents ended, total lines: %d", lineCount)
+	LogDebug("device_monitor").Msgf("[DeviceMonitor] watchTouchEvents ended, total lines: %d", lineCount)
 }
 
 // touchState 触摸状态
@@ -486,7 +485,7 @@ func (m *DeviceMonitor) emitTouchEvent(x, y int, action string, duration int64) 
 		action = "long_press"
 	}
 
-	log.Printf("[DeviceMonitor] emitTouchEvent: %s", title)
+	LogDebug("device_monitor").Msgf("[DeviceMonitor] emitTouchEvent: %s", title)
 
 	data, _ := json.Marshal(map[string]interface{}{
 		"action":   action,
@@ -513,9 +512,9 @@ func (m *DeviceMonitor) emitTouchEvent(x, y int, action string, duration int64) 
 // ========================================
 
 func (m *DeviceMonitor) emitBatteryEvent(state *BatteryState) {
-	log.Printf("[DeviceMonitor] emitBatteryEvent: level=%d, status=%s", state.Level, state.Status)
+	LogDebug("device_monitor").Msgf("[DeviceMonitor] emitBatteryEvent: level=%d, status=%s", state.Level, state.Status)
 	if m.app.eventPipeline == nil {
-		log.Printf("[DeviceMonitor] emitBatteryEvent: eventPipeline is nil!")
+		LogDebug("device_monitor").Msgf("[DeviceMonitor] emitBatteryEvent: eventPipeline is nil!")
 		return
 	}
 

@@ -24,8 +24,8 @@ import (
 // ListFiles returns a list of files in the specified directory on the device
 func (a *App) ListFiles(deviceId, pathStr string) ([]FileInfo, error) {
 	a.updateLastActive(deviceId)
-	if deviceId == "" {
-		return nil, fmt.Errorf("no device specified")
+	if err := ValidateDeviceID(deviceId); err != nil {
+		return nil, err
 	}
 
 	pathStr = path.Clean("/" + pathStr)

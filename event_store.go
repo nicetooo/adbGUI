@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -230,15 +229,24 @@ func NewEventStore(dataDir string) (*EventStore, error) {
 	dbPath := filepath.Join(dataDir, "events.db")
 
 	// 打开数据库连接
-	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL&_synchronous=NORMAL&_cache_size=-64000&_foreign_keys=ON")
+	// WAL 模式支持并发读取，但写入仍需串行
+	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL&_synchronous=NORMAL&_cache_size=-64000&_foreign_keys=ON&_busy_timeout=5000")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
 	// 设置连接池
-	db.SetMaxOpenConns(1) // SQLite 单写入
-	db.SetMaxIdleConns(1)
-	db.SetConnMaxLifetime(0)
+	// SQLite WAL 模式: 写入串行，但支持并发读取
+	db.SetMaxOpenConns(4)                  // 允许多个读连接
+	db.SetMaxIdleConns(2)                  // 保持 2 个空闲连接
+	db.SetConnMaxLifetime(time.Hour)       // 连接最长存活 1 小时
+	db.SetConnMaxIdleTime(10 * time.Minute) // 空闲连接 10 分钟后关闭
+
+	// 验证数据库连接
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
 
 	store := &EventStore{
 		db:             db,
@@ -277,11 +285,11 @@ func (s *EventStore) initSchema() error {
 	// 尝试创建 FTS 表 (可能失败如果 SQLite 没有 FTS5 支持)
 	if _, err := s.db.Exec(ftsSchemaSQL); err != nil {
 		// FTS5 不可用，跳过
-		fmt.Printf("FTS5 not available, full-text search disabled: %v\n", err)
+		LogWarn("event_store").Err(err).Msg("FTS5 not available, full-text search disabled")
 	} else {
 		// 创建 FTS 触发器
 		if _, err := s.db.Exec(ftsTriggerSQL); err != nil {
-			fmt.Printf("Failed to create FTS triggers: %v\n", err)
+			LogWarn("event_store").Err(err).Msg("Failed to create FTS triggers")
 		}
 	}
 
@@ -466,7 +474,7 @@ func (s *EventStore) Flush() {
 	s.writeBufferMu.Unlock()
 
 	if err := s.writeEventsBatch(events); err != nil {
-		fmt.Printf("Failed to flush events: %v\n", err)
+		LogError("event_store").Err(err).Int("event_count", len(events)).Msg("Failed to flush events")
 	}
 }
 
@@ -1001,9 +1009,14 @@ func (s *EventStore) GetTimeIndex(sessionID string) ([]TimeIndexEntry, error) {
 		FROM events WHERE session_id = ?
 	`, sessionID).Scan(&minTime, &maxTime, &totalCount)
 	if err != nil {
-		log.Printf("[GetTimeIndex] Failed to get time range: %v", err)
+		LogDebug("event_store").Err(err).Str("session_id", sessionID).Msg("GetTimeIndex: failed to get time range")
 	} else {
-		log.Printf("[GetTimeIndex] Session %s: minTime=%d, maxTime=%d, totalEvents=%d", sessionID, minTime, maxTime, totalCount)
+		LogDebug("event_store").
+			Str("session_id", sessionID).
+			Int64("min_time", minTime).
+			Int64("max_time", maxTime).
+			Int("total_events", totalCount).
+			Msg("GetTimeIndex: time range")
 	}
 
 	// 直接从 events 表聚合生成，确保数据准确
@@ -1034,11 +1047,17 @@ func (s *EventStore) GetTimeIndex(sessionID string) ([]TimeIndexEntry, error) {
 		entries = append(entries, e)
 	}
 
-	log.Printf("[GetTimeIndex] Session %s: returned %d time index entries", sessionID, len(entries))
+	LogDebug("event_store").
+		Str("session_id", sessionID).
+		Int("entry_count", len(entries)).
+		Msg("GetTimeIndex: completed")
 	if len(entries) > 0 {
-		log.Printf("[GetTimeIndex] First entry: second=%d, count=%d; Last entry: second=%d, count=%d",
-			entries[0].Second, entries[0].EventCount,
-			entries[len(entries)-1].Second, entries[len(entries)-1].EventCount)
+		LogDebug("event_store").
+			Int("first_second", entries[0].Second).
+			Int("first_count", entries[0].EventCount).
+			Int("last_second", entries[len(entries)-1].Second).
+			Int("last_count", entries[len(entries)-1].EventCount).
+			Msg("GetTimeIndex: range details")
 	}
 
 	return entries, rows.Err()
@@ -1148,6 +1167,39 @@ func (s *EventStore) GetSessionStats(sessionID string) (map[string]interface{}, 
 	stats["errorCount"] = errorCount
 
 	return stats, nil
+}
+
+// GetStoreStats returns database statistics
+func (s *EventStore) GetStoreStats() map[string]interface{} {
+	stats := make(map[string]interface{})
+
+	// Total events count
+	var totalEvents int64
+	s.db.QueryRow(`SELECT COUNT(*) FROM events`).Scan(&totalEvents)
+	stats["totalEvents"] = totalEvents
+
+	// Total sessions count
+	var totalSessions int64
+	s.db.QueryRow(`SELECT COUNT(*) FROM sessions`).Scan(&totalSessions)
+	stats["totalSessions"] = totalSessions
+
+	// Database file size
+	if info, err := os.Stat(s.dbPath); err == nil {
+		stats["dbSizeBytes"] = info.Size()
+	}
+
+	// Write buffer status
+	s.writeBufferMu.Lock()
+	stats["writeBufferLen"] = len(s.writeBuffer)
+	stats["writeBufferCap"] = cap(s.writeBuffer)
+	s.writeBufferMu.Unlock()
+
+	// Active sessions (not ended)
+	var activeSessions int64
+	s.db.QueryRow(`SELECT COUNT(*) FROM sessions WHERE status = 'active'`).Scan(&activeSessions)
+	stats["activeSessions"] = activeSessions
+
+	return stats
 }
 
 // GetEventTypes 获取 Session 中所有事件类型

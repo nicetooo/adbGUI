@@ -26,6 +26,8 @@ export function CleanupOldSessionData(arg1:number):Promise<number>;
 
 export function CleanupOldSessions(arg1:time.Duration):Promise<number>;
 
+export function CleanupProxyForDevice(arg1:string,arg2:number):Promise<void>;
+
 export function ClearAppData(arg1:string,arg2:string):Promise<string>;
 
 export function ClearSession(arg1:string):Promise<void>;
@@ -341,6 +343,8 @@ export function SetProxyMITM(arg1:boolean):Promise<void>;
 export function SetProxyWSEnabled(arg1:boolean):Promise<void>;
 
 export function SetSessionMetadata(arg1:string,arg2:string,arg3:any):Promise<void>;
+
+export function SetupProxyForDevice(arg1:string,arg2:number):Promise<void>;
 
 export function Shutdown(arg1:context.Context):Promise<void>;
 

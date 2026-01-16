@@ -4,7 +4,7 @@ import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, 
 import DeviceSelector from './DeviceSelector';
 import { useDeviceStore, useProxyStore, RequestLog as StoreRequestLog } from '../stores';
 // @ts-ignore
-import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, RemoveMockRule, GetMockRules, ToggleMockRule, CheckCertTrust } from '../../wailsjs/go/main/App';
+import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, RemoveMockRule, GetMockRules, ToggleMockRule, CheckCertTrust, SetupProxyForDevice, CleanupProxyForDevice } from '../../wailsjs/go/main/App';
 // @ts-ignore
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -220,18 +220,17 @@ const ProxyView: React.FC = () => {
 
     const handleStart = async () => {
         try {
-            // 1. Start Server
+            // 1. Start Server (binds to localhost only for security)
             await SetProxyMITM(mitmEnabled);
             await SetProxyWSEnabled(wsEnabled);
             await StartProxy(port);
             setProxyRunning(true);
 
-            // 2. Automagically set device proxy if selected
-            if (selectedDevice && localIP) {
+            // 2. Setup adb reverse + device proxy if device selected
+            if (selectedDevice) {
                 try {
-                    const cmd = `shell settings put global http_proxy ${localIP}:${port}`;
-                    await RunAdbCommand(selectedDevice, cmd);
-                    message.success(t('proxy.start_success', { ip: localIP, port }));
+                    await SetupProxyForDevice(selectedDevice, port);
+                    message.success(t('proxy.start_success', { ip: '127.0.0.1', port }));
                 } catch (adbErr: any) {
                     const errorStr = String(adbErr);
                     if (errorStr.includes("WRITE_SECURE_SETTINGS")) {
@@ -251,10 +250,10 @@ const ProxyView: React.FC = () => {
 
     const handleStop = async () => {
         try {
-            // 1. Automagically clear device proxy
+            // 1. Cleanup adb reverse and device proxy
             if (selectedDevice) {
                 try {
-                    await RunAdbCommand(selectedDevice, "shell settings put global http_proxy :0");
+                    await CleanupProxyForDevice(selectedDevice, port);
                 } catch (e) { }
             }
 

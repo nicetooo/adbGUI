@@ -165,6 +165,11 @@ func (a *App) GetDeviceResolution(deviceId string) (string, error) {
 
 // StartTouchRecording starts recording touch events from the device
 func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
+	// 验证 deviceId 格式
+	if err := ValidateDeviceID(deviceId); err != nil {
+		return fmt.Errorf("invalid device ID: %w", err)
+	}
+
 	touchRecordMu.Lock()
 	defer touchRecordMu.Unlock()
 
@@ -1695,6 +1700,11 @@ func (a *App) DeleteScriptTask(name string) error {
 
 // RunScriptTask executes a composite task
 func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
+	// 验证 deviceId 格式
+	if err := ValidateDeviceID(deviceId); err != nil {
+		return fmt.Errorf("invalid device ID: %w", err)
+	}
+
 	LogUserAction(ActionScriptRun, deviceId, map[string]interface{}{
 		"task_name":  task.Name,
 		"step_count": len(task.Steps),

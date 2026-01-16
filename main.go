@@ -109,7 +109,7 @@ func main() {
 
 			// Initialize system tray
 			if runtime.GOOS == "darwin" {
-				start, _ := systray.RunWithExternalLoop(func() {
+				start, stop := systray.RunWithExternalLoop(func() {
 					systray.SetIcon(iconData)
 					systray.SetTooltip("Gaze")
 
@@ -119,6 +119,7 @@ func main() {
 					// Start ticker to update tray menu
 					go func() {
 						ticker := time.NewTicker(2 * time.Second)
+						defer ticker.Stop() // 确保 ticker 被清理
 						var lastDevices []Device
 						lastRecordingStates := make(map[string]bool)
 						lastWorkflows, _ := app.LoadWorkflows()
@@ -184,7 +185,14 @@ func main() {
 					LogInfo("main").Msg("Systray exiting")
 					os.Exit(0)
 				})
-				start()
+
+				// 验证 systray 函数是否有效
+				if start == nil || stop == nil {
+					LogError("main").Msg("Failed to initialize system tray: start or stop function is nil")
+				} else {
+					LogInfo("main").Msg("Starting system tray")
+					start()
+				}
 			}
 		},
 		OnShutdown: func(ctx context.Context) {

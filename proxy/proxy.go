@@ -491,7 +491,8 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 
 	p.mu.Unlock()
 
-	addr := fmt.Sprintf(":%d", port)
+	// Bind to localhost only for security - external access via adb reverse
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err

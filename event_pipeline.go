@@ -472,13 +472,24 @@ func (p *EventPipeline) Emit(event UnifiedEvent) {
 
 	select {
 	case p.eventChan <- event:
+		// 成功发送
 	default:
 		// 通道满了，对于非关键事件直接丢弃
 		if event.Level == LevelVerbose || event.Level == LevelDebug {
 			return
 		}
-		// 阻塞等待
-		p.eventChan <- event
+		// 关键事件使用超时等待，避免永久阻塞
+		select {
+		case p.eventChan <- event:
+			// 成功发送
+		case <-time.After(5 * time.Second):
+			// 超时，记录日志但不阻塞
+			LogWarn("event_pipeline").
+				Str("event_type", event.Type).
+				Str("device_id", event.DeviceID).
+				Str("level", string(event.Level)).
+				Msg("Event channel send timeout, event dropped")
+		}
 	}
 }
 
@@ -534,21 +545,10 @@ func (p *EventPipeline) processEvents() {
 
 // processEvent 处理单个事件
 func (p *EventPipeline) processEvent(event UnifiedEvent) {
-	// 1. 关联 Session
-	sessionID := p.getOrCreateSession(event.DeviceID)
-	event.SessionID = sessionID
+	// 1. 尝试关联已有 Session (不自动创建)
+	sessionID := p.GetActiveSessionID(event.DeviceID)
 
-	// 2. 获取 Session 状态
-	p.sessionMu.RLock()
-	state := p.sessions[sessionID]
-	p.sessionMu.RUnlock()
-
-	// 3. 计算相对时间
-	if state != nil {
-		event.RelativeTime = event.Timestamp - state.StartTime
-	}
-
-	// 4. 填充默认值
+	// 2. 填充默认值
 	if event.Category == "" {
 		event.Category = GetCategoryForType(event.Type)
 	}
@@ -562,7 +562,26 @@ func (p *EventPipeline) processEvent(event UnifiedEvent) {
 		event.Timestamp = time.Now().UnixMilli()
 	}
 
-	// 5. 更新 Session 状态
+	// 3. 如果没有活跃 Session，只推送到前端，不存储
+	if sessionID == "" {
+		// 无 Session 时仍推送到前端（实时显示）
+		p.addToFrontendBuffer(event)
+		return
+	}
+
+	event.SessionID = sessionID
+
+	// 4. 获取 Session 状态
+	p.sessionMu.RLock()
+	state := p.sessions[sessionID]
+	p.sessionMu.RUnlock()
+
+	// 5. 计算相对时间
+	if state != nil {
+		event.RelativeTime = event.Timestamp - state.StartTime
+	}
+
+	// 6. 更新 Session 状态
 	if state != nil {
 		p.sessionMu.Lock()
 		state.EventCount++
@@ -571,67 +590,16 @@ func (p *EventPipeline) processEvent(event UnifiedEvent) {
 		p.sessionMu.Unlock()
 	}
 
-	// 6. 更新时间索引
+	// 7. 更新时间索引
 	p.updateTimeIndex(event)
 
-	// 7. 写入存储
+	// 8. 写入存储
 	p.store.WriteEvent(event)
 
-	// 8. 添加到前端缓冲
+	// 9. 添加到前端缓冲
 	p.addToFrontendBuffer(event)
 }
 
-// getOrCreateSession 获取或创建 Session
-func (p *EventPipeline) getOrCreateSession(deviceID string) string {
-	p.sessionMu.RLock()
-	if id, ok := p.deviceSession[deviceID]; ok {
-		p.sessionMu.RUnlock()
-		return id
-	}
-	p.sessionMu.RUnlock()
-
-	// 需要创建新 Session
-	p.sessionMu.Lock()
-	defer p.sessionMu.Unlock()
-
-	// Double check
-	if id, ok := p.deviceSession[deviceID]; ok {
-		return id
-	}
-
-	sessionID := uuid.New().String()
-	now := time.Now().UnixMilli()
-
-	session := &DeviceSession{
-		ID:        sessionID,
-		DeviceID:  deviceID,
-		Type:      "auto",
-		Name:      "Session " + time.Now().Format("15:04:05"),
-		StartTime: now,
-		Status:    "active",
-		Metadata:  make(map[string]any),
-	}
-
-	state := &SessionState{
-		Session:      session,
-		StartTime:    now,
-		RecentEvents: NewRingBuffer(1000),
-	}
-
-	p.sessions[sessionID] = state
-	p.deviceSession[deviceID] = sessionID
-	p.timeIndexCache.GetOrCreate(sessionID)
-
-	// 持久化
-	if err := p.store.CreateSession(session); err != nil {
-		LogError("event").Err(err).Str("sessionId", sessionID).Msg("Failed to create session")
-	}
-
-	// 通知前端
-	wailsRuntime.EventsEmit(p.wailsCtx, "session-started", session)
-
-	return sessionID
-}
 
 // updateTimeIndex 更新时间索引
 func (p *EventPipeline) updateTimeIndex(event UnifiedEvent) {
@@ -919,4 +887,25 @@ func (p *EventPipeline) GetSessionMetadata(sessionID, key string) any {
 // GetBackpressureStats 获取背压统计
 func (p *EventPipeline) GetBackpressureStats() map[string]int64 {
 	return p.backpressure.GetStats()
+}
+
+// GetPipelineStats returns pipeline statistics
+func (p *EventPipeline) GetPipelineStats() map[string]interface{} {
+	p.sessionMu.RLock()
+	sessionCount := len(p.sessions)
+	deviceCount := len(p.deviceSession)
+	p.sessionMu.RUnlock()
+
+	p.frontendBufferMu.Lock()
+	bufferLen := len(p.frontendBuffer)
+	p.frontendBufferMu.Unlock()
+
+	return map[string]interface{}{
+		"channelLen":      len(p.eventChan),
+		"channelCap":      cap(p.eventChan),
+		"activeSessions":  sessionCount,
+		"deviceMappings":  deviceCount,
+		"frontendBuffer":  bufferLen,
+		"timeIndexCached": p.timeIndexCache.Size(),
+	}
 }

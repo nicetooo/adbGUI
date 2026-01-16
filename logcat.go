@@ -42,8 +42,12 @@ func logcatLevelToSessionLevel(androidLevel string) string {
 }
 
 // StartLogcat starts the logcat stream for a device
-// StartLogcat starts the logcat stream for a device
 func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex bool, excludeFilter string, excludeUseRegex bool) error {
+	// 验证 deviceId 格式
+	if err := ValidateDeviceID(deviceId); err != nil {
+		return err
+	}
+
 	a.updateLastActive(deviceId)
 
 	if a.logcatCmd != nil {
