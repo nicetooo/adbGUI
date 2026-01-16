@@ -5,3 +5,4 @@ frontend/dist
 .logGaze
 .log/
 Gaze
+wails_dev.log
