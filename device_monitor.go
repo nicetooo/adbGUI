@@ -75,7 +75,8 @@ type ScreenState struct {
 
 // NewDeviceMonitor 创建设备监控器
 func NewDeviceMonitor(app *App, deviceID string) *DeviceMonitor {
-	ctx, cancel := context.WithCancel(context.Background())
+	// 继承 app.ctx，确保应用关闭时监控器也能正确停止
+	ctx, cancel := context.WithCancel(app.ctx)
 	return &DeviceMonitor{
 		app:      app,
 		deviceID: deviceID,

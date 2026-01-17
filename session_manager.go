@@ -67,9 +67,7 @@ var (
 	sessionMu           sync.RWMutex
 	maxEventsPerSession = 50000 // Increased for complete data storage
 
-	// Batch sync to frontend
-	eventBuffer     = make([]SessionEvent, 0, 100)
-	eventBufferMu   sync.Mutex
+	// Legacy batch sync (deprecated - now using EventPipeline.frontendEmitter)
 	batchSyncTicker *time.Ticker
 	batchSyncStop   chan struct{}
 )
@@ -323,7 +321,7 @@ func (a *App) EmitSessionEventFull(event SessionEvent) {
 }
 
 // emitEventInternal forwards event to EventPipeline (unified storage)
-// Note: Memory storage removed - all events now go through EventPipeline -> EventStore
+// Note: All events now go through EventPipeline -> EventStore -> frontend
 func (a *App) emitEventInternal(event SessionEvent) {
 	// Update session event count in memory (for quick access)
 	if event.SessionID != "" {
@@ -332,12 +330,7 @@ func (a *App) emitEventInternal(event SessionEvent) {
 		}
 	}
 
-	// Add to batch buffer for frontend sync (legacy, may be removed later)
-	eventBufferMu.Lock()
-	eventBuffer = append(eventBuffer, event)
-	eventBufferMu.Unlock()
-
-	// Forward to unified event pipeline
+	// Forward to unified event pipeline (single path to frontend)
 	a.eventSystemMu.RLock()
 	pipeline := a.eventPipeline
 	a.eventSystemMu.RUnlock()
@@ -452,22 +445,10 @@ func (a *App) StopBatchSync() {
 	}
 }
 
-// flushEventBuffer sends buffered events to frontend
+// flushEventBuffer is deprecated - events now flow through EventPipeline.frontendEmitter
+// Kept for compatibility but does nothing
 func (a *App) flushEventBuffer() {
-	eventBufferMu.Lock()
-	if len(eventBuffer) == 0 {
-		eventBufferMu.Unlock()
-		return
-	}
-
-	// Copy and clear buffer
-	batch := make([]SessionEvent, len(eventBuffer))
-	copy(batch, eventBuffer)
-	eventBuffer = eventBuffer[:0]
-	eventBufferMu.Unlock()
-
-	// Emit batch to frontend
-	wailsRuntime.EventsEmit(a.ctx, "session-events-batch", batch)
+	// No-op: EventPipeline handles frontend sync via "session-events-batch"
 }
 
 // ========================================
@@ -659,7 +640,9 @@ func convertUnifiedToSessionEvents(events []UnifiedEvent) []SessionEvent {
 		// Parse detail from Data JSON
 		var detail interface{}
 		if len(e.Data) > 0 {
-			_ = json.Unmarshal(e.Data, &detail)
+			if err := json.Unmarshal(e.Data, &detail); err != nil {
+				LogWarn("session_manager").Err(err).Str("eventId", e.ID).Msg("Failed to unmarshal event data")
+			}
 		}
 
 		result[i] = SessionEvent{

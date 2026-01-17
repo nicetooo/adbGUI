@@ -478,11 +478,11 @@ func (p *EventPipeline) Emit(event UnifiedEvent) {
 		if event.Level == LevelVerbose || event.Level == LevelDebug {
 			return
 		}
-		// 关键事件使用超时等待，避免永久阻塞
+		// 关键事件使用超时等待，避免永久阻塞 (500ms 避免 UI 卡顿)
 		select {
 		case p.eventChan <- event:
 			// 成功发送
-		case <-time.After(5 * time.Second):
+		case <-time.After(500 * time.Millisecond):
 			// 超时，记录日志但不阻塞
 			LogWarn("event_pipeline").
 				Str("event_type", event.Type).
@@ -571,24 +571,18 @@ func (p *EventPipeline) processEvent(event UnifiedEvent) {
 
 	event.SessionID = sessionID
 
-	// 4. 获取 Session 状态
-	p.sessionMu.RLock()
+	// 4. 获取 Session 状态并更新 (单次锁操作，优化锁粒度)
+	p.sessionMu.Lock()
 	state := p.sessions[sessionID]
-	p.sessionMu.RUnlock()
-
-	// 5. 计算相对时间
 	if state != nil {
+		// 5. 计算相对时间
 		event.RelativeTime = event.Timestamp - state.StartTime
-	}
-
-	// 6. 更新 Session 状态
-	if state != nil {
-		p.sessionMu.Lock()
+		// 6. 更新 Session 状态
 		state.EventCount++
 		state.LastEventAt = event.Timestamp
 		state.RecentEvents.Push(event)
-		p.sessionMu.Unlock()
 	}
+	p.sessionMu.Unlock()
 
 	// 7. 更新时间索引
 	p.updateTimeIndex(event)
@@ -657,8 +651,8 @@ func (p *EventPipeline) flushFrontendBuffer() {
 	p.frontendBuffer = make([]UnifiedEvent, 0, 100)
 	p.frontendBufferMu.Unlock()
 
-	// 发送到前端
-	wailsRuntime.EventsEmit(p.wailsCtx, "events-batch", batch)
+	// 发送到前端 (统一使用 session-events-batch，兼容所有组件)
+	wailsRuntime.EventsEmit(p.wailsCtx, "session-events-batch", batch)
 }
 
 // timeIndexPersister 定期持久化时间索引

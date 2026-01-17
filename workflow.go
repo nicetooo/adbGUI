@@ -545,7 +545,9 @@ func (a *App) runWorkflowStep(ctx context.Context, deviceId string, step Workflo
 		// Parse Value to get branch targets
 		var targets map[string]string
 		if step.Value != "" {
-			_ = json.Unmarshal([]byte(step.Value), &targets)
+			if err := json.Unmarshal([]byte(step.Value), &targets); err != nil {
+				LogWarn("workflow").Err(err).Str("stepId", step.ID).Msg("Failed to unmarshal branch targets")
+			}
 		}
 
 		targetID := ""

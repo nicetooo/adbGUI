@@ -189,8 +189,8 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 	resolution, _ := a.GetDeviceResolution(deviceId)
 	fmt.Printf("[Automation] Device resolution: %s\n", resolution)
 
-	// Create context for cancellation
-	ctx, cancel := context.WithCancel(context.Background())
+	// Create context for cancellation (继承 app.ctx)
+	ctx, cancel := context.WithCancel(a.ctx)
 
 	// Start getevent command for specific device
 	// Run getevent -lt /dev/input/eventX

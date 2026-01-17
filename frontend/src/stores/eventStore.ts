@@ -1051,15 +1051,15 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
         });
       };
 
-      // 订阅事件
-      EventsOn('events-batch', handleEventsBatch);
+      // 订阅事件 (统一使用 session-events-batch)
+      EventsOn('session-events-batch', handleEventsBatch);
       EventsOn('session-started', handleSessionStarted);
       EventsOn('session-ended', handleSessionEnded);
 
       // 返回取消订阅函数
       return () => {
         if (EventsOff) {
-          EventsOff('events-batch');
+          EventsOff('session-events-batch');
           EventsOff('session-started');
           EventsOff('session-ended');
         }

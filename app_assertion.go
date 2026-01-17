@@ -279,7 +279,9 @@ func (a *App) ExecuteStoredAssertion(assertionID string) (*AssertionResult, erro
 	}
 	var metadata map[string]interface{}
 	if len(stored.Metadata) > 0 {
-		json.Unmarshal(stored.Metadata, &metadata)
+		if err := json.Unmarshal(stored.Metadata, &metadata); err != nil {
+			LogWarn("assertion").Err(err).Str("assertionId", stored.ID).Msg("Failed to unmarshal assertion metadata")
+		}
 	}
 
 	assertion := Assertion{
@@ -332,7 +334,9 @@ func (a *App) ExecuteStoredAssertionInSession(assertionID, sessionID, deviceID s
 	}
 	var metadata map[string]interface{}
 	if len(stored.Metadata) > 0 {
-		json.Unmarshal(stored.Metadata, &metadata)
+		if err := json.Unmarshal(stored.Metadata, &metadata); err != nil {
+			LogWarn("assertion").Err(err).Str("assertionId", stored.ID).Msg("Failed to unmarshal assertion metadata")
+		}
 	}
 
 	// Use provided sessionID/deviceID to override stored values (for global assertions)

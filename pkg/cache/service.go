@@ -2,6 +2,7 @@ package cache
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -154,7 +155,9 @@ func (s *Service) loadCache() {
 		return
 	}
 
-	_ = json.Unmarshal(data, &s.aaptCache)
+	if err := json.Unmarshal(data, &s.aaptCache); err != nil {
+		log.Printf("[cache] Failed to unmarshal aapt cache: %v", err)
+	}
 }
 
 // ========================================

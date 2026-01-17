@@ -28,6 +28,7 @@ type EventStore struct {
 	flushThreshold int
 	flushTicker    *time.Ticker
 	stopChan       chan struct{}
+	wg             sync.WaitGroup // 用于等待后台 goroutine 完成
 
 	// 预编译语句
 	stmtInsertEvent        *sql.Stmt
@@ -389,8 +390,10 @@ func (s *EventStore) prepareStatements() error {
 // startBackgroundWriter 启动后台写入
 func (s *EventStore) startBackgroundWriter() {
 	s.flushTicker = time.NewTicker(s.flushInterval)
+	s.wg.Add(1)
 
 	go func() {
+		defer s.wg.Done()
 		for {
 			select {
 			case <-s.flushTicker.C:
@@ -408,8 +411,8 @@ func (s *EventStore) startBackgroundWriter() {
 func (s *EventStore) Close() error {
 	close(s.stopChan)
 
-	// 等待最后的写入完成
-	time.Sleep(100 * time.Millisecond)
+	// 等待后台写入 goroutine 完成 (包括最后一次 Flush)
+	s.wg.Wait()
 
 	// 关闭预编译语句
 	if s.stmtInsertEvent != nil {
@@ -641,7 +644,9 @@ func (s *EventStore) scanSession(row *sql.Row) (*DeviceSession, error) {
 	session.VideoOffset = videoOffset.Int64
 
 	if metadata.Valid {
-		json.Unmarshal([]byte(metadata.String), &session.Metadata)
+		if err := json.Unmarshal([]byte(metadata.String), &session.Metadata); err != nil {
+			LogWarn("event_store").Err(err).Str("sessionId", session.ID).Msg("Failed to unmarshal session metadata")
+		}
 	}
 
 	return &session, nil
@@ -667,7 +672,9 @@ func (s *EventStore) scanSessionRow(rows *sql.Rows) (*DeviceSession, error) {
 	session.VideoOffset = videoOffset.Int64
 
 	if metadata.Valid {
-		json.Unmarshal([]byte(metadata.String), &session.Metadata)
+		if err := json.Unmarshal([]byte(metadata.String), &session.Metadata); err != nil {
+			LogWarn("event_store").Err(err).Str("sessionId", session.ID).Msg("Failed to unmarshal session metadata")
+		}
 	}
 
 	return &session, nil
@@ -1495,7 +1502,9 @@ func (s *EventStore) scanAssertion(row *sql.Row) (*StoredAssertion, error) {
 	}
 
 	if tags != "" && tags != "null" {
-		json.Unmarshal([]byte(tags), &a.Tags)
+		if err := json.Unmarshal([]byte(tags), &a.Tags); err != nil {
+			LogWarn("event_store").Err(err).Str("assertionId", a.ID).Msg("Failed to unmarshal assertion tags")
+		}
 	}
 	if metadata != "" && metadata != "null" {
 		a.Metadata = json.RawMessage(metadata)
@@ -1536,7 +1545,9 @@ func (s *EventStore) scanAssertionRow(rows *sql.Rows) (*StoredAssertion, error) 
 	}
 
 	if tags != "" && tags != "null" {
-		json.Unmarshal([]byte(tags), &a.Tags)
+		if err := json.Unmarshal([]byte(tags), &a.Tags); err != nil {
+			LogWarn("event_store").Err(err).Str("assertionId", a.ID).Msg("Failed to unmarshal assertion tags")
+		}
 	}
 	if metadata != "" && metadata != "null" {
 		a.Metadata = json.RawMessage(metadata)
@@ -1666,7 +1677,9 @@ func (s *EventStore) scanAssertionResult(row *sql.Row) (*StoredAssertionResult, 
 	r.Passed = passed != 0
 
 	if matchedEvents != "" && matchedEvents != "null" {
-		json.Unmarshal([]byte(matchedEvents), &r.MatchedEvents)
+		if err := json.Unmarshal([]byte(matchedEvents), &r.MatchedEvents); err != nil {
+			LogWarn("event_store").Err(err).Str("resultId", r.ID).Msg("Failed to unmarshal matched events")
+		}
 	}
 	if actualValue != "" && actualValue != "null" {
 		r.ActualValue = json.RawMessage(actualValue)
@@ -1701,7 +1714,9 @@ func (s *EventStore) scanAssertionResultRow(rows *sql.Rows) (*StoredAssertionRes
 	r.Passed = passed != 0
 
 	if matchedEvents != "" && matchedEvents != "null" {
-		json.Unmarshal([]byte(matchedEvents), &r.MatchedEvents)
+		if err := json.Unmarshal([]byte(matchedEvents), &r.MatchedEvents); err != nil {
+			LogWarn("event_store").Err(err).Str("resultId", r.ID).Msg("Failed to unmarshal matched events")
+		}
 	}
 	if actualValue != "" && actualValue != "null" {
 		r.ActualValue = json.RawMessage(actualValue)
