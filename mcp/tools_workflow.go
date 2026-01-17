@@ -36,7 +36,56 @@ func (s *MCPServer) registerWorkflowTools() {
 	// workflow_create - Create a new workflow
 	s.server.AddTool(
 		mcp.NewTool("workflow_create",
-			mcp.WithDescription("Create a new workflow with the given name and steps"),
+			mcp.WithDescription(`Create a new workflow with the given name and steps.
+
+A 'start' node is automatically added at the beginning - do NOT include it in steps_json.
+Steps are automatically linked sequentially.
+
+Step types and required fields:
+
+COORDINATE-BASED (no selector needed):
+- tap: {type:"tap", x:540, y:960} - tap at coordinates
+- swipe: {type:"swipe", x:540, y:1800, x2:540, y2:600} - swipe from (x,y) to (x2,y2)
+- swipe: {type:"swipe", x:540, y:960, swipe_direction:"up"} - swipe in direction (up/down/left/right)
+
+ELEMENT-BASED (requires selector):
+- click_element: {type:"click_element", selector:{type:"resourceId",value:"com.app:id/btn"}}
+- long_click_element: {type:"long_click_element", selector:{...}}
+- input_text: {type:"input_text", selector:{...}, value:"text to input"}
+- swipe_element: {type:"swipe_element", selector:{...}, value:"up"} - swipe direction on element
+- wait_element: {type:"wait_element", selector:{...}} - wait for element to appear
+- wait_gone: {type:"wait_gone", selector:{...}} - wait for element to disappear
+- assert_element: {type:"assert_element", selector:{...}, condition_type:"exists"}
+
+Selector types: resourceId, text, contentDesc, className, xpath
+
+APP OPERATIONS:
+- launch_app: {type:"launch_app", value:"com.example.app"}
+- stop_app: {type:"stop_app", value:"com.example.app"}
+- clear_app: {type:"clear_app", value:"com.example.app"}
+- open_settings: {type:"open_settings", value:"com.example.app"}
+
+KEY EVENTS:
+- key_back: {type:"key_back"}
+- key_home: {type:"key_home"}
+- key_recent: {type:"key_recent"}
+- key_power: {type:"key_power"}
+- key_volume_up: {type:"key_volume_up"}
+- key_volume_down: {type:"key_volume_down"}
+
+SCREEN:
+- screen_on: {type:"screen_on"}
+- screen_off: {type:"screen_off"}
+
+CONTROL:
+- wait: {type:"wait", value:"1000"} - wait milliseconds
+- adb: {type:"adb", value:"shell pm list packages"} - run adb command
+- set_variable: {type:"set_variable", name:"myVar", value:"myValue"}
+
+Optional fields for all steps:
+- name: step display name
+- timeout: timeout in ms (default 5000)
+- postDelay: delay after step in ms (default 500)`),
 			mcp.WithString("name",
 				mcp.Required(),
 				mcp.Description("Workflow name"),
@@ -45,7 +94,16 @@ func (s *MCPServer) registerWorkflowTools() {
 				mcp.Description("Workflow description"),
 			),
 			mcp.WithString("steps_json",
-				mcp.Description("JSON array of workflow steps. Each step should have: type (tap/swipe/input/wait/back/home/launch), and optionally: selector (with type and value), value, timeout, postDelay"),
+				mcp.Description(`JSON array of workflow steps. Example:
+[
+  {"type":"launch_app","value":"com.example.app"},
+  {"type":"wait","value":"2000"},
+  {"type":"tap","x":540,"y":960},
+  {"type":"swipe","x":540,"y":1800,"x2":540,"y2":600},
+  {"type":"click_element","selector":{"type":"resourceId","value":"com.app:id/button"}},
+  {"type":"input_text","selector":{"type":"resourceId","value":"com.app:id/input"},"value":"Hello"},
+  {"type":"key_back"}
+]`),
 			),
 		),
 		s.handleWorkflowCreate,
