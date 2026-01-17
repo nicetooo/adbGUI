@@ -42,6 +42,15 @@ interface LogcatState {
   matchCase: boolean;
   matchWholeWord: boolean;
   savedFilters: FilterPreset[];
+  
+  // Modal state
+  isSaveModalOpen: boolean;
+  newFilterName: string;
+  
+  // AI Search state
+  isAIParsing: boolean;
+  aiSearchText: string;
+  aiPopoverOpen: boolean;
 
   // Actions
   setLogs: (logs: string[] | ((prev: string[]) => string[])) => void;
@@ -64,6 +73,17 @@ interface LogcatState {
   setMatchCase: (match: boolean) => void;
   setMatchWholeWord: (match: boolean) => void;
   setSavedFilters: (filters: FilterPreset[] | ((prev: FilterPreset[]) => FilterPreset[])) => void;
+  
+  // Modal actions
+  setIsSaveModalOpen: (open: boolean) => void;
+  setNewFilterName: (name: string) => void;
+  openSaveModal: () => void;
+  closeSaveModal: () => void;
+  
+  // AI Search actions
+  setIsAIParsing: (parsing: boolean) => void;
+  setAiSearchText: (text: string) => void;
+  setAiPopoverOpen: (open: boolean) => void;
 
   // Logcat control
   toggleLogcat: (deviceId: string, pkg: string) => Promise<void>;
@@ -111,6 +131,15 @@ export const useLogcatStore = create<LogcatState>()(
         return [];
       }
     })(),
+    
+    // Modal state
+    isSaveModalOpen: false,
+    newFilterName: '',
+    
+    // AI Search state
+    isAIParsing: false,
+    aiSearchText: '',
+    aiPopoverOpen: false,
 
     // Actions
     setLogs: (logsOrUpdater) => {
@@ -164,6 +193,17 @@ export const useLogcatStore = create<LogcatState>()(
       state.savedFilters = nextFilters;
       localStorage.setItem("adbGUI_logcat_filters", JSON.stringify(nextFilters));
     }),
+    
+    // Modal actions
+    setIsSaveModalOpen: (open) => set({ isSaveModalOpen: open }),
+    setNewFilterName: (name) => set({ newFilterName: name }),
+    openSaveModal: () => set({ isSaveModalOpen: true, newFilterName: '' }),
+    closeSaveModal: () => set({ isSaveModalOpen: false, newFilterName: '' }),
+    
+    // AI Search actions
+    setIsAIParsing: (parsing) => set({ isAIParsing: parsing }),
+    setAiSearchText: (text) => set({ aiSearchText: text }),
+    setAiPopoverOpen: (open) => set({ aiPopoverOpen: open }),
 
     toggleLogcat: async (deviceId: string, pkg: string) => {
       const { isLogging } = get();

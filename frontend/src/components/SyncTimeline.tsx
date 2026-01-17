@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, useState } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { Card, Space, Typography, Tag, Tooltip, Button } from 'antd';
 import {
   PlayCircleOutlined,
@@ -10,6 +10,7 @@ import {
   HighlightOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { useUIStore } from '../stores/uiStore';
 
 const { Text } = Typography;
 
@@ -77,7 +78,7 @@ const SyncTimeline: React.FC<SyncTimelineProps> = ({
 }) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(0);
+  const { syncTimelineContainerWidth: containerWidth, setSyncTimelineContainerWidth: setContainerWidth } = useUIStore();
 
   // Update container width on resize
   useEffect(() => {
@@ -90,7 +91,7 @@ const SyncTimeline: React.FC<SyncTimelineProps> = ({
     updateWidth();
     window.addEventListener('resize', updateWidth);
     return () => window.removeEventListener('resize', updateWidth);
-  }, []);
+  }, [setContainerWidth]);
 
   // Calculate position for a given time
   const timeToPosition = useCallback(

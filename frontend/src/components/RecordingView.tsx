@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   Button,
   Space,
@@ -70,21 +70,27 @@ const RecordingView: React.FC = () => {
     subscribeToEvents,
     submitSelectorChoice,
     setRecordingMode,
+    // RecordingView UI state from store
+    selectedScriptNames,
+    saveModalVisible,
+    scriptName,
+    renameModalVisible,
+    editingScriptName,
+    newScriptName,
+    selectedScript,
+    setSelectedScriptNames,
+    setSaveModalVisible,
+    setScriptName,
+    openRenameModal,
+    closeRenameModal,
+    closeSaveModal,
+    setSelectedScript,
+    setNewScriptName,
   } = useAutomationStore();
-
-  const [selectedScriptNames, setSelectedScriptNames] = useState<string[]>([]);
 
   const { t } = useTranslation();
   const { token } = theme.useToken();
 
-  const [saveModalVisible, setSaveModalVisible] = useState(false);
-  const [scriptName, setScriptName] = useState("");
-
-  const [renameModalVisible, setRenameModalVisible] = useState(false);
-  const [editingScriptName, setEditingScriptName] = useState("");
-  const [newScriptName, setNewScriptName] = useState("");
-
-  const [selectedScript, setSelectedScript] = useState<TouchScript | null>(null);
   const durationIntervalRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -157,8 +163,7 @@ const RecordingView: React.FC = () => {
       });
       await saveScript(scriptToSave);
       message.success(t("automation.script_saved"));
-      setSaveModalVisible(false);
-      setScriptName("");
+      closeSaveModal();
       setCurrentScript(null);
     } catch (err) {
       message.error(String(err));
@@ -208,9 +213,7 @@ const RecordingView: React.FC = () => {
     try {
       await renameScript(editingScriptName, newScriptName);
       message.success(t("automation.script_renamed"));
-      setRenameModalVisible(false);
-      setEditingScriptName("");
-      setNewScriptName("");
+      closeRenameModal();
     } catch (err) {
       message.error(String(err));
     }
@@ -799,9 +802,7 @@ const RecordingView: React.FC = () => {
                             icon={<EditOutlined />}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setEditingScriptName(script.name);
-                              setNewScriptName(script.name);
-                              setRenameModalVisible(true);
+                              openRenameModal(script.name);
                             }}
                             disabled={isRecording || isPlaying}
                           />
@@ -843,9 +844,11 @@ const RecordingView: React.FC = () => {
                           onChange={(e) => {
                             e.stopPropagation();
                             const name = script.name;
-                            setSelectedScriptNames(prev =>
-                              e.target.checked ? [...prev, name] : prev.filter(n => n !== name)
-                            );
+                            if (e.target.checked) {
+                              setSelectedScriptNames([...selectedScriptNames, name]);
+                            } else {
+                              setSelectedScriptNames(selectedScriptNames.filter(n => n !== name));
+                            }
                           }}
                           style={{ marginRight: 12 }}
                         />
@@ -873,10 +876,7 @@ const RecordingView: React.FC = () => {
         title={t("recording.save_script")}
         open={saveModalVisible}
         onOk={handleSaveScript}
-        onCancel={() => {
-          setSaveModalVisible(false);
-          setScriptName("");
-        }}
+        onCancel={closeSaveModal}
         okText={t("common.ok")}
         cancelText={t("common.cancel")}
       >
@@ -893,11 +893,7 @@ const RecordingView: React.FC = () => {
         title={t("recording.rename_script")}
         open={renameModalVisible}
         onOk={handleRenameScript}
-        onCancel={() => {
-          setRenameModalVisible(false);
-          setEditingScriptName("");
-          setNewScriptName("");
-        }}
+        onCancel={closeRenameModal}
         okText={t("common.ok")}
         cancelText={t("common.cancel")}
       >

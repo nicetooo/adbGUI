@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import {
   Modal,
   Button,
@@ -26,6 +26,7 @@ import {
 } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useDeviceStore, Device, BatchOperation, BatchResult } from "../stores";
+import { useBatchOperationStore } from "../stores/batchOperationStore";
 
 const { Text } = Typography;
 
@@ -55,13 +56,22 @@ const BatchOperationModal: React.FC<BatchOperationModalProps> = ({
     clearSelection,
   } = useDeviceStore();
 
-  const [operationType, setOperationType] = useState<OperationType>("shell");
-  const [packageName, setPackageName] = useState("");
-  const [apkPath, setApkPath] = useState("");
-  const [command, setCommand] = useState("");
-  const [localPath, setLocalPath] = useState("");
-  const [remotePath, setRemotePath] = useState("/sdcard/");
-  const [executed, setExecuted] = useState(false);
+  const {
+    operationType,
+    packageName,
+    apkPath,
+    command,
+    localPath,
+    remotePath,
+    executed,
+    setOperationType,
+    setPackageName,
+    setApkPath,
+    setCommand,
+    setLocalPath,
+    setRemotePath,
+    setExecuted,
+  } = useBatchOperationStore();
 
   // Subscribe to batch progress events
   useEffect(() => {

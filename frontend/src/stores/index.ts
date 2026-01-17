@@ -48,3 +48,53 @@ export type {
   SessionVideoInfo,
   Recording,
 } from './videoStore';
+
+// Session Manager Store
+export { useSessionManagerStore } from './sessionManagerStore';
+
+// Event Timeline Store
+export { useEventTimelineStore } from './eventTimelineStore';
+
+// Workflow Generator Store
+export { useWorkflowGeneratorStore } from './workflowGeneratorStore';
+
+// Smart Search Store
+export { useSmartSearchStore } from './smartSearchStore';
+export type { NLParsedQuery, NLQueryResult } from './smartSearchStore';
+
+// Wireless Connect Store
+export { useWirelessConnectStore } from './wirelessConnectStore';
+
+// Session Config Store
+export { useSessionConfigStore } from './sessionConfigStore';
+
+// Virtual Table Store
+export { useVirtualTableStore } from './virtualTableStore';
+export type { SortConfig } from './virtualTableStore';
+
+// Feedback Store
+export { useFeedbackStore } from './feedbackStore';
+
+// Element Picker Store
+export { useElementPickerStore } from './elementPickerStore';
+
+// Crash Analysis Store
+export { useCrashAnalysisStore } from './crashAnalysisStore';
+
+// Device Info Modal Store
+export { useDeviceInfoModalStore } from './deviceInfoModalStore';
+
+// Batch Operation Store
+export { useBatchOperationStore } from './batchOperationStore';
+
+// Workflow Anomaly Store
+export { useWorkflowAnomalyStore } from './workflowAnomalyStore';
+
+// Assertions Panel Store
+export { useAssertionsPanelStore } from './assertionsPanelStore';
+
+// Automation View Store
+export { useAutomationViewStore } from './automationViewStore';
+
+// Thumbnail Store (for FilesView)
+export { useThumbnailStore } from './thumbnailStore';

@@ -1,7 +1,7 @@
 import { Modal, Input, Checkbox, Tabs, Typography, Space } from "antd";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { GetBackendLogs } from "../../wailsjs/go/main/App";
+import { useFeedbackStore } from "../stores/feedbackStore";
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -13,38 +13,27 @@ interface FeedbackModalProps {
   deviceInfo: string;
 }
 
-declare global {
-  interface Window {
-    runtimeLogs: string[];
-  }
-}
-
 const FeedbackModal = ({ open, onCancel, appVersion, deviceInfo }: FeedbackModalProps) => {
   const { t } = useTranslation();
-  const [backendLogs, setBackendLogs] = useState<string[]>([]);
-  const [frontendLogs, setFrontendLogs] = useState<string[]>([]);
-  const [selectedBackendLogs, setSelectedBackendLogs] = useState<Set<number>>(new Set());
-  const [selectedFrontendLogs, setSelectedFrontendLogs] = useState<Set<number>>(new Set());
-  const [description, setDescription] = useState("");
+  const {
+    backendLogs,
+    frontendLogs,
+    selectedBackendLogs,
+    selectedFrontendLogs,
+    description,
+    setDescription,
+    toggleAllBackend,
+    toggleAllFrontend,
+    toggleBackendLog,
+    toggleFrontendLog,
+    fetchLogs,
+  } = useFeedbackStore();
 
   useEffect(() => {
     if (open) {
       fetchLogs();
     }
-  }, [open]);
-
-  const fetchLogs = async () => {
-    try {
-      const bLogs = await GetBackendLogs();
-      setBackendLogs(bLogs || []);
-      // Pre-select all by default? Or maybe just allow picking
-
-      const fLogs = window.runtimeLogs || [];
-      setFrontendLogs(fLogs);
-    } catch (err) {
-      console.error("Failed to fetch logs:", err);
-    }
-  };
+  }, [open, fetchLogs]);
 
   const handleOk = () => {
     let feedbackText = `### Description\n${description || "(No description provided)"}\n\n`;
@@ -69,22 +58,6 @@ const FeedbackModal = ({ open, onCancel, appVersion, deviceInfo }: FeedbackModal
     // @ts-ignore
     window.runtime.BrowserOpenURL(url);
     onCancel();
-  };
-
-  const toggleAllBackend = (checked: boolean) => {
-    if (checked) {
-      setSelectedBackendLogs(new Set(backendLogs.map((_, i) => i)));
-    } else {
-      setSelectedBackendLogs(new Set());
-    }
-  };
-
-  const toggleAllFrontend = (checked: boolean) => {
-    if (checked) {
-      setSelectedFrontendLogs(new Set(frontendLogs.map((_, i) => i)));
-    } else {
-      setSelectedFrontendLogs(new Set());
-    }
   };
 
   return (
@@ -133,12 +106,7 @@ const FeedbackModal = ({ open, onCancel, appVersion, deviceInfo }: FeedbackModal
                       <div key={index} style={{ display: "flex", alignItems: "flex-start", padding: "4px 0" }}>
                         <Checkbox
                           checked={selectedBackendLogs.has(index)}
-                          onChange={(e) => {
-                            const next = new Set(selectedBackendLogs);
-                            if (e.target.checked) next.add(index);
-                            else next.delete(index);
-                            setSelectedBackendLogs(next);
-                          }}
+                          onChange={(e) => toggleBackendLog(index, e.target.checked)}
                         >
                           <Text code style={{ fontSize: "12px", whiteSpace: "pre-wrap" }}>{log}</Text>
                         </Checkbox>
@@ -167,12 +135,7 @@ const FeedbackModal = ({ open, onCancel, appVersion, deviceInfo }: FeedbackModal
                       <div key={index} style={{ display: "flex", alignItems: "flex-start", padding: "4px 0" }}>
                         <Checkbox
                           checked={selectedFrontendLogs.has(index)}
-                          onChange={(e) => {
-                            const next = new Set(selectedFrontendLogs);
-                            if (e.target.checked) next.add(index);
-                            else next.delete(index);
-                            setSelectedFrontendLogs(next);
-                          }}
+                          onChange={(e) => toggleFrontendLog(index, e.target.checked)}
                         >
                           <Text code style={{ fontSize: "12px", whiteSpace: "pre-wrap" }}>{log}</Text>
                         </Checkbox>

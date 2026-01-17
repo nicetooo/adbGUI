@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useCallback } from 'react';
 import {
   Card,
   Button,
@@ -31,6 +31,7 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAIStore } from '../stores/aiStore';
+import { useCrashAnalysisStore } from '../stores/crashAnalysisStore';
 
 const { Text, Title, Paragraph } = Typography;
 const { Panel } = Collapse;
@@ -120,11 +121,17 @@ const CrashAnalysis: React.FC<CrashAnalysisProps> = ({
   const { t } = useTranslation();
   const { serviceInfo } = useAIStore();
 
-  // State
-  const [selectedCrash, setSelectedCrash] = useState<CrashEvent | null>(null);
-  const [analysis, setAnalysis] = useState<RootCauseAnalysis | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // State from store
+  const {
+    selectedCrash,
+    analysis,
+    isAnalyzing,
+    error,
+    setSelectedCrash,
+    setAnalysis,
+    setIsAnalyzing,
+    setError,
+  } = useCrashAnalysisStore();
 
   // Check if AI is available
   const isAIAvailable = serviceInfo?.status === 'ready';

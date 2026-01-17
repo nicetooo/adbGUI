@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   Card,
   Button,
@@ -34,6 +34,7 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAIStore } from '../stores/aiStore';
+import { useWorkflowGeneratorStore } from '../stores/workflowGeneratorStore';
 
 // Wails event listener
 const EventsOn = (window as any).runtime?.EventsOn;
@@ -105,39 +106,36 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
   const { serviceInfo } = useAIStore();
   const { token } = theme.useToken();
 
-  // State
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [progressMessage, setProgressMessage] = useState('');
-  const [progressStage, setProgressStage] = useState('');
-  const [generatedWorkflow, setGeneratedWorkflow] = useState<GeneratedWorkflow | null>(null);
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null);
-  const [editingIndex, setEditingIndex] = useState(-1);
-  const [configModalVisible, setConfigModalVisible] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [aiLogs, setAiLogs] = useState<Array<{
-    stage: string;
-    message: string;
-    timestamp: number;
-    frameBase64?: string;
-    frameIndex?: number;
-    frameTimeMs?: number;
-    sceneType?: string;
-    description?: string;
-    ocrText?: string[];
-  }>>([]); // AI interaction logs
-
-  // Config state
-  const [config, setConfig] = useState({
-    includeWaits: true,
-    optimizeSelectors: true,
-    detectLoops: true,
-    detectBranches: true,
-    generateAssertions: false,
-    minConfidence: 0.7,
-    useVideoAnalysis: true,
-  });
+  // Store state
+  const {
+    isGenerating,
+    progress,
+    progressMessage,
+    progressStage,
+    generatedWorkflow,
+    editModalVisible,
+    editingStep,
+    editingIndex,
+    configModalVisible,
+    error,
+    aiLogs,
+    config,
+    setIsGenerating,
+    setProgress,
+    setProgressMessage,
+    setProgressStage,
+    setGeneratedWorkflow,
+    openEditModal,
+    closeEditModal,
+    openConfigModal,
+    closeConfigModal,
+    setError,
+    addAiLog,
+    clearAiLogs,
+    setConfig,
+    resetGeneration,
+    updateEditingStep,
+  } = useWorkflowGeneratorStore();
 
   // Listen for progress events
   useEffect(() => {
@@ -161,7 +159,7 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
       // Log AI-related stages for debugging
       const aiStages = ['ai_prompt', 'ai_response', 'ai_error', 'ai_enhancement', 'frame_analyzed', 'frame_analysis_error'];
       if (aiStages.includes(data.stage)) {
-        setAiLogs(prev => [...prev, {
+        addAiLog({
           stage: data.stage,
           message: data.message,
           timestamp: Date.now(),
@@ -171,7 +169,7 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
           sceneType: data.sceneType,
           description: data.description,
           ocrText: data.ocrText,
-        }]);
+        });
       }
     };
 
@@ -182,7 +180,7 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
         EventsOff('workflow-gen-progress');
       }
     };
-  }, []);
+  }, [setProgress, setProgressMessage, setProgressStage, addAiLog]);
 
   // Generate workflow
   const handleGenerate = useCallback(async () => {
@@ -196,7 +194,7 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
     setProgressMessage('Starting workflow generation...');
     setProgressStage('starting');
     setError(null);
-    setAiLogs([]); // Clear previous logs
+    clearAiLogs(); // Clear previous logs
 
     try {
       const result = await AIGenerateWorkflow(sessionId, {
@@ -218,7 +216,7 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [sessionId, config, onGenerated, t]);
+  }, [sessionId, config, onGenerated, t, setIsGenerating, setProgress, setProgressMessage, setProgressStage, setError, clearAiLogs, setGeneratedWorkflow]);
 
   // Save workflow
   const handleSave = useCallback(async () => {
@@ -245,9 +243,7 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
 
   // Edit step
   const handleEditStep = (step: WorkflowStep, index: number) => {
-    setEditingStep({ ...step });
-    setEditingIndex(index);
-    setEditModalVisible(true);
+    openEditModal({ ...step }, index);
   };
 
   // Save step edit
@@ -262,9 +258,7 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
       steps: newSteps,
     });
 
-    setEditModalVisible(false);
-    setEditingStep(null);
-    setEditingIndex(-1);
+    closeEditModal();
   };
 
   // Delete step
@@ -758,22 +752,20 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
         title={t('workflow.edit_step', 'Edit Step')}
         open={editModalVisible}
         onOk={handleSaveStepEdit}
-        onCancel={() => setEditModalVisible(false)}
+        onCancel={closeEditModal}
       >
         {editingStep && (
           <Form layout="vertical">
             <Form.Item label={t('workflow.step_name', 'Step Name')}>
               <Input
                 value={editingStep.name}
-                onChange={(e) =>
-                  setEditingStep({ ...editingStep, name: e.target.value })
-                }
+                onChange={(e) => updateEditingStep({ name: e.target.value })}
               />
             </Form.Item>
             <Form.Item label={t('workflow.step_type', 'Step Type')}>
               <Select
                 value={editingStep.type}
-                onChange={(value) => setEditingStep({ ...editingStep, type: value })}
+                onChange={(value) => updateEditingStep({ type: value })}
               >
                 <Select.Option value="click">Click</Select.Option>
                 <Select.Option value="tap">Tap</Select.Option>
@@ -790,8 +782,7 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
                   <Select
                     value={editingStep.selector.type}
                     onChange={(value) =>
-                      setEditingStep({
-                        ...editingStep,
+                      updateEditingStep({
                         selector: { ...editingStep.selector!, type: value },
                       })
                     }
@@ -806,8 +797,7 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
                   <Input.TextArea
                     value={editingStep.selector.value}
                     onChange={(e) =>
-                      setEditingStep({
-                        ...editingStep,
+                      updateEditingStep({
                         selector: { ...editingStep.selector!, value: e.target.value },
                       })
                     }
@@ -820,9 +810,7 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
               <Form.Item label={t('workflow.input_value', 'Input Value')}>
                 <Input
                   value={editingStep.value}
-                  onChange={(e) =>
-                    setEditingStep({ ...editingStep, value: e.target.value })
-                  }
+                  onChange={(e) => updateEditingStep({ value: e.target.value })}
                 />
               </Form.Item>
             )}
@@ -831,10 +819,7 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
                 type="number"
                 value={editingStep.timeout}
                 onChange={(e) =>
-                  setEditingStep({
-                    ...editingStep,
-                    timeout: parseInt(e.target.value) || 5000,
-                  })
+                  updateEditingStep({ timeout: parseInt(e.target.value) || 5000 })
                 }
               />
             </Form.Item>
@@ -846,48 +831,44 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
       <Modal
         title={t('workflow.generation_config', 'Generation Settings')}
         open={configModalVisible}
-        onOk={() => setConfigModalVisible(false)}
-        onCancel={() => setConfigModalVisible(false)}
+        onOk={closeConfigModal}
+        onCancel={closeConfigModal}
       >
         <Form layout="vertical">
           <Form.Item label={t('workflow.include_waits', 'Include Wait Steps')}>
             <Switch
               checked={config.includeWaits}
-              onChange={(checked) => setConfig({ ...config, includeWaits: checked })}
+              onChange={(checked) => setConfig({ includeWaits: checked })}
             />
           </Form.Item>
           <Form.Item label={t('workflow.optimize_selectors', 'Optimize Selectors')}>
             <Switch
               checked={config.optimizeSelectors}
-              onChange={(checked) =>
-                setConfig({ ...config, optimizeSelectors: checked })
-              }
+              onChange={(checked) => setConfig({ optimizeSelectors: checked })}
             />
           </Form.Item>
           <Form.Item label={t('workflow.detect_loops', 'Detect Repeat Patterns')}>
             <Switch
               checked={config.detectLoops}
-              onChange={(checked) => setConfig({ ...config, detectLoops: checked })}
+              onChange={(checked) => setConfig({ detectLoops: checked })}
             />
           </Form.Item>
           <Form.Item label={t('workflow.detect_branches', 'Detect Branches')}>
             <Switch
               checked={config.detectBranches}
-              onChange={(checked) => setConfig({ ...config, detectBranches: checked })}
+              onChange={(checked) => setConfig({ detectBranches: checked })}
             />
           </Form.Item>
           <Form.Item label={t('workflow.generate_assertions', 'Generate Assertions')}>
             <Switch
               checked={config.generateAssertions}
-              onChange={(checked) =>
-                setConfig({ ...config, generateAssertions: checked })
-              }
+              onChange={(checked) => setConfig({ generateAssertions: checked })}
             />
           </Form.Item>
           <Form.Item label={t('workflow.min_confidence', 'Minimum Confidence')}>
             <Select
               value={config.minConfidence}
-              onChange={(value) => setConfig({ ...config, minConfidence: value })}
+              onChange={(value) => setConfig({ minConfidence: value })}
             >
               <Select.Option value={0.5}>50%</Select.Option>
               <Select.Option value={0.7}>70%</Select.Option>
@@ -906,7 +887,7 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
           >
             <Switch
               checked={config.useVideoAnalysis}
-              onChange={(checked) => setConfig({ ...config, useVideoAnalysis: checked })}
+              onChange={(checked) => setConfig({ useVideoAnalysis: checked })}
             />
           </Form.Item>
         </Form>
@@ -928,7 +909,7 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
         onCancel={onClose}
         width={800}
         footer={[
-          <Button key="settings" icon={<SettingOutlined />} onClick={() => setConfigModalVisible(true)} disabled={isGenerating}>
+          <Button key="settings" icon={<SettingOutlined />} onClick={openConfigModal} disabled={isGenerating}>
             {t('common.settings', 'Settings')}
           </Button>,
           <Button
@@ -967,7 +948,7 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
         <Space>
           <Button
             icon={<SettingOutlined />}
-            onClick={() => setConfigModalVisible(true)}
+            onClick={openConfigModal}
             disabled={isGenerating}
           >
             {t('common.settings', 'Settings')}

@@ -182,6 +182,55 @@ go test ./...
 
 ## 开发注意事项
 
+### 前端状态管理规范
+
+**所有应用状态必须在 Zustand Store 中管理**，禁止在组件中使用独立的 `useState` 管理业务状态。
+
+```
+frontend/src/stores/
+├── eventStore.ts       # 事件和时间线状态
+├── sessionStore.ts     # 会话状态（兼容层）
+├── deviceStore.ts      # 设备列表和选中状态
+├── workflowStore.ts    # 工作流编辑和执行状态
+├── automationStore.ts  # 触摸录制和任务状态
+├── proxyStore.ts       # 代理和网络请求状态
+├── aiStore.ts          # AI 服务配置和调用状态
+├── uiStore.ts          # 全局 UI 状态（导航、模态框）
+└── ...                 # 其他领域状态
+```
+
+**规范要点**:
+
+1. **禁止使用 `useState`**: 组件中不允许使用 `useState` 管理任何状态
+2. **所有状态 → Store**: 包括 UI 状态、表单状态、临时状态都必须放在对应的 Store
+3. **后端事件 → Store**: 所有 Wails 事件订阅的数据更新必须写入 Store
+4. **新增状态**: 如需新状态，在现有 Store 中添加或创建新的 Store 文件
+
+**正确示例**:
+```typescript
+// ✅ 在 Store 中管理业务状态
+const useDeviceStore = create<DeviceState>((set) => ({
+  devices: [],
+  selectedDevice: null,
+  setSelectedDevice: (device) => set({ selectedDevice: device }),
+}));
+
+// ✅ 组件中使用 Store
+function DeviceList() {
+  const { devices, selectedDevice, setSelectedDevice } = useDeviceStore();
+  return <List data={devices} onSelect={setSelectedDevice} />;
+}
+```
+
+**错误示例**:
+```typescript
+// ❌ 在组件中用 useState 管理业务状态
+function DeviceList() {
+  const [devices, setDevices] = useState([]);  // 错误！应该放在 Store
+  const [selected, setSelected] = useState(null);  // 错误！应该放在 Store
+}
+```
+
 ### Session 生命周期
 
 1. **自动创建**: 当设备产生事件但无活跃 Session 时，自动创建 "auto" 类型 Session

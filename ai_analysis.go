@@ -27,12 +27,12 @@ type NLQueryResult struct {
 
 // NLParsedQuery represents a parsed natural language query (separate from EventQuery in event_store.go)
 type NLParsedQuery struct {
-	Types      []string        `json:"types,omitempty"`      // Event types to filter
-	Sources    []string        `json:"sources,omitempty"`    // Event sources
-	Levels     []string        `json:"levels,omitempty"`     // Event levels
-	Keywords   []string        `json:"keywords,omitempty"`   // Keywords to search
-	TimeRange  *NLTimeRange    `json:"timeRange,omitempty"`  // Time range filter
-	Context    string          `json:"context,omitempty"`    // Contextual filter (e.g., "after login")
+	Types     []string     `json:"types,omitempty"`     // Event types to filter
+	Sources   []string     `json:"sources,omitempty"`   // Event sources
+	Levels    []string     `json:"levels,omitempty"`    // Event levels
+	Keywords  []string     `json:"keywords,omitempty"`  // Keywords to search
+	TimeRange *NLTimeRange `json:"timeRange,omitempty"` // Time range filter
+	Context   string       `json:"context,omitempty"`   // Contextual filter (e.g., "after login")
 }
 
 // NLTimeRange represents a time range for natural language queries
@@ -150,13 +150,13 @@ func parseQuerySimple(query string) *NLQueryResult {
 
 	// Detect event types
 	typeKeywords := map[string][]string{
-		"app_crash":     {"crash", "崩溃", "闪退"},
-		"app_anr":       {"anr", "无响应", "not responding"},
-		"http_request":  {"http", "network", "request", "api", "网络", "请求"},
-		"logcat":        {"log", "日志"},
-		"touch":         {"touch", "tap", "click", "点击", "触摸"},
-		"app_start":     {"start", "launch", "启动"},
-		"app_stop":      {"stop", "close", "关闭"},
+		"app_crash":      {"crash", "崩溃", "闪退"},
+		"app_anr":        {"anr", "无响应", "not responding"},
+		"http_request":   {"http", "network", "request", "api", "网络", "请求"},
+		"logcat":         {"log", "日志"},
+		"touch":          {"touch", "tap", "click", "点击", "触摸"},
+		"app_start":      {"start", "launch", "启动"},
+		"app_stop":       {"stop", "close", "关闭"},
 		"battery_change": {"battery", "电池"},
 	}
 
@@ -356,18 +356,18 @@ Return JSON: {"classification": "...", "severity": 0.0, "suggestedAction": "..."
 
 // RootCauseAnalysis represents crash root cause analysis result
 type RootCauseAnalysis struct {
-	CrashEventID   string           `json:"crashEventId"`
-	ProbableCauses []CauseCandidate `json:"probableCauses"`
-	RelatedEvents  []string         `json:"relatedEvents"` // Event IDs
-	Summary        string           `json:"summary"`
-	Recommendations []string        `json:"recommendations"`
-	Confidence     float32          `json:"confidence"`
+	CrashEventID    string           `json:"crashEventId"`
+	ProbableCauses  []CauseCandidate `json:"probableCauses"`
+	RelatedEvents   []string         `json:"relatedEvents"` // Event IDs
+	Summary         string           `json:"summary"`
+	Recommendations []string         `json:"recommendations"`
+	Confidence      float32          `json:"confidence"`
 }
 
 // CauseCandidate represents a probable cause
 type CauseCandidate struct {
 	EventID     string  `json:"eventId,omitempty"`
-	Type        string  `json:"type"`        // "network_error", "memory", "exception", etc.
+	Type        string  `json:"type"` // "network_error", "memory", "exception", etc.
 	Description string  `json:"description"`
 	Probability float32 `json:"probability"`
 }
@@ -567,7 +567,7 @@ type AssertionSuggestion struct {
 	Condition   string   `json:"condition"`   // Assertion condition
 	Description string   `json:"description"` // Human-readable description
 	Confidence  float32  `json:"confidence"`
-	Examples    []string `json:"examples"`    // Example event IDs that support this assertion
+	Examples    []string `json:"examples"` // Example event IDs that support this assertion
 }
 
 // SuggestAssertions suggests assertions based on session events
@@ -651,391 +651,6 @@ func (a *App) SuggestAssertions(sessionID string) ([]AssertionSuggestion, error)
 	}
 
 	return suggestions, nil
-}
-
-// ========================================
-// Session Summary - 会话总结
-// ========================================
-
-// SessionSummary represents an AI-generated session summary
-type SessionSummary struct {
-	SessionID    string              `json:"sessionId"`
-	Duration     int64               `json:"duration"`     // Duration in ms
-	EventCount   int                 `json:"eventCount"`   // Total events
-	Overview     string              `json:"overview"`     // Brief overview
-	KeyFindings  []SessionFinding    `json:"keyFindings"`  // Important findings
-	Timeline     []TimelineHighlight `json:"timeline"`     // Key moments
-	Statistics   SessionStats        `json:"statistics"`   // Event statistics
-	Suggestions  []string            `json:"suggestions"`  // Improvement suggestions
-	GeneratedAt  int64               `json:"generatedAt"`  // When generated
-}
-
-// SessionFinding represents a key finding in the session
-type SessionFinding struct {
-	Type        string  `json:"type"`        // "error", "warning", "info", "success"
-	Title       string  `json:"title"`       // Short title
-	Description string  `json:"description"` // Detailed description
-	EventIDs    []string `json:"eventIds,omitempty"` // Related event IDs
-	Severity    float32 `json:"severity"`    // 0.0 - 1.0
-}
-
-// TimelineHighlight represents a key moment in the timeline
-type TimelineHighlight struct {
-	Timestamp   int64  `json:"timestamp"`
-	RelativeMs  int64  `json:"relativeMs"` // Relative to session start
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	EventID     string `json:"eventId,omitempty"`
-}
-
-// SessionStats contains session statistics
-type SessionStats struct {
-	TotalEvents     int            `json:"totalEvents"`
-	EventsBySource  map[string]int `json:"eventsBySource"`
-	EventsByLevel   map[string]int `json:"eventsByLevel"`
-	ErrorCount      int            `json:"errorCount"`
-	WarningCount    int            `json:"warningCount"`
-	CrashCount      int            `json:"crashCount"`
-	NetworkRequests int            `json:"networkRequests"`
-	TouchEvents     int            `json:"touchEvents"`
-}
-
-// SummarizeSession generates an AI summary of a session
-func (a *App) SummarizeSession(sessionID string) (*SessionSummary, error) {
-	if a.eventStore == nil {
-		return nil, fmt.Errorf("event store not initialized")
-	}
-
-	// Get session info
-	session, err := a.eventStore.GetSession(sessionID)
-	if err != nil {
-		return nil, fmt.Errorf("session not found: %w", err)
-	}
-
-	// Get all events from the session
-	result, err := a.eventStore.QueryEvents(EventQuery{
-		SessionID: sessionID,
-		Limit:     2000, // Get more events for comprehensive summary
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	events := result.Events
-
-	// Calculate basic statistics
-	stats := calculateSessionStats(events)
-
-	// Calculate duration
-	var duration int64
-	if session.EndTime > 0 {
-		duration = session.EndTime - session.StartTime
-	} else {
-		duration = time.Now().UnixMilli() - session.StartTime
-	}
-
-	// Build basic summary
-	summary := &SessionSummary{
-		SessionID:   sessionID,
-		Duration:    duration,
-		EventCount:  len(events),
-		Statistics:  stats,
-		GeneratedAt: time.Now().UnixMilli(),
-		KeyFindings: []SessionFinding{},
-		Timeline:    []TimelineHighlight{},
-		Suggestions: []string{},
-	}
-
-	// Extract key findings from events (heuristic analysis)
-	summary.KeyFindings = extractKeyFindings(events, session.StartTime)
-	summary.Timeline = extractTimelineHighlights(events, session.StartTime)
-
-	// Generate basic overview
-	summary.Overview = generateBasicOverview(stats, duration)
-
-	// Try AI-enhanced summary if available
-	a.aiServiceMu.RLock()
-	aiService := a.aiService
-	config := a.aiConfigMgr.GetConfig()
-	a.aiServiceMu.RUnlock()
-
-	if aiService != nil && aiService.IsReady() && config.Enabled {
-		aiSummary, err := a.summarizeSessionWithAI(session, events, stats)
-		if err == nil && aiSummary != nil {
-			// Merge AI summary with basic summary
-			summary.Overview = aiSummary.Overview
-			if len(aiSummary.KeyFindings) > 0 {
-				summary.KeyFindings = aiSummary.KeyFindings
-			}
-			if len(aiSummary.Suggestions) > 0 {
-				summary.Suggestions = aiSummary.Suggestions
-			}
-		}
-	}
-
-	return summary, nil
-}
-
-// calculateSessionStats calculates statistics from events
-func calculateSessionStats(events []UnifiedEvent) SessionStats {
-	stats := SessionStats{
-		TotalEvents:    len(events),
-		EventsBySource: make(map[string]int),
-		EventsByLevel:  make(map[string]int),
-	}
-
-	for _, e := range events {
-		stats.EventsBySource[string(e.Source)]++
-		stats.EventsByLevel[string(e.Level)]++
-
-		switch e.Level {
-		case LevelError, LevelFatal:
-			stats.ErrorCount++
-		case LevelWarn:
-			stats.WarningCount++
-		}
-
-		switch e.Type {
-		case "app_crash", "app_anr":
-			stats.CrashCount++
-		case "http_request":
-			stats.NetworkRequests++
-		case "touch", "gesture":
-			stats.TouchEvents++
-		}
-	}
-
-	return stats
-}
-
-// extractKeyFindings extracts important findings from events
-func extractKeyFindings(events []UnifiedEvent, _ int64) []SessionFinding {
-	findings := []SessionFinding{}
-
-	// Track crashes
-	var crashEvents []UnifiedEvent
-	var errorEvents []UnifiedEvent
-	var networkErrors []UnifiedEvent
-
-	for _, e := range events {
-		if e.Type == "app_crash" || e.Type == "app_anr" {
-			crashEvents = append(crashEvents, e)
-		}
-		if e.Level == LevelError || e.Level == LevelFatal {
-			errorEvents = append(errorEvents, e)
-		}
-		if e.Source == SourceNetwork && e.Level == LevelError {
-			networkErrors = append(networkErrors, e)
-		}
-	}
-
-	// Report crashes
-	if len(crashEvents) > 0 {
-		eventIDs := make([]string, len(crashEvents))
-		for i, e := range crashEvents {
-			eventIDs[i] = e.ID
-		}
-		findings = append(findings, SessionFinding{
-			Type:        "error",
-			Title:       fmt.Sprintf("%d Crash(es) Detected", len(crashEvents)),
-			Description: fmt.Sprintf("Application crashed or became unresponsive %d time(s)", len(crashEvents)),
-			EventIDs:    eventIDs,
-			Severity:    1.0,
-		})
-	}
-
-	// Report error concentration
-	if len(errorEvents) > 5 {
-		findings = append(findings, SessionFinding{
-			Type:        "warning",
-			Title:       fmt.Sprintf("%d Errors Logged", len(errorEvents)),
-			Description: "High number of error-level events detected during session",
-			Severity:    0.7,
-		})
-	}
-
-	// Report network issues
-	if len(networkErrors) > 0 {
-		findings = append(findings, SessionFinding{
-			Type:        "warning",
-			Title:       fmt.Sprintf("%d Network Errors", len(networkErrors)),
-			Description: "Network request failures detected during session",
-			Severity:    0.6,
-		})
-	}
-
-	// Report successful session if no major issues
-	if len(crashEvents) == 0 && len(errorEvents) < 3 {
-		findings = append(findings, SessionFinding{
-			Type:        "success",
-			Title:       "Session Completed Successfully",
-			Description: "No crashes or significant errors detected",
-			Severity:    0.0,
-		})
-	}
-
-	return findings
-}
-
-// extractTimelineHighlights extracts key moments from the timeline
-func extractTimelineHighlights(events []UnifiedEvent, sessionStart int64) []TimelineHighlight {
-	highlights := []TimelineHighlight{}
-
-	for _, e := range events {
-		// Add crashes
-		if e.Type == "app_crash" || e.Type == "app_anr" {
-			highlights = append(highlights, TimelineHighlight{
-				Timestamp:   e.Timestamp,
-				RelativeMs:  e.Timestamp - sessionStart,
-				Title:       "App Crash",
-				Description: e.Title,
-				EventID:     e.ID,
-			})
-		}
-
-		// Add app starts
-		if e.Type == "app_start" {
-			highlights = append(highlights, TimelineHighlight{
-				Timestamp:   e.Timestamp,
-				RelativeMs:  e.Timestamp - sessionStart,
-				Title:       "App Started",
-				Description: e.Title,
-				EventID:     e.ID,
-			})
-		}
-
-		// Add significant errors (limit to avoid too many)
-		if (e.Level == LevelError || e.Level == LevelFatal) && len(highlights) < 20 {
-			highlights = append(highlights, TimelineHighlight{
-				Timestamp:   e.Timestamp,
-				RelativeMs:  e.Timestamp - sessionStart,
-				Title:       "Error",
-				Description: e.Title,
-				EventID:     e.ID,
-			})
-		}
-	}
-
-	// Limit highlights
-	if len(highlights) > 15 {
-		highlights = highlights[:15]
-	}
-
-	return highlights
-}
-
-// generateBasicOverview generates a basic text overview
-func generateBasicOverview(stats SessionStats, durationMs int64) string {
-	durationSec := durationMs / 1000
-	var durationStr string
-	if durationSec < 60 {
-		durationStr = fmt.Sprintf("%d seconds", durationSec)
-	} else if durationSec < 3600 {
-		durationStr = fmt.Sprintf("%d minutes", durationSec/60)
-	} else {
-		durationStr = fmt.Sprintf("%.1f hours", float64(durationSec)/3600)
-	}
-
-	overview := fmt.Sprintf("Session lasted %s with %d total events. ", durationStr, stats.TotalEvents)
-
-	if stats.CrashCount > 0 {
-		overview += fmt.Sprintf("Detected %d crash(es). ", stats.CrashCount)
-	}
-	if stats.ErrorCount > 0 {
-		overview += fmt.Sprintf("Found %d error(s). ", stats.ErrorCount)
-	}
-	if stats.NetworkRequests > 0 {
-		overview += fmt.Sprintf("Made %d network request(s). ", stats.NetworkRequests)
-	}
-	if stats.TouchEvents > 0 {
-		overview += fmt.Sprintf("Recorded %d touch event(s).", stats.TouchEvents)
-	}
-
-	return overview
-}
-
-// summarizeSessionWithAI uses AI to generate a more detailed summary
-func (a *App) summarizeSessionWithAI(session *DeviceSession, events []UnifiedEvent, stats SessionStats) (*SessionSummary, error) {
-	aiService := a.aiService
-	if aiService == nil {
-		return nil, fmt.Errorf("AI service not available")
-	}
-
-	// Build event summary for AI
-	var eventSummary strings.Builder
-	eventSummary.WriteString("Session Statistics:\n")
-	eventSummary.WriteString(fmt.Sprintf("- Duration: %d ms\n", session.EndTime-session.StartTime))
-	eventSummary.WriteString(fmt.Sprintf("- Total events: %d\n", stats.TotalEvents))
-	eventSummary.WriteString(fmt.Sprintf("- Errors: %d\n", stats.ErrorCount))
-	eventSummary.WriteString(fmt.Sprintf("- Warnings: %d\n", stats.WarningCount))
-	eventSummary.WriteString(fmt.Sprintf("- Crashes: %d\n", stats.CrashCount))
-	eventSummary.WriteString(fmt.Sprintf("- Network requests: %d\n", stats.NetworkRequests))
-	eventSummary.WriteString(fmt.Sprintf("- Touch events: %d\n", stats.TouchEvents))
-
-	eventSummary.WriteString("\nEvents by source:\n")
-	for src, count := range stats.EventsBySource {
-		eventSummary.WriteString(fmt.Sprintf("- %s: %d\n", src, count))
-	}
-
-	// Add sample of important events
-	eventSummary.WriteString("\nKey events (sample):\n")
-	count := 0
-	for _, e := range events {
-		if count >= 30 {
-			break
-		}
-		if e.Level == LevelError || e.Level == LevelFatal || e.Type == "app_crash" || e.Type == "app_anr" || e.Type == "app_start" {
-			eventSummary.WriteString(fmt.Sprintf("- [%s/%s] %s\n", e.Source, e.Level, e.Title))
-			count++
-		}
-	}
-
-	prompt := fmt.Sprintf(`Analyze this Android app testing session and provide a summary:
-
-%s
-
-Provide:
-1. A brief overview (2-3 sentences)
-2. Key findings (list important issues or observations)
-3. Suggestions for improvement
-
-Return JSON:
-{
-  "overview": "...",
-  "keyFindings": [{"type": "error|warning|info|success", "title": "...", "description": "...", "severity": 0.0}],
-  "suggestions": ["..."]
-}`, eventSummary.String())
-
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	resp, err := aiService.Complete(ctx, &CompletionRequest{
-		Messages: []ChatMessage{
-			{Role: "system", Content: "You are a mobile app testing analyst. Analyze session data and provide actionable insights. Return only valid JSON."},
-			{Role: "user", Content: prompt},
-		},
-		MaxTokens:   1000,
-		Temperature: 0.3,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	var result SessionSummary
-	response := strings.TrimSpace(resp.Content)
-	if strings.HasPrefix(response, "```") {
-		response = strings.TrimPrefix(response, "```json")
-		response = strings.TrimPrefix(response, "```")
-		response = strings.TrimSuffix(response, "```")
-		response = strings.TrimSpace(response)
-	}
-
-	if err := json.Unmarshal([]byte(response), &result); err != nil {
-		return nil, err
-	}
-
-	return &result, nil
 }
 
 func (a *App) suggestAssertionsWithAI(events []UnifiedEvent) ([]AssertionSuggestion, error) {

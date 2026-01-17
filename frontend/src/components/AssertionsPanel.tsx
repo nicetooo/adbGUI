@@ -2,7 +2,7 @@
  * AssertionsPanel - 断言验证面板
  * 允许用户创建和执行各种断言来验证设备/应用行为
  */
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import {
   Card,
   Button,
@@ -43,6 +43,7 @@ import {
   EditOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { useAssertionsPanelStore } from '../stores/assertionsPanelStore';
 // @ts-ignore
 import {
   ExecuteAssertionJSON,
@@ -90,25 +91,38 @@ interface StoredAssertionDisplay {
 
 const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }) => {
   const { t } = useTranslation();
-  const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<AssertionResultDisplay[]>([]);
-  const [customModalOpen, setCustomModalOpen] = useState(false);
   const [form] = Form.useForm();
-
-  // UI/UX enhancement states
-  const [availableEventTypes, setAvailableEventTypes] = useState<string[]>([]);
-  const [loadingEventTypes, setLoadingEventTypes] = useState(false);
-  const [previewCount, setPreviewCount] = useState<number | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-
-  // Stored assertions
-  const [storedAssertions, setStoredAssertions] = useState<StoredAssertionDisplay[]>([]);
-  const [loadingStored, setLoadingStored] = useState(false);
-
-  // Edit assertion modal
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [editingAssertion, setEditingAssertion] = useState<any>(null);
   const [editForm] = Form.useForm();
+
+  // Use store instead of useState
+  const {
+    loading,
+    results,
+    customModalOpen,
+    availableEventTypes,
+    loadingEventTypes,
+    previewCount,
+    previewLoading,
+    storedAssertions,
+    loadingStored,
+    editModalOpen,
+    editingAssertion,
+    setLoading,
+    setResults,
+    addResult,
+    removeResult,
+    clearAllResults,
+    setCustomModalOpen,
+    setAvailableEventTypes,
+    setLoadingEventTypes,
+    setPreviewCount,
+    setPreviewLoading,
+    setStoredAssertions,
+    removeStoredAssertion,
+    setLoadingStored,
+    setEditModalOpen,
+    setEditingAssertion,
+  } = useAssertionsPanelStore();
 
   // Load stored assertions (global, not bound to session)
   const loadStoredAssertions = useCallback(async () => {
@@ -245,7 +259,7 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
           duration: result.duration,
           matchedCount: result.matchedEvents?.length || 0,
         };
-        setResults(prev => [displayResult, ...prev]);
+        addResult(displayResult);
 
         if (result.passed) {
           message.success(`${t('assertions.passed_msg')}: ${result.assertionName}`);
@@ -325,7 +339,7 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
           duration: result.duration,
           matchedCount: result.matchedEvents?.length || 0,
         };
-        setResults(prev => [displayResult, ...prev]);
+        addResult(displayResult);
         setCustomModalOpen(false);
         form.resetFields();
 
@@ -364,15 +378,7 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
     }
   }, [sessionId]);
 
-  // 删除单个结果
-  const removeResult = useCallback((id: string) => {
-    setResults(prev => prev.filter(r => r.id !== id));
-  }, []);
-
-  // 清空所有结果
-  const clearAllResults = useCallback(() => {
-    setResults([]);
-  }, []);
+  // removeResult and clearAllResults are provided by the store
 
   // 执行已保存的断言
   const executeStoredAssertionById = useCallback(async (assertionId: string) => {
@@ -395,7 +401,7 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
           duration: result.duration,
           matchedCount: result.matchedEvents?.length || 0,
         };
-        setResults(prev => [displayResult, ...prev]);
+        addResult(displayResult);
 
         if (result.passed) {
           message.success(`${t('assertions.passed_msg')}: ${result.assertionName}`);
@@ -414,7 +420,7 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
   const deleteStoredAssertionById = useCallback(async (assertionId: string) => {
     try {
       await DeleteStoredAssertion(assertionId);
-      setStoredAssertions(prev => prev.filter(a => a.id !== assertionId));
+      removeStoredAssertion(assertionId);
       message.success(t('assertions.deleted'));
     } catch (err) {
       message.error(`${t('assertions.delete_failed')}: ${err}`);
@@ -510,7 +516,7 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
       setEditModalOpen(false);
       editForm.resetFields();
       setEditingAssertion(null);
-      setStoredAssertions(prev => prev.filter(a => a.id !== editingAssertion.id));
+      removeStoredAssertion(editingAssertion.id);
     } catch (err) {
       message.error(`${t('assertions.delete_failed')}: ${err}`);
     }

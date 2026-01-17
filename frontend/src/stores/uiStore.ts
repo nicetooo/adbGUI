@@ -16,9 +16,13 @@ interface UIState {
   aboutVisible: boolean;
   wirelessConnectVisible: boolean;
   feedbackVisible: boolean;
+  llmConfigVisible: boolean;
 
   // App info
   appVersion: string;
+
+  // Component measurements
+  syncTimelineContainerWidth: number;
 
   // Actions
   setSelectedKey: (key: ViewKey | string) => void;
@@ -31,6 +35,11 @@ interface UIState {
   hideWirelessConnect: () => void;
   showFeedback: () => void;
   hideFeedback: () => void;
+  showLLMConfig: () => void;
+  hideLLMConfig: () => void;
+
+  // Component measurements
+  setSyncTimelineContainerWidth: (width: number) => void;
 
   // Initialization
   init: () => Promise<void>;
@@ -47,8 +56,10 @@ export const useUIStore = create<UIState>()(
     aboutVisible: false,
     wirelessConnectVisible: false,
     feedbackVisible: false,
+    llmConfigVisible: false,
 
     appVersion: '',
+    syncTimelineContainerWidth: 0,
 
     // Actions
     setSelectedKey: (key) => set((state: UIState) => {
@@ -82,6 +93,17 @@ export const useUIStore = create<UIState>()(
     }),
     hideFeedback: () => set((state: UIState) => {
       state.feedbackVisible = false;
+    }),
+    showLLMConfig: () => set((state: UIState) => {
+      state.llmConfigVisible = true;
+    }),
+    hideLLMConfig: () => set((state: UIState) => {
+      state.llmConfigVisible = false;
+    }),
+
+    // Component measurements
+    setSyncTimelineContainerWidth: (width) => set((state: UIState) => {
+      state.syncTimelineContainerWidth = width;
     }),
 
     // Initialization

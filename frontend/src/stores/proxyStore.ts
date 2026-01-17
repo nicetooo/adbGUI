@@ -31,6 +31,18 @@ export interface NetworkStats {
   time: number;
 }
 
+interface MockRule {
+  id: string;
+  urlPattern: string;
+  method?: string;
+  statusCode: number;
+  headers: Record<string, string>;
+  body: string;
+  delay?: number;
+  description?: string;
+  enabled: boolean;
+}
+
 interface ProxyState {
   // 核心数据
   logs: RequestLog[];
@@ -57,6 +69,24 @@ interface ProxyState {
   isBypassModalOpen: boolean;
   newPattern: string;
   
+  // Resend 请求相关
+  resendModalOpen: boolean;
+  resendLoading: boolean;
+  resendResponse: any;
+  
+  // Mock 规则相关
+  mockModalOpen: boolean;
+  mockRules: MockRule[];
+  editingMockRule: MockRule | null;
+  
+  // 证书状态
+  certTrustStatus: string | null;
+  
+  // AI 搜索相关
+  isAIParsing: boolean;
+  aiSearchText: string;
+  aiPopoverOpen: boolean;
+  
   // 操作方法
   addLog: (log: RequestLog) => void;
   updateLog: (id: string, updates: Partial<RequestLog>) => void;
@@ -77,6 +107,28 @@ interface ProxyState {
   setDetailsDrawerOpen: (open: boolean) => void;
   setBypassModalOpen: (open: boolean) => void;
   setNewPattern: (pattern: string) => void;
+  
+  // Resend 请求
+  setResendModalOpen: (open: boolean) => void;
+  setResendLoading: (loading: boolean) => void;
+  setResendResponse: (response: any) => void;
+  openResendModal: () => void;
+  closeResendModal: () => void;
+  
+  // Mock 规则
+  setMockModalOpen: (open: boolean) => void;
+  setMockRules: (rules: MockRule[]) => void;
+  setEditingMockRule: (rule: MockRule | null) => void;
+  openMockModal: () => void;
+  closeMockModal: () => void;
+  
+  // 证书状态
+  setCertTrustStatus: (status: string | null) => void;
+  
+  // AI 搜索
+  setIsAIParsing: (parsing: boolean) => void;
+  setAiSearchText: (text: string) => void;
+  setAiPopoverOpen: (open: boolean) => void;
 }
 
 export const useProxyStore = create<ProxyState>()(
@@ -103,6 +155,24 @@ export const useProxyStore = create<ProxyState>()(
     isBypassModalOpen: false,
     newPattern: "",
     
+    // Resend 请求
+    resendModalOpen: false,
+    resendLoading: false,
+    resendResponse: null,
+    
+    // Mock 规则
+    mockModalOpen: false,
+    mockRules: [],
+    editingMockRule: null,
+    
+    // 证书状态
+    certTrustStatus: null,
+    
+    // AI 搜索
+    isAIParsing: false,
+    aiSearchText: "",
+    aiPopoverOpen: false,
+    
     // 操作方法
     addLog: (log: RequestLog) => set((state: ProxyState) => {
       state.logs.unshift(log);
@@ -115,6 +185,10 @@ export const useProxyStore = create<ProxyState>()(
       const log = state.logs.find(l => l.id === id);
       if (log) {
         Object.assign(log, updates);
+        // Also update selectedLog if it's the same log
+        if (state.selectedLog && state.selectedLog.id === id) {
+          Object.assign(state.selectedLog, updates);
+        }
       }
     }),
     
@@ -159,5 +233,37 @@ export const useProxyStore = create<ProxyState>()(
     setBypassModalOpen: (open: boolean) => set({ isBypassModalOpen: open }),
     
     setNewPattern: (pattern: string) => set({ newPattern: pattern }),
+    
+    // Resend 请求
+    setResendModalOpen: (open: boolean) => set({ resendModalOpen: open }),
+    
+    setResendLoading: (loading: boolean) => set({ resendLoading: loading }),
+    
+    setResendResponse: (response: any) => set({ resendResponse: response }),
+    
+    openResendModal: () => set({ resendModalOpen: true, resendResponse: null }),
+    
+    closeResendModal: () => set({ resendModalOpen: false, resendLoading: false, resendResponse: null }),
+    
+    // Mock 规则
+    setMockModalOpen: (open: boolean) => set({ mockModalOpen: open }),
+    
+    setMockRules: (rules: MockRule[]) => set({ mockRules: rules }),
+    
+    setEditingMockRule: (rule: MockRule | null) => set({ editingMockRule: rule }),
+    
+    openMockModal: () => set({ mockModalOpen: true }),
+    
+    closeMockModal: () => set({ mockModalOpen: false, editingMockRule: null }),
+    
+    // 证书状态
+    setCertTrustStatus: (status: string | null) => set({ certTrustStatus: status }),
+    
+    // AI 搜索
+    setIsAIParsing: (parsing: boolean) => set({ isAIParsing: parsing }),
+    
+    setAiSearchText: (text: string) => set({ aiSearchText: text }),
+    
+    setAiPopoverOpen: (open: boolean) => set({ aiPopoverOpen: open }),
   }))
 );

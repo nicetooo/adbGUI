@@ -107,6 +107,12 @@ interface AIState {
 
   // Error state
   error: string | null;
+  
+  // LLMConfig UI state
+  testingProvider: string | null;
+  availableModels: Record<string, string[]>;
+  currentProviderModels: string[];
+  isChangingModel: boolean;
 
   // Actions
   loadServiceInfo: () => Promise<void>;
@@ -144,6 +150,12 @@ interface AIState {
   analyzeLog: (tag: string, message: string, level: string) => Promise<any>;
   analyzeCrash: (crashEventID: string, sessionID: string) => Promise<any>;
   suggestAssertions: (sessionID: string) => Promise<any[]>;
+  
+  // LLMConfig UI actions
+  setTestingProvider: (provider: string | null) => void;
+  setAvailableModels: (models: Record<string, string[]>) => void;
+  setCurrentProviderModels: (models: string[]) => void;
+  setIsChangingModel: (changing: boolean) => void;
 }
 
 export const useAIStore = create<AIState>()(
@@ -155,6 +167,12 @@ export const useAIStore = create<AIState>()(
     isLoading: false,
     isSaving: false,
     error: null,
+    
+    // LLMConfig UI state
+    testingProvider: null,
+    availableModels: {},
+    currentProviderModels: [],
+    isChangingModel: false,
 
     loadServiceInfo: async () => {
       if (!GetAIServiceInfo) return;
@@ -550,5 +568,22 @@ export const useAIStore = create<AIState>()(
         throw new Error(String(err));
       }
     },
+    
+    // LLMConfig UI actions
+    setTestingProvider: (provider) => set((state) => {
+      state.testingProvider = provider;
+    }),
+    
+    setAvailableModels: (models) => set((state) => {
+      state.availableModels = models;
+    }),
+    
+    setCurrentProviderModels: (models) => set((state) => {
+      state.currentProviderModels = models;
+    }),
+    
+    setIsChangingModel: (changing) => set((state) => {
+      state.isChangingModel = changing;
+    }),
   }))
 );

@@ -17,8 +17,6 @@ export function AIParseNaturalQuery(arg1:string,arg2:string):Promise<main.NLQuer
 
 export function AISuggestAssertions(arg1:string):Promise<Array<main.AssertionSuggestion>>;
 
-export function AISummarizeSession(arg1:string):Promise<main.SessionSummary>;
-
 export function AdbConnect(arg1:string):Promise<string>;
 
 export function AdbDisconnect(arg1:string):Promise<string>;
@@ -496,8 +494,6 @@ export function StopWorkflow(arg1:main.Device):Promise<void>;
 export function SubmitSelectorChoice(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SuggestAssertions(arg1:string):Promise<Array<main.AssertionSuggestion>>;
-
-export function SummarizeSession(arg1:string):Promise<main.SessionSummary>;
 
 export function SwipeCoordinates(arg1:string,arg2:number,arg3:number,arg4:number,arg5:number,arg6:number):Promise<void>;
 

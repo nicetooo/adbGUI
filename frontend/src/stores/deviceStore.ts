@@ -22,6 +22,11 @@ import { main } from '../types/wails-models';
 // @ts-ignore
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 
+interface NetStats {
+  rxSpeed: number;
+  txSpeed: number;
+}
+
 interface DeviceState {
   // State
   devices: Device[];
@@ -30,6 +35,9 @@ interface DeviceState {
   loading: boolean;
   busyDevices: Set<string>;
   isFetching: boolean;
+
+  // Network stats for each device
+  netStatsMap: Record<string, NetStats>;
 
   // Multi-select state for batch operations
   selectedDevices: Set<string>;
@@ -67,6 +75,10 @@ interface DeviceState {
   selectAPKForBatch: () => Promise<string>;
   selectFileForBatch: () => Promise<string>;
   subscribeToBatchEvents: () => () => void;
+
+  // Network stats actions
+  setNetStatsMap: (map: Record<string, NetStats>) => void;
+  updateNetStats: (deviceId: string, stats: NetStats) => void;
 }
 
 export const useDeviceStore = create<DeviceState>()(
@@ -78,6 +90,9 @@ export const useDeviceStore = create<DeviceState>()(
     loading: false,
     busyDevices: new Set(),
     isFetching: false,
+
+    // Network stats
+    netStatsMap: {},
 
     // Multi-select state
     selectedDevices: new Set(),
@@ -337,5 +352,14 @@ export const useDeviceStore = create<DeviceState>()(
         EventsOff('batch-progress');
       };
     },
+
+    // Network stats actions
+    setNetStatsMap: (map) => set((state: DeviceState) => {
+      state.netStatsMap = map;
+    }),
+
+    updateNetStats: (deviceId, stats) => set((state: DeviceState) => {
+      state.netStatsMap[deviceId] = stats;
+    }),
   }))
 );

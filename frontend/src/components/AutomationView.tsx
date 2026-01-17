@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   Button,
   Space,
@@ -38,6 +38,7 @@ import {
 import { Tabs, Form, InputNumber, Select, Divider } from "antd";
 import DeviceSelector from "./DeviceSelector";
 import { useDeviceStore, useAutomationStore, TouchScript, ScriptTask, TaskStep } from "../stores";
+import { useAutomationViewStore } from "../stores/automationViewStore";
 import { main } from "../types/wails-models";
 
 const AutomationView: React.FC = () => {
@@ -80,28 +81,39 @@ const AutomationView: React.FC = () => {
     stopTask,
   } = useAutomationStore();
 
-  const [selectedScriptNames, setSelectedScriptNames] = useState<string[]>([]);
-  const [selectedTaskNames, setSelectedTaskNames] = useState<string[]>([]);
+  // Use automation view store instead of useState
+  const {
+    selectedScriptNames,
+    selectedTaskNames,
+    saveModalVisible,
+    scriptName,
+    renameModalVisible,
+    editingScriptName,
+    newScriptName,
+    selectedScript,
+    taskModalVisible,
+    editingTask,
+    activeTab,
+    setSelectedScriptNames,
+    toggleSelectedScriptName,
+    setSelectedTaskNames,
+    toggleSelectedTaskName,
+    setSaveModalVisible,
+    setScriptName,
+    setRenameModalVisible,
+    setEditingScriptName,
+    setNewScriptName,
+    setSelectedScript,
+    setTaskModalVisible,
+    setEditingTask,
+    setActiveTab,
+  } = useAutomationViewStore();
 
   const { t } = useTranslation();
   const { token } = theme.useToken();
 
-  const [saveModalVisible, setSaveModalVisible] = useState(false);
-  const [scriptName, setScriptName] = useState("");
-
-  // Rename Script State
-  const [renameModalVisible, setRenameModalVisible] = useState(false);
-  const [editingScriptName, setEditingScriptName] = useState(""); // Old name
-  const [newScriptName, setNewScriptName] = useState("");
-
-  const [selectedScript, setSelectedScript] = useState<TouchScript | null>(null);
   const durationIntervalRef = useRef<number | null>(null);
-
-  // Task State
-  const [taskModalVisible, setTaskModalVisible] = useState(false);
-  const [editingTask, setEditingTask] = useState<ScriptTask | null>(null);
   const [taskForm] = Form.useForm();
-  const [activeTab, setActiveTab] = useState("scripts");
 
   // Subscribe to events on mount
   useEffect(() => {
@@ -942,10 +954,7 @@ const AutomationView: React.FC = () => {
                                   checked={selectedScriptNames.includes(script.name)}
                                   onChange={(e) => {
                                     e.stopPropagation();
-                                    const name = script.name;
-                                    setSelectedScriptNames(prev =>
-                                      e.target.checked ? [...prev, name] : prev.filter(n => n !== name)
-                                    );
+                                    toggleSelectedScriptName(script.name, e.target.checked);
                                   }}
                                   style={{ marginRight: 12 }}
                                 />
@@ -1064,10 +1073,7 @@ const AutomationView: React.FC = () => {
                                   checked={selectedTaskNames.includes(task.name)}
                                   onChange={(e) => {
                                     e.stopPropagation();
-                                    const name = task.name;
-                                    setSelectedTaskNames(prev =>
-                                      e.target.checked ? [...prev, name] : prev.filter(n => n !== name)
-                                    );
+                                    toggleSelectedTaskName(task.name, e.target.checked);
                                   }}
                                   style={{ marginRight: 12 }}
                                 />

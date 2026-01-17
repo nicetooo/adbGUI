@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React from "react";
 import { Modal, Button, Descriptions, Card, Tabs, Tag, Input } from "antd";
 import { InfoCircleOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import VirtualTable from "./VirtualTable";
 import { useTranslation } from "react-i18next";
+import { useDeviceInfoModalStore } from "../stores/deviceInfoModalStore";
 // @ts-ignore
 import { main } from "../types/wails-models";
 
@@ -22,7 +23,7 @@ const DeviceInfoModal: React.FC<DeviceInfoModalProps> = ({
   onRefresh,
 }) => {
   const { t } = useTranslation();
-  const [searchText, setSearchText] = useState("");
+  const { searchText, setSearchText } = useDeviceInfoModalStore();
 
   const propColumns = [
     {

@@ -2,7 +2,7 @@
  * EventTimeline - 新事件系统的时间线组件
  * 使用 eventStore 和 SQLite 持久化
  */
-import { useEffect, useRef, useState, useMemo, useCallback, memo } from 'react';
+import { useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import {
   Card,
   Tag,
@@ -46,12 +46,12 @@ import {
 } from '@ant-design/icons';
 import AssertionsPanel from './AssertionsPanel';
 import SmartSearchInput, { NLQueryResult } from './SmartSearchInput';
-import SessionSummary from './SessionSummary';
 import { useTranslation } from 'react-i18next';
 import {
   useEventStore,
   useDeviceStore,
   useCurrentBookmarks,
+  useEventTimelineStore,
   type UnifiedEvent,
   type DeviceSession,
   type EventSource,
@@ -98,9 +98,14 @@ interface TimeRulerProps {
 const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime, onSeek, timeRange, onTimeRangeChange, bookmarks = [], onBookmarkClick }: TimeRulerProps) => {
   const { token } = theme.useToken();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState<number | null>(null);
-  const [dragEnd, setDragEnd] = useState<number | null>(null);
+  const {
+    isDragging,
+    dragStart,
+    dragEnd,
+    startDrag,
+    updateDrag,
+    endDrag,
+  } = useEventTimelineStore();
 
   const totalSeconds = Math.ceil(sessionDuration / 1000);
 
@@ -133,25 +138,20 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
     if (e.button !== 0) return; // Only left click
     e.preventDefault();
     const time = posToTime(e.clientX);
-    setIsDragging(true);
-    setDragStart(time);
-    setDragEnd(time);
-  }, [posToTime]);
+    startDrag(time);
+  }, [posToTime, startDrag]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging) return;
     const time = posToTime(e.clientX);
-    setDragEnd(time);
-  }, [isDragging, posToTime]);
+    updateDrag(time);
+  }, [isDragging, posToTime, updateDrag]);
 
   const handleMouseUp = useCallback((e: MouseEvent) => {
-    if (!isDragging || dragStart === null || dragEnd === null) {
-      setIsDragging(false);
-      return;
-    }
+    const result = endDrag();
+    if (!result) return;
 
-    const start = Math.min(dragStart, dragEnd);
-    const end = Math.max(dragStart, dragEnd);
+    const { start, end } = result;
 
     // If range is too small (< 100ms), treat as click to seek
     if (end - start < 100) {
@@ -160,11 +160,7 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
     } else {
       onTimeRangeChange({ start, end });
     }
-
-    setIsDragging(false);
-    setDragStart(null);
-    setDragEnd(null);
-  }, [isDragging, dragStart, dragEnd, onSeek, onTimeRangeChange]);
+  }, [endDrag, onSeek, onTimeRangeChange]);
 
   // Add/remove global mouse event listeners
   useEffect(() => {
@@ -503,7 +499,7 @@ interface EventDetailProps {
 // Network event detail component
 const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState('overview');
+  const { networkDetailActiveTab: activeTab, setNetworkDetailActiveTab: setActiveTab } = useEventTimelineStore();
 
   const statusColor = data.statusCode >= 500 ? '#ff4d4f' :
     data.statusCode >= 400 ? '#faad14' :
@@ -894,20 +890,39 @@ const EventTimeline = () => {
   // Use dedicated hook for bookmarks to ensure proper re-renders
   const sessionBookmarks = useCurrentBookmarks();
 
-  // Local state
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [searchText, setSearchText] = useState('');
-  const [filterSources, setFilterSources] = useState<EventSource[]>([]);
-  const [filterCategories, setFilterCategories] = useState<EventCategory[]>([]);
-  const [filterLevels, setFilterLevels] = useState<EventLevel[]>([]);
-  const [timeRange, setTimeRange] = useState<{ start: number; end: number } | null>(null);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [sessionList, setSessionList] = useState<DeviceSession[]>([]);
-  const [assertionsPanelOpen, setAssertionsPanelOpen] = useState(false);
-  const [configModalOpen, setConfigModalOpen] = useState(false);
-  const [bookmarkModalOpen, setBookmarkModalOpen] = useState(false);
-  const [bookmarkLabel, setBookmarkLabel] = useState('');
+  // Event Timeline Store
+  const {
+    selectedEventId,
+    selectedEventFull,
+    detailOpen,
+    searchText,
+    filterSources,
+    filterCategories,
+    filterLevels,
+    timeRange,
+    currentTime,
+    sessionList,
+    assertionsPanelOpen,
+    configModalOpen,
+    bookmarkModalOpen,
+    bookmarkLabel,
+    setSelectedEventId,
+    setSelectedEventFull,
+    setDetailOpen,
+    setSearchText,
+    setFilterSources,
+    setFilterCategories,
+    setFilterLevels,
+    setTimeRange,
+    setCurrentTime,
+    setSessionList,
+    setAssertionsPanelOpen,
+    setConfigModalOpen,
+    setBookmarkModalOpen,
+    setBookmarkLabel,
+    openBookmarkModal,
+    closeBookmarkModal,
+  } = useEventTimelineStore();
 
   // Subscribe to events
   useEffect(() => {
@@ -1075,9 +1090,6 @@ const EventTimeline = () => {
   }, [timeIndex, activeSessionId]);
 
 
-  // Selected event - 完整的事件数据（包含 data 字段）
-  const [selectedEventFull, setSelectedEventFull] = useState<UnifiedEvent | null>(null);
-
   // Virtual list
   const rowVirtualizer = useVirtualizer({
     count: visibleEvents.length,
@@ -1240,18 +1252,16 @@ const EventTimeline = () => {
 
   const handleOpenBookmarkModal = useCallback(() => {
     if (activeSessionId && typeof currentTime === 'number') {
-      setBookmarkLabel(`${t('timeline.bookmark')} ${formatRelativeTime(currentTime)}`);
-      setBookmarkModalOpen(true);
+      openBookmarkModal(`${t('timeline.bookmark')} ${formatRelativeTime(currentTime)}`);
     }
-  }, [activeSessionId, currentTime, t]);
+  }, [activeSessionId, currentTime, t, openBookmarkModal]);
 
   const handleConfirmBookmark = useCallback(() => {
     if (activeSessionId && typeof currentTime === 'number' && bookmarkLabel.trim()) {
       createBookmark(currentTime, bookmarkLabel.trim());
-      setBookmarkModalOpen(false);
-      setBookmarkLabel('');
+      closeBookmarkModal();
     }
-  }, [activeSessionId, currentTime, bookmarkLabel, createBookmark]);
+  }, [activeSessionId, currentTime, bookmarkLabel, createBookmark, closeBookmarkModal]);
 
   const handleBookmarkClick = useCallback((bookmark: Bookmark) => {
     // Jump to the bookmark time
@@ -1624,10 +1634,7 @@ const EventTimeline = () => {
         <Modal
           title={t('timeline.add_bookmark')}
           open={bookmarkModalOpen}
-          onCancel={() => {
-            setBookmarkModalOpen(false);
-            setBookmarkLabel('');
-          }}
+          onCancel={closeBookmarkModal}
           onOk={handleConfirmBookmark}
           okText={t('common.ok')}
           cancelText={t('common.cancel')}

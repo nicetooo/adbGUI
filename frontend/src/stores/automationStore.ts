@@ -99,6 +99,15 @@ interface AutomationState {
   pendingSelectorData: any | null;
   isPreCapturing: boolean;
   isAnalyzing: boolean;
+  
+  // RecordingView UI state
+  selectedScriptNames: string[];
+  saveModalVisible: boolean;
+  scriptName: string;
+  renameModalVisible: boolean;
+  editingScriptName: string;
+  newScriptName: string;
+  selectedScript: main.TouchScript | null;
 
   // Actions
   startRecording: (deviceId: string, mode?: 'fast' | 'precise') => Promise<void>;
@@ -131,6 +140,19 @@ interface AutomationState {
 
   // Event subscription
   subscribeToEvents: () => () => void;
+  
+  // RecordingView UI actions
+  setSelectedScriptNames: (names: string[]) => void;
+  toggleScriptSelection: (name: string) => void;
+  setSaveModalVisible: (visible: boolean) => void;
+  setScriptName: (name: string) => void;
+  setRenameModalVisible: (visible: boolean) => void;
+  setEditingScriptName: (name: string) => void;
+  setNewScriptName: (name: string) => void;
+  setSelectedScript: (script: main.TouchScript | null) => void;
+  openRenameModal: (scriptName: string) => void;
+  closeRenameModal: () => void;
+  closeSaveModal: () => void;
 }
 
 export const useAutomationStore = create<AutomationState>()(
@@ -161,6 +183,15 @@ export const useAutomationStore = create<AutomationState>()(
     pendingSelectorData: null,
     isPreCapturing: false,
     isAnalyzing: false,
+    
+    // RecordingView UI state
+    selectedScriptNames: [],
+    saveModalVisible: false,
+    scriptName: '',
+    renameModalVisible: false,
+    editingScriptName: '',
+    newScriptName: '',
+    selectedScript: null,
 
     // Actions
     startRecording: async (deviceId: string, mode: 'fast' | 'precise' = 'fast') => {
@@ -475,6 +506,83 @@ export const useAutomationStore = create<AutomationState>()(
     setRecordingMode: (mode: 'fast' | 'precise') => {
       set((state: AutomationState) => {
         state.recordingMode = mode;
+      });
+    },
+    
+    // RecordingView UI actions
+    setSelectedScriptNames: (names: string[]) => {
+      set((state: AutomationState) => {
+        state.selectedScriptNames = names;
+      });
+    },
+    
+    toggleScriptSelection: (name: string) => {
+      set((state: AutomationState) => {
+        const index = state.selectedScriptNames.indexOf(name);
+        if (index > -1) {
+          state.selectedScriptNames.splice(index, 1);
+        } else {
+          state.selectedScriptNames.push(name);
+        }
+      });
+    },
+    
+    setSaveModalVisible: (visible: boolean) => {
+      set((state: AutomationState) => {
+        state.saveModalVisible = visible;
+      });
+    },
+    
+    setScriptName: (name: string) => {
+      set((state: AutomationState) => {
+        state.scriptName = name;
+      });
+    },
+    
+    setRenameModalVisible: (visible: boolean) => {
+      set((state: AutomationState) => {
+        state.renameModalVisible = visible;
+      });
+    },
+    
+    setEditingScriptName: (name: string) => {
+      set((state: AutomationState) => {
+        state.editingScriptName = name;
+      });
+    },
+    
+    setNewScriptName: (name: string) => {
+      set((state: AutomationState) => {
+        state.newScriptName = name;
+      });
+    },
+    
+    setSelectedScript: (script: main.TouchScript | null) => {
+      set((state: AutomationState) => {
+        state.selectedScript = script;
+      });
+    },
+    
+    openRenameModal: (scriptName: string) => {
+      set((state: AutomationState) => {
+        state.editingScriptName = scriptName;
+        state.newScriptName = scriptName;
+        state.renameModalVisible = true;
+      });
+    },
+    
+    closeRenameModal: () => {
+      set((state: AutomationState) => {
+        state.renameModalVisible = false;
+        state.editingScriptName = '';
+        state.newScriptName = '';
+      });
+    },
+    
+    closeSaveModal: () => {
+      set((state: AutomationState) => {
+        state.saveModalVisible = false;
+        state.scriptName = '';
       });
     },
 

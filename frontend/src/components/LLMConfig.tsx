@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import {
   Modal,
   Form,
@@ -65,17 +65,19 @@ const LLMConfig: React.FC<LLMConfigProps> = ({ open, onClose }) => {
     addCustomEndpoint,
     removeCustomEndpoint,
     refreshProviders,
+    // LLMConfig UI state
+    testingProvider,
+    currentProviderModels,
+    isChangingModel,
+    setTestingProvider,
+    setCurrentProviderModels,
+    setIsChangingModel,
   } = useAIStore();
 
   const [openaiForm] = Form.useForm();
   const [claudeForm] = Form.useForm();
   const [customForm] = Form.useForm();
   const [customEndpointForm] = Form.useForm();
-
-  const [testingProvider, setTestingProvider] = useState<string | null>(null);
-  const [availableModels, setAvailableModels] = useState<Record<string, string[]>>({});
-  const [currentProviderModels, setCurrentProviderModels] = useState<string[]>([]);
-  const [isChangingModel, setIsChangingModel] = useState(false);
 
   useEffect(() => {
     if (open) {

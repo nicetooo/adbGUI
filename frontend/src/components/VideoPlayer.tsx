@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, useState } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import {
   Card,
   Space,
@@ -48,7 +48,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 }) => {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const {
     serviceInfo,
@@ -62,6 +61,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     playbackRate,
     syncEnabled,
     videoOffset,
+    isFullscreen,
     isLoading,
     error,
     loadServiceInfo,
@@ -73,6 +73,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setMuted,
     setPlaybackRate,
     setSyncEnabled,
+    setIsFullscreen,
     timeToVideoTime,
     videoTimeToSessionTime,
     clearVideo,

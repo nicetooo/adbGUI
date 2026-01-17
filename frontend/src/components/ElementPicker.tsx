@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
   Modal,
   Button,
@@ -28,6 +28,7 @@ import {
 } from "@ant-design/icons";
 import { useDeviceStore } from "../stores";
 import { useElementStore, type ElementSelector } from "../stores/elementStore";
+import { useElementPickerStore } from "../stores/elementPickerStore";
 
 // Re-export ElementSelector for backward compatibility
 export type { ElementSelector } from "../stores/elementStore";
@@ -144,17 +145,23 @@ const ElementPicker: React.FC<ElementPickerProps> = ({
   const { t } = useTranslation();
   const { token } = theme.useToken();
 
-  const [selectedNode, setSelectedNode] = useState<any>(null);
-  const [searchText, setSearchText] = useState("");
-  const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
-  const [autoExpandParent, setAutoExpandParent] = useState(true);
-  const [searchMode, setSearchMode] = useState<"auto" | "xpath" | "advanced">(
-    "auto"
-  );
-  const [selectedSelectorIndex, setSelectedSelectorIndex] = useState(0);
-
-  // Point picker state
-  const [isPickingPoint, setIsPickingPoint] = useState(false);
+  // Use element picker store
+  const {
+    selectedNode,
+    searchText,
+    expandedKeys,
+    autoExpandParent,
+    searchMode,
+    selectedSelectorIndex,
+    isPickingPoint,
+    setSelectedNode,
+    setSearchText,
+    setExpandedKeys,
+    setAutoExpandParent,
+    setSearchMode,
+    setSelectedSelectorIndex,
+    setIsPickingPoint,
+  } = useElementPickerStore();
 
   // Detect search mode from query
   const getEffectiveSearchMode = (query: string): string => {

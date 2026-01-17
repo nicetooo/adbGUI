@@ -26,10 +26,6 @@ export function AISuggestAssertions(arg1) {
   return window['go']['main']['App']['AISuggestAssertions'](arg1);
 }
 
-export function AISummarizeSession(arg1) {
-  return window['go']['main']['App']['AISummarizeSession'](arg1);
-}
-
 export function AdbConnect(arg1) {
   return window['go']['main']['App']['AdbConnect'](arg1);
 }
@@ -984,10 +980,6 @@ export function SubmitSelectorChoice(arg1, arg2, arg3) {
 
 export function SuggestAssertions(arg1) {
   return window['go']['main']['App']['SuggestAssertions'](arg1);
-}
-
-export function SummarizeSession(arg1) {
-  return window['go']['main']['App']['SummarizeSession'](arg1);
 }
 
 export function SwipeCoordinates(arg1, arg2, arg3, arg4, arg5, arg6) {

@@ -12,11 +12,11 @@ import (
 
 // AIServiceInfo represents the AI service status info
 type AIServiceInfo struct {
-	Status   string                 `json:"status"`
-	Enabled  bool                   `json:"enabled"`
-	Provider *AIProviderInfo        `json:"provider,omitempty"`
-	Error    string                 `json:"error,omitempty"`
-	Features *AIFeaturesConfig      `json:"features,omitempty"`
+	Status   string            `json:"status"`
+	Enabled  bool              `json:"enabled"`
+	Provider *AIProviderInfo   `json:"provider,omitempty"`
+	Error    string            `json:"error,omitempty"`
+	Features *AIFeaturesConfig `json:"features,omitempty"`
 }
 
 // AIProviderInfo represents the current provider info
@@ -408,11 +408,6 @@ func (a *App) AIAnalyzeCrash(crashEventID, sessionID string) (*RootCauseAnalysis
 // AISuggestAssertions suggests assertions based on session events
 func (a *App) AISuggestAssertions(sessionID string) ([]AssertionSuggestion, error) {
 	return a.SuggestAssertions(sessionID)
-}
-
-// AISummarizeSession generates an AI-powered session summary
-func (a *App) AISummarizeSession(sessionID string) (*SessionSummary, error) {
-	return a.SummarizeSession(sessionID)
 }
 
 // AIComplete sends a completion request (for testing/advanced use)

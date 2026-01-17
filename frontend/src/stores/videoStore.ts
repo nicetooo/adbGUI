@@ -78,6 +78,9 @@ interface VideoState {
   syncEnabled: boolean;
   videoOffset: number; // Offset from session start
 
+  // UI state
+  isFullscreen: boolean;
+
   // Loading states
   isLoading: boolean;
   isLoadingThumbnails: boolean;
@@ -107,6 +110,9 @@ interface VideoState {
   setSyncEnabled: (enabled: boolean) => void;
   setVideoOffset: (offset: number) => void;
 
+  // UI controls
+  setIsFullscreen: (isFullscreen: boolean) => void;
+
   // Utility
   timeToVideoTime: (sessionTimeMs: number) => number;
   videoTimeToSessionTime: (videoTimeMs: number) => number;
@@ -132,6 +138,7 @@ export const useVideoStore = create<VideoState>()(
     playbackRate: 1,
     syncEnabled: true,
     videoOffset: 0,
+    isFullscreen: false,
     isLoading: false,
     isLoadingThumbnails: false,
     error: null,
@@ -330,6 +337,12 @@ export const useVideoStore = create<VideoState>()(
     setVideoOffset: (offset: number) => {
       set((state) => {
         state.videoOffset = offset;
+      });
+    },
+
+    setIsFullscreen: (isFullscreen: boolean) => {
+      set((state) => {
+        state.isFullscreen = isFullscreen;
       });
     },
 

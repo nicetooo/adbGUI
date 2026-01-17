@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { Card, Button, InputNumber, Space, Typography, Tag, message, Modal, Divider, Switch, Tooltip, Radio, Input, Tabs, theme, Form, Table, Popconfirm, Popover, Spin } from 'antd';
 import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, EditOutlined, BlockOutlined, SendOutlined, PlusOutlined, CloseOutlined, RobotOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import DeviceSelector from './DeviceSelector';
@@ -86,27 +86,37 @@ const ProxyView: React.FC = () => {
 
     const logsEndRef = useRef<HTMLDivElement>(null);
     const parentRef = useRef<HTMLDivElement>(null);
-
-    // Resend request state
-    const [resendModalOpen, setResendModalOpen] = useState(false);
-    const [resendLoading, setResendLoading] = useState(false);
     const [resendForm] = Form.useForm();
-    const [resendResponse, setResendResponse] = useState<any>(null);
-
-    // Mock rules state
-    const [mockModalOpen, setMockModalOpen] = useState(false);
-    const [mockRules, setMockRules] = useState<any[]>([]);
     const [mockForm] = Form.useForm();
-    const [editingMockRule, setEditingMockRule] = useState<any>(null);
 
-    // Cert trust status: 'trusted' | 'not_trusted' | 'unknown' | 'no_proxy' | 'checking' | null
-    const [certTrustStatus, setCertTrustStatus] = useState<string | null>(null);
+    // Additional proxy store state
+    const {
+        resendModalOpen,
+        resendLoading,
+        resendResponse,
+        mockModalOpen,
+        mockRules,
+        editingMockRule,
+        certTrustStatus,
+        isAIParsing,
+        aiSearchText,
+        aiPopoverOpen,
+        setResendModalOpen,
+        setResendLoading,
+        setResendResponse,
+        closeResendModal,
+        setMockModalOpen,
+        setMockRules,
+        setEditingMockRule,
+        closeMockModal,
+        setCertTrustStatus,
+        setIsAIParsing,
+        setAiSearchText,
+        setAiPopoverOpen,
+    } = useProxyStore();
 
     // AI Smart Search
     const { serviceInfo, config: aiConfig, parseNaturalQuery } = useAIStore();
-    const [isAIParsing, setIsAIParsing] = useState(false);
-    const [aiSearchText, setAiSearchText] = useState("");
-    const [aiPopoverOpen, setAiPopoverOpen] = useState(false);
 
     const isAIAvailable = serviceInfo?.status === 'ready' &&
         aiConfig?.enabled &&
@@ -232,8 +242,15 @@ const ProxyView: React.FC = () => {
             const networkEvents = events.filter((e: any) => e.category === 'network');
 
             for (const event of networkEvents) {
-                // SessionEvent uses 'detail' field, not 'data'
-                const detail = event.detail || {};
+                // UnifiedEvent uses 'data' field (JSON), parse it
+                let detail: any = {};
+                if (event.data) {
+                    try {
+                        detail = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+                    } catch (e) {
+                        console.error('Failed to parse event data:', e);
+                    }
+                }
                 const timeStr = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : '';
                 // Convert session event to RequestLog format
                 const log: RequestLog = {
@@ -549,7 +566,7 @@ const ProxyView: React.FC = () => {
     };
 
     // Open resend modal with pre-filled data
-    const openResendModal = (log: StoreRequestLog) => {
+    const handleOpenResendModal = (log: StoreRequestLog) => {
         const headersStr = log.headers
             ? Object.entries(log.headers).map(([k, v]) => `${k}: ${v.join(', ')}`).join('\n')
             : '';
@@ -603,7 +620,7 @@ const ProxyView: React.FC = () => {
     };
 
     // Open mock rules modal
-    const openMockModal = () => {
+    const handleOpenMockModal = () => {
         loadMockRules();
         setMockModalOpen(true);
     };
@@ -803,7 +820,7 @@ const ProxyView: React.FC = () => {
                                 </Space>
                             )}
                             <Tooltip title={t('proxy.mock_rules')}>
-                                <Button size="small" icon={<BlockOutlined />} onClick={openMockModal}>
+                                <Button size="small" icon={<BlockOutlined />} onClick={handleOpenMockModal}>
                                     Mock
                                 </Button>
                             </Tooltip>
@@ -1060,7 +1077,7 @@ const ProxyView: React.FC = () => {
                                         type="text"
                                         size="small"
                                         icon={<SendOutlined />}
-                                        onClick={() => openResendModal(selectedLog)}
+                                        onClick={() => handleOpenResendModal(selectedLog)}
                                     >
                                         {t('proxy.resend')}
                                     </Button>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   Button,
   Space,
@@ -55,10 +55,10 @@ const AppsView: React.FC = () => {
   const { setSelectedPackage, setLogFilter, toggleLogcat, stopLogcat, isLogging } = useLogcatStore();
   const { setSelectedKey } = useUIStore();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [tableHeight, setTableHeight] = useState<number>(400);
 
   // Use appsStore instead of useState
   const {
+    tableHeight,
     packages,
     appsLoading,
     packageFilter,
@@ -68,6 +68,7 @@ const AppsView: React.FC = () => {
     selectedAppInfo,
     permissionSearch,
     activitySearch,
+    setTableHeight,
     setPackages,
     setAppsLoading,
     setPackageFilter,

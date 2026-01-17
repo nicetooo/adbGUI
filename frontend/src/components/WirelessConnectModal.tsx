@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
-import { Modal, Form, Input, Tabs, Button, message, Space, Typography, QRCode } from "antd";
+import React, { useEffect } from "react";
+import { Modal, Form, Input, Tabs, Button, message, Space, Typography } from "antd";
 import { useTranslation } from "react-i18next";
 import { WifiOutlined, LinkOutlined } from "@ant-design/icons";
 // @ts-ignore
 import { StartWirelessServer } from "../../wailsjs/go/main/App";
+import { useWirelessConnectStore } from "../stores/wirelessConnectStore";
 // @ts-ignore
 const EventsOn = (window as any).runtime?.EventsOn;
 // @ts-ignore
@@ -26,9 +27,16 @@ const WirelessConnectModal: React.FC<WirelessConnectModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("connect");
-  const [connectUrl, setConnectUrl] = useState("");
+  
+  // Store state
+  const {
+    loading,
+    activeTab,
+    connectUrl,
+    setLoading,
+    setActiveTab,
+    setConnectUrl,
+  } = useWirelessConnectStore();
 
   useEffect(() => {
     if (open) {

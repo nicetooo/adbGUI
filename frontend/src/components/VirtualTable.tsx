@@ -1,6 +1,7 @@
-import React, { useRef, useMemo } from "react";
+import React, { useRef, useMemo, useId } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { theme, Spin, Empty } from "antd";
+import { useVirtualTableStore, SortConfig } from "../stores/virtualTableStore";
 
 interface ColumnType {
     title: React.ReactNode;
@@ -37,12 +38,11 @@ const VirtualTable: React.FC<VirtualTableProps> = ({
 }) => {
     const { token } = theme.useToken();
     const parentRef = useRef<HTMLDivElement>(null);
+    const tableId = useId();
 
-    const [sortConfig, setSortConfig] = React.useState<{
-        key: string;
-        order: "ascend" | "descend";
-        sorter: (a: any, b: any) => number;
-    } | null>(null);
+    const { sortConfigs, setSortConfig: setStoreSortConfig } = useVirtualTableStore();
+    const sortConfig = sortConfigs[tableId] || null;
+    const setSortConfig = (config: SortConfig | null) => setStoreSortConfig(tableId, config);
 
     const sortedData = useMemo(() => {
         if (!sortConfig) return dataSource;
@@ -67,13 +67,17 @@ const VirtualTable: React.FC<VirtualTableProps> = ({
         const key = col.key || col.dataIndex;
         if (!key) return;
 
-        setSortConfig((prev) => {
-            if (prev && prev.key === key) {
-                if (prev.order === "ascend") return { key, order: "descend", sorter: col.sorter! };
-                return null; // Cancel sort
+        let newConfig: SortConfig | null;
+        if (sortConfig && sortConfig.key === key) {
+            if (sortConfig.order === "ascend") {
+                newConfig = { key, order: "descend", sorter: col.sorter! };
+            } else {
+                newConfig = null; // Cancel sort
             }
-            return { key, order: "ascend", sorter: col.sorter! };
-        });
+        } else {
+            newConfig = { key, order: "ascend", sorter: col.sorter! };
+        }
+        setSortConfig(newConfig);
     };
 
     // Sort logic could he handled here if necessary, but assuming dataSource is already sorted or controlled by parent

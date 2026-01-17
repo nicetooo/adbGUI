@@ -25,10 +25,10 @@ var (
 	proxyDeviceMu sync.RWMutex
 
 	// Track emitted request IDs to avoid duplicates (with TTL-based cleanup)
-	emittedRequests   = make(map[string]int64) // requestId -> timestamp (unix nano)
-	emittedRequestsMu sync.Mutex
+	emittedRequests    = make(map[string]int64) // requestId -> timestamp (unix nano)
+	emittedRequestsMu  sync.Mutex
 	emittedRequestsTTL = int64(5 * 60 * 1e9) // 5 minutes in nanoseconds
-	emittedRequestsMax = 5000                 // Max entries before cleanup
+	emittedRequestsMax = 5000                // Max entries before cleanup
 )
 
 // SetProxyDevice sets which device the proxy is monitoring (for session events)
@@ -221,9 +221,21 @@ func (a *App) CleanupProxyForDevice(deviceId string, port int) error {
 	return nil
 }
 
-// StopProxy stops the internal proxy
+// StopProxy stops the internal proxy and cleans up device settings
 func (a *App) StopProxy() (string, error) {
 	LogUserAction(ActionProxyStop, "", nil)
+
+	// Get device and port before stopping
+	deviceId := a.GetProxyDevice()
+	port := proxy.GetProxy().GetPort()
+
+	// Clean up device proxy settings first (before stopping proxy)
+	if deviceId != "" && port > 0 {
+		a.CleanupProxyForDevice(deviceId, port)
+	}
+
+	// Clear the tracked device
+	a.SetProxyDevice("")
 
 	err := proxy.GetProxy().Stop()
 	if err != nil {
@@ -558,13 +570,13 @@ func (a *App) ResendRequest(method, url string, headers map[string]string, body 
 	}
 
 	return map[string]interface{}{
-		"statusCode":   resp.StatusCode,
-		"status":       resp.Status,
-		"headers":      respHeaders,
-		"body":         string(respBody),
-		"bodySize":     len(respBody),
-		"duration":     duration,
-		"contentType":  resp.Header.Get("Content-Type"),
+		"statusCode":  resp.StatusCode,
+		"status":      resp.Status,
+		"headers":     respHeaders,
+		"body":        string(respBody),
+		"bodySize":    len(respBody),
+		"duration":    duration,
+		"contentType": resp.Header.Get("Content-Type"),
 	}, nil
 }
 

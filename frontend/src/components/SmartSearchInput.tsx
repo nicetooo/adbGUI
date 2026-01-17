@@ -7,11 +7,12 @@
  * - AI 解析成功后清空输入框，显示解析结果标签
  * - 普通输入直接用于传统文本搜索
  */
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Input, Tooltip, Spin, Tag, Space, theme, message, Button } from 'antd';
+import React, { useCallback, useRef } from 'react';
+import { Input, Tooltip, Spin, Tag, Space, theme, message } from 'antd';
 import { SearchOutlined, RobotOutlined, ThunderboltOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAIStore } from '../stores/aiStore';
+import { useSmartSearchStore } from '../stores/smartSearchStore';
 
 // Parsed query result from AI
 export interface NLParsedQuery {
@@ -61,10 +62,18 @@ const SmartSearchInput: React.FC<SmartSearchInputProps> = ({
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const { serviceInfo, config, parseNaturalQuery } = useAIStore();
-
-  const [isParsing, setIsParsing] = useState(false);
-  const [aiFilterActive, setAiFilterActive] = useState(false);
-  const [lastParsedResult, setLastParsedResult] = useState<NLQueryResult | null>(null);
+  
+  // Store state
+  const {
+    isParsing,
+    aiFilterActive,
+    lastParsedResult,
+    setIsParsing,
+    setAiFilterActive,
+    setLastParsedResult,
+    clearAiFilter,
+  } = useSmartSearchStore();
+  
   const inputRef = useRef<any>(null);
 
   // Check if AI natural search is available
@@ -79,18 +88,16 @@ const SmartSearchInput: React.FC<SmartSearchInputProps> = ({
 
     // If AI filter was active and user starts typing, clear it
     if (aiFilterActive && newValue) {
-      setAiFilterActive(false);
-      setLastParsedResult(null);
+      clearAiFilter();
       onParsedQuery?.(null);
     }
 
     // If input is cleared, also clear AI filter
     if (!newValue) {
-      setAiFilterActive(false);
-      setLastParsedResult(null);
+      clearAiFilter();
       onParsedQuery?.(null);
     }
-  }, [onChange, aiFilterActive, onParsedQuery]);
+  }, [onChange, aiFilterActive, onParsedQuery, clearAiFilter]);
 
   // Parse with AI - manual trigger only
   const handleAIParse = useCallback(async () => {
@@ -130,11 +137,10 @@ const SmartSearchInput: React.FC<SmartSearchInputProps> = ({
 
   // Clear AI filter
   const handleClearAIFilter = useCallback(() => {
-    setAiFilterActive(false);
-    setLastParsedResult(null);
+    clearAiFilter();
     onParsedQuery?.(null);
     inputRef.current?.focus();
-  }, [onParsedQuery]);
+  }, [onParsedQuery, clearAiFilter]);
 
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {

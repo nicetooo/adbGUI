@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   Layout,
   Menu,
@@ -68,7 +68,6 @@ const { Content, Sider } = Layout;
 function App() {
   const { mode, setMode, isDark } = useTheme();
   const { t, i18n } = useTranslation();
-  const [llmConfigVisible, setLlmConfigVisible] = useState(false);
 
   // Device store
   const {
@@ -98,6 +97,7 @@ function App() {
     aboutVisible,
     wirelessConnectVisible,
     feedbackVisible,
+    llmConfigVisible,
     appVersion,
     setSelectedKey,
     showAbout,
@@ -106,6 +106,8 @@ function App() {
     hideWirelessConnect,
     showFeedback,
     hideFeedback,
+    showLLMConfig,
+    hideLLMConfig,
     init: initUI,
     subscribeToEvents: subscribeUIEvents,
   } = useUIStore();
@@ -322,7 +324,7 @@ function App() {
                 title={t("app.change_language")}
               />
             </Dropdown>
-            <Button type="text" size="small" icon={<RobotOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />} onClick={() => setLlmConfigVisible(true)} title={t("app.ai_config") || "AI Config"} />
+            <Button type="text" size="small" icon={<RobotOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />} onClick={showLLMConfig} title={t("app.ai_config") || "AI Config"} />
             <Button type="text" size="small" icon={<InfoCircleOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />} onClick={showAbout} title={t("app.about")} />
             <Button type="text" size="small" icon={<GithubOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />} onClick={() => BrowserOpenURL && BrowserOpenURL("https://github.com/niceto0/gaze")} title={t("app.github")} />
             <Button type="text" size="small" icon={<BugOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />} onClick={showFeedback} title={t("app.feedback")} />
@@ -375,7 +377,7 @@ function App() {
 
       <LLMConfig
         open={llmConfigVisible}
-        onClose={() => setLlmConfigVisible(false)}
+        onClose={hideLLMConfig}
       />
     </Layout>
   );

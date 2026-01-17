@@ -4,7 +4,7 @@ import { InfoCircleOutlined, GithubOutlined, MailOutlined } from "@ant-design/ic
 import { useTranslation } from "react-i18next";
 
 import logo from "../assets/images/logo.svg";
-import { GetAppVersion } from "../../wailsjs/go/main/App";
+import { useUIStore } from "../stores";
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -15,13 +15,7 @@ interface AboutModalProps {
 
 const AboutModal: React.FC<AboutModalProps> = ({ open, onCancel }) => {
   const { t } = useTranslation();
-  const [version, setVersion] = React.useState<string>("");
-
-  React.useEffect(() => {
-    if (open) {
-      GetAppVersion().then((v) => setVersion(v));
-    }
-  }, [open]);
+  const { appVersion } = useUIStore();
 
   // @ts-ignore
   const BrowserOpenURL = (window as any).runtime.BrowserOpenURL;
@@ -48,7 +42,7 @@ const AboutModal: React.FC<AboutModalProps> = ({ open, onCancel }) => {
       <div style={{ textAlign: "center", marginBottom: 24 }}>
         <img src={logo} alt="Logo" style={{ width: 80, marginBottom: 16 }} />
         <Title level={3} style={{ margin: 0 }}>ADB GUI</Title>
-        <Text type="secondary">{t("about.version")} {version || "..."}</Text>
+        <Text type="secondary">{t("about.version")} {appVersion || "..."}</Text>
       </div>
 
       <Paragraph>

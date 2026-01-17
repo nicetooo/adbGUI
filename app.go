@@ -76,16 +76,16 @@ type App struct {
 	sessionMonitorsMu sync.Mutex
 
 	// Event System (new)
-	eventStore       *EventStore
-	eventPipeline    *EventPipeline
-	assertionEngine  *AssertionEngine
-	eventSystemMu    sync.RWMutex
-	dataDir          string
+	eventStore      *EventStore
+	eventPipeline   *EventPipeline
+	assertionEngine *AssertionEngine
+	eventSystemMu   sync.RWMutex
+	dataDir         string
 
 	// AI Service
-	aiService      *AIService
-	aiConfigMgr    *AIConfigManager
-	aiServiceMu    sync.RWMutex
+	aiService   *AIService
+	aiConfigMgr *AIConfigManager
+	aiServiceMu sync.RWMutex
 }
 
 // NewApp creates a new App instance
@@ -118,7 +118,13 @@ func (a *App) Shutdown(ctx context.Context) {
 	LogAppState(StateShuttingDown, map[string]interface{}{
 		"reason": "application_close",
 	})
-	a.StopBatchSync() // Stop session event batch sync (legacy)
+
+	// Stop proxy and clean up device settings to prevent network issues
+	if a.GetProxyStatus() {
+		a.StopProxy()
+	}
+
+	a.StopBatchSync()       // Stop session event batch sync (legacy)
 	a.shutdownEventSystem() // Shutdown new event system
 	a.scrcpyMu.Lock()
 	for id, cmd := range a.scrcpyCmds {

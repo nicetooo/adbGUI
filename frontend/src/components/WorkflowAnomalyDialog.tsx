@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   Card,
@@ -26,6 +26,7 @@ import {
   LockOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { useWorkflowAnomalyStore } from '../stores/workflowAnomalyStore';
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -135,9 +136,14 @@ const WorkflowAnomalyDialog: React.FC<WorkflowAnomalyDialogProps> = ({
   onCancel,
 }) => {
   const { t } = useTranslation();
-  const [selectedAction, setSelectedAction] = useState<string>('');
-  const [rememberChoice, setRememberChoice] = useState(false);
-  const [updateWorkflow, setUpdateWorkflow] = useState(false);
+  const {
+    selectedAction,
+    rememberChoice,
+    updateWorkflow,
+    setSelectedAction,
+    setRememberChoice,
+    setUpdateWorkflow,
+  } = useWorkflowAnomalyStore();
 
   // Sort actions by priority
   const sortedActions = useMemo(() => {

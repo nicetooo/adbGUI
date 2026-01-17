@@ -65,6 +65,9 @@ const DevicesView: React.FC<DevicesViewProps> = ({
     clearSelection,
     openBatchModal,
     closeBatchModal,
+    // Network stats
+    netStatsMap,
+    updateNetStats,
   } = useDeviceStore();
 
   const { mirrorStatuses, recordStatuses } = useMirrorStore();
@@ -142,17 +145,13 @@ const DevicesView: React.FC<DevicesViewProps> = ({
     setSelectedKey(VIEW_KEYS.MIRROR);
   };
 
-  const [netStatsMap, setNetStatsMap] = React.useState<Record<string, { rxSpeed: number; txSpeed: number }>>({});
   const monitoredIds = React.useRef<Set<string>>(new Set());
 
   React.useEffect(() => {
     // Subscribe to network stats updates
     const unregister = EventsOn("network-stats", (stats: any) => {
       if (stats.deviceId) {
-        setNetStatsMap(prev => ({
-          ...prev,
-          [stats.deviceId]: { rxSpeed: stats.rxSpeed, txSpeed: stats.txSpeed }
-        }));
+        updateNetStats(stats.deviceId, { rxSpeed: stats.rxSpeed, txSpeed: stats.txSpeed });
       }
     });
 
@@ -161,7 +160,7 @@ const DevicesView: React.FC<DevicesViewProps> = ({
       StopAllNetworkMonitors();
       monitoredIds.current.clear();
     };
-  }, []);
+  }, [updateNetStats]);
 
   // Update monitors when devices list changes
   React.useEffect(() => {

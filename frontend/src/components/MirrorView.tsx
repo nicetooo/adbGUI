@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { Button, Space, Tag, Card, Switch, Tooltip, Slider, Select, message, theme } from "antd";
 import { useTranslation } from "react-i18next";
 import {
@@ -50,7 +50,20 @@ type OrientationMode = 'auto' | 'landscape' | 'portrait';
 
 const MirrorView: React.FC = () => {
   const { selectedDevice, devices, fetchDevices } = useDeviceStore();
-  const { mirrorStatuses, recordStatuses } = useMirrorStore();
+  const { 
+    mirrorStatuses, 
+    recordStatuses,
+    deviceConfigs,
+    deviceShouldRecord,
+    availableCameras,
+    availableDisplays,
+    deviceAndroidVer,
+    setDeviceConfig,
+    setDeviceShouldRecord,
+    setAvailableCameras,
+    setAvailableDisplays,
+    setDeviceAndroidVer,
+  } = useMirrorStore();
   const { t } = useTranslation();
   const { token } = theme.useToken();
   
@@ -83,12 +96,6 @@ const MirrorView: React.FC = () => {
     noPowerOn: false,
   };
 
-  // Scrcpy states per device
-  const [deviceConfigs, setDeviceConfigs] = useState<Record<string, main.ScrcpyConfig>>({});
-  const [deviceShouldRecord, setDeviceShouldRecord] = useState<Record<string, boolean>>({});
-  const [availableCameras, setAvailableCameras] = useState<string[]>([]);
-  const [availableDisplays, setAvailableDisplays] = useState<string[]>([]);
-  const [deviceAndroidVer, setDeviceAndroidVer] = useState<number>(0);
   const fetchingRef = useRef<string | null>(null);
   const lastFetchedDeviceRef = useRef<string>("");
 
@@ -199,18 +206,12 @@ const MirrorView: React.FC = () => {
 
   const setScrcpyConfig = (config: main.ScrcpyConfig) => {
     if (!selectedDevice) return;
-    setDeviceConfigs(prev => ({
-      ...prev,
-      [selectedDevice]: config
-    }));
+    setDeviceConfig(selectedDevice, config);
   };
 
   const setShouldRecord = (val: boolean) => {
     if (!selectedDevice) return;
-    setDeviceShouldRecord(prev => ({
-      ...prev,
-      [selectedDevice]: val
-    }));
+    setDeviceShouldRecord(selectedDevice, val);
   };
 
   const handleStartScrcpy = async (deviceId: string, overrideConfig?: main.ScrcpyConfig) => {

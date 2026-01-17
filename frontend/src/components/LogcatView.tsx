@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useMemo, useCallback } from "react";
+import { useRef, useEffect, useMemo, useCallback } from "react";
 import { Button, Input, Select, Space, Checkbox, message, Modal, Tooltip, Tag, theme, Spin, Popover } from "antd";
 import { useTranslation } from "react-i18next";
 import {
@@ -58,18 +58,20 @@ export default function LogcatView() {
     matchCase, setMatchCase,
     matchWholeWord, setMatchWholeWord,
     savedFilters, setSavedFilters,
+    
+    // Modal state
+    isSaveModalOpen, setIsSaveModalOpen,
+    newFilterName, setNewFilterName,
+    openSaveModal, closeSaveModal,
+    
+    // AI Search state
+    isAIParsing, setIsAIParsing,
+    aiSearchText, setAiSearchText,
+    aiPopoverOpen, setAiPopoverOpen,
   } = useLogcatStore();
-
-  // Logcat local state managed by store now
-  // Modal states (transient)
-  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
-  const [newFilterName, setNewFilterName] = useState("");
 
   // AI Smart Search
   const { serviceInfo, config: aiConfig, parseNaturalQuery } = useAIStore();
-  const [isAIParsing, setIsAIParsing] = useState(false);
-  const [aiSearchText, setAiSearchText] = useState("");
-  const [aiPopoverOpen, setAiPopoverOpen] = useState(false);
 
   const isAIAvailable = serviceInfo?.status === 'ready' &&
     aiConfig?.enabled &&

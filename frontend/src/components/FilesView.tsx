@@ -38,7 +38,7 @@ import {
   DownloadFile
 } from "../../wailsjs/go/main/App";
 import DeviceSelector from "./DeviceSelector";
-import { useDeviceStore, useFilesStore } from "../stores";
+import { useDeviceStore, useFilesStore, useThumbnailStore } from "../stores";
 
 const NameWithThumbnail = ({
   deviceId,
@@ -49,8 +49,9 @@ const NameWithThumbnail = ({
   record: any;
   onClick: () => void;
 }) => {
-  const [thumb, setThumb] = React.useState<string | null>(null);
-  const [loading, setLoading] = React.useState(false);
+  const { thumbnails, loadingPaths, setThumbnail, setLoading } = useThumbnailStore();
+  const thumb = thumbnails[record.path] || null;
+  const loading = loadingPaths.has(record.path);
 
   const name = record.name.toLowerCase();
   const isImage =
@@ -67,15 +68,16 @@ const NameWithThumbnail = ({
 
   React.useEffect(() => {
     if ((isImage || isVideo) && deviceId && !thumb && !loading) {
-      setLoading(true);
+      setLoading(record.path, true);
       GetThumbnail(deviceId, record.path, record.modTime)
         .then((res: string) => {
-          setThumb(res);
+          setThumbnail(record.path, res);
         })
-        .catch(() => { })
-        .finally(() => setLoading(false));
+        .catch(() => {
+          setLoading(record.path, false);
+        });
     }
-  }, [deviceId, record.path, record.modTime]);
+  }, [deviceId, record.path, record.modTime, thumb, loading, setThumbnail, setLoading]);
 
   const icon = thumb ? (
     <img

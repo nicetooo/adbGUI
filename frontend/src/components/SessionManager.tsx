@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
 import {
   Table,
   Card,
@@ -35,10 +35,9 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
-import { useDeviceStore, useUIStore, useEventStore, VIEW_KEYS, useAIStore } from '../stores';
+import { useDeviceStore, useUIStore, useEventStore, VIEW_KEYS, useAIStore, useSessionManagerStore } from '../stores';
 import type { DeviceSession } from '../stores/eventTypes';
 import WorkflowGenerator from './WorkflowGenerator';
-import SessionSummary from './SessionSummary';
 
 const { Text, Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -106,19 +105,33 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
   const { loadSession } = useEventStore();
   const { config: aiConfig } = useAIStore();
 
-  // State
-  const [sessions, setSessions] = useState<DeviceSession[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [selectedSession, setSelectedSession] = useState<DeviceSession | null>(null);
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const [searchText, setSearchText] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
-  const [renameModalOpen, setRenameModalOpen] = useState(false);
-  const [renameSession, setRenameSession] = useState<DeviceSession | null>(null);
-  const [newName, setNewName] = useState('');
-  const [workflowGeneratorOpen, setWorkflowGeneratorOpen] = useState(false);
-  const [workflowSession, setWorkflowSession] = useState<DeviceSession | null>(null);
+  // Session Manager Store
+  const {
+    sessions,
+    loading,
+    selectedSession,
+    selectedRowKeys,
+    searchText,
+    statusFilter,
+    detailModalOpen,
+    renameModalOpen,
+    renameSession,
+    newName,
+    workflowGeneratorOpen,
+    workflowSession,
+    setSessions,
+    setLoading,
+    setSelectedRowKeys,
+    setSearchText,
+    setStatusFilter,
+    openDetailModal,
+    closeDetailModal,
+    openRenameModal,
+    closeRenameModal,
+    setNewName,
+    openWorkflowGenerator,
+    closeWorkflowGenerator,
+  } = useSessionManagerStore();
 
   // Load sessions
   const loadSessions = useCallback(async () => {
@@ -171,9 +184,8 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
 
   // View session detail
   const handleViewDetail = useCallback((session: DeviceSession) => {
-    setSelectedSession(session);
-    setDetailModalOpen(true);
-  }, []);
+    openDetailModal(session);
+  }, [openDetailModal]);
 
   // Play video with system player
   const handlePlayVideo = useCallback(async (session: DeviceSession) => {
@@ -192,10 +204,8 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
 
   // Open rename modal
   const handleOpenRename = useCallback((session: DeviceSession) => {
-    setRenameSession(session);
-    setNewName(session.name || '');
-    setRenameModalOpen(true);
-  }, []);
+    openRenameModal(session);
+  }, [openRenameModal]);
 
   // Rename session
   const handleRename = useCallback(async () => {
@@ -204,15 +214,13 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
     try {
       await (window as any).go.main.App.RenameStoredSession(renameSession.id, newName.trim());
       message.success(t('session_manager.rename_success'));
-      setRenameModalOpen(false);
-      setRenameSession(null);
-      setNewName('');
+      closeRenameModal();
       loadSessions();
     } catch (err) {
       console.error('Failed to rename session:', err);
       message.error(t('session_manager.rename_failed'));
     }
-  }, [renameSession, newName, loadSessions, t]);
+  }, [renameSession, newName, closeRenameModal, loadSessions, t]);
 
   // View session in Events tab
   const handleViewInEvents = useCallback(async (session: DeviceSession) => {
@@ -231,9 +239,8 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
       message.warning(t('session_manager.no_events_for_workflow', 'This session has no events'));
       return;
     }
-    setWorkflowSession(session);
-    setWorkflowGeneratorOpen(true);
-  }, [t]);
+    openWorkflowGenerator(session);
+  }, [t, openWorkflowGenerator]);
 
   // Filter sessions
   const filteredSessions = useMemo(() => {
@@ -369,20 +376,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
                 onClick={() => handleGenerateWorkflow(record)}
               />
             </Tooltip>
-          )}
-          {aiConfig?.enabled && (
-            <SessionSummary
-              sessionId={record.id}
-              trigger={
-                <Tooltip title={t('session_summary.generate', 'Generate Session Summary')}>
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<FileTextOutlined />}
-                  />
-                </Tooltip>
-              }
-            />
           )}
           <Tooltip title={t('session_manager.rename')}>
             <Button
@@ -530,9 +523,9 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
       <Modal
         title={t('session_manager.detail_title')}
         open={detailModalOpen}
-        onCancel={() => setDetailModalOpen(false)}
+        onCancel={closeDetailModal}
         footer={[
-          <Button key="close" onClick={() => setDetailModalOpen(false)}>
+          <Button key="close" onClick={closeDetailModal}>
             {t('session_manager.close')}
           </Button>,
           selectedSession?.videoPath && (
@@ -541,7 +534,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
               type="primary"
               icon={<PlayCircleOutlined />}
               onClick={() => {
-                setDetailModalOpen(false);
+                closeDetailModal();
                 handlePlayVideo(selectedSession!);
               }}
             >
@@ -615,11 +608,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
       <Modal
         title={t('session_manager.rename_title')}
         open={renameModalOpen}
-        onCancel={() => {
-          setRenameModalOpen(false);
-          setRenameSession(null);
-          setNewName('');
-        }}
+        onCancel={closeRenameModal}
         onOk={handleRename}
         okText={t('common.ok')}
         cancelText={t('common.cancel')}
@@ -638,10 +627,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
       {workflowSession && (
         <WorkflowGenerator
           open={workflowGeneratorOpen}
-          onClose={() => {
-            setWorkflowGeneratorOpen(false);
-            setWorkflowSession(null);
-          }}
+          onClose={closeWorkflowGenerator}
           sessionId={workflowSession.id}
           deviceId={workflowSession.deviceId}
         />

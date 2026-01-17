@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import {
   Modal,
   Form,
@@ -20,6 +20,7 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { SessionConfig, defaultSessionConfig } from '../stores/eventTypes';
+import { useSessionConfigStore } from '../stores/sessionConfigStore';
 import { GetInstalledPackages } from '../../wailsjs/go/main/App';
 
 const { Text } = Typography;
@@ -41,16 +42,24 @@ const SessionConfigModal: React.FC<SessionConfigModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [form] = Form.useForm();
-  const [config, setConfig] = useState<SessionConfig>(defaultSessionConfig);
-  const [packages, setPackages] = useState<string[]>([]);
-  const [loadingPackages, setLoadingPackages] = useState(false);
+  
+  // Store state
+  const {
+    config,
+    packages,
+    loadingPackages,
+    updateConfig,
+    setPackages,
+    setLoadingPackages,
+    resetConfig,
+  } = useSessionConfigStore();
 
   useEffect(() => {
     if (open) {
       // Reset form when modal opens
       const name = defaultName || `Session ${new Date().toLocaleTimeString()}`;
       form.setFieldsValue({ name });
-      setConfig(defaultSessionConfig);
+      resetConfig();
 
       // Fetch installed packages
       if (deviceId) {
@@ -68,24 +77,11 @@ const SessionConfigModal: React.FC<SessionConfigModalProps> = ({
           });
       }
     }
-  }, [open, defaultName, form, deviceId]);
+  }, [open, defaultName, form, deviceId, resetConfig, setLoadingPackages, setPackages]);
 
   const handleOk = () => {
     form.validateFields().then((values) => {
       onStart(values.name, config);
-    });
-  };
-
-  const updateConfig = (path: string[], value: any) => {
-    setConfig((prev) => {
-      const newConfig = { ...prev };
-      let current: any = newConfig;
-      for (let i = 0; i < path.length - 1; i++) {
-        current[path[i]] = { ...current[path[i]] };
-        current = current[path[i]];
-      }
-      current[path[path.length - 1]] = value;
-      return newConfig;
     });
   };
 
