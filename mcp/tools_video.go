@@ -3,9 +3,31 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
+
+// stripDataURLPrefix removes the "data:image/jpeg;base64," prefix from a data URL
+func stripDataURLPrefix(dataURL string) string {
+	// Handle common data URL prefixes
+	prefixes := []string{
+		"data:image/jpeg;base64,",
+		"data:image/png;base64,",
+		"data:image/gif;base64,",
+		"data:image/webp;base64,",
+	}
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(dataURL, prefix) {
+			return strings.TrimPrefix(dataURL, prefix)
+		}
+	}
+	// If no known prefix, try generic pattern
+	if idx := strings.Index(dataURL, ";base64,"); idx != -1 {
+		return dataURL[idx+8:]
+	}
+	return dataURL
+}
 
 // registerVideoTools registers video-related tools
 func (s *MCPServer) registerVideoTools() {
@@ -91,10 +113,13 @@ func (s *MCPServer) handleVideoFrame(ctx context.Context, request mcp.CallToolRe
 		width = int(w)
 	}
 
-	base64Data, err := s.app.GetVideoFrame(videoPath, int64(timeMs), width)
+	base64DataURL, err := s.app.GetVideoFrame(videoPath, int64(timeMs), width)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract frame: %w", err)
 	}
+
+	// Strip data URL prefix - MCP expects pure base64 data
+	base64Data := stripDataURLPrefix(base64DataURL)
 
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
@@ -181,10 +206,13 @@ func (s *MCPServer) handleSessionVideoFrame(ctx context.Context, request mcp.Cal
 		videoTimeMs = 0
 	}
 
-	base64Data, err := s.app.GetVideoFrame(videoPath, videoTimeMs, width)
+	base64DataURL, err := s.app.GetVideoFrame(videoPath, videoTimeMs, width)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract frame: %w", err)
 	}
+
+	// Strip data URL prefix - MCP expects pure base64 data
+	base64Data := stripDataURLPrefix(base64DataURL)
 
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
