@@ -309,17 +309,55 @@ func (s *MCPServer) handleSessionEvents(ctx context.Context, request mcp.CallToo
 
 	summary := fmt.Sprintf("Session %s: %d events (showing %d)\n\n", sessionID, result.Total, len(result.Events))
 
-	// Show event summaries
+	// Show event details
 	for i, event := range result.Events {
-		if i >= 20 { // Limit display
-			summary += fmt.Sprintf("... and %d more events\n", len(result.Events)-20)
+		if i >= 50 { // Limit display to 50 events
+			summary += fmt.Sprintf("\n... and %d more events\n", len(result.Events)-50)
 			break
 		}
 		eventMap, ok := event.(map[string]interface{})
 		if ok {
 			eventType := eventMap["type"]
 			title := eventMap["title"]
+			timestamp := eventMap["timestamp"]
+			relativeTime := eventMap["relativeTime"]
+
 			summary += fmt.Sprintf("%d. [%v] %v\n", i+1, eventType, title)
+
+			// Show timestamp info
+			if relativeTime != nil {
+				summary += fmt.Sprintf("   Time: +%vms\n", relativeTime)
+			} else if timestamp != nil {
+				summary += fmt.Sprintf("   Timestamp: %v\n", timestamp)
+			}
+
+			// Show data details for touch/interaction events
+			if data, ok := eventMap["data"].(map[string]interface{}); ok && len(data) > 0 {
+				// For touch events, show coordinates
+				if x, hasX := data["x"]; hasX {
+					if y, hasY := data["y"]; hasY {
+						summary += fmt.Sprintf("   Coords: (%v, %v)\n", x, y)
+					}
+				}
+				// For swipe events, show end coordinates
+				if x2, hasX2 := data["x2"]; hasX2 {
+					if y2, hasY2 := data["y2"]; hasY2 {
+						summary += fmt.Sprintf("   End: (%v, %v)\n", x2, y2)
+					}
+				}
+				// Show gesture type if present
+				if gesture, ok := data["gestureType"].(string); ok && gesture != "" {
+					summary += fmt.Sprintf("   Gesture: %s\n", gesture)
+				}
+				// Show action if present
+				if action, ok := data["action"].(string); ok && action != "" {
+					summary += fmt.Sprintf("   Action: %s\n", action)
+				}
+				// Show duration if present
+				if duration, ok := data["duration"]; ok {
+					summary += fmt.Sprintf("   Duration: %vms\n", duration)
+				}
+			}
 		}
 	}
 
