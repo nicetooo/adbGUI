@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+
 	"Gaze/mcp"
 )
 
@@ -249,23 +251,48 @@ func (b *MCPBridge) QuerySessionEvents(query mcp.EventQuery) (*mcp.EventQueryRes
 	}
 
 	result, err := b.app.QuerySessionEvents(EventQuery{
-		SessionID:  query.SessionID,
-		DeviceID:   query.DeviceID,
-		Types:      query.Types,
-		Sources:    sources,
-		Levels:     levels,
-		StartTime:  query.StartTime,
-		EndTime:    query.EndTime,
-		SearchText: query.SearchText,
-		Limit:      query.Limit,
-		Offset:     query.Offset,
+		SessionID:   query.SessionID,
+		DeviceID:    query.DeviceID,
+		Types:       query.Types,
+		Sources:     sources,
+		Levels:      levels,
+		StartTime:   query.StartTime,
+		EndTime:     query.EndTime,
+		SearchText:  query.SearchText,
+		Limit:       query.Limit,
+		Offset:      query.Offset,
+		IncludeData: true, // MCP needs full event data including coordinates
 	})
 	if err != nil {
 		return nil, err
 	}
 	events := make([]interface{}, len(result.Events))
 	for i, e := range result.Events {
-		events[i] = e
+		// Convert UnifiedEvent to map for MCP serialization
+		eventMap := map[string]interface{}{
+			"id":           e.ID,
+			"sessionId":    e.SessionID,
+			"deviceId":     e.DeviceID,
+			"timestamp":    e.Timestamp,
+			"relativeTime": e.RelativeTime,
+			"source":       string(e.Source),
+			"category":     string(e.Category),
+			"type":         e.Type,
+			"level":        string(e.Level),
+			"title":        e.Title,
+			"summary":      e.Summary,
+		}
+		// Parse data JSON if present
+		if len(e.Data) > 0 {
+			var data map[string]interface{}
+			if err := json.Unmarshal(e.Data, &data); err == nil {
+				eventMap["data"] = data
+			}
+		}
+		if e.Duration > 0 {
+			eventMap["duration"] = e.Duration
+		}
+		events[i] = eventMap
 	}
 	return &mcp.EventQueryResult{
 		Events:  events,
