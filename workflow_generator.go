@@ -231,7 +231,9 @@ func (a *App) emitWorkflowGenProgressWithData(stage string, percent int, message
 	for k, v := range extraData {
 		data[k] = v
 	}
-	wailsRuntime.EventsEmit(a.ctx, "workflow-gen-progress", data)
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "workflow-gen-progress", data)
+	}
 }
 
 // extractVideoContextsForEvents extracts video frames at each touch event timestamp

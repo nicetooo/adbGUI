@@ -20,6 +20,7 @@ type EventPipeline struct {
 	ctx      context.Context
 	wailsCtx context.Context
 	store    *EventStore
+	mcpMode  bool // MCP mode - skip Wails EventsEmit calls
 
 	// 事件通道
 	eventChan chan UnifiedEvent
@@ -254,8 +255,8 @@ type BackpressureController struct {
 	samplers map[string]*EventSampler
 
 	// 统计
-	droppedCount  int64
-	sampledCount  int64
+	droppedCount   int64
+	sampledCount   int64
 	aggregateCount int64
 
 	mu sync.Mutex
@@ -389,11 +390,12 @@ func (b *BackpressureController) GetStats() map[string]int64 {
 // ========================================
 
 // NewEventPipeline 创建事件管道
-func NewEventPipeline(ctx, wailsCtx context.Context, store *EventStore) *EventPipeline {
+func NewEventPipeline(ctx, wailsCtx context.Context, store *EventStore, mcpMode bool) *EventPipeline {
 	return &EventPipeline{
 		ctx:            ctx,
 		wailsCtx:       wailsCtx,
 		store:          store,
+		mcpMode:        mcpMode,
 		eventChan:      make(chan UnifiedEvent, 10000),
 		sessions:       make(map[string]*SessionState),
 		deviceSession:  make(map[string]string),
@@ -600,7 +602,6 @@ func (p *EventPipeline) processEvent(event UnifiedEvent) {
 	p.addToFrontendBuffer(event)
 }
 
-
 // updateTimeIndex 更新时间索引
 func (p *EventPipeline) updateTimeIndex(event UnifiedEvent) {
 	second := int(event.RelativeTime / 1000)
@@ -658,7 +659,9 @@ func (p *EventPipeline) flushFrontendBuffer() {
 	p.frontendBufferMu.Unlock()
 
 	// 发送到前端 (统一使用 session-events-batch，兼容所有组件)
-	wailsRuntime.EventsEmit(p.wailsCtx, "session-events-batch", batch)
+	if !p.mcpMode {
+		wailsRuntime.EventsEmit(p.wailsCtx, "session-events-batch", batch)
+	}
 }
 
 // timeIndexPersister 定期持久化时间索引
@@ -720,7 +723,9 @@ func (p *EventPipeline) StartSession(deviceID, sessionType, name string, config 
 			state.Session.Status = "completed"
 			state.Session.EventCount = int(state.EventCount)
 			p.store.UpdateSession(state.Session)
-			wailsRuntime.EventsEmit(p.wailsCtx, "session-ended", state.Session)
+			if !p.mcpMode {
+				wailsRuntime.EventsEmit(p.wailsCtx, "session-ended", state.Session)
+			}
 		}
 	}
 
@@ -755,7 +760,9 @@ func (p *EventPipeline) StartSession(deviceID, sessionType, name string, config 
 
 	p.store.CreateSession(session)
 	SessionLog().Str("sessionId", sessionID).Msg("Session saved to store")
-	wailsRuntime.EventsEmit(p.wailsCtx, "session-started", session)
+	if !p.mcpMode {
+		wailsRuntime.EventsEmit(p.wailsCtx, "session-started", session)
+	}
 
 	// 发送 session_start 事件
 	p.Emit(UnifiedEvent{
@@ -799,7 +806,9 @@ func (p *EventPipeline) EndSession(sessionID, status string) {
 		}
 	}
 
-	wailsRuntime.EventsEmit(p.wailsCtx, "session-ended", state.Session)
+	if !p.mcpMode {
+		wailsRuntime.EventsEmit(p.wailsCtx, "session-ended", state.Session)
+	}
 }
 
 // GetActiveSessionID 获取设备的活跃 Session ID

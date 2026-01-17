@@ -162,13 +162,15 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 		sessionId := a.EnsureActiveSession(deviceId)
 
 		// We can update session metadata or emit a "workflow started" marker event separate from session start
-		wailsRuntime.EventsEmit(a.ctx, "workflow-started", map[string]interface{}{
-			"deviceId":     deviceId,
-			"workflowName": workflow.Name,
-			"workflowId":   workflow.ID,
-			"steps":        len(workflow.Steps),
-			"sessionId":    sessionId,
-		})
+		if !a.mcpMode {
+			wailsRuntime.EventsEmit(a.ctx, "workflow-started", map[string]interface{}{
+				"deviceId":     deviceId,
+				"workflowName": workflow.Name,
+				"workflowId":   workflow.ID,
+				"steps":        len(workflow.Steps),
+				"sessionId":    sessionId,
+			})
+		}
 
 		// Emit workflow start event to timeline
 		a.EmitSessionEventFull(SessionEvent{
@@ -209,11 +211,13 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 						"error":      err.Error(),
 					})
 
-				wailsRuntime.EventsEmit(a.ctx, "workflow-error", map[string]interface{}{
-					"deviceId":   deviceId,
-					"workflowId": workflow.ID,
-					"error":      err.Error(),
-				})
+				if !a.mcpMode {
+					wailsRuntime.EventsEmit(a.ctx, "workflow-error", map[string]interface{}{
+						"deviceId":   deviceId,
+						"workflowId": workflow.ID,
+						"error":      err.Error(),
+					})
+				}
 			}
 		}
 
@@ -235,14 +239,16 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 		// Do NOT end the session, as it's the main device timeline.
 		// Just emit completion event.
 
-		wailsRuntime.EventsEmit(a.ctx, "workflow-completed", map[string]interface{}{
-			"deviceId":     deviceId,
-			"workflowName": workflow.Name,
-			"workflowId":   workflow.ID,
-			"sessionId":    sessionId,
-			"duration":     duration,
-			"status":       sessionStatus,
-		})
+		if !a.mcpMode {
+			wailsRuntime.EventsEmit(a.ctx, "workflow-completed", map[string]interface{}{
+				"deviceId":     deviceId,
+				"workflowName": workflow.Name,
+				"workflowId":   workflow.ID,
+				"sessionId":    sessionId,
+				"duration":     duration,
+				"status":       sessionStatus,
+			})
+		}
 	}()
 
 	return nil
@@ -281,12 +287,14 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 			"stepName":  startStep.Name,
 		})
 
-	wailsRuntime.EventsEmit(a.ctx, "workflow-step-running", map[string]interface{}{
-		"deviceId": deviceId,
-		"stepId":   startStep.ID,
-		"stepName": startStep.Name,
-		"stepType": "start",
-	})
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "workflow-step-running", map[string]interface{}{
+			"deviceId": deviceId,
+			"stepId":   startStep.ID,
+			"stepName": startStep.Name,
+			"stepType": "start",
+		})
+	}
 	time.Sleep(200 * time.Millisecond)
 
 	// Mark start step as completed
@@ -328,14 +336,16 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 				"stepName":  step.Name,
 			})
 
-		wailsRuntime.EventsEmit(a.ctx, "workflow-step-running", map[string]interface{}{
-			"deviceId":   deviceId,
-			"workflowId": workflow.ID,
-			"stepIndex":  executedCount,
-			"stepId":     step.ID,
-			"stepName":   step.Name,
-			"stepType":   step.Type,
-		})
+		if !a.mcpMode {
+			wailsRuntime.EventsEmit(a.ctx, "workflow-step-running", map[string]interface{}{
+				"deviceId":   deviceId,
+				"workflowId": workflow.ID,
+				"stepIndex":  executedCount,
+				"stepId":     step.ID,
+				"stepName":   step.Name,
+				"stepType":   step.Type,
+			})
+		}
 
 		loopCount := step.Loop
 		if loopCount < 1 {
@@ -348,13 +358,15 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 		for l := 0; l < loopCount; l++ {
 			// Pre-Wait
 			if step.PreWait > 0 {
-				wailsRuntime.EventsEmit(a.ctx, "workflow-step-waiting", map[string]interface{}{
-					"deviceId":   deviceId,
-					"workflowId": workflow.ID,
-					"stepId":     step.ID,
-					"duration":   step.PreWait,
-					"phase":      "pre",
-				})
+				if !a.mcpMode {
+					wailsRuntime.EventsEmit(a.ctx, "workflow-step-waiting", map[string]interface{}{
+						"deviceId":   deviceId,
+						"workflowId": workflow.ID,
+						"stepId":     step.ID,
+						"duration":   step.PreWait,
+						"phase":      "pre",
+					})
+				}
 				time.Sleep(time.Duration(step.PreWait) * time.Millisecond)
 			}
 
@@ -408,13 +420,15 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 
 			// Post Delay (Wait After)
 			if step.PostDelay > 0 {
-				wailsRuntime.EventsEmit(a.ctx, "workflow-step-waiting", map[string]interface{}{
-					"deviceId":   deviceId,
-					"workflowId": workflow.ID,
-					"stepId":     step.ID,
-					"duration":   step.PostDelay,
-					"phase":      "post",
-				})
+				if !a.mcpMode {
+					wailsRuntime.EventsEmit(a.ctx, "workflow-step-waiting", map[string]interface{}{
+						"deviceId":   deviceId,
+						"workflowId": workflow.ID,
+						"stepId":     step.ID,
+						"duration":   step.PostDelay,
+						"phase":      "post",
+					})
+				}
 				time.Sleep(time.Duration(step.PostDelay) * time.Millisecond)
 			}
 
@@ -829,12 +843,14 @@ func (a *App) loadAndRunSubWorkflow(ctx context.Context, deviceId, workflowID st
 		return fmt.Errorf("failed to parse sub-workflow: %w", err)
 	}
 
-	wailsRuntime.EventsEmit(a.ctx, "workflow-started", map[string]interface{}{
-		"deviceId":     deviceId,
-		"workflowName": subWorkflow.Name,
-		"workflowId":   subWorkflow.ID,
-		"steps":        len(subWorkflow.Steps),
-	})
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "workflow-started", map[string]interface{}{
+			"deviceId":     deviceId,
+			"workflowName": subWorkflow.Name,
+			"workflowId":   subWorkflow.ID,
+			"steps":        len(subWorkflow.Steps),
+		})
+	}
 
 	// Inherit variables from parent but also load sub-workflow defaults
 	subVars := make(map[string]string)
@@ -850,18 +866,22 @@ func (a *App) loadAndRunSubWorkflow(ctx context.Context, deviceId, workflowID st
 	err = a.runWorkflowInternal(ctx, deviceId, subWorkflow, depth+1, subVars)
 
 	if err != nil && err != context.Canceled {
-		wailsRuntime.EventsEmit(a.ctx, "workflow-error", map[string]interface{}{
-			"deviceId":   deviceId,
-			"workflowId": subWorkflow.ID,
-			"error":      err.Error(),
-		})
+		if !a.mcpMode {
+			wailsRuntime.EventsEmit(a.ctx, "workflow-error", map[string]interface{}{
+				"deviceId":   deviceId,
+				"workflowId": subWorkflow.ID,
+				"error":      err.Error(),
+			})
+		}
 	}
 
-	wailsRuntime.EventsEmit(a.ctx, "workflow-completed", map[string]interface{}{
-		"deviceId":     deviceId,
-		"workflowName": subWorkflow.Name,
-		"workflowId":   subWorkflow.ID,
-	})
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "workflow-completed", map[string]interface{}{
+			"deviceId":     deviceId,
+			"workflowName": subWorkflow.Name,
+			"workflowId":   subWorkflow.ID,
+		})
+	}
 
 	return err
 }

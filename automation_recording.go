@@ -70,9 +70,11 @@ func (a *App) SubmitSelectorChoice(deviceId string, selectorType string, selecto
 	uiHierarchyCacheMu.Unlock()
 
 	// Emit event to frontend
-	wailsRuntime.EventsEmit(a.ctx, "recording-resumed", map[string]interface{}{
-		"deviceId": deviceId,
-	})
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "recording-resumed", map[string]interface{}{
+			"deviceId": deviceId,
+		})
+	}
 
 	// Pre-capture NEXT screen for precise mode
 	if sess.RecordingMode == "precise" {
@@ -80,16 +82,20 @@ func (a *App) SubmitSelectorChoice(deviceId string, selectorType string, selecto
 			// Delay to allow transitions to finish
 			time.Sleep(1500 * time.Millisecond)
 
-			wailsRuntime.EventsEmit(a.ctx, "recording-pre-capture-started", map[string]interface{}{
-				"deviceId": deviceId,
-			})
+			if !a.mcpMode {
+				wailsRuntime.EventsEmit(a.ctx, "recording-pre-capture-started", map[string]interface{}{
+					"deviceId": deviceId,
+				})
+			}
 
 			fmt.Printf("[Automation] Pre-capturing UI for NEXT action (Cache cleared)\n")
 			a.captureElementInfoAtPoint(deviceId, -1, -1)
 
-			wailsRuntime.EventsEmit(a.ctx, "recording-pre-capture-finished", map[string]interface{}{
-				"deviceId": deviceId,
-			})
+			if !a.mcpMode {
+				wailsRuntime.EventsEmit(a.ctx, "recording-pre-capture-finished", map[string]interface{}{
+					"deviceId": deviceId,
+				})
+			}
 		}()
 	}
 

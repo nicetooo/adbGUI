@@ -81,6 +81,9 @@ type App struct {
 	assertionEngine *AssertionEngine
 	eventSystemMu   sync.RWMutex
 	dataDir         string
+
+	// MCP mode flag (no Wails GUI)
+	mcpMode bool
 }
 
 // NewApp creates a new App instance
@@ -145,6 +148,59 @@ func (a *App) Shutdown(ctx context.Context) {
 // GetAppVersion returns the application version
 func (a *App) GetAppVersion() string {
 	return a.version
+}
+
+// InitializeWithoutGUI initializes the app for non-GUI mode (MCP server)
+func (a *App) InitializeWithoutGUI() {
+	// Create a background context for MCP mode
+	a.ctx = context.Background()
+	a.mcpMode = true // No Wails GUI, skip EventsEmit calls
+	a.setupBinaries()
+	a.initEventSystem()
+	a.StartDeviceMonitor()
+	a.StartBatchSync()
+	a.LoadMockRules()
+}
+
+// IsMCPMode returns true if running in MCP server mode (no GUI)
+func (a *App) IsMCPMode() bool {
+	return a.mcpMode
+}
+
+// ShutdownWithoutGUI shuts down the app in non-GUI mode
+func (a *App) ShutdownWithoutGUI() {
+	LogAppState(StateShuttingDown, map[string]interface{}{
+		"reason": "mcp_server_shutdown",
+	})
+
+	// Stop proxy
+	if a.GetProxyStatus() {
+		a.StopProxy()
+	}
+
+	a.StopBatchSync()
+	a.shutdownEventSystem()
+
+	a.scrcpyMu.Lock()
+	for id, cmd := range a.scrcpyCmds {
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+			LogInfo("shutdown").Str("device", id).Msg("Killed mirroring process")
+		}
+	}
+	for id, cmd := range a.scrcpyRecordCmd {
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+			LogInfo("shutdown").Str("device", id).Msg("Killed recording process")
+		}
+	}
+	a.scrcpyMu.Unlock()
+
+	a.StopLogcat()
+	a.StopDeviceMonitor()
+
+	LogAppState(StateStopped, nil)
+	CloseLogger()
 }
 
 // Greet returns a greeting for the given name
@@ -261,11 +317,11 @@ func (a *App) setupBinaries() {
 	// Prefer system ADB if available
 	if path, err := exec.LookPath("adb"); err == nil {
 		a.adbPath = path
-		fmt.Printf("Using system adb found in PATH: %s\n", a.adbPath)
+		fmt.Fprintf(os.Stderr, "Using system adb found in PATH: %s\n", a.adbPath)
 	} else {
 		a.adbPath = extract("adb", adbBinary)
 		if a.adbPath != "" {
-			fmt.Printf("Using bundled adb at: %s\n", a.adbPath)
+			fmt.Fprintf(os.Stderr, "Using bundled adb at: %s\n", a.adbPath)
 		}
 	}
 
@@ -274,17 +330,17 @@ func (a *App) setupBinaries() {
 
 	if len(aaptBinary) > 0 {
 		a.aaptPath = extract("aapt", aaptBinary)
-		fmt.Printf("AAPT setup at: %s\n", a.aaptPath)
+		fmt.Fprintf(os.Stderr, "AAPT setup at: %s\n", a.aaptPath)
 	}
 
 	// Setup FFmpeg and FFprobe
 	if len(ffmpegBinary) > 0 {
 		a.ffmpegPath = extract("ffmpeg", ffmpegBinary)
-		fmt.Printf("FFmpeg setup at: %s\n", a.ffmpegPath)
+		fmt.Fprintf(os.Stderr, "FFmpeg setup at: %s\n", a.ffmpegPath)
 	}
 	if len(ffprobeBinary) > 0 {
 		a.ffprobePath = extract("ffprobe", ffprobeBinary)
-		fmt.Printf("FFprobe setup at: %s\n", a.ffprobePath)
+		fmt.Fprintf(os.Stderr, "FFprobe setup at: %s\n", a.ffprobePath)
 	}
 
 	a.Log("Binaries setup at: %s", appBinDir)
@@ -377,7 +433,7 @@ func (a *App) initEventSystem() {
 	a.eventStore = store
 
 	// Create event pipeline
-	a.eventPipeline = NewEventPipeline(context.Background(), a.ctx, store)
+	a.eventPipeline = NewEventPipeline(context.Background(), a.ctx, store, a.mcpMode)
 	a.eventPipeline.Start()
 
 	// Create assertion engine

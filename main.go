@@ -36,14 +36,28 @@ var assets embed.FS
 var version = "v0.0.0-dev"
 
 func main() {
+	// Check for MCP mode (--mcp flag for Claude Desktop integration)
+	mcpMode := false
+	for _, arg := range os.Args[1:] {
+		if arg == "--mcp" {
+			mcpMode = true
+			break
+		}
+	}
+
 	// Initialize persistent logging system
 	configDir, err := os.UserConfigDir()
 	if err != nil {
 		configDir = os.TempDir()
 	}
 	appDataPath := filepath.Join(configDir, "Gaze")
-	if err := InitLogger(PersistentLogConfig(appDataPath)); err != nil {
-		fmt.Printf("Failed to initialize persistent logger: %v\n", err)
+	logConfig := PersistentLogConfig(appDataPath)
+	// In MCP mode, log to stderr to keep stdout clean for JSON-RPC
+	if mcpMode {
+		logConfig.ConsoleOut = os.Stderr
+	}
+	if err := InitLogger(logConfig); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to initialize persistent logger: %v\n", err)
 	}
 
 	// Log application startup
@@ -51,10 +65,17 @@ func main() {
 		"version":  version,
 		"platform": runtime.GOOS,
 		"arch":     runtime.GOARCH,
+		"mcpMode":  mcpMode,
 	})
 
 	// Create an instance of the app structure
 	app := NewApp(version)
+
+	// If MCP mode, run as MCP server only (stdio transport for Claude Desktop)
+	if mcpMode {
+		runMCPServer(app)
+		return
+	}
 
 	// Handle system signals for graceful shutdown (like Dock Quit or Cmd+Q)
 	go func() {
@@ -577,4 +598,40 @@ func updateTrayMenu(ctx context.Context, app *App) {
 		systray.Quit()
 		wailsRuntime.Quit(ctx)
 	})
+}
+
+// runMCPServer runs Gaze as an MCP server (stdio transport for Claude Desktop)
+func runMCPServer(app *App) {
+	// Initialize app without GUI context
+	app.InitializeWithoutGUI()
+
+	LogInfo("main").Msg("Starting Gaze in MCP server mode")
+	fmt.Fprintln(os.Stderr, "[Gaze] Starting MCP server...")
+
+	// Handle graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// Start MCP server (blocking in goroutine)
+	done := make(chan error, 1)
+	go func() {
+		StartMCPServer(app)
+		done <- nil
+	}()
+
+	// Wait for signal or completion
+	select {
+	case sig := <-sigChan:
+		LogInfo("main").Str("signal", sig.String()).Msg("Signal received, shutting down MCP server")
+		fmt.Fprintf(os.Stderr, "[Gaze] Received %s, shutting down...\n", sig)
+	case err := <-done:
+		if err != nil {
+			LogError("main").Err(err).Msg("MCP server error")
+			fmt.Fprintf(os.Stderr, "[Gaze] MCP server error: %v\n", err)
+		}
+	}
+
+	// Cleanup
+	app.ShutdownWithoutGUI()
+	LogInfo("main").Msg("MCP server shutdown complete")
 }

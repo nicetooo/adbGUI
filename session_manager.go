@@ -101,7 +101,9 @@ func (a *App) CreateSession(deviceId, sessionType, name string) string {
 	activeSession[deviceId] = sessionId
 
 	// Emit session started event
-	wailsRuntime.EventsEmit(a.ctx, "session-started", session)
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "session-started", session)
+	}
 
 	// Also emit as first session event
 	a.emitEventInternal(SessionEvent{
@@ -150,7 +152,9 @@ func (a *App) EndSession(sessionId string, status string) error {
 		Duration:  now - session.StartTime,
 	})
 
-	wailsRuntime.EventsEmit(a.ctx, "session-ended", session)
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "session-ended", session)
+	}
 
 	return nil
 }
@@ -192,7 +196,9 @@ func (a *App) EnsureActiveSession(deviceId string) string {
 	activeSession[deviceId] = sessionId
 
 	// Emit session started event
-	wailsRuntime.EventsEmit(a.ctx, "session-started", session)
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "session-started", session)
+	}
 
 	// Add start event via unified pipeline
 	event := SessionEvent{
@@ -211,7 +217,9 @@ func (a *App) EnsureActiveSession(deviceId string) string {
 	session.EventCount++
 
 	// Broadcast event to frontend
-	wailsRuntime.EventsEmit(a.ctx, "session-event", event)
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "session-event", event)
+	}
 
 	return sessionId
 }

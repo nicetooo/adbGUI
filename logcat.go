@@ -163,9 +163,13 @@ func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex b
 					currentPids = pids
 					if len(pids) > 0 {
 						status := fmt.Sprintf("--- Monitoring %s (UID: %s, PIDs: %s) ---", packageName, currentUid, strings.Join(pids, ", "))
-						wailsRuntime.EventsEmit(a.ctx, "logcat-data", status)
+						if !a.mcpMode {
+							wailsRuntime.EventsEmit(a.ctx, "logcat-data", status)
+						}
 					} else {
-						wailsRuntime.EventsEmit(a.ctx, "logcat-data", fmt.Sprintf("--- Waiting for %s processes... ---", packageName))
+						if !a.mcpMode {
+							wailsRuntime.EventsEmit(a.ctx, "logcat-data", fmt.Sprintf("--- Waiting for %s processes... ---", packageName))
+						}
 					}
 				}
 				pidMutex.Unlock()

@@ -37,15 +37,16 @@ const (
 // LogConfig 日志配置
 type LogConfig struct {
 	Level       LogLevel
-	Console     bool   // 是否输出到控制台
-	File        bool   // 是否输出到文件
-	FilePath    string // 日志文件路径
-	MaxSizeMB   int    // 单个日志文件最大大小 (MB)
-	MaxAgeDays  int    // 日志保留天数
-	MaxBackups  int    // 最大备份数量
-	Compress    bool   // 是否压缩旧日志
-	TimeFormat  string // 时间格式
-	AppDataPath string // 应用数据目录
+	Console     bool      // 是否输出到控制台
+	ConsoleOut  io.Writer // 控制台输出目标 (默认 os.Stdout, MCP 模式用 os.Stderr)
+	File        bool      // 是否输出到文件
+	FilePath    string    // 日志文件路径
+	MaxSizeMB   int       // 单个日志文件最大大小 (MB)
+	MaxAgeDays  int       // 日志保留天数
+	MaxBackups  int       // 最大备份数量
+	Compress    bool      // 是否压缩旧日志
+	TimeFormat  string    // 时间格式
+	AppDataPath string    // 应用数据目录
 }
 
 // DefaultLogConfig 返回默认日志配置
@@ -272,10 +273,16 @@ func (pl *PersistentLogger) Close() error {
 func InitLogger(config LogConfig) error {
 	var writers []io.Writer
 
+	// 确定控制台输出目标
+	consoleOut := config.ConsoleOut
+	if consoleOut == nil {
+		consoleOut = os.Stdout
+	}
+
 	// 控制台输出 (带颜色)
 	if config.Console {
 		consoleWriter := zerolog.ConsoleWriter{
-			Out:        os.Stdout,
+			Out:        consoleOut,
 			TimeFormat: "15:04:05",
 			NoColor:    false,
 		}
@@ -295,7 +302,7 @@ func InitLogger(config LogConfig) error {
 	// 如果没有配置任何输出，默认输出到控制台
 	if len(writers) == 0 {
 		writers = append(writers, zerolog.ConsoleWriter{
-			Out:        os.Stdout,
+			Out:        consoleOut,
 			TimeFormat: "15:04:05",
 		})
 	}
@@ -430,9 +437,9 @@ const (
 	ActionElementInspect UserAction = "element_inspect"
 
 	// 文件相关
-	ActionFilePush UserAction = "file_push"
-	ActionFilePull UserAction = "file_pull"
-	ActionAppInstall UserAction = "app_install"
+	ActionFilePush     UserAction = "file_push"
+	ActionFilePull     UserAction = "file_pull"
+	ActionAppInstall   UserAction = "app_install"
 	ActionAppUninstall UserAction = "app_uninstall"
 
 	// Shell 相关

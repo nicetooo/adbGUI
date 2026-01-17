@@ -55,7 +55,9 @@ func (a *App) StartNetworkMonitor(deviceId string) {
 				}
 				lastStats = stats
 
-				wailsRuntime.EventsEmit(a.ctx, "network-stats", stats)
+				if !a.mcpMode {
+					wailsRuntime.EventsEmit(a.ctx, "network-stats", stats)
+				}
 			}
 		}
 	}()

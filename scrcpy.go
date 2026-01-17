@@ -162,10 +162,12 @@ func (a *App) StartScrcpy(deviceId string, config ScrcpyConfig) error {
 
 	startTime := time.Now()
 
-	wailsRuntime.EventsEmit(a.ctx, "scrcpy-started", map[string]interface{}{
-		"deviceId":  deviceId,
-		"startTime": startTime.Unix(),
-	})
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "scrcpy-started", map[string]interface{}{
+			"deviceId":  deviceId,
+			"startTime": startTime.Unix(),
+		})
+	}
 
 	go func() {
 		err := cmd.Wait()
@@ -183,12 +185,16 @@ func (a *App) StartScrcpy(deviceId string, config ScrcpyConfig) error {
 					errorMsg = err.Error()
 				}
 				a.Log("Scrcpy failed quickly (%v): %s", duration, errorMsg)
-				wailsRuntime.EventsEmit(a.ctx, "scrcpy-failed", map[string]interface{}{
-					"deviceId": deviceId,
-					"error":    errorMsg,
-				})
+				if !a.mcpMode {
+					wailsRuntime.EventsEmit(a.ctx, "scrcpy-failed", map[string]interface{}{
+						"deviceId": deviceId,
+						"error":    errorMsg,
+					})
+				}
 			} else {
-				wailsRuntime.EventsEmit(a.ctx, "scrcpy-stopped", deviceId)
+				if !a.mcpMode {
+					wailsRuntime.EventsEmit(a.ctx, "scrcpy-stopped", deviceId)
+				}
 			}
 		}
 	}()
@@ -281,18 +287,22 @@ func (a *App) StartRecording(deviceId string, config ScrcpyConfig) error {
 	a.scrcpyRecordCmd[deviceId] = cmd
 	a.scrcpyMu.Unlock()
 
-	wailsRuntime.EventsEmit(a.ctx, "scrcpy-record-started", map[string]interface{}{
-		"deviceId":   deviceId,
-		"recordPath": config.RecordPath,
-		"startTime":  time.Now().Unix(),
-	})
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "scrcpy-record-started", map[string]interface{}{
+			"deviceId":   deviceId,
+			"recordPath": config.RecordPath,
+			"startTime":  time.Now().Unix(),
+		})
+	}
 
 	go func() {
 		_ = cmd.Wait()
 		a.scrcpyMu.Lock()
 		delete(a.scrcpyRecordCmd, deviceId)
 		a.scrcpyMu.Unlock()
-		wailsRuntime.EventsEmit(a.ctx, "scrcpy-record-stopped", deviceId)
+		if !a.mcpMode {
+			wailsRuntime.EventsEmit(a.ctx, "scrcpy-record-stopped", deviceId)
+		}
 	}()
 
 	return nil
@@ -437,11 +447,15 @@ func (a *App) TakeScreenshot(deviceId, savePath string) (string, error) {
 	isLocked := reLocked.MatchString(outStr)
 
 	if isOff || isLocked {
-		wailsRuntime.EventsEmit(a.ctx, "screenshot-progress", "screenshot_off")
+		if !a.mcpMode {
+			wailsRuntime.EventsEmit(a.ctx, "screenshot-progress", "screenshot_off")
+		}
 		return "", fmt.Errorf("SCREEN_OFF")
 	}
 
-	wailsRuntime.EventsEmit(a.ctx, "screenshot-progress", "screenshot_capturing")
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "screenshot-progress", "screenshot_capturing")
+	}
 	remotePath := "/sdcard/screenshot_tmp.png"
 	capCmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "screencap", "-p", remotePath)
 	if out, err := capCmd.CombinedOutput(); err != nil {
@@ -449,14 +463,20 @@ func (a *App) TakeScreenshot(deviceId, savePath string) (string, error) {
 	}
 	defer exec.Command(a.adbPath, "-s", deviceId, "shell", "rm", remotePath).Run()
 
-	wailsRuntime.EventsEmit(a.ctx, "screenshot-progress", "screenshot_pulling")
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "screenshot-progress", "screenshot_pulling")
+	}
 	pullCmd := exec.Command(a.adbPath, "-s", deviceId, "pull", remotePath, savePath)
 	if out, err := pullCmd.CombinedOutput(); err != nil {
-		wailsRuntime.EventsEmit(a.ctx, "screenshot-progress", "screenshot_error", err.Error())
+		if !a.mcpMode {
+			wailsRuntime.EventsEmit(a.ctx, "screenshot-progress", "screenshot_error", err.Error())
+		}
 		return "", fmt.Errorf("failed to pull screenshot: %w, output: %s", err, string(out))
 	}
 
-	wailsRuntime.EventsEmit(a.ctx, "screenshot-progress", "screenshot_success", savePath)
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "screenshot-progress", "screenshot_success", savePath)
+	}
 	return savePath, nil
 }
 

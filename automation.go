@@ -280,15 +280,19 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 	if recordingMode == "precise" {
 		go func() {
 			fmt.Printf("[Automation] Pre-capturing UI hierarchy for precise recording...\n")
-			wailsRuntime.EventsEmit(a.ctx, "recording-pre-capture-started", map[string]interface{}{
-				"deviceId": deviceId,
-			})
+			if !a.mcpMode {
+				wailsRuntime.EventsEmit(a.ctx, "recording-pre-capture-started", map[string]interface{}{
+					"deviceId": deviceId,
+				})
+			}
 
 			a.captureElementInfoAtPoint(deviceId, -1, -1) // Trigger dump
 
-			wailsRuntime.EventsEmit(a.ctx, "recording-pre-capture-finished", map[string]interface{}{
-				"deviceId": deviceId,
-			})
+			if !a.mcpMode {
+				wailsRuntime.EventsEmit(a.ctx, "recording-pre-capture-finished", map[string]interface{}{
+					"deviceId": deviceId,
+				})
+			}
 			fmt.Printf("[Automation] Pre-capture finished, ready for interaction\n")
 		}()
 	}
@@ -405,11 +409,13 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 								fmt.Printf("[Automation] Precise mode: analyzing selectors at (%d,%d)\n", x, y)
 
 								// Emit analysis started event
-								wailsRuntime.EventsEmit(a.ctx, "recording-analysis-started", map[string]interface{}{
-									"deviceId": deviceId,
-									"x":        x,
-									"y":        y,
-								})
+								if !a.mcpMode {
+									wailsRuntime.EventsEmit(a.ctx, "recording-analysis-started", map[string]interface{}{
+										"deviceId": deviceId,
+										"x":        x,
+										"y":        y,
+									})
+								}
 
 								// Set paused state early to avoid processing more events while analyzing
 								touchRecordMu.Lock()
@@ -451,13 +457,15 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 								touchRecordMu.Unlock()
 
 								// Emit event to frontend
-								wailsRuntime.EventsEmit(a.ctx, "recording-paused-for-selector", map[string]interface{}{
-									"deviceId":    deviceId,
-									"x":           x,
-									"y":           y,
-									"suggestions": suggestions,
-									"elementInfo": elemInfo,
-								})
+								if !a.mcpMode {
+									wailsRuntime.EventsEmit(a.ctx, "recording-paused-for-selector", map[string]interface{}{
+										"deviceId":    deviceId,
+										"x":           x,
+										"y":           y,
+										"suggestions": suggestions,
+										"elementInfo": elemInfo,
+									})
+								}
 								fmt.Printf("[Automation] Recording paused for selector choice\n")
 							}(scaledX, scaledY, len(sess.ElementInfos), time.Now())
 						} else {
@@ -467,9 +475,11 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 						}
 					}
 
-					wailsRuntime.EventsEmit(a.ctx, "touch-action-recorded", map[string]interface{}{
-						"deviceId": deviceId,
-					})
+					if !a.mcpMode {
+						wailsRuntime.EventsEmit(a.ctx, "touch-action-recorded", map[string]interface{}{
+							"deviceId": deviceId,
+						})
+					}
 				}
 			}
 		}
@@ -480,11 +490,13 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 	}()
 
 	// Emit event
-	wailsRuntime.EventsEmit(a.ctx, "touch-record-started", map[string]interface{}{
-		"deviceId":    deviceId,
-		"startTime":   time.Now().Unix(),
-		"inputDevice": inputDevice,
-	})
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "touch-record-started", map[string]interface{}{
+			"deviceId":    deviceId,
+			"startTime":   time.Now().Unix(),
+			"inputDevice": inputDevice,
+		})
+	}
 
 	return nil
 }
@@ -545,10 +557,12 @@ func (a *App) StopTouchRecording(deviceId string) (*TouchScript, error) {
 	uiHierarchyCacheMu.Unlock()
 
 	// Emit event
-	wailsRuntime.EventsEmit(a.ctx, "touch-record-stopped", map[string]interface{}{
-		"deviceId":   deviceId,
-		"eventCount": len(script.Events),
-	})
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "touch-record-stopped", map[string]interface{}{
+			"deviceId":   deviceId,
+			"eventCount": len(script.Events),
+		})
+	}
 
 	return script, nil
 }
@@ -626,9 +640,11 @@ func (a *App) PickPointOnScreen(deviceId string, timeoutSeconds int) (map[string
 	}
 
 	// Emit event to notify frontend that we're waiting
-	wailsRuntime.EventsEmit(a.ctx, "point-picker-started", map[string]interface{}{
-		"deviceId": deviceId,
-	})
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "point-picker-started", map[string]interface{}{
+			"deviceId": deviceId,
+		})
+	}
 
 	// Channel to receive result
 	resultChan := make(chan map[string]interface{}, 1)
@@ -733,16 +749,20 @@ func (a *App) PickPointOnScreen(deviceId string, timeoutSeconds int) (map[string
 	select {
 	case result := <-resultChan:
 		cmd.Process.Kill()
-		wailsRuntime.EventsEmit(a.ctx, "point-picker-completed", result)
+		if !a.mcpMode {
+			wailsRuntime.EventsEmit(a.ctx, "point-picker-completed", result)
+		}
 		return result, nil
 	case err := <-errChan:
 		cmd.Process.Kill()
 		return nil, err
 	case <-ctx.Done():
 		cmd.Process.Kill()
-		wailsRuntime.EventsEmit(a.ctx, "point-picker-timeout", map[string]interface{}{
-			"deviceId": deviceId,
-		})
+		if !a.mcpMode {
+			wailsRuntime.EventsEmit(a.ctx, "point-picker-timeout", map[string]interface{}{
+				"deviceId": deviceId,
+			})
+		}
 		return nil, fmt.Errorf("timeout waiting for tap")
 	}
 }
@@ -1274,25 +1294,31 @@ func (a *App) PlayTouchScript(deviceId string, script TouchScript) error {
 			delete(touchPlaybackCancel, deviceId)
 			touchPlaybackMu.Unlock()
 
-			wailsRuntime.EventsEmit(a.ctx, "touch-playback-completed", map[string]interface{}{
-				"deviceId": deviceId,
-			})
+			if !a.mcpMode {
+				wailsRuntime.EventsEmit(a.ctx, "touch-playback-completed", map[string]interface{}{
+					"deviceId": deviceId,
+				})
+			}
 		}()
 
 		// Use the synchronous helper
 		_ = a.playTouchScriptSync(ctx, deviceId, script, func(current, total int) {
-			wailsRuntime.EventsEmit(a.ctx, "touch-playback-progress", map[string]interface{}{
-				"deviceId": deviceId,
-				"current":  current,
-				"total":    total,
-			})
+			if !a.mcpMode {
+				wailsRuntime.EventsEmit(a.ctx, "touch-playback-progress", map[string]interface{}{
+					"deviceId": deviceId,
+					"current":  current,
+					"total":    total,
+				})
+			}
 		})
 	}()
 
-	wailsRuntime.EventsEmit(a.ctx, "touch-playback-started", map[string]interface{}{
-		"deviceId": deviceId,
-		"total":    len(script.Events),
-	})
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "touch-playback-started", map[string]interface{}{
+			"deviceId": deviceId,
+			"total":    len(script.Events),
+		})
+	}
 
 	return nil
 }
@@ -1439,7 +1465,9 @@ func (a *App) PauseTask(deviceId string) {
 		// Create a blocking channel
 		taskPauseSignal[deviceId] = make(chan struct{})
 		taskIsPaused[deviceId] = true
-		wailsRuntime.EventsEmit(a.ctx, "task-paused", map[string]interface{}{"deviceId": deviceId})
+		if !a.mcpMode {
+			wailsRuntime.EventsEmit(a.ctx, "task-paused", map[string]interface{}{"deviceId": deviceId})
+		}
 	}
 }
 
@@ -1452,7 +1480,9 @@ func (a *App) ResumeTask(deviceId string) {
 		close(ch) // Unblock waiting goroutines
 		delete(taskPauseSignal, deviceId)
 		delete(taskIsPaused, deviceId)
-		wailsRuntime.EventsEmit(a.ctx, "task-resumed", map[string]interface{}{"deviceId": deviceId})
+		if !a.mcpMode {
+			wailsRuntime.EventsEmit(a.ctx, "task-resumed", map[string]interface{}{"deviceId": deviceId})
+		}
 	}
 }
 
@@ -1729,17 +1759,21 @@ func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
 			delete(touchPlaybackCancel, deviceId)
 			touchPlaybackMu.Unlock()
 
-			wailsRuntime.EventsEmit(a.ctx, "task-completed", map[string]interface{}{
-				"deviceId": deviceId,
-				"taskName": task.Name,
-			})
+			if !a.mcpMode {
+				wailsRuntime.EventsEmit(a.ctx, "task-completed", map[string]interface{}{
+					"deviceId": deviceId,
+					"taskName": task.Name,
+				})
+			}
 		}()
 
-		wailsRuntime.EventsEmit(a.ctx, "task-started", map[string]interface{}{
-			"deviceId": deviceId,
-			"taskName": task.Name,
-			"steps":    len(task.Steps),
-		})
+		if !a.mcpMode {
+			wailsRuntime.EventsEmit(a.ctx, "task-started", map[string]interface{}{
+				"deviceId": deviceId,
+				"taskName": task.Name,
+				"steps":    len(task.Steps),
+			})
+		}
 
 		// Load all available scripts first to quickly look them up
 		scripts, _ := a.LoadTouchScripts()
@@ -1759,12 +1793,14 @@ func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
 			// Check pause
 			a.checkPause(deviceId)
 
-			wailsRuntime.EventsEmit(a.ctx, "task-step-started", map[string]interface{}{
-				"deviceId":  deviceId,
-				"stepIndex": i,
-				"type":      step.Type,
-				"value":     step.Value,
-			})
+			if !a.mcpMode {
+				wailsRuntime.EventsEmit(a.ctx, "task-step-started", map[string]interface{}{
+					"deviceId":  deviceId,
+					"stepIndex": i,
+					"type":      step.Type,
+					"value":     step.Value,
+				})
+			}
 
 			loopCount := step.Loop
 			if loopCount < 1 {
@@ -1783,16 +1819,18 @@ func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
 				a.checkPause(deviceId)
 
 				// Emit step progress including loop info
-				wailsRuntime.EventsEmit(a.ctx, "task-step-running", map[string]interface{}{
-					"deviceId":    deviceId,
-					"taskName":    task.Name,
-					"stepIndex":   i,
-					"totalSteps":  len(task.Steps),
-					"currentLoop": l + 1,
-					"totalLoops":  loopCount,
-					"type":        step.Type,
-					"value":       step.Value,
-				})
+				if !a.mcpMode {
+					wailsRuntime.EventsEmit(a.ctx, "task-step-running", map[string]interface{}{
+						"deviceId":    deviceId,
+						"taskName":    task.Name,
+						"stepIndex":   i,
+						"totalSteps":  len(task.Steps),
+						"currentLoop": l + 1,
+						"totalLoops":  loopCount,
+						"type":        step.Type,
+						"value":       step.Value,
+					})
+				}
 
 				if step.Type == "wait" {
 					duration, _ := strconv.Atoi(step.Value)
@@ -1851,12 +1889,14 @@ func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
 						}
 						a.checkPause(deviceId)
 
-						wailsRuntime.EventsEmit(a.ctx, "task-step-running", map[string]interface{}{
-							"deviceId":      deviceId,
-							"taskName":      task.Name,
-							"stepIndex":     i,
-							"currentAction": fmt.Sprintf("Checking UI: %s=%s", checkType, step.CheckValue),
-						})
+						if !a.mcpMode {
+							wailsRuntime.EventsEmit(a.ctx, "task-step-running", map[string]interface{}{
+								"deviceId":      deviceId,
+								"taskName":      task.Name,
+								"stepIndex":     i,
+								"currentAction": fmt.Sprintf("Checking UI: %s=%s", checkType, step.CheckValue),
+							})
+						}
 
 						result, err := a.GetUIHierarchy(deviceId)
 						if err == nil && a.FindElement(result.Root, checkType, step.CheckValue) {
@@ -1873,10 +1913,12 @@ func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
 					if !found {
 						fmt.Printf("[Automation] Element not found: %s=%s\n", checkType, step.CheckValue)
 						if step.OnFailure == "stop" {
-							wailsRuntime.EventsEmit(a.ctx, "task-error", map[string]interface{}{
-								"deviceId": deviceId,
-								"error":    fmt.Sprintf("Element not found: %s=%s", checkType, step.CheckValue),
-							})
+							if !a.mcpMode {
+								wailsRuntime.EventsEmit(a.ctx, "task-error", map[string]interface{}{
+									"deviceId": deviceId,
+									"error":    fmt.Sprintf("Element not found: %s=%s", checkType, step.CheckValue),
+								})
+							}
 							return
 						}
 					} else {
@@ -1887,12 +1929,14 @@ func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
 
 			// Apply PostDelay after the step (all loops) is completed
 			if step.PostDelay > 0 {
-				wailsRuntime.EventsEmit(a.ctx, "task-step-running", map[string]interface{}{
-					"deviceId":      deviceId,
-					"taskName":      task.Name,
-					"stepIndex":     i,
-					"currentAction": fmt.Sprintf("Post-Wait: %dms", step.PostDelay),
-				})
+				if !a.mcpMode {
+					wailsRuntime.EventsEmit(a.ctx, "task-step-running", map[string]interface{}{
+						"deviceId":      deviceId,
+						"taskName":      task.Name,
+						"stepIndex":     i,
+						"currentAction": fmt.Sprintf("Post-Wait: %dms", step.PostDelay),
+					})
+				}
 
 				// Check cancel before waiting
 				select {

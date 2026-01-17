@@ -55,7 +55,9 @@ func (a *App) ExecuteBatchOperation(op BatchOperation) BatchOperationResult {
 			resultsChan <- br
 
 			// Emit progress event
-			wailsRuntime.EventsEmit(a.ctx, "batch-progress", br)
+			if !a.mcpMode {
+				wailsRuntime.EventsEmit(a.ctx, "batch-progress", br)
+			}
 		}(deviceID)
 	}
 

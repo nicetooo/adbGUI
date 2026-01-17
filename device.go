@@ -725,12 +725,16 @@ func (a *App) StartWirelessServer() (string, error) {
 		success := err == nil && strings.Contains(output, "connected to")
 
 		if success {
-			wailsRuntime.EventsEmit(a.ctx, "wireless-connected", remoteIP)
+			if !a.mcpMode {
+				wailsRuntime.EventsEmit(a.ctx, "wireless-connected", remoteIP)
+			}
 		} else {
-			wailsRuntime.EventsEmit(a.ctx, "wireless-connect-failed", map[string]string{
-				"ip":    remoteIP,
-				"error": output,
-			})
+			if !a.mcpMode {
+				wailsRuntime.EventsEmit(a.ctx, "wireless-connect-failed", map[string]string{
+					"ip":    remoteIP,
+					"error": output,
+				})
+			}
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1018,7 +1022,9 @@ func (a *App) runDeviceMonitor(ctx context.Context) {
 				a.Log("Device monitor: failed to get devices: %v", err)
 				return
 			}
-			wailsRuntime.EventsEmit(a.ctx, "devices-changed", devices)
+			if !a.mcpMode {
+				wailsRuntime.EventsEmit(a.ctx, "devices-changed", devices)
+			}
 		})
 		debounceMu.Unlock()
 	}

@@ -666,7 +666,7 @@ func (p *ProxyServer) Stop() error {
 func (p *ProxyServer) IsRunning() bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	fmt.Printf("[PROXY DEBUG] IsRunning called: running=%v, port=%d, proxy=%p\n", p.running, p.port, p)
+	fmt.Fprintf(os.Stderr, "[PROXY DEBUG] IsRunning called: running=%v, port=%d, proxy=%p\n", p.running, p.port, p)
 	return p.running
 }
 
