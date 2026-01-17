@@ -619,6 +619,36 @@ func (a *App) runWorkflowStep(ctx context.Context, deviceId string, step Workflo
 		_, err := a.OpenSettings(deviceId, "android.settings.APPLICATION_DETAILS_SETTINGS", "package:"+step.Value)
 		return true, err
 
+	case "swipe":
+		// Direct coordinate swipe (no element selection)
+		x1, y1, x2, y2 := step.X, step.Y, step.X2, step.Y2
+		duration := step.SwipeDuration
+		if duration <= 0 {
+			duration = 300
+		}
+		// Support direction-based swipe with swipeDistance
+		if step.Value != "" && step.SwipeDistance > 0 {
+			distance := step.SwipeDistance
+			switch step.Value {
+			case "up":
+				y2 = y1 - distance
+			case "down":
+				y2 = y1 + distance
+			case "left":
+				x2 = x1 - distance
+			case "right":
+				x2 = x1 + distance
+			}
+		}
+		_, err := a.RunAdbCommand(deviceId, fmt.Sprintf("shell input swipe %d %d %d %d %d", x1, y1, x2, y2, duration))
+		return true, err
+
+	case "tap":
+		// Direct coordinate tap (no element selection)
+		x, y := step.X, step.Y
+		_, err := a.RunAdbCommand(deviceId, fmt.Sprintf("shell input tap %d %d", x, y))
+		return true, err
+
 	case "click_element", "long_click_element", "input_text", "assert_element", "wait_element", "wait_gone", "swipe_element":
 		// Create a copy of the step with processed values for the handler
 		processedStep := step

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "gaze": {
+      "type": "local",
+      "command": ["/Users/nice/vibecoding/adbGUI/build/bin/Gaze.app/Contents/MacOS/Gaze", "--mcp"],
+      "enabled": true
+    }
+  }
+}

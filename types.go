@@ -237,19 +237,24 @@ type ElementSelector struct {
 }
 
 type WorkflowStep struct {
-	ID            string           `json:"id"`
-	Type          string           `json:"type"`
-	Name          string           `json:"name,omitempty"`
-	Selector      *ElementSelector `json:"selector,omitempty"`
-	Value         string           `json:"value,omitempty"`
-	Timeout       int              `json:"timeout,omitempty"`
-	OnError       string           `json:"onError,omitempty"` // "stop", "continue"
-	Loop          int              `json:"loop,omitempty"`
-	PostDelay     int              `json:"postDelay,omitempty"`
-	PreWait       int              `json:"preWait,omitempty"`
-	SwipeDistance int              `json:"swipeDistance,omitempty"`
-	SwipeDuration int              `json:"swipeDuration,omitempty"`
-	ConditionType string           `json:"conditionType,omitempty"` // "exists", "not_exists", "text_equals", "text_contains", "variable_equals"
+	ID        string           `json:"id"`
+	Type      string           `json:"type"`
+	Name      string           `json:"name,omitempty"`
+	Selector  *ElementSelector `json:"selector,omitempty"`
+	Value     string           `json:"value,omitempty"`
+	Timeout   int              `json:"timeout,omitempty"`
+	OnError   string           `json:"onError,omitempty"` // "stop", "continue"
+	Loop      int              `json:"loop,omitempty"`
+	PostDelay int              `json:"postDelay,omitempty"`
+	PreWait   int              `json:"preWait,omitempty"`
+	// Swipe parameters
+	SwipeDistance int    `json:"swipeDistance,omitempty"`
+	SwipeDuration int    `json:"swipeDuration,omitempty"`
+	X             int    `json:"x,omitempty"`             // Start X coordinate
+	Y             int    `json:"y,omitempty"`             // Start Y coordinate
+	X2            int    `json:"x2,omitempty"`            // End X coordinate
+	Y2            int    `json:"y2,omitempty"`            // End Y coordinate
+	ConditionType string `json:"conditionType,omitempty"` // "exists", "not_exists", "text_equals", "text_contains", "variable_equals"
 	// Graph Flow Control
 	NextStepId  string `json:"nextStepId,omitempty"`  // Default next step
 	NextSource  string `json:"nextSource,omitempty"`  // Handle ID for next step

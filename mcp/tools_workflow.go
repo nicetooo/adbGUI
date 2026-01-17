@@ -109,6 +109,7 @@ func (s *MCPServer) registerWorkflowTools() {
 			mcp.WithDescription(`Execute a single workflow step on a device.
 
 Step types:
+- Coordinate: tap (x,y), swipe (x,y,x2,y2 or x,y+direction)
 - Element: click_element, long_click_element, input_text, swipe_element, wait_element, wait_gone, assert_element
 - App: launch_app, stop_app, clear_app, open_settings
 - Keys: key_back, key_home, key_recent, key_power, key_volume_up, key_volume_down
@@ -140,8 +141,23 @@ Step types:
 			mcp.WithNumber("post_delay",
 				mcp.Description("Delay after step in milliseconds (default: 500)"),
 			),
+			mcp.WithNumber("x",
+				mcp.Description("X coordinate for tap/swipe"),
+			),
+			mcp.WithNumber("y",
+				mcp.Description("Y coordinate for tap/swipe"),
+			),
+			mcp.WithNumber("x2",
+				mcp.Description("End X coordinate for swipe"),
+			),
+			mcp.WithNumber("y2",
+				mcp.Description("End Y coordinate for swipe"),
+			),
 			mcp.WithString("swipe_direction",
-				mcp.Description("Swipe direction for swipe_element: up, down, left, right"),
+				mcp.Description("Swipe direction: up, down, left, right (alternative to x2,y2)"),
+			),
+			mcp.WithNumber("swipe_distance",
+				mcp.Description("Swipe distance in pixels when using direction (default: 500)"),
 			),
 			mcp.WithString("condition_type",
 				mcp.Description("Condition for assert/wait: exists, not_exists, text_equals, text_contains"),
@@ -480,6 +496,8 @@ func (s *MCPServer) handleWorkflowExecuteStep(ctx context.Context, request mcp.C
 
 	// Validate step type
 	validTypes := map[string]bool{
+		// Coordinate operations (no element selection)
+		"tap": true, "swipe": true,
 		// Element operations
 		"click_element": true, "long_click_element": true, "input_text": true,
 		"swipe_element": true, "wait_element": true, "wait_gone": true, "assert_element": true,
@@ -538,19 +556,29 @@ func (s *MCPServer) handleWorkflowExecuteStep(ctx context.Context, request mcp.C
 		step.PostDelay = int(postDelay)
 	}
 
-	// Handle swipe direction
+	// Handle coordinates for tap/swipe
+	if x, ok := args["x"].(float64); ok {
+		step.X = int(x)
+	}
+	if y, ok := args["y"].(float64); ok {
+		step.Y = int(y)
+	}
+	if x2, ok := args["x2"].(float64); ok {
+		step.X2 = int(x2)
+	}
+	if y2, ok := args["y2"].(float64); ok {
+		step.Y2 = int(y2)
+	}
+
+	// Handle swipe distance
+	step.SwipeDistance = 500 // default
+	if dist, ok := args["swipe_distance"].(float64); ok && dist > 0 {
+		step.SwipeDistance = int(dist)
+	}
+
+	// Handle swipe direction (sets value for direction-based swipe)
 	if swipeDir, ok := args["swipe_direction"].(string); ok && swipeDir != "" {
-		// Convert direction to swipe distance
-		switch swipeDir {
-		case "up":
-			step.SwipeDistance = -500
-		case "down":
-			step.SwipeDistance = 500
-		case "left":
-			step.SwipeDistance = -500
-		case "right":
-			step.SwipeDistance = 500
-		}
+		step.Value = swipeDir
 		step.SwipeDuration = 300
 	}
 
@@ -567,6 +595,20 @@ func (s *MCPServer) handleWorkflowExecuteStep(ctx context.Context, request mcp.C
 	}
 
 	// Validate required fields for specific step types
+	if stepType == "tap" && (step.X == 0 && step.Y == 0) {
+		return nil, fmt.Errorf("x and y coordinates are required for tap")
+	}
+
+	if stepType == "swipe" {
+		if step.X == 0 && step.Y == 0 {
+			return nil, fmt.Errorf("x and y coordinates are required for swipe")
+		}
+		// Either x2,y2 or direction must be specified
+		if step.X2 == 0 && step.Y2 == 0 && step.Value == "" {
+			return nil, fmt.Errorf("either x2,y2 or swipe_direction is required for swipe")
+		}
+	}
+
 	elementOps := map[string]bool{
 		"click_element": true, "long_click_element": true, "input_text": true,
 		"swipe_element": true, "wait_element": true, "wait_gone": true, "assert_element": true,

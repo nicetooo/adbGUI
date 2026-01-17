@@ -187,7 +187,7 @@ type ElementSelector = struct {
 
 type WorkflowStep = struct {
 	ID            string           `json:"id"`
-	Type          string           `json:"type"` // "tap", "swipe", "input", "wait", "assert", "launch", "back", "home", "screenshot", "branch", "loop", "start", "end"
+	Type          string           `json:"type"` // "tap", "swipe", "click_element", "swipe_element", "input_text", "wait", "launch_app", "key_back", "key_home", etc.
 	Name          string           `json:"name,omitempty"`
 	Selector      *ElementSelector `json:"selector,omitempty"`
 	Value         string           `json:"value,omitempty"`
@@ -198,6 +198,10 @@ type WorkflowStep = struct {
 	PreWait       int              `json:"preWait,omitempty"`
 	SwipeDistance int              `json:"swipeDistance,omitempty"`
 	SwipeDuration int              `json:"swipeDuration,omitempty"`
+	X             int              `json:"x,omitempty"`             // Start X coordinate for tap/swipe
+	Y             int              `json:"y,omitempty"`             // Start Y coordinate for tap/swipe
+	X2            int              `json:"x2,omitempty"`            // End X coordinate for swipe
+	Y2            int              `json:"y2,omitempty"`            // End Y coordinate for swipe
 	ConditionType string           `json:"conditionType,omitempty"` // "exists", "not_exists", "text_equals", "text_contains"
 	NextStepId    string           `json:"nextStepId,omitempty"`
 	TrueStepId    string           `json:"trueStepId,omitempty"`
