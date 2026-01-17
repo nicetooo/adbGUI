@@ -61,7 +61,7 @@ import {
   GetStoredAssertion,
   UpdateStoredAssertionJSON,
 } from '../../wailsjs/go/main/App';
-import type { main } from '../../wailsjs/go/models';
+import type { main } from '../types/wails-models';
 
 const { Text, Title } = Typography;
 const { Panel } = Collapse;

@@ -694,5 +694,44 @@
       "swipe": "スワイプ",
       "wait": "待機"
     }
+  },
+  "smart_search": {
+    "ai_mode": "AI モード",
+    "ai_search": "AI スマート検索",
+    "description": "自然言語で探したい内容を説明してください",
+    "placeholder_general": "検索または探したい内容を説明...",
+    "placeholder_basic": "検索...",
+    "placeholder_logcat": "例：「過去5分間のエラーを表示」や「クラッシュログ」",
+    "placeholder_events": "イベントを検索または「ログイン後のネットワークエラー」など",
+    "placeholder_network": "例：「失敗した API 呼び出し」や「WebSocket メッセージ」",
+    "placeholder_logcat_with_hint": "ログを検索 ({{shortcut}} で AI)",
+    "placeholder_events_with_hint": "イベントを検索 ({{shortcut}} で AI)",
+    "placeholder_network_with_hint": "リクエストを検索 ({{shortcut}} で AI)",
+    "placeholder_general_with_hint": "検索 ({{shortcut}} で AI)",
+    "apply": "AI フィルターを適用",
+    "applied": "AI フィルターが適用されました",
+    "parsing": "AI 解析中...",
+    "parse_failed": "AI 解析に失敗しました",
+    "no_results": "AI がクエリを解析できませんでした",
+    "clear_filter": "AI フィルターをクリア"
+  },
+  "session_summary": {
+    "title": "セッション概要",
+    "summary": "概要",
+    "generate": "セッション概要を生成",
+    "generating": "セッションを分析中...",
+    "error": "概要の生成に失敗しました",
+    "api_not_available": "概要 API が利用できません",
+    "no_data": "概要データが返されませんでした",
+    "click_to_generate": "ボタンをクリックして概要を生成",
+    "duration": "期間",
+    "events": "イベント数",
+    "errors": "エラー数",
+    "network": "ネットワーク",
+    "key_findings": "主な発見",
+    "statistics": "統計",
+    "timeline": "タイムラインのハイライト",
+    "suggestions": "提案",
+    "generated_at": "生成日時"
   }
 }

@@ -18,7 +18,7 @@ import {
   SelectFileForBatch,
 } from '../../wailsjs/go/main/App';
 // @ts-ignore
-import { main } from '../../wailsjs/go/models';
+import { main } from '../types/wails-models';
 // @ts-ignore
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 

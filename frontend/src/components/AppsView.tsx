@@ -45,7 +45,7 @@ import {
   OpenSettings
 } from "../../wailsjs/go/main/App";
 // @ts-ignore
-import { main } from "../../wailsjs/go/models";
+import { main } from "../types/wails-models";
 
 const AppsView: React.FC = () => {
   const { t } = useTranslation();

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Layout,
   Menu,
@@ -24,6 +24,7 @@ import DeviceInfoModal from "./components/DeviceInfoModal";
 import AboutModal from "./components/AboutModal";
 import WirelessConnectModal from "./components/WirelessConnectModal";
 import FeedbackModal from "./components/FeedbackModal";
+import LLMConfig from "./components/LLMConfig";
 import {
   MobileOutlined,
   AppstoreOutlined,
@@ -51,6 +52,7 @@ import {
   useDeviceStore,
   useMirrorStore,
   useUIStore,
+  useAIStore,
   VIEW_KEYS,
 } from "./stores";
 // @ts-ignore
@@ -66,6 +68,7 @@ const { Content, Sider } = Layout;
 function App() {
   const { mode, setMode, isDark } = useTheme();
   const { t, i18n } = useTranslation();
+  const [llmConfigVisible, setLlmConfigVisible] = useState(false);
 
   // Device store
   const {
@@ -85,6 +88,9 @@ function App() {
 
   // Mirror store
   const { subscribeToEvents: subscribeMirrorEvents, updateDurations } = useMirrorStore();
+
+  // AI store
+  const { loadConfig: loadAIConfig, loadServiceInfo: loadAIServiceInfo } = useAIStore();
 
   // UI store
   const {
@@ -138,6 +144,10 @@ function App() {
   useEffect(() => {
     fetchDevicesWithFeedback();
     initUI();
+
+    // Load AI config on startup (for workflow generation button visibility)
+    loadAIConfig();
+    loadAIServiceInfo();
 
     // Mirror events subscription with notification
     const unsubMirror = subscribeMirrorEvents((deviceId, path) => {
@@ -312,6 +322,7 @@ function App() {
                 title={t("app.change_language")}
               />
             </Dropdown>
+            <Button type="text" size="small" icon={<RobotOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />} onClick={() => setLlmConfigVisible(true)} title={t("app.ai_config") || "AI Config"} />
             <Button type="text" size="small" icon={<InfoCircleOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />} onClick={showAbout} title={t("app.about")} />
             <Button type="text" size="small" icon={<GithubOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />} onClick={() => BrowserOpenURL && BrowserOpenURL("https://github.com/niceto0/gaze")} title={t("app.github")} />
             <Button type="text" size="small" icon={<BugOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />} onClick={showFeedback} title={t("app.feedback")} />
@@ -360,6 +371,11 @@ function App() {
         onCancel={hideFeedback}
         appVersion={appVersion}
         deviceInfo={devices.find(d => d.id === selectedDevice) ? `${devices.find(d => d.id === selectedDevice)?.brand} ${devices.find(d => d.id === selectedDevice)?.model} (ID: ${selectedDevice})` : "None"}
+      />
+
+      <LLMConfig
+        open={llmConfigVisible}
+        onClose={() => setLlmConfigVisible(false)}
       />
     </Layout>
   );

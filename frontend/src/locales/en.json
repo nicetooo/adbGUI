@@ -1024,5 +1024,44 @@
       "swipe": "Swipe",
       "wait": "Wait"
     }
+  },
+  "smart_search": {
+    "ai_mode": "AI Mode",
+    "ai_search": "AI Smart Search",
+    "description": "Describe what you want to find in natural language",
+    "placeholder_general": "Search or describe what you're looking for...",
+    "placeholder_basic": "Search...",
+    "placeholder_logcat": "e.g., \"show errors in last 5 minutes\" or \"crash logs\"",
+    "placeholder_events": "Search events or try \"network errors after login\"",
+    "placeholder_network": "e.g., \"failed API calls\" or \"websocket messages\"",
+    "placeholder_logcat_with_hint": "Search logs ({{shortcut}} for AI)",
+    "placeholder_events_with_hint": "Search events ({{shortcut}} for AI)",
+    "placeholder_network_with_hint": "Search requests ({{shortcut}} for AI)",
+    "placeholder_general_with_hint": "Search ({{shortcut}} for AI)",
+    "apply": "Apply AI Filter",
+    "applied": "AI filter applied",
+    "parsing": "AI parsing...",
+    "parse_failed": "AI parsing failed",
+    "no_results": "AI could not parse the query",
+    "clear_filter": "Clear AI Filter"
+  },
+  "session_summary": {
+    "title": "Session Summary",
+    "summary": "Summary",
+    "generate": "Generate Session Summary",
+    "generating": "Analyzing session...",
+    "error": "Failed to generate summary",
+    "api_not_available": "Summary API not available",
+    "no_data": "No summary data returned",
+    "click_to_generate": "Click the button to generate summary",
+    "duration": "Duration",
+    "events": "Events",
+    "errors": "Errors",
+    "network": "Network",
+    "key_findings": "Key Findings",
+    "statistics": "Statistics",
+    "timeline": "Timeline Highlights",
+    "suggestions": "Suggestions",
+    "generated_at": "Generated at"
   }
 }

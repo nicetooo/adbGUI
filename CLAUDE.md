@@ -38,18 +38,18 @@ Gaze 是一个跨平台的 Android 设备管理工具，使用 **Go + React** �
 
 所有设备活动都统一为事件，通过 `Source` 字段区分来源：
 
-| Source | 描述 | 典型事件类型 |
-|--------|------|-------------|
-| `logcat` | 设备日志 | logcat, logcat_aggregated |
-| `network` | 网络请求 | http_request, websocket_message |
-| `device` | 设备状态 | battery_change, network_change, screen_change |
-| `app` | 应用生命周期 | app_start, app_stop, app_crash, app_anr |
-| `touch` | 触摸事件 | touch, gesture |
-| `workflow` | 自动化流程 | workflow_start, workflow_step_*, workflow_complete |
-| `ui` | UI 状态 | element_found, element_click |
-| `perf` | 性能指标 | perf_sample |
-| `assertion` | 断言结果 | assertion_result |
-| `system` | 系统事件 | session_start, session_end, recording_start |
+| Source      | 描述         | 典型事件类型                                        |
+| ----------- | ------------ | --------------------------------------------------- |
+| `logcat`    | 设备日志     | logcat, logcat_aggregated                           |
+| `network`   | 网络请求     | http_request, websocket_message                     |
+| `device`    | 设备状态     | battery_change, network_change, screen_change       |
+| `app`       | 应用生命周期 | app_start, app_stop, app_crash, app_anr             |
+| `touch`     | 触摸事件     | touch, gesture                                      |
+| `workflow`  | 自动化流程   | workflow*start, workflow_step*\*, workflow_complete |
+| `ui`        | UI 状态      | element_found, element_click                        |
+| `perf`      | 性能指标     | perf_sample                                         |
+| `assertion` | 断言结果     | assertion_result                                    |
+| `system`    | 系统事件     | session_start, session_end, recording_start         |
 
 ### 关键代码路径
 
@@ -89,6 +89,7 @@ a.eventPipeline.Emit(UnifiedEvent{
 ### 添加新事件类型的步骤
 
 1. **定义事件类型** (`event_types.go`):
+
    ```go
    // 在 EventRegistry 中注册
    "my_new_event": {
@@ -106,6 +107,7 @@ a.eventPipeline.Emit(UnifiedEvent{
    ```
 
 2. **发送事件** (在相应模块中):
+
    ```go
    a.eventPipeline.EmitRaw(deviceID, SourceApp, "my_new_event", LevelInfo, "标题", MyNewEventData{...})
    ```
@@ -119,11 +121,13 @@ a.eventPipeline.Emit(UnifiedEvent{
 ## 技术栈
 
 ### 后端 (Go)
+
 - **Wails v2**: 桌面应用框架
 - **SQLite**: 事件存储 (WAL 模式)
 - **goproxy**: HTTP/HTTPS 代理
 
 ### 前端 (React/TypeScript)
+
 - **React 18** + **Ant Design**: UI
 - **Zustand**: 状态管理
 - **XYFlow**: 工作流可视化
@@ -196,6 +200,7 @@ go test ./...
 ### 背压控制
 
 `BackpressureController` 在高负载时自动：
+
 1. 保护关键事件 (error/fatal/network/workflow)
 2. 采样 verbose/debug 级别事件
 3. 防止事件队列溢出
@@ -203,6 +208,7 @@ go test ./...
 ### 数据库 Schema
 
 核心表:
+
 - `sessions`: 会话信息
 - `events`: 事件主表 (不含大数据)
 - `event_data`: 事件详细数据 (分离存储)
@@ -212,6 +218,8 @@ go test ./...
 - `assertion_results`: 断言结果
 
 ## 调试技巧
+
+优先使用go后段日志直接进行后台运行日志监控
 
 ### 查看事件流
 

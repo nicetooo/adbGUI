@@ -1026,5 +1026,44 @@
       "swipe": "滑动",
       "wait": "等待"
     }
+  },
+  "smart_search": {
+    "ai_mode": "AI 模式",
+    "ai_search": "AI 智能搜索",
+    "description": "用自然语言描述你想查找的内容",
+    "placeholder_general": "搜索或描述你想查找的内容...",
+    "placeholder_basic": "搜索...",
+    "placeholder_logcat": "例如：\"显示最近5分钟的错误\" 或 \"崩溃日志\"",
+    "placeholder_events": "搜索事件或尝试 \"登录后的网络错误\"",
+    "placeholder_network": "例如：\"失败的 API 调用\" 或 \"websocket 消息\"",
+    "placeholder_logcat_with_hint": "搜索日志 ({{shortcut}} 启用 AI)",
+    "placeholder_events_with_hint": "搜索事件 ({{shortcut}} 启用 AI)",
+    "placeholder_network_with_hint": "搜索请求 ({{shortcut}} 启用 AI)",
+    "placeholder_general_with_hint": "搜索 ({{shortcut}} 启用 AI)",
+    "apply": "应用 AI 过滤",
+    "applied": "AI 过滤已应用",
+    "parsing": "AI 解析中...",
+    "parse_failed": "AI 解析失败",
+    "no_results": "AI 无法解析该查询",
+    "clear_filter": "清除 AI 过滤"
+  },
+  "session_summary": {
+    "title": "会话总结",
+    "summary": "总结",
+    "generate": "生成会话总结",
+    "generating": "分析会话中...",
+    "error": "生成总结失败",
+    "api_not_available": "总结 API 不可用",
+    "no_data": "没有返回总结数据",
+    "click_to_generate": "点击按钮生成总结",
+    "duration": "时长",
+    "events": "事件数",
+    "errors": "错误数",
+    "network": "网络请求",
+    "key_findings": "关键发现",
+    "statistics": "统计数据",
+    "timeline": "时间线重点",
+    "suggestions": "建议",
+    "generated_at": "生成于"
   }
 }

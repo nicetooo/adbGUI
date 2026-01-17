@@ -694,5 +694,44 @@
       "swipe": "스와이프",
       "wait": "대기"
     }
+  },
+  "smart_search": {
+    "ai_mode": "AI 모드",
+    "ai_search": "AI 스마트 검색",
+    "description": "자연어로 찾고 싶은 내용을 설명해 주세요",
+    "placeholder_general": "검색하거나 찾고 싶은 내용을 설명...",
+    "placeholder_basic": "검색...",
+    "placeholder_logcat": "예: \"최근 5분간의 오류 표시\" 또는 \"크래시 로그\"",
+    "placeholder_events": "이벤트 검색 또는 \"로그인 후 네트워크 오류\" 시도",
+    "placeholder_network": "예: \"실패한 API 호출\" 또는 \"WebSocket 메시지\"",
+    "placeholder_logcat_with_hint": "로그 검색 ({{shortcut}} AI 사용)",
+    "placeholder_events_with_hint": "이벤트 검색 ({{shortcut}} AI 사용)",
+    "placeholder_network_with_hint": "요청 검색 ({{shortcut}} AI 사용)",
+    "placeholder_general_with_hint": "검색 ({{shortcut}} AI 사용)",
+    "apply": "AI 필터 적용",
+    "applied": "AI 필터가 적용되었습니다",
+    "parsing": "AI 파싱 중...",
+    "parse_failed": "AI 파싱 실패",
+    "no_results": "AI가 쿼리를 파싱할 수 없습니다",
+    "clear_filter": "AI 필터 지우기"
+  },
+  "session_summary": {
+    "title": "세션 요약",
+    "summary": "요약",
+    "generate": "세션 요약 생성",
+    "generating": "세션 분석 중...",
+    "error": "요약 생성 실패",
+    "api_not_available": "요약 API를 사용할 수 없습니다",
+    "no_data": "요약 데이터가 반환되지 않았습니다",
+    "click_to_generate": "버튼을 클릭하여 요약 생성",
+    "duration": "기간",
+    "events": "이벤트 수",
+    "errors": "오류 수",
+    "network": "네트워크",
+    "key_findings": "주요 발견",
+    "statistics": "통계",
+    "timeline": "타임라인 하이라이트",
+    "suggestions": "제안",
+    "generated_at": "생성 시간"
   }
 }

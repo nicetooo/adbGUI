@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Card, Button, InputNumber, Space, Typography, Tag, message, Modal, Divider, Switch, Tooltip, Radio, Input, Tabs, theme, Form, Table, Popconfirm } from 'antd';
-import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, EditOutlined, BlockOutlined, SendOutlined, PlusOutlined, CloseOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Card, Button, InputNumber, Space, Typography, Tag, message, Modal, Divider, Switch, Tooltip, Radio, Input, Tabs, theme, Form, Table, Popconfirm, Popover, Spin } from 'antd';
+import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, EditOutlined, BlockOutlined, SendOutlined, PlusOutlined, CloseOutlined, RobotOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import DeviceSelector from './DeviceSelector';
-import { useDeviceStore, useProxyStore, RequestLog as StoreRequestLog } from '../stores';
+import { useDeviceStore, useProxyStore, RequestLog as StoreRequestLog, useAIStore } from '../stores';
 // @ts-ignore
 import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, RemoveMockRule, GetMockRules, ToggleMockRule, CheckCertTrust, SetupProxyForDevice, CleanupProxyForDevice } from '../../wailsjs/go/main/App';
 // @ts-ignore
@@ -101,6 +101,67 @@ const ProxyView: React.FC = () => {
 
     // Cert trust status: 'trusted' | 'not_trusted' | 'unknown' | 'no_proxy' | 'checking' | null
     const [certTrustStatus, setCertTrustStatus] = useState<string | null>(null);
+
+    // AI Smart Search
+    const { serviceInfo, config: aiConfig, parseNaturalQuery } = useAIStore();
+    const [isAIParsing, setIsAIParsing] = useState(false);
+    const [aiSearchText, setAiSearchText] = useState("");
+    const [aiPopoverOpen, setAiPopoverOpen] = useState(false);
+
+    const isAIAvailable = serviceInfo?.status === 'ready' &&
+        aiConfig?.enabled &&
+        aiConfig?.features?.naturalSearch;
+
+    // Handle AI smart search for network requests
+    const handleAISearch = useCallback(async () => {
+        if (!aiSearchText.trim() || !isAIAvailable) return;
+
+        setIsAIParsing(true);
+        try {
+            const result = await parseNaturalQuery(aiSearchText, '');
+            if (result && result.query) {
+                const { query } = result;
+
+                // Build search pattern from keywords
+                let searchPattern = '';
+                if (query.keywords?.length) {
+                    searchPattern = query.keywords.join(' ');
+                }
+
+                // Add type-specific patterns
+                if (query.types?.length) {
+                    const typePatterns = query.types.map((t: string) => {
+                        if (t === 'http_request' || t === 'http') return '';
+                        if (t.includes('error') || t.includes('fail')) return '4|5'; // 4xx or 5xx status
+                        return t;
+                    }).filter(Boolean);
+                    if (typePatterns.length > 0) {
+                        searchPattern = (searchPattern + ' ' + typePatterns.join(' ')).trim();
+                    }
+                }
+
+                // Apply search text
+                if (searchPattern) {
+                    setSearchText(searchPattern);
+                }
+
+                // Determine filter type from query
+                if (query.sources?.includes('websocket') || query.types?.some((t: string) => t.includes('ws'))) {
+                    setFilterType('WS');
+                } else if (query.sources?.includes('http') || query.types?.some((t: string) => t.includes('http'))) {
+                    setFilterType('HTTP');
+                }
+
+                message.success(result.explanation || t('smart_search.applied', 'AI filter applied'));
+                setAiPopoverOpen(false);
+                setAiSearchText('');
+            }
+        } catch (err) {
+            message.error(t('smart_search.parse_failed', 'AI parsing failed'));
+        } finally {
+            setIsAIParsing(false);
+        }
+    }, [aiSearchText, isAIAvailable, parseNaturalQuery, setSearchText, setFilterType, t]);
 
     // Check cert trust status when MITM is enabled and proxy is running
     useEffect(() => {
@@ -856,6 +917,49 @@ const ProxyView: React.FC = () => {
                                 value={searchText}
                                 onChange={e => setSearchText(e.target.value)}
                             />
+                            {isAIAvailable && (
+                                <Popover
+                                    open={aiPopoverOpen}
+                                    onOpenChange={setAiPopoverOpen}
+                                    trigger="click"
+                                    placement="bottomRight"
+                                    content={
+                                        <div style={{ width: 300 }}>
+                                            <div style={{ marginBottom: 8, fontSize: 12, color: token.colorTextSecondary }}>
+                                                {t('smart_search.description', 'Describe what you want to find in natural language')}
+                                            </div>
+                                            <Input.TextArea
+                                                placeholder={t('smart_search.placeholder_network', 'e.g., "failed API calls" or "websocket messages"')}
+                                                value={aiSearchText}
+                                                onChange={(e) => setAiSearchText(e.target.value)}
+                                                rows={2}
+                                                style={{ marginBottom: 8 }}
+                                                onPressEnter={(e) => {
+                                                    if (!e.shiftKey) {
+                                                        e.preventDefault();
+                                                        handleAISearch();
+                                                    }
+                                                }}
+                                            />
+                                            <Button
+                                                type="primary"
+                                                icon={isAIParsing ? <Spin size="small" /> : <ThunderboltOutlined />}
+                                                onClick={handleAISearch}
+                                                disabled={!aiSearchText.trim() || isAIParsing}
+                                                block
+                                            >
+                                                {t('smart_search.apply', 'Apply AI Filter')}
+                                            </Button>
+                                        </div>
+                                    }
+                                >
+                                    <Button
+                                        size="small"
+                                        icon={<RobotOutlined />}
+                                        title={t("smart_search.ai_search", "AI Smart Search")}
+                                    />
+                                </Popover>
+                            )}
                             <Button size="small" type="link" onClick={() => clearLogs()} icon={<DeleteOutlined />} style={{ padding: 0 }}>{t('proxy.clear_logs')}</Button>
                         </div>
                     }

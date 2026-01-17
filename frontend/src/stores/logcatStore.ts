@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { StartLogcat, StopLogcat } from '../../wailsjs/go/main/App';
 // @ts-ignore
-import { main } from '../../wailsjs/go/models';
+import { main } from '../types/wails-models';
 
 export interface FilterPreset {
   id: string;

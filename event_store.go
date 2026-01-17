@@ -694,21 +694,22 @@ func (s *EventStore) scanSessionRow(rows *sql.Rows) (*DeviceSession, error) {
 
 // EventQuery 事件查询参数
 type EventQuery struct {
-	SessionID  string         `json:"sessionId,omitempty"`
-	DeviceID   string         `json:"deviceId,omitempty"`
-	Sources    []EventSource  `json:"sources,omitempty"`
-	Categories []EventCategory `json:"categories,omitempty"`
-	Types      []string       `json:"types,omitempty"`
-	Levels     []EventLevel   `json:"levels,omitempty"`
-	StartTime  int64          `json:"startTime,omitempty"`  // 相对时间 (ms)
-	EndTime    int64          `json:"endTime,omitempty"`
-	SearchText string         `json:"searchText,omitempty"`
-	ParentID   string         `json:"parentId,omitempty"`
-	StepID     string         `json:"stepId,omitempty"`
-	TraceID    string         `json:"traceId,omitempty"`
-	Limit      int            `json:"limit,omitempty"`
-	Offset     int            `json:"offset,omitempty"`
-	OrderDesc  bool           `json:"orderDesc,omitempty"` // true = 时间倒序
+	SessionID   string          `json:"sessionId,omitempty"`
+	DeviceID    string          `json:"deviceId,omitempty"`
+	Sources     []EventSource   `json:"sources,omitempty"`
+	Categories  []EventCategory `json:"categories,omitempty"`
+	Types       []string        `json:"types,omitempty"`
+	Levels      []EventLevel    `json:"levels,omitempty"`
+	StartTime   int64           `json:"startTime,omitempty"` // 相对时间 (ms)
+	EndTime     int64           `json:"endTime,omitempty"`
+	SearchText  string          `json:"searchText,omitempty"`
+	ParentID    string          `json:"parentId,omitempty"`
+	StepID      string          `json:"stepId,omitempty"`
+	TraceID     string          `json:"traceId,omitempty"`
+	Limit       int             `json:"limit,omitempty"`
+	Offset      int             `json:"offset,omitempty"`
+	OrderDesc   bool            `json:"orderDesc,omitempty"` // true = 时间倒序
+	IncludeData bool            `json:"includeData,omitempty"` // true = 加载完整 event_data
 }
 
 // EventQueryResult 查询结果
@@ -833,20 +834,38 @@ func (s *EventStore) QueryEvents(q EventQuery) (*EventQueryResult, error) {
 		}
 	}
 
-	// 构建最终查询 - 不 JOIN event_data，列表不需要完整数据
+	// 构建最终查询
 	order := "ASC"
 	if q.OrderDesc {
 		order = "DESC"
 	}
-	query := fmt.Sprintf(`
-		SELECT id, session_id, device_id, timestamp, relative_time, duration,
-			source, category, type, level, title, summary,
-			parent_id, step_id, trace_id,
-			aggregate_count, aggregate_first, aggregate_last
-		FROM events
-		%s
-		ORDER BY relative_time %s
-	`, whereClause, order)
+
+	var query string
+	if q.IncludeData {
+		// JOIN event_data 获取完整数据
+		query = fmt.Sprintf(`
+			SELECT e.id, e.session_id, e.device_id, e.timestamp, e.relative_time, e.duration,
+				e.source, e.category, e.type, e.level, e.title, e.summary,
+				e.parent_id, e.step_id, e.trace_id,
+				e.aggregate_count, e.aggregate_first, e.aggregate_last,
+				ed.data
+			FROM events e
+			LEFT JOIN event_data ed ON e.id = ed.event_id
+			%s
+			ORDER BY e.relative_time %s
+		`, whereClause, order)
+	} else {
+		// 不 JOIN event_data，列表不需要完整数据
+		query = fmt.Sprintf(`
+			SELECT id, session_id, device_id, timestamp, relative_time, duration,
+				source, category, type, level, title, summary,
+				parent_id, step_id, trace_id,
+				aggregate_count, aggregate_first, aggregate_last
+			FROM events
+			%s
+			ORDER BY relative_time %s
+		`, whereClause, order)
+	}
 
 	if q.Limit > 0 {
 		query += fmt.Sprintf(" LIMIT %d", q.Limit)
@@ -863,7 +882,13 @@ func (s *EventStore) QueryEvents(q EventQuery) (*EventQueryResult, error) {
 
 	var events []UnifiedEvent
 	for rows.Next() {
-		event, err := s.scanEventRowWithoutData(rows)
+		var event *UnifiedEvent
+		var err error
+		if q.IncludeData {
+			event, err = s.scanEventRow(rows)
+		} else {
+			event, err = s.scanEventRowWithoutData(rows)
+		}
 		if err != nil {
 			return nil, err
 		}

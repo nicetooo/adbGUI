@@ -709,5 +709,44 @@
       "swipe": "滑動",
       "wait": "等待"
     }
+  },
+  "smart_search": {
+    "ai_mode": "AI 模式",
+    "ai_search": "AI 智慧搜尋",
+    "description": "用自然語言描述你想查找的內容",
+    "placeholder_general": "搜尋或描述你想查找的內容...",
+    "placeholder_basic": "搜尋...",
+    "placeholder_logcat": "例如：「顯示最近5分鐘的錯誤」或「崩潰日誌」",
+    "placeholder_events": "搜尋事件或嘗試「登入後的網路錯誤」",
+    "placeholder_network": "例如：「失敗的 API 呼叫」或「WebSocket 訊息」",
+    "placeholder_logcat_with_hint": "搜尋日誌 ({{shortcut}} 啟用 AI)",
+    "placeholder_events_with_hint": "搜尋事件 ({{shortcut}} 啟用 AI)",
+    "placeholder_network_with_hint": "搜尋請求 ({{shortcut}} 啟用 AI)",
+    "placeholder_general_with_hint": "搜尋 ({{shortcut}} 啟用 AI)",
+    "apply": "套用 AI 篩選",
+    "applied": "AI 篩選已套用",
+    "parsing": "AI 解析中...",
+    "parse_failed": "AI 解析失敗",
+    "no_results": "AI 無法解析該查詢",
+    "clear_filter": "清除 AI 篩選"
+  },
+  "session_summary": {
+    "title": "工作階段總結",
+    "summary": "總結",
+    "generate": "產生工作階段總結",
+    "generating": "分析工作階段中...",
+    "error": "產生總結失敗",
+    "api_not_available": "總結 API 不可用",
+    "no_data": "沒有傳回總結資料",
+    "click_to_generate": "點擊按鈕產生總結",
+    "duration": "時長",
+    "events": "事件數",
+    "errors": "錯誤數",
+    "network": "網路請求",
+    "key_findings": "關鍵發現",
+    "statistics": "統計資料",
+    "timeline": "時間軸重點",
+    "suggestions": "建議",
+    "generated_at": "產生於"
   }
 }

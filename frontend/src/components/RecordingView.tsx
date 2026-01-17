@@ -37,7 +37,7 @@ import {
 } from "@ant-design/icons";
 import DeviceSelector from "./DeviceSelector";
 import { useDeviceStore, useAutomationStore, TouchScript } from "../stores";
-import { main } from "../../wailsjs/go/models";
+import { main } from "../types/wails-models";
 
 const RecordingView: React.FC = () => {
   const { selectedDevice } = useDeviceStore();

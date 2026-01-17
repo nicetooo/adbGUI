@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { main } from '../../wailsjs/go/models';
+import { main } from '../types/wails-models';
 import {
   StartTouchRecording,
   StopTouchRecording,

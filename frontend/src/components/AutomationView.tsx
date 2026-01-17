@@ -38,7 +38,7 @@ import {
 import { Tabs, Form, InputNumber, Select, Divider } from "antd";
 import DeviceSelector from "./DeviceSelector";
 import { useDeviceStore, useAutomationStore, TouchScript, ScriptTask, TaskStep } from "../stores";
-import { main } from "../../wailsjs/go/models";
+import { main } from "../types/wails-models";
 
 const AutomationView: React.FC = () => {
   const { selectedDevice } = useDeviceStore();

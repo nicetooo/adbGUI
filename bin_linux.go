@@ -12,3 +12,9 @@ var scrcpyBinary []byte
 
 //go:embed bin/linux/aapt
 var aaptBinary []byte
+
+//go:embed bin/linux/ffmpeg
+var ffmpegBinary []byte
+
+//go:embed bin/linux/ffprobe
+var ffprobeBinary []byte

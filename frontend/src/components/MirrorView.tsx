@@ -16,7 +16,7 @@ import {
 import DeviceSelector from "./DeviceSelector";
 import { useDeviceStore, useMirrorStore, Device } from "../stores";
 // @ts-ignore
-import { main } from "../../wailsjs/go/models";
+import { main } from "../types/wails-models";
 // @ts-ignore
 import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
 // @ts-ignore

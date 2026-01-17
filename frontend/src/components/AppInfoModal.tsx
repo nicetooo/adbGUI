@@ -3,7 +3,7 @@ import { Modal, Button, Row, Col, Card, Tabs, Input } from "antd";
 import { ReloadOutlined, AppstoreOutlined, PlayCircleOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 // @ts-ignore
-import { main } from "../../wailsjs/go/models";
+import { main } from "../types/wails-models";
 
 interface AppInfoModalProps {
   open: boolean;

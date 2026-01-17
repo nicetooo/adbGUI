@@ -4,7 +4,7 @@ import { InfoCircleOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/
 import VirtualTable from "./VirtualTable";
 import { useTranslation } from "react-i18next";
 // @ts-ignore
-import { main } from "../../wailsjs/go/models";
+import { main } from "../types/wails-models";
 
 interface DeviceInfoModalProps {
   open: boolean;

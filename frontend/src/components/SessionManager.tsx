@@ -31,11 +31,14 @@ import {
   FilterOutlined,
   EditOutlined,
   EyeOutlined,
+  RobotOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
-import { useDeviceStore, useUIStore, useEventStore, VIEW_KEYS } from '../stores';
+import { useDeviceStore, useUIStore, useEventStore, VIEW_KEYS, useAIStore } from '../stores';
 import type { DeviceSession } from '../stores/eventTypes';
+import WorkflowGenerator from './WorkflowGenerator';
+import SessionSummary from './SessionSummary';
 
 const { Text, Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -101,6 +104,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
   const { selectedDevice } = useDeviceStore();
   const { setSelectedKey } = useUIStore();
   const { loadSession } = useEventStore();
+  const { config: aiConfig } = useAIStore();
 
   // State
   const [sessions, setSessions] = useState<DeviceSession[]>([]);
@@ -113,6 +117,8 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [renameSession, setRenameSession] = useState<DeviceSession | null>(null);
   const [newName, setNewName] = useState('');
+  const [workflowGeneratorOpen, setWorkflowGeneratorOpen] = useState(false);
+  const [workflowSession, setWorkflowSession] = useState<DeviceSession | null>(null);
 
   // Load sessions
   const loadSessions = useCallback(async () => {
@@ -219,6 +225,16 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
     }
   }, [loadSession, setSelectedKey, t]);
 
+  // Generate workflow from session
+  const handleGenerateWorkflow = useCallback((session: DeviceSession) => {
+    if (!session.eventCount || session.eventCount === 0) {
+      message.warning(t('session_manager.no_events_for_workflow', 'This session has no events'));
+      return;
+    }
+    setWorkflowSession(session);
+    setWorkflowGeneratorOpen(true);
+  }, [t]);
+
   // Filter sessions
   const filteredSessions = useMemo(() => {
     return sessions.filter(session => {
@@ -322,7 +338,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
     {
       title: t('session_manager.col_actions'),
       key: 'actions',
-      width: 210,
+      width: 250,
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
@@ -343,6 +359,30 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
                 onClick={() => handlePlayVideo(record)}
               />
             </Tooltip>
+          )}
+          {aiConfig?.enabled && aiConfig?.features?.workflowGeneration && (
+            <Tooltip title={t('session_manager.generate_workflow', 'Generate Workflow')}>
+              <Button
+                type="text"
+                size="small"
+                icon={<RobotOutlined />}
+                onClick={() => handleGenerateWorkflow(record)}
+              />
+            </Tooltip>
+          )}
+          {aiConfig?.enabled && (
+            <SessionSummary
+              sessionId={record.id}
+              trigger={
+                <Tooltip title={t('session_summary.generate', 'Generate Session Summary')}>
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<FileTextOutlined />}
+                  />
+                </Tooltip>
+              }
+            />
           )}
           <Tooltip title={t('session_manager.rename')}>
             <Button
@@ -593,6 +633,19 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
           autoFocus
         />
       </Modal>
+
+      {/* Workflow Generator Modal */}
+      {workflowSession && (
+        <WorkflowGenerator
+          open={workflowGeneratorOpen}
+          onClose={() => {
+            setWorkflowGeneratorOpen(false);
+            setWorkflowSession(null);
+          }}
+          sessionId={workflowSession.id}
+          deviceId={workflowSession.deviceId}
+        />
+      )}
     </div>
   );
 };

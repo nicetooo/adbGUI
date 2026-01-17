@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { MirrorStatus, RecordStatus } from './types';
 import { OpenPath } from '../../wailsjs/go/main/App';
-import { main } from '../../wailsjs/go/models';
+import { main } from '../types/wails-models';
 
 // @ts-ignore
 const EventsOn = (window as any).runtime.EventsOn;
