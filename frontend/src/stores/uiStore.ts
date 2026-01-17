@@ -16,7 +16,6 @@ interface UIState {
   aboutVisible: boolean;
   wirelessConnectVisible: boolean;
   feedbackVisible: boolean;
-  llmConfigVisible: boolean;
 
   // App info
   appVersion: string;
@@ -35,8 +34,6 @@ interface UIState {
   hideWirelessConnect: () => void;
   showFeedback: () => void;
   hideFeedback: () => void;
-  showLLMConfig: () => void;
-  hideLLMConfig: () => void;
 
   // Component measurements
   setSyncTimelineContainerWidth: (width: number) => void;
@@ -56,7 +53,6 @@ export const useUIStore = create<UIState>()(
     aboutVisible: false,
     wirelessConnectVisible: false,
     feedbackVisible: false,
-    llmConfigVisible: false,
 
     appVersion: '',
     syncTimelineContainerWidth: 0,
@@ -93,12 +89,6 @@ export const useUIStore = create<UIState>()(
     }),
     hideFeedback: () => set((state: UIState) => {
       state.feedbackVisible = false;
-    }),
-    showLLMConfig: () => set((state: UIState) => {
-      state.llmConfigVisible = true;
-    }),
-    hideLLMConfig: () => set((state: UIState) => {
-      state.llmConfigVisible = false;
     }),
 
     // Component measurements

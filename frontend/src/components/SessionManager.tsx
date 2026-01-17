@@ -31,13 +31,12 @@ import {
   FilterOutlined,
   EditOutlined,
   EyeOutlined,
-  RobotOutlined,
+
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
-import { useDeviceStore, useUIStore, useEventStore, VIEW_KEYS, useAIStore, useSessionManagerStore } from '../stores';
+import { useDeviceStore, useUIStore, useEventStore, VIEW_KEYS, useSessionManagerStore } from '../stores';
 import type { DeviceSession } from '../stores/eventTypes';
-import WorkflowGenerator from './WorkflowGenerator';
 
 const { Text, Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -103,7 +102,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
   const { selectedDevice } = useDeviceStore();
   const { setSelectedKey } = useUIStore();
   const { loadSession } = useEventStore();
-  const { config: aiConfig } = useAIStore();
 
   // Session Manager Store
   const {
@@ -367,16 +365,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
               />
             </Tooltip>
           )}
-          {aiConfig?.enabled && aiConfig?.features?.workflowGeneration && (
-            <Tooltip title={t('session_manager.generate_workflow', 'Generate Workflow')}>
-              <Button
-                type="text"
-                size="small"
-                icon={<RobotOutlined />}
-                onClick={() => handleGenerateWorkflow(record)}
-              />
-            </Tooltip>
-          )}
           <Tooltip title={t('session_manager.rename')}>
             <Button
               type="text"
@@ -623,15 +611,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
         />
       </Modal>
 
-      {/* Workflow Generator Modal */}
-      {workflowSession && (
-        <WorkflowGenerator
-          open={workflowGeneratorOpen}
-          onClose={closeWorkflowGenerator}
-          sessionId={workflowSession.id}
-          deviceId={workflowSession.deviceId}
-        />
-      )}
     </div>
   );
 };

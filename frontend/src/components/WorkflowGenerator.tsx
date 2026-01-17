@@ -33,7 +33,6 @@ import {
   LoadingOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { useAIStore } from '../stores/aiStore';
 import { useWorkflowGeneratorStore } from '../stores/workflowGeneratorStore';
 
 // Wails event listener
@@ -103,7 +102,6 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
   onSave,
 }) => {
   const { t } = useTranslation();
-  const { serviceInfo } = useAIStore();
   const { token } = theme.useToken();
 
   // Store state
@@ -310,8 +308,8 @@ const WorkflowGenerator: React.FC<WorkflowGeneratorProps> = ({
     }
   };
 
-  // Check if AI is available
-  const isAIAvailable = serviceInfo?.status === 'ready';
+  // AI is no longer available - feature disabled
+  const isAIAvailable = false;
 
   const content = (
     <>

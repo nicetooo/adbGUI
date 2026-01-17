@@ -1,11 +1,9 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -73,11 +71,11 @@ type TouchEventForGeneration struct {
 
 // StepVideoContext contains video frame analysis context for a step
 type StepVideoContext struct {
-	FrameBase64  string   `json:"frameBase64,omitempty"`  // Base64 encoded frame image
-	SceneType    string   `json:"sceneType,omitempty"`    // Detected scene type
-	VisibleText  []string `json:"visibleText,omitempty"`  // OCR text on screen
-	Description  string   `json:"description,omitempty"`  // AI description of the screen
-	UIElements   []string `json:"uiElements,omitempty"`   // Detected UI elements summary
+	FrameBase64 string   `json:"frameBase64,omitempty"` // Base64 encoded frame image
+	SceneType   string   `json:"sceneType,omitempty"`   // Detected scene type
+	VisibleText []string `json:"visibleText,omitempty"` // OCR text on screen
+	Description string   `json:"description,omitempty"` // AI description of the screen
+	UIElements  []string `json:"uiElements,omitempty"`  // Detected UI elements summary
 }
 
 // GenerateWorkflowFromSession generates a workflow from session events
@@ -174,12 +172,12 @@ func (a *App) GenerateWorkflowFromSession(sessionID string, config *WorkflowGene
 		Description: fmt.Sprintf("Auto-generated from session %s", sessionID),
 		Steps:       []WorkflowStep{},
 		Metadata: map[string]any{
-			"sourceSessionId":   sessionID,
-			"generatedAt":       time.Now().Unix(),
-			"hasVideoContext":   hasVideoCtx,
-			"videoFrameCount":   len(videoContexts),
-			"sessionVideoPath":  session.VideoPath,
-			"useVideoAnalysis":  config.UseVideoAnalysis,
+			"sourceSessionId":  sessionID,
+			"generatedAt":      time.Now().Unix(),
+			"hasVideoContext":  hasVideoCtx,
+			"videoFrameCount":  len(videoContexts),
+			"sessionVideoPath": session.VideoPath,
+			"useVideoAnalysis": config.UseVideoAnalysis,
 		},
 		Suggestions: []string{},
 		Confidence:  0.8,
@@ -208,36 +206,6 @@ func (a *App) GenerateWorkflowFromSession(sessionID string, config *WorkflowGene
 	if config.IncludeAssertions && len(workflow.Steps) > 0 {
 		a.emitWorkflowGenProgress("adding_assertions", 60, "Adding assertions...")
 		a.addAutoAssertions(workflow, touchEvents, uiEvents)
-	}
-
-	// Try AI enhancement if available
-	a.aiServiceMu.RLock()
-	aiService := a.aiService
-	aiConfig := a.aiConfigMgr.GetConfig()
-	a.aiServiceMu.RUnlock()
-
-	LogInfo("workflow_generator").
-		Bool("aiServiceNil", aiService == nil).
-		Bool("aiServiceReady", aiService != nil && aiService.IsReady()).
-		Bool("workflowGenEnabled", aiConfig.Features.WorkflowGeneration).
-		Msg("Checking AI enhancement conditions")
-
-	if aiService != nil && aiService.IsReady() && aiConfig.Features.WorkflowGeneration {
-		a.emitWorkflowGenProgress("ai_enhancement", 70, "AI analyzing workflow and naming steps...")
-		enhanced, err := a.enhanceWorkflowWithAI(workflow, videoContexts)
-		if err != nil {
-			LogError("workflow_generator").Err(err).Msg("AI enhancement failed")
-			a.emitWorkflowGenProgress("ai_error", 75, fmt.Sprintf("AI enhancement failed: %v", err))
-		} else if enhanced != nil {
-			workflow = enhanced
-			LogInfo("workflow_generator").Msg("AI enhancement completed")
-		}
-	} else {
-		LogWarn("workflow_generator").
-			Bool("aiServiceNil", aiService == nil).
-			Bool("aiServiceReady", aiService != nil && aiService.IsReady()).
-			Bool("workflowGenEnabled", aiConfig.Features.WorkflowGeneration).
-			Msg("AI enhancement skipped")
 	}
 
 	a.emitWorkflowGenProgress("completed", 100, "Workflow generation completed!")
@@ -290,16 +258,6 @@ func (a *App) extractVideoContextsForEvents(session *DeviceSession, touchEvents 
 	totalEvents := len(touchEvents)
 	a.emitWorkflowGenProgress("video_extraction", 22, fmt.Sprintf("Extracting %d video frames...", totalEvents))
 
-	// Get AI service for frame analysis
-	a.aiServiceMu.RLock()
-	aiService := a.aiService
-	a.aiServiceMu.RUnlock()
-
-	LogInfo("workflow_generator").
-		Bool("aiServiceNil", aiService == nil).
-		Bool("aiServiceReady", aiService != nil && aiService.IsReady()).
-		Msg("AI service status for frame analysis")
-
 	// Extract frames in parallel (limit concurrency)
 	sem := make(chan struct{}, 4) // Max 4 concurrent extractions
 
@@ -343,77 +301,15 @@ func (a *App) extractVideoContextsForEvents(session *DeviceSession, touchEvents 
 				FrameBase64: frameBase64,
 			}
 
-			// Update progress counter first
+			// Update progress counter
 			done := atomic.AddInt32(&completed, 1)
 			progress := 22 + int(float64(done)/float64(totalEvents)*18) // Progress from 22% to 40%
-
-			// If AI service is available, analyze the frame
-			LogDebug("workflow_generator").
-				Int("step", idx).
-				Bool("aiServiceNil", aiService == nil).
-				Bool("aiServiceReady", aiService != nil && aiService.IsReady()).
-				Msg("Checking AI for frame analysis")
-
-			if aiService != nil && aiService.IsReady() {
-				analyzer := NewVideoAnalyzer(videoService, aiService, a.dataDir)
-				frameAnalysis, err := analyzer.AnalyzeFrame(context.Background(), session.VideoPath, videoTimeMs)
-				if err != nil {
-					LogWarn("workflow_generator").
-						Int("step", idx).
-						Int64("timeMs", videoTimeMs).
-						Err(err).
-						Msg("Frame AI analysis failed")
-					a.emitWorkflowGenProgress("frame_analysis_error", progress,
-						fmt.Sprintf("Frame %d AI analysis failed: %v", idx, err))
-				} else if frameAnalysis != nil {
-					ctx.SceneType = frameAnalysis.SceneType
-					ctx.VisibleText = frameAnalysis.OCRText
-					ctx.Description = frameAnalysis.Description
-
-					// Summarize UI elements
-					var elementSummary []string
-					for _, el := range frameAnalysis.UIElements {
-						if el.Text != "" {
-							elementSummary = append(elementSummary, fmt.Sprintf("%s:%s", el.Type, el.Text))
-						} else {
-							elementSummary = append(elementSummary, el.Type)
-						}
-					}
-					ctx.UIElements = elementSummary
-
-					// Log frame analysis result
-					LogInfo("workflow_generator").
-						Int("step", idx).
-						Int64("timeMs", videoTimeMs).
-						Str("sceneType", frameAnalysis.SceneType).
-						Str("description", frameAnalysis.Description).
-						Int("uiElementsCount", len(frameAnalysis.UIElements)).
-						Msg("Frame analyzed")
-
-					a.emitWorkflowGenProgressWithData("frame_analyzed", progress,
-						fmt.Sprintf("Frame %d @ %dms: Scene=%s, Desc=%s, Elements=%d",
-							idx, videoTimeMs, frameAnalysis.SceneType, frameAnalysis.Description, len(frameAnalysis.UIElements)),
-						map[string]interface{}{
-							"frameIndex":   idx,
-							"frameTimeMs":  videoTimeMs,
-							"frameBase64":  frameBase64,
-							"sceneType":    frameAnalysis.SceneType,
-							"description":  frameAnalysis.Description,
-							"ocrText":      frameAnalysis.OCRText,
-							"uiElements":   len(frameAnalysis.UIElements),
-						})
-				}
-			} else {
-				LogDebug("workflow_generator").
-					Int("step", idx).
-					Msg("AI service not available for frame analysis")
-			}
 
 			mu.Lock()
 			contexts[idx] = ctx
 			mu.Unlock()
 			a.emitWorkflowGenProgress("video_extraction", progress,
-				fmt.Sprintf("Analyzed frame %d/%d...", done, totalEvents))
+				fmt.Sprintf("Extracted frame %d/%d...", done, totalEvents))
 		}(i, event)
 	}
 
@@ -630,212 +526,4 @@ func (a *App) addAutoAssertions(workflow *GeneratedWorkflow, touchEvents []Unifi
 	}
 
 	workflow.Steps = newSteps
-}
-
-// enhanceWorkflowWithAI uses AI to improve the generated workflow
-func (a *App) enhanceWorkflowWithAI(workflow *GeneratedWorkflow, videoContexts map[int]*StepVideoContext) (*GeneratedWorkflow, error) {
-	aiService := a.aiService
-	if aiService == nil {
-		return nil, fmt.Errorf("AI service not available")
-	}
-
-	// Build workflow summary for AI with step details
-	type stepInfo struct {
-		ID           string   `json:"id"`
-		Type         string   `json:"type"`
-		Name         string   `json:"name"`
-		Selector     string   `json:"selector,omitempty"`
-		Value        string   `json:"value,omitempty"`
-		SceneType    string   `json:"sceneType,omitempty"`
-		VisibleText  []string `json:"visibleText,omitempty"`
-		ScreenDesc   string   `json:"screenDescription,omitempty"`
-		UIElements   []string `json:"uiElements,omitempty"`
-	}
-
-	stepsInfo := make([]stepInfo, len(workflow.Steps))
-	for i, step := range workflow.Steps {
-		selectorStr := ""
-		if step.Selector != nil {
-			selectorStr = fmt.Sprintf("%s=%s", step.Selector.Type, step.Selector.Value)
-		}
-		info := stepInfo{
-			ID:       step.ID,
-			Type:     step.Type,
-			Name:     step.Name,
-			Selector: selectorStr,
-			Value:    step.Value,
-		}
-
-		// Add video context if available
-		if videoContexts != nil {
-			if ctx, ok := videoContexts[i]; ok && ctx != nil {
-				info.SceneType = ctx.SceneType
-				info.VisibleText = ctx.VisibleText
-				info.ScreenDesc = ctx.Description
-				info.UIElements = ctx.UIElements
-			}
-		}
-
-		stepsInfo[i] = info
-	}
-
-	stepsJSON, _ := json.Marshal(stepsInfo)
-
-	// Build prompt based on whether we have video context
-	hasVideoContext := videoContexts != nil && len(videoContexts) > 0
-
-	var prompt string
-	if hasVideoContext {
-		prompt = fmt.Sprintf(`You are a mobile test automation expert. Analyze this auto-generated workflow with video frame context and provide meaningful names.
-
-Current workflow name: %s
-Steps (with screen context from video frames):
-%s
-
-The steps include video analysis context:
-- sceneType: The detected type of screen (login, home, settings, list, dialog, etc.)
-- visibleText: OCR-detected text visible on screen
-- screenDescription: AI description of what's shown on screen
-- uiElements: Detected UI elements on screen
-
-Please provide:
-1. A clear, descriptive workflow name that describes the overall user journey based on the screens shown (e.g., "User Login Flow", "Add Item to Cart", "Profile Settings Update")
-2. A brief description of what this workflow does based on the screen transitions
-3. Meaningful names for each step that describe the user action and screen context (e.g., "Tap Login Button on Login Screen", "Enter Username in Form", "Navigate to Settings from Home")
-
-Return ONLY valid JSON in this exact format:
-{
-  "name": "descriptive workflow name",
-  "description": "brief description of the workflow",
-  "steps": [
-    {"id": "step_1", "name": "descriptive step name"},
-    {"id": "step_2", "name": "descriptive step name"}
-  ],
-  "suggestions": ["optional improvement suggestion"]
-}`, workflow.Name, string(stepsJSON))
-	} else {
-		prompt = fmt.Sprintf(`You are a mobile test automation expert. Analyze this auto-generated workflow and provide meaningful names.
-
-Current workflow name: %s
-Steps:
-%s
-
-Please provide:
-1. A clear, descriptive workflow name that describes the overall user journey (e.g., "User Login Flow", "Add Item to Cart", "Profile Settings Update")
-2. A brief description of what this workflow does
-3. Meaningful names for each step that describe the user action (e.g., "Tap Login Button", "Enter Username", "Scroll to Settings")
-
-Return ONLY valid JSON in this exact format:
-{
-  "name": "descriptive workflow name",
-  "description": "brief description of the workflow",
-  "steps": [
-    {"id": "step_1", "name": "descriptive step name"},
-    {"id": "step_2", "name": "descriptive step name"}
-  ],
-  "suggestions": ["optional improvement suggestion"]
-}`, workflow.Name, string(stepsJSON))
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	// Log and emit AI prompt for debugging
-	LogInfo("workflow_generator").
-		Int("promptLength", len(prompt)).
-		Bool("hasVideoContext", hasVideoContext).
-		Msg("Sending prompt to AI")
-
-	a.emitWorkflowGenProgress("ai_prompt", 72, fmt.Sprintf("AI Prompt (%d chars):\n%s", len(prompt), prompt))
-
-	resp, err := aiService.Complete(ctx, &CompletionRequest{
-		Messages: []ChatMessage{
-			{Role: "system", Content: "You are a mobile test automation expert. Generate clear, descriptive names for workflow steps based on their actions and selectors. Return only valid JSON without markdown formatting."},
-			{Role: "user", Content: prompt},
-		},
-		MaxTokens:   1000,
-		Temperature: 0.3,
-	})
-
-	if err != nil {
-		LogError("workflow_generator").Err(err).Msg("AI completion failed")
-		a.emitWorkflowGenProgress("ai_error", 75, fmt.Sprintf("AI Error: %v", err))
-		return nil, err
-	}
-
-	// Log and emit AI response for debugging
-	LogInfo("workflow_generator").
-		Int("responseLength", len(resp.Content)).
-		Msg("Received AI response")
-
-	a.emitWorkflowGenProgress("ai_response", 78, fmt.Sprintf("AI Response:\n%s", resp.Content))
-
-	// Parse AI response
-	var aiResponse struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-		Steps       []struct {
-			ID   string `json:"id"`
-			Name string `json:"name"`
-		} `json:"steps"`
-		Suggestions []string `json:"suggestions"`
-	}
-
-	response := strings.TrimSpace(resp.Content)
-	// Remove markdown code blocks if present
-	if strings.HasPrefix(response, "```") {
-		response = strings.TrimPrefix(response, "```json")
-		response = strings.TrimPrefix(response, "```")
-		response = strings.TrimSuffix(response, "```")
-		response = strings.TrimSpace(response)
-	}
-
-	if err := json.Unmarshal([]byte(response), &aiResponse); err != nil {
-		// Try to extract JSON from the response
-		startIdx := strings.Index(response, "{")
-		endIdx := strings.LastIndex(response, "}")
-		if startIdx >= 0 && endIdx > startIdx {
-			response = response[startIdx : endIdx+1]
-			if err := json.Unmarshal([]byte(response), &aiResponse); err != nil {
-				return nil, fmt.Errorf("failed to parse AI response: %w", err)
-			}
-		} else {
-			return nil, fmt.Errorf("failed to parse AI response: %w", err)
-		}
-	}
-
-	// Apply AI-generated workflow name and description
-	if aiResponse.Name != "" {
-		workflow.Name = aiResponse.Name
-	}
-	if aiResponse.Description != "" {
-		workflow.Description = aiResponse.Description
-	}
-
-	// Apply AI-generated step names
-	stepNameMap := make(map[string]string)
-	for _, s := range aiResponse.Steps {
-		if s.ID != "" && s.Name != "" {
-			stepNameMap[s.ID] = s.Name
-		}
-	}
-
-	for i := range workflow.Steps {
-		if newName, ok := stepNameMap[workflow.Steps[i].ID]; ok {
-			workflow.Steps[i].Name = newName
-		}
-	}
-
-	// Add suggestions as warnings
-	if len(aiResponse.Suggestions) > 0 {
-		workflow.Suggestions = append(workflow.Suggestions, aiResponse.Suggestions...)
-	}
-
-	workflow.Metadata["aiEnhanced"] = true
-	workflow.Metadata["aiModel"] = aiService.GetProvider().Model()
-	if videoContexts != nil && len(videoContexts) > 0 {
-		workflow.Metadata["videoFramesAnalyzed"] = len(videoContexts)
-	}
-
-	return workflow, nil
 }

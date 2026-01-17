@@ -9,12 +9,10 @@ import {
   InfoCircleOutlined,
   DeleteOutlined,
   StopOutlined,
-  RobotOutlined,
-  ThunderboltOutlined,
 } from "@ant-design/icons";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import DeviceSelector from "./DeviceSelector";
-import { useDeviceStore, useLogcatStore, FilterPreset, useAIStore } from "../stores";
+import { useDeviceStore, useLogcatStore, FilterPreset } from "../stores";
 // @ts-ignore
 import { main } from "../types/wails-models";
 // @ts-ignore
@@ -69,67 +67,6 @@ export default function LogcatView() {
     aiSearchText, setAiSearchText,
     aiPopoverOpen, setAiPopoverOpen,
   } = useLogcatStore();
-
-  // AI Smart Search
-  const { serviceInfo, config: aiConfig, parseNaturalQuery } = useAIStore();
-
-  const isAIAvailable = serviceInfo?.status === 'ready' &&
-    aiConfig?.enabled &&
-    aiConfig?.features?.naturalSearch;
-
-  // Handle AI smart search
-  const handleAISearch = useCallback(async () => {
-    if (!aiSearchText.trim() || !isAIAvailable) return;
-
-    setIsAIParsing(true);
-    try {
-      const result = await parseNaturalQuery(aiSearchText, '');
-      if (result && result.query) {
-        const { query } = result;
-
-        // Apply level filter
-        if (query.levels?.length) {
-          const levelMap: Record<string, string> = {
-            'error': 'E', 'fatal': 'E',
-            'warn': 'W', 'warning': 'W',
-            'info': 'I',
-            'debug': 'D',
-            'verbose': 'V'
-          };
-          const mappedLevels = query.levels
-            .map((l: string) => levelMap[l.toLowerCase()])
-            .filter(Boolean);
-          if (mappedLevels.length > 0) {
-            setLevelFilter(mappedLevels);
-          }
-        }
-
-        // Apply keywords as filter
-        if (query.keywords?.length) {
-          const pattern = query.keywords.join('|');
-          setLogFilter(pattern);
-          setUseRegex(true);
-        } else if (query.types?.length) {
-          // Use types as filter patterns
-          const typePatterns = query.types.map((t: string) => {
-            if (t === 'app_crash' || t === 'crash') return 'FATAL|Exception|crash';
-            if (t === 'app_anr' || t === 'anr') return 'ANR|not responding';
-            return t;
-          });
-          setLogFilter(typePatterns.join('|'));
-          setUseRegex(true);
-        }
-
-        message.success(result.explanation || t('smart_search.applied', 'AI filter applied'));
-        setAiPopoverOpen(false);
-        setAiSearchText('');
-      }
-    } catch (err) {
-      message.error(t('smart_search.parse_failed', 'AI parsing failed'));
-    } finally {
-      setIsAIParsing(false);
-    }
-  }, [aiSearchText, isAIAvailable, parseNaturalQuery, setLevelFilter, setLogFilter, setUseRegex, t]);
 
   useEffect(() => {
     const fetchPackageList = async () => {
@@ -743,54 +680,6 @@ export default function LogcatView() {
                       onClick={handleSaveFilter}
                       title={t("logcat.save_filter")}
                     > {t("logcat.save") || "Save"} </Button>
-                    {isAIAvailable && (
-                      <Popover
-                        open={aiPopoverOpen}
-                        onOpenChange={setAiPopoverOpen}
-                        trigger="click"
-                        placement="bottomRight"
-                        content={
-                          <div style={{ width: 300 }}>
-                            <div style={{ marginBottom: 8, fontSize: 12, color: token.colorTextSecondary }}>
-                              {t('smart_search.description', 'Describe what you want to find in natural language')}
-                            </div>
-                            <Input.TextArea
-                              placeholder={t('smart_search.placeholder_logcat', 'e.g., "show errors in last 5 minutes" or "crash logs"')}
-                              value={aiSearchText}
-                              onChange={(e) => setAiSearchText(e.target.value)}
-                              rows={2}
-                              style={{ marginBottom: 8 }}
-                              onPressEnter={(e) => {
-                                if (!e.shiftKey) {
-                                  e.preventDefault();
-                                  handleAISearch();
-                                }
-                              }}
-                            />
-                            <Button
-                              type="primary"
-                              icon={isAIParsing ? <Spin size="small" /> : <ThunderboltOutlined />}
-                              onClick={handleAISearch}
-                              disabled={!aiSearchText.trim() || isAIParsing}
-                              block
-                            >
-                              {t('smart_search.apply', 'Apply AI Filter')}
-                            </Button>
-                          </div>
-                        }
-                      >
-                        <Button
-                          size="small"
-                          type="default"
-                          style={{
-                            fontSize: "11px", padding: "0 6px", height: 20, borderRadius: 2,
-                            marginLeft: 4,
-                          }}
-                          icon={<RobotOutlined style={{ fontSize: 12 }} />}
-                          title={t("smart_search.ai_search", "AI Smart Search")}
-                        />
-                      </Popover>
-                    )}
                   </Space>
                 </div>
               }

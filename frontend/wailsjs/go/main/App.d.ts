@@ -5,39 +5,15 @@ import {time} from '../models';
 import {context} from '../models';
 import {http} from '../models';
 
-export function AIAnalyzeCrash(arg1:string,arg2:string):Promise<main.RootCauseAnalysis>;
-
-export function AIAnalyzeLog(arg1:string,arg2:string,arg3:string):Promise<main.LogAnalysisResult>;
-
-export function AIComplete(arg1:Array<{[key: string]: string}>,arg2:{[key: string]: any}):Promise<string>;
-
-export function AIGenerateWorkflow(arg1:string,arg2:main.WorkflowGeneratorConfig):Promise<main.GeneratedWorkflow>;
-
-export function AIParseNaturalQuery(arg1:string,arg2:string):Promise<main.NLQueryResult>;
-
-export function AISuggestAssertions(arg1:string):Promise<Array<main.AssertionSuggestion>>;
-
 export function AdbConnect(arg1:string):Promise<string>;
 
 export function AdbDisconnect(arg1:string):Promise<string>;
 
 export function AdbPair(arg1:string,arg2:string):Promise<string>;
 
-export function AddCustomLLMEndpoint(arg1:string,arg2:string,arg3:string):Promise<void>;
-
 export function AddMockRule(arg1:main.MockRule):Promise<string>;
 
-export function AnalyzeCrashRootCause(arg1:string,arg2:string):Promise<main.RootCauseAnalysis>;
-
 export function AnalyzeElementSelectors(arg1:string,arg2:number,arg3:number,arg4:time.Time):Promise<Array<main.SelectorSuggestion>>;
-
-export function AnalyzeLog(arg1:string,arg2:string,arg3:string):Promise<main.LogAnalysisResult>;
-
-export function AnalyzeLogEntry(arg1:string,arg2:string,arg3:string):Promise<main.LogAnalysisResult>;
-
-export function AnalyzeSessionVideo(arg1:string,arg2:number):Promise<main.VideoAnalysisResult>;
-
-export function AnalyzeVideoFrame(arg1:string,arg2:number):Promise<main.VideoFrameAnalysis>;
 
 export function AssertElementExists(arg1:string,arg2:main.ElementSelector):Promise<boolean>;
 
@@ -83,11 +59,7 @@ export function DeleteTouchScript(arg1:string):Promise<void>;
 
 export function DeleteWorkflow(arg1:string):Promise<void>;
 
-export function DetectVideoAnomalies(arg1:string):Promise<Array<main.VideoFrameAnalysis>>;
-
 export function DisableApp(arg1:string,arg2:string):Promise<string>;
-
-export function DiscoverLLMServices():Promise<Array<main.DiscoveredService>>;
 
 export function DownloadFile(arg1:string,arg2:string):Promise<string>;
 
@@ -139,10 +111,6 @@ export function GenerateSelectorSuggestions(arg1:main.UINode,arg2:main.UINode):P
 
 export function GenerateWorkflowFromSession(arg1:string,arg2:main.WorkflowGeneratorConfig):Promise<main.GeneratedWorkflow>;
 
-export function GetAIConfig():Promise<main.AIConfig>;
-
-export function GetAIServiceInfo():Promise<main.AIServiceInfo>;
-
 export function GetActiveSession(arg1:string):Promise<string>;
 
 export function GetAppInfo(arg1:string,arg2:string,arg3:boolean):Promise<main.AppPackage>;
@@ -150,8 +118,6 @@ export function GetAppInfo(arg1:string,arg2:string,arg3:boolean):Promise<main.Ap
 export function GetAppVersion():Promise<string>;
 
 export function GetAssertionResult(arg1:string):Promise<main.AssertionResult>;
-
-export function GetAvailableModels(arg1:string,arg2:{[key: string]: string}):Promise<Array<string>>;
 
 export function GetBackendLogs():Promise<Array<string>>;
 
@@ -179,13 +145,9 @@ export function GetInstalledPackages(arg1:string,arg2:boolean):Promise<Array<str
 
 export function GetLocalIP():Promise<string>;
 
-export function GetLogAnalysisConfig():Promise<main.LogcatAnalyzerConfig>;
-
 export function GetLogDir():Promise<string>;
 
 export function GetLogFilePath():Promise<string>;
-
-export function GetLogcatAnalyzer():Promise<main.LogcatAnalyzer>;
 
 export function GetMITMBypassPatterns():Promise<Array<string>>;
 
@@ -323,8 +285,6 @@ export function OpenPath(arg1:string):Promise<void>;
 
 export function OpenSettings(arg1:string,arg2:string,arg3:string):Promise<string>;
 
-export function ParseNaturalQuery(arg1:string,arg2:string):Promise<main.NLQueryResult>;
-
 export function PauseTask(arg1:string):Promise<void>;
 
 export function PerformNodeAction(arg1:string,arg2:string,arg3:string):Promise<void>;
@@ -336,8 +296,6 @@ export function PlayTouchScript(arg1:string,arg2:main.TouchScript):Promise<void>
 export function PreviewAssertionMatch(arg1:string,arg2:Array<string>,arg3:string):Promise<number>;
 
 export function QuerySessionEvents(arg1:main.EventQuery):Promise<main.EventQueryResult>;
-
-export function QueueLogForAnalysis(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string):Promise<void>;
 
 export function QuickAssertCount(arg1:string,arg2:string,arg3:string,arg4:number,arg5:number):Promise<main.AssertionResult>;
 
@@ -352,10 +310,6 @@ export function QuickAssertSequence(arg1:string,arg2:string,arg3:Array<string>):
 export function ReadRecentLogs(arg1:number):Promise<Array<string>>;
 
 export function ReadVideoFileAsDataURL(arg1:string):Promise<string>;
-
-export function RefreshAIProviders():Promise<void>;
-
-export function RemoveCustomLLMEndpoint(arg1:string):Promise<void>;
 
 export function RemoveHistoryDevice(arg1:string):Promise<void>;
 
@@ -401,23 +355,9 @@ export function SelectScreenshotPath(arg1:string):Promise<string>;
 
 export function ServeVideoFile(arg1:http.ResponseWriter,arg2:http.Request,arg3:string):Promise<void>;
 
-export function SetAIEnabled(arg1:boolean):Promise<void>;
-
-export function SetAIFeature(arg1:string,arg2:boolean):Promise<void>;
-
-export function SetAIPreferredSource(arg1:string):Promise<void>;
-
-export function SetClaudeConfig(arg1:string,arg2:string,arg3:boolean):Promise<void>;
-
-export function SetCustomProviderConfig(arg1:string,arg2:string,arg3:string,arg4:boolean):Promise<void>;
-
 export function SetDeviceNetworkLimit(arg1:string,arg2:number):Promise<string>;
 
-export function SetLogAnalysisConfig(arg1:main.LogcatAnalyzerConfig):Promise<void>;
-
 export function SetMITMBypassPatterns(arg1:Array<string>):Promise<void>;
-
-export function SetOpenAIConfig(arg1:string,arg2:string,arg3:boolean):Promise<void>;
 
 export function SetProxyDevice(arg1:string):Promise<void>;
 
@@ -493,21 +433,15 @@ export function StopWorkflow(arg1:main.Device):Promise<void>;
 
 export function SubmitSelectorChoice(arg1:string,arg2:string,arg3:string):Promise<void>;
 
-export function SuggestAssertions(arg1:string):Promise<Array<main.AssertionSuggestion>>;
-
 export function SwipeCoordinates(arg1:string,arg2:number,arg3:number,arg4:number,arg5:number,arg6:number):Promise<void>;
 
 export function SwipeOnElement(arg1:context.Context,arg2:string,arg3:main.ElementSelector,arg4:string,arg5:number,arg6:number,arg7:main.ElementActionConfig):Promise<void>;
-
-export function SwitchAIProvider(arg1:string,arg2:{[key: string]: string}):Promise<void>;
 
 export function SwitchToWireless(arg1:string):Promise<string>;
 
 export function TakeScreenshot(arg1:string,arg2:string):Promise<string>;
 
 export function TapAtCoordinates(arg1:string,arg2:number,arg3:number):Promise<void>;
-
-export function TestAIProvider(arg1:string,arg2:{[key: string]: string}):Promise<boolean|string>;
 
 export function ToggleMockRule(arg1:string,arg2:boolean):Promise<void>;
 

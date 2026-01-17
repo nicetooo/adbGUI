@@ -8,10 +8,9 @@
  * - 普通输入直接用于传统文本搜索
  */
 import React, { useCallback, useRef } from 'react';
-import { Input, Tooltip, Spin, Tag, Space, theme, message } from 'antd';
-import { SearchOutlined, RobotOutlined, ThunderboltOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { Input, Tooltip, Tag, Space, theme } from 'antd';
+import { SearchOutlined, RobotOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { useAIStore } from '../stores/aiStore';
 import { useSmartSearchStore } from '../stores/smartSearchStore';
 
 // Parsed query result from AI
@@ -61,25 +60,19 @@ const SmartSearchInput: React.FC<SmartSearchInputProps> = ({
 }) => {
   const { t } = useTranslation();
   const { token } = theme.useToken();
-  const { serviceInfo, config, parseNaturalQuery } = useAIStore();
   
   // Store state
   const {
     isParsing,
     aiFilterActive,
     lastParsedResult,
-    setIsParsing,
-    setAiFilterActive,
-    setLastParsedResult,
     clearAiFilter,
   } = useSmartSearchStore();
   
   const inputRef = useRef<any>(null);
 
-  // Check if AI natural search is available
-  const isAIAvailable = serviceInfo?.status === 'ready' &&
-    config?.enabled &&
-    config?.features?.naturalSearch;
+  // AI is no longer available - feature disabled
+  const isAIAvailable = false;
 
   // Handle input change - just pass through for traditional search
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,42 +92,6 @@ const SmartSearchInput: React.FC<SmartSearchInputProps> = ({
     }
   }, [onChange, aiFilterActive, onParsedQuery, clearAiFilter]);
 
-  // Parse with AI - manual trigger only
-  const handleAIParse = useCallback(async () => {
-    if (!value || !isAIAvailable || isParsing) return;
-
-    setIsParsing(true);
-    message.info(t('smart_search.parsing', 'AI parsing...'));
-
-    try {
-      const result = await parseNaturalQuery(value, sessionId || '');
-      if (result && result.query) {
-        // Check if AI returned meaningful results
-        const hasResults = result.query.types?.length ||
-          result.query.sources?.length ||
-          result.query.levels?.length ||
-          result.query.keywords?.length ||
-          result.query.timeRange;
-
-        if (hasResults) {
-          setLastParsedResult(result);
-          setAiFilterActive(true);
-          onParsedQuery?.(result);
-          // Clear input after successful AI parse
-          onChange('');
-          message.success(result.explanation || t('smart_search.applied', 'AI filter applied'));
-        } else {
-          message.warning(t('smart_search.no_results', 'AI could not parse the query'));
-        }
-      }
-    } catch (err) {
-      console.error('[SmartSearch] AI parse failed:', err);
-      message.error(t('smart_search.parse_failed', 'AI parsing failed'));
-    } finally {
-      setIsParsing(false);
-    }
-  }, [value, isAIAvailable, isParsing, parseNaturalQuery, sessionId, onParsedQuery, onChange, t]);
-
   // Clear AI filter
   const handleClearAIFilter = useCallback(() => {
     clearAiFilter();
@@ -142,35 +99,14 @@ const SmartSearchInput: React.FC<SmartSearchInputProps> = ({
     inputRef.current?.focus();
   }, [onParsedQuery, clearAiFilter]);
 
-  // Handle keyboard shortcuts
+  // Handle keyboard shortcuts - AI search disabled
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Ctrl/Cmd + Enter to trigger AI search
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      e.preventDefault();
-      if (value && isAIAvailable) {
-        handleAIParse();
-      }
-    }
-  }, [value, isAIAvailable, handleAIParse]);
+    // AI search disabled - no-op for now
+  }, []);
 
   // Get context-aware placeholder
   const getPlaceholder = () => {
     if (placeholder) return placeholder;
-
-    if (isAIAvailable) {
-      const shortcutHint = navigator.platform.includes('Mac') ? '⌘+Enter' : 'Ctrl+Enter';
-      switch (searchContext) {
-        case 'logcat':
-          return t('smart_search.placeholder_logcat_with_hint', { shortcut: shortcutHint, defaultValue: `Search logs (${shortcutHint} for AI)` });
-        case 'events':
-          return t('smart_search.placeholder_events_with_hint', { shortcut: shortcutHint, defaultValue: `Search events (${shortcutHint} for AI)` });
-        case 'network':
-          return t('smart_search.placeholder_network_with_hint', { shortcut: shortcutHint, defaultValue: `Search requests (${shortcutHint} for AI)` });
-        default:
-          return t('smart_search.placeholder_general_with_hint', { shortcut: shortcutHint, defaultValue: `Search (${shortcutHint} for AI)` });
-      }
-    }
-
     return t('smart_search.placeholder_basic', 'Search...');
   };
 
@@ -233,9 +169,6 @@ const SmartSearchInput: React.FC<SmartSearchInputProps> = ({
     return tags;
   };
 
-  // Get shortcut hint based on platform
-  const shortcutHint = navigator.platform.includes('Mac') ? '⌘+Enter' : 'Ctrl+Enter';
-
   return (
     <div style={{ position: 'relative', ...style }}>
       {/* AI Filter Active State */}
@@ -264,37 +197,7 @@ const SmartSearchInput: React.FC<SmartSearchInputProps> = ({
         /* Normal Search Input */
         <Input
           ref={inputRef}
-          prefix={
-            isParsing ? (
-              <Spin size="small" />
-            ) : (
-              <SearchOutlined />
-            )
-          }
-          suffix={
-            isAIAvailable && value ? (
-              <Tooltip
-                title={
-                  <span>
-                    {t('smart_search.ai_search', 'AI Smart Search')}
-                    <br />
-                    <span style={{ opacity: 0.7, fontSize: 11 }}>{shortcutHint}</span>
-                  </span>
-                }
-              >
-                <ThunderboltOutlined
-                  style={{
-                    color: token.colorTextSecondary,
-                    cursor: isParsing ? 'wait' : 'pointer',
-                    transition: 'color 0.2s',
-                  }}
-                  onClick={isParsing ? undefined : handleAIParse}
-                  onMouseEnter={(e) => !isParsing && (e.currentTarget.style.color = token.colorPrimary)}
-                  onMouseLeave={(e) => !isParsing && (e.currentTarget.style.color = token.colorTextSecondary)}
-                />
-              </Tooltip>
-            ) : undefined
-          }
+          prefix={<SearchOutlined />}
           placeholder={getPlaceholder()}
           value={value}
           onChange={handleInputChange}

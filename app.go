@@ -81,11 +81,6 @@ type App struct {
 	assertionEngine *AssertionEngine
 	eventSystemMu   sync.RWMutex
 	dataDir         string
-
-	// AI Service
-	aiService   *AIService
-	aiConfigMgr *AIConfigManager
-	aiServiceMu sync.RWMutex
 }
 
 // NewApp creates a new App instance
@@ -388,41 +383,11 @@ func (a *App) initEventSystem() {
 	// Create assertion engine
 	a.assertionEngine = NewAssertionEngine(a, store, a.eventPipeline)
 
-	// Initialize AI service
-	a.initAIService()
-
 	a.Log("Event system initialized at: %s", a.dataDir)
-}
-
-// initAIService initializes the AI service
-func (a *App) initAIService() {
-	a.aiServiceMu.Lock()
-	defer a.aiServiceMu.Unlock()
-
-	// Initialize config manager
-	a.aiConfigMgr = NewAIConfigManager(a.dataDir)
-	if err := a.aiConfigMgr.Load(); err != nil {
-		a.Log("Failed to load AI config: %v", err)
-	}
-
-	config := a.aiConfigMgr.GetConfig()
-
-	// Initialize AI service
-	aiService, err := NewAIService(a.ctx, config)
-	if err != nil {
-		a.Log("Failed to initialize AI service: %v", err)
-		return
-	}
-	a.aiService = aiService
-
-	a.Log("AI service initialized (status: %s)", aiService.GetStatus())
 }
 
 // shutdownEventSystem shuts down the event system
 func (a *App) shutdownEventSystem() {
-	// Shutdown AI service first
-	a.shutdownAIService()
-
 	a.eventSystemMu.Lock()
 	defer a.eventSystemMu.Unlock()
 
@@ -435,17 +400,6 @@ func (a *App) shutdownEventSystem() {
 			a.Log("Error closing event store: %v", err)
 		}
 		a.eventStore = nil
-	}
-}
-
-// shutdownAIService shuts down the AI service
-func (a *App) shutdownAIService() {
-	a.aiServiceMu.Lock()
-	defer a.aiServiceMu.Unlock()
-
-	if a.aiService != nil {
-		a.aiService.Shutdown()
-		a.aiService = nil
 	}
 }
 

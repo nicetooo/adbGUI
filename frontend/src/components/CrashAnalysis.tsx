@@ -30,7 +30,6 @@ import {
   DatabaseOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { useAIStore } from '../stores/aiStore';
 import { useCrashAnalysisStore } from '../stores/crashAnalysisStore';
 
 const { Text, Title, Paragraph } = Typography;
@@ -119,7 +118,6 @@ const CrashAnalysis: React.FC<CrashAnalysisProps> = ({
   onEventClick,
 }) => {
   const { t } = useTranslation();
-  const { serviceInfo } = useAIStore();
 
   // State from store
   const {
@@ -133,8 +131,8 @@ const CrashAnalysis: React.FC<CrashAnalysisProps> = ({
     setError,
   } = useCrashAnalysisStore();
 
-  // Check if AI is available
-  const isAIAvailable = serviceInfo?.status === 'ready';
+  // AI is no longer available - feature disabled
+  const isAIAvailable = false;
 
   // Analyze crash
   const handleAnalyzeCrash = useCallback(

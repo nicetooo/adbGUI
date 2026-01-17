@@ -28,17 +28,6 @@ export { useShellStore } from './shellStore';
 export { useRecordingStore } from './recordingStore';
 export { useTimelineStore } from './timelineStore';
 
-// AI Store
-export { useAIStore } from './aiStore';
-export type {
-  AIServiceInfo,
-  AIConfig,
-  AIProviderInfo,
-  DiscoveredService,
-  AIFeaturesConfig,
-  LLMSource,
-} from './aiStore';
-
 // Video Store
 export { useVideoStore } from './videoStore';
 export type {

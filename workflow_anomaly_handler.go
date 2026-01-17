@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -50,21 +49,13 @@ type AnomalyAnalysis struct {
 
 // WorkflowAnomalyHandler 异常处理器
 type WorkflowAnomalyHandler struct {
-	app       *App
-	aiService *AIService
+	app *App
 }
 
 // NewWorkflowAnomalyHandler 创建异常处理器
 func NewWorkflowAnomalyHandler(app *App) *WorkflowAnomalyHandler {
-	var aiService *AIService
-	if app != nil {
-		app.aiServiceMu.RLock()
-		aiService = app.aiService
-		app.aiServiceMu.RUnlock()
-	}
 	return &WorkflowAnomalyHandler{
-		app:       app,
-		aiService: aiService,
+		app: app,
 	}
 }
 
@@ -79,86 +70,8 @@ func (h *WorkflowAnomalyHandler) AnalyzeAnomaly(ctx context.Context, deviceID st
 	// 使用原始 XML 进行分析
 	hierarchy := hierarchyResult.RawXML
 
-	// 尝试 AI 分析
-	if h.aiService != nil && h.aiService.IsReady() {
-		analysis, err := h.analyzeWithAI(ctx, hierarchy, expectedStep, errorMsg)
-		if err == nil && analysis != nil {
-			return analysis, nil
-		}
-	}
-
-	// 回退到基于规则的分析
+	// 使用基于规则的分析
 	return h.analyzeWithRules(hierarchy, expectedStep, errorMsg)
-}
-
-// analyzeWithAI 使用 AI 分析异常
-func (h *WorkflowAnomalyHandler) analyzeWithAI(ctx context.Context, hierarchy string, expectedStep *WorkflowStep, errorMsg string) (*AnomalyAnalysis, error) {
-	prompt := fmt.Sprintf(`Analyze this Android UI state and identify the anomaly.
-
-Expected step: %s (type: %s)
-Error message: %s
-
-Current UI hierarchy:
-%s
-
-Return a JSON object:
-{
-  "anomalyType": "permission_dialog|system_dialog|anr_dialog|error_dialog|element_not_found|ui_changed|timeout|unknown",
-  "description": "Human-readable description",
-  "confidence": 0.9,
-  "autoResolvable": true,
-  "dialogTitle": "Dialog title if any",
-  "dialogMessage": "Dialog message if any",
-  "detectedButtons": ["Button1", "Button2"],
-  "suggestedActions": [
-    {
-      "id": "action1",
-      "label": "Click Allow",
-      "description": "Grant the permission and continue",
-      "priority": 1,
-      "autoExecute": true
-    }
-  ]
-}
-
-Analyze for:
-1. Is there a permission request dialog? (camera, location, storage, etc.)
-2. Is there a system dialog? (ANR, crash, low battery, etc.)
-3. Is the expected element just not visible?
-4. Has the UI layout changed?
-
-Return only valid JSON.`, expectedStep.Name, expectedStep.Type, errorMsg, truncateString(hierarchy, 3000))
-
-	resp, err := h.aiService.Complete(ctx, &CompletionRequest{
-		Messages: []ChatMessage{
-			{Role: "system", Content: "You are an Android UI analyzer. Analyze the UI state and identify anomalies."},
-			{Role: "user", Content: prompt},
-		},
-		MaxTokens:   800,
-		Temperature: 0.2,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	var analysis AnomalyAnalysis
-	response := strings.TrimSpace(resp.Content)
-	if strings.HasPrefix(response, "```") {
-		response = strings.TrimPrefix(response, "```json")
-		response = strings.TrimPrefix(response, "```")
-		response = strings.TrimSuffix(response, "```")
-		response = strings.TrimSpace(response)
-	}
-
-	if err := json.Unmarshal([]byte(response), &analysis); err != nil {
-		return nil, fmt.Errorf("failed to parse AI response: %w", err)
-	}
-
-	// 为建议的操作生成实际步骤
-	h.enrichSuggestedActions(&analysis)
-
-	return &analysis, nil
 }
 
 // analyzeWithRules 使用规则分析异常
@@ -190,8 +103,8 @@ func (h *WorkflowAnomalyHandler) analyzeWithRules(hierarchy string, expectedStep
 						Type: "click_element",
 						Name: "Click Allow",
 						Selector: &ElementSelector{
-							Type: "text",
-							Value:    "Allow",
+							Type:  "text",
+							Value: "Allow",
 						},
 						Timeout: 5000,
 					},
@@ -211,8 +124,8 @@ func (h *WorkflowAnomalyHandler) analyzeWithRules(hierarchy string, expectedStep
 						Type: "click_element",
 						Name: "Click Deny",
 						Selector: &ElementSelector{
-							Type: "text",
-							Value:    "Deny",
+							Type:  "text",
+							Value: "Deny",
 						},
 						Timeout: 5000,
 					},
@@ -241,8 +154,8 @@ func (h *WorkflowAnomalyHandler) analyzeWithRules(hierarchy string, expectedStep
 					Type: "click_element",
 					Name: "Click Wait",
 					Selector: &ElementSelector{
-						Type: "text",
-						Value:    "Wait",
+						Type:  "text",
+						Value: "Wait",
 					},
 					Timeout: 5000,
 				},
@@ -260,8 +173,8 @@ func (h *WorkflowAnomalyHandler) analyzeWithRules(hierarchy string, expectedStep
 					Type: "click_element",
 					Name: "Click Close",
 					Selector: &ElementSelector{
-						Type: "text",
-						Value:    "Close",
+						Type:  "text",
+						Value: "Close",
 					},
 					Timeout: 5000,
 				},
@@ -293,8 +206,8 @@ func (h *WorkflowAnomalyHandler) analyzeWithRules(hierarchy string, expectedStep
 							Type: "click_element",
 							Name: "Click " + btn,
 							Selector: &ElementSelector{
-								Type: "text",
-								Value:    btn,
+								Type:  "text",
+								Value: btn,
 							},
 							Timeout: 5000,
 						},
@@ -444,8 +357,8 @@ func (h *WorkflowAnomalyHandler) enrichSuggestedActions(analysis *AnomalyAnalysi
 					Type: "click_element",
 					Name: "Click " + action.Label,
 					Selector: &ElementSelector{
-						Type: "text",
-						Value:    action.Label,
+						Type:  "text",
+						Value: action.Label,
 					},
 					Timeout: 5000,
 				},
