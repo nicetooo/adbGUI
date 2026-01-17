@@ -1,12 +1,125 @@
 package mcp
 
 import (
+	"encoding/base64"
 	"errors"
 	"strings"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
+
+// ========================================
+// stripDataURLPrefix Tests
+// ========================================
+
+func TestStripDataURLPrefix(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "JPEG data URL",
+			input:    "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
+			expected: "/9j/4AAQSkZJRg==",
+		},
+		{
+			name:     "PNG data URL",
+			input:    "data:image/png;base64,iVBORw0KGgo=",
+			expected: "iVBORw0KGgo=",
+		},
+		{
+			name:     "GIF data URL",
+			input:    "data:image/gif;base64,R0lGODlh",
+			expected: "R0lGODlh",
+		},
+		{
+			name:     "WebP data URL",
+			input:    "data:image/webp;base64,UklGR",
+			expected: "UklGR",
+		},
+		{
+			name:     "Unknown image type",
+			input:    "data:image/bmp;base64,Qk0=",
+			expected: "Qk0=",
+		},
+		{
+			name:     "Pure base64 (no prefix)",
+			input:    "/9j/4AAQSkZJRg==",
+			expected: "/9j/4AAQSkZJRg==",
+		},
+		{
+			name:     "Empty string",
+			input:    "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := stripDataURLPrefix(tt.input)
+			if result != tt.expected {
+				t.Errorf("stripDataURLPrefix(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestHandleVideoFrame_ImageContentFormat(t *testing.T) {
+	// Use a valid small JPEG base64 (1x1 red pixel)
+	validJPEGBase64 := "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBEQCEAwEPwAABmgP/2Q=="
+	mock := NewMockGazeApp()
+	mock.GetVideoFrameResult = "data:image/jpeg;base64," + validJPEGBase64
+	server := NewMCPServer(mock)
+
+	request := mcp.CallToolRequest{}
+	request.Params.Arguments = map[string]interface{}{
+		"video_path": "/path/to/video.mp4",
+		"time_ms":    float64(5000),
+	}
+
+	result, err := server.handleVideoFrame(nil, request)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if len(result.Content) < 2 {
+		t.Fatal("Expected at least 2 content items (text + image)")
+	}
+
+	// Verify ImageContent structure
+	imgContent, ok := result.Content[1].(mcp.ImageContent)
+	if !ok {
+		t.Fatalf("Expected ImageContent at index 1, got %T", result.Content[1])
+	}
+
+	// Verify type is "image"
+	if imgContent.Type != "image" {
+		t.Errorf("Expected type 'image', got %q", imgContent.Type)
+	}
+
+	// Verify mimeType is "image/jpeg"
+	if imgContent.MIMEType != "image/jpeg" {
+		t.Errorf("Expected mimeType 'image/jpeg', got %q", imgContent.MIMEType)
+	}
+
+	// Verify data does NOT contain data URL prefix
+	if strings.HasPrefix(imgContent.Data, "data:") {
+		t.Errorf("ImageContent.Data should not start with 'data:' prefix, got: %s", imgContent.Data[:50])
+	}
+
+	// Verify data is valid base64
+	_, err = base64.StdEncoding.DecodeString(imgContent.Data)
+	if err != nil {
+		t.Errorf("ImageContent.Data is not valid base64: %v", err)
+	}
+
+	// Verify data matches expected (stripped) base64
+	if imgContent.Data != validJPEGBase64 {
+		t.Errorf("ImageContent.Data mismatch.\nExpected: %s\nGot: %s", validJPEGBase64, imgContent.Data)
+	}
+}
 
 // ========================================
 // video_frame Tests
