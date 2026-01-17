@@ -22,7 +22,7 @@ func (a *App) StartNetworkMonitor(deviceId string) {
 	a.StopNetworkMonitor(deviceId)
 
 	monitorMu.Lock()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(a.ctx)
 	monitorCancels[deviceId] = cancel
 	monitorMu.Unlock()
 

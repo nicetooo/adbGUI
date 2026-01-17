@@ -984,7 +984,7 @@ func (a *App) StartDeviceMonitor() {
 		a.deviceMonitorCancel()
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(a.ctx)
 	a.deviceMonitorCancel = cancel
 
 	go a.runDeviceMonitor(ctx)
