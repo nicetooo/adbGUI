@@ -86,6 +86,10 @@ const { Text, Title } = Typography;
 
 // Step type definitions
 const STEP_TYPES = {
+  COORDINATE_ACTIONS: [
+    { key: 'tap', icon: <AimOutlined />, color: 'magenta' },
+    { key: 'swipe', icon: <SwapOutlined />, color: 'magenta' },
+  ],
   ELEMENT_ACTIONS: [
     { key: 'click_element', icon: <AimOutlined />, color: 'blue' },
     { key: 'long_click_element', icon: <AimOutlined />, color: 'blue' },
@@ -232,6 +236,20 @@ const WorkflowNode = React.memo(({ data, selected }: any) => {
               <div style={{ fontSize: 11, color: token.colorTextSecondary, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Tag style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>{step.selector.type}</Tag>
                 <Text ellipsis style={{ fontSize: 11, maxWidth: 120, color: token.colorTextSecondary }}>{step.selector.value}</Text>
+              </div>
+            )}
+            {/* Coordinate display for tap/swipe */}
+            {(step.type === 'tap' || step.type === 'swipe') && (step.x !== undefined || step.y !== undefined) && (
+              <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                {step.type === 'tap' ? (
+                  <Text style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                    ({step.x}, {step.y})
+                  </Text>
+                ) : (
+                  <Text style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                    ({step.x}, {step.y}) → ({step.x2}, {step.y2})
+                  </Text>
+                )}
               </div>
             )}
             {!isBranch && step.value && (
@@ -1137,6 +1155,11 @@ const WorkflowView: React.FC = () => {
           swipeDistance: values.swipeDistance,
           swipeDuration: values.swipeDuration,
           conditionType: values.conditionType,
+          // Coordinate fields for tap/swipe
+          x: values.x !== undefined ? Number(values.x) : (node.data.step as WorkflowStep).x,
+          y: values.y !== undefined ? Number(values.y) : (node.data.step as WorkflowStep).y,
+          x2: values.x2 !== undefined ? Number(values.x2) : (node.data.step as WorkflowStep).x2,
+          y2: values.y2 !== undefined ? Number(values.y2) : (node.data.step as WorkflowStep).y2,
           nextStepId: (node.data.step as WorkflowStep).nextStepId,
           trueStepId: (node.data.step as WorkflowStep).trueStepId,
           falseStepId: (node.data.step as WorkflowStep).falseStepId,
@@ -1785,8 +1808,21 @@ const WorkflowView: React.FC = () => {
                   <Collapse
                     ghost
                     size="small"
-                    defaultActiveKey={['1', '2', '3']}
+                    defaultActiveKey={['0', '1', '2', '3']}
                     items={[
+                      {
+                        key: '0',
+                        label: t("workflow.category.coordinate_actions"),
+                        children: (
+                          <Space wrap size={[8, 8]}>
+                            {STEP_TYPES.COORDINATE_ACTIONS.map(s => (
+                              <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
+                                <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
+                              </Tooltip>
+                            ))}
+                          </Space>
+                        )
+                      },
                       {
                         key: '1',
                         label: t("workflow.category.element_actions"),
@@ -2129,6 +2165,48 @@ const WorkflowView: React.FC = () => {
                                   <InputNumber addonAfter="ms" min={100} step={100} style={{ width: '100%' }} placeholder="500" />
                                 </Form.Item>
                               </div>
+                            )}
+
+                            {/* Coordinate fields for tap */}
+                            {type === 'tap' && (
+                              <div style={{ display: 'flex', gap: 16 }}>
+                                <Form.Item name="x" label="X" style={{ flex: 1 }}>
+                                  <InputNumber min={0} style={{ width: '100%' }} placeholder="540" />
+                                </Form.Item>
+                                <Form.Item name="y" label="Y" style={{ flex: 1 }}>
+                                  <InputNumber min={0} style={{ width: '100%' }} placeholder="960" />
+                                </Form.Item>
+                              </div>
+                            )}
+
+                            {/* Coordinate fields for swipe */}
+                            {type === 'swipe' && (
+                              <>
+                                <div style={{ display: 'flex', gap: 16 }}>
+                                  <Form.Item name="x" label={t("workflow.start_x") || "Start X"} style={{ flex: 1 }}>
+                                    <InputNumber min={0} style={{ width: '100%' }} placeholder="540" />
+                                  </Form.Item>
+                                  <Form.Item name="y" label={t("workflow.start_y") || "Start Y"} style={{ flex: 1 }}>
+                                    <InputNumber min={0} style={{ width: '100%' }} placeholder="1800" />
+                                  </Form.Item>
+                                </div>
+                                <div style={{ display: 'flex', gap: 16 }}>
+                                  <Form.Item name="x2" label={t("workflow.end_x") || "End X"} style={{ flex: 1 }}>
+                                    <InputNumber min={0} style={{ width: '100%' }} placeholder="540" />
+                                  </Form.Item>
+                                  <Form.Item name="y2" label={t("workflow.end_y") || "End Y"} style={{ flex: 1 }}>
+                                    <InputNumber min={0} style={{ width: '100%' }} placeholder="600" />
+                                  </Form.Item>
+                                </div>
+                                <div style={{ display: 'flex', gap: 16 }}>
+                                  <Form.Item name="swipeDistance" label={t("workflow.distance")} style={{ flex: 1 }}>
+                                    <InputNumber addonAfter="px" min={50} step={50} style={{ width: '100%' }} placeholder="500" />
+                                  </Form.Item>
+                                  <Form.Item name="swipeDuration" label={t("workflow.duration")} style={{ flex: 1 }}>
+                                    <InputNumber addonAfter="ms" min={100} step={100} style={{ width: '100%' }} placeholder="300" />
+                                  </Form.Item>
+                                </div>
+                              </>
                             )}
                           </>
                         );

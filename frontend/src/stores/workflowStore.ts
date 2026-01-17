@@ -22,6 +22,11 @@ export interface WorkflowStep {
   falseStepId?: string;
   posX?: number;
   posY?: number;
+  // Coordinate fields for tap/swipe
+  x?: number;
+  y?: number;
+  x2?: number;
+  y2?: number;
   nextSource?: string;
   trueSource?: string;
   falseSource?: string;

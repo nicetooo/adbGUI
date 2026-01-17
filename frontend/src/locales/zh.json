@@ -908,6 +908,7 @@
     "var_val_placeholder": "默认值",
     "variables": "变量",
     "category": {
+      "coordinate_actions": "坐标操作",
       "element_actions": "元素操作",
       "wait_conditions": "等待条件",
       "flow_control": "流程控制",
@@ -918,6 +919,8 @@
     },
     "step_type": {
       "start": "开始",
+      "tap": "坐标点击",
+      "swipe": "坐标滑动",
       "click_element": "点击元素",
       "long_click_element": "长按元素",
       "input_text": "输入文本",
@@ -1009,6 +1012,10 @@
     "select_direction": "请选择方向",
     "distance": "滑动距离",
     "duration": "滑动耗时",
+    "start_x": "起点 X",
+    "start_y": "起点 Y",
+    "end_x": "终点 X",
+    "end_y": "终点 Y",
     "execution_control": "执行控制",
     "pre_wait": "执行前等待",
     "post_delay": "执行后等待",

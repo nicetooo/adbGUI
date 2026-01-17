@@ -911,6 +911,7 @@
     "execute_step": "Execute this step",
     "step_executed": "Step executed",
     "category": {
+      "coordinate_actions": "Coordinate Actions",
       "element_actions": "Element Actions",
       "wait_conditions": "Wait Conditions",
       "flow_control": "Flow Control",
@@ -921,6 +922,8 @@
     },
     "step_type": {
       "start": "Start",
+      "tap": "Tap (Coordinate)",
+      "swipe": "Swipe (Coordinate)",
       "click_element": "Click Element",
       "long_click_element": "Long Click",
       "input_text": "Input Text",
@@ -1008,6 +1011,10 @@
     "select_direction": "Select direction",
     "distance": "Distance",
     "duration": "Duration",
+    "start_x": "Start X",
+    "start_y": "Start Y",
+    "end_x": "End X",
+    "end_y": "End Y",
     "execution_control": "Execution Control",
     "pre_wait": "Wait Before",
     "post_delay": "Wait After",
