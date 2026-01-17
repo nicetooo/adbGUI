@@ -610,8 +610,8 @@ func (a *App) PickPointOnScreen(deviceId string, timeoutSeconds int) (map[string
 		timeoutSeconds = 30
 	}
 
-	// Create context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSeconds)*time.Second)
+	// Create context with timeout (继承 app context)
+	ctx, cancel := context.WithTimeout(a.ctx, time.Duration(timeoutSeconds)*time.Second)
 	defer cancel()
 
 	// Start getevent
@@ -1261,7 +1261,7 @@ func (a *App) PlayTouchScript(deviceId string, script TouchScript) error {
 		return fmt.Errorf("playback already in progress")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(a.ctx)
 	touchPlaybackCancel[deviceId] = cancel
 	touchPlaybackMu.Unlock()
 
@@ -1716,7 +1716,7 @@ func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
 		return fmt.Errorf("playback already in progress")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(a.ctx)
 	touchPlaybackCancel[deviceId] = cancel
 	touchPlaybackMu.Unlock()
 

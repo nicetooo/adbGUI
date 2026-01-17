@@ -528,8 +528,12 @@ func (s *EventStore) writeEventsBatch(events []UnifiedEvent) error {
 
 // CreateSession 创建 Session
 func (s *EventStore) CreateSession(session *DeviceSession) error {
-	metadata, _ := json.Marshal(session.Metadata)
-	_, err := s.stmtInsertSession.Exec(
+	metadata, err := json.Marshal(session.Metadata)
+	if err != nil {
+		LogWarn("event_store").Err(err).Str("sessionId", session.ID).Msg("Failed to marshal session metadata")
+		metadata = []byte("{}")
+	}
+	_, err = s.stmtInsertSession.Exec(
 		session.ID, session.DeviceID, session.Type, session.Name,
 		session.StartTime, session.EndTime, session.Status, session.EventCount,
 		nullString(session.VideoPath), session.VideoDuration, session.VideoOffset,
@@ -540,8 +544,12 @@ func (s *EventStore) CreateSession(session *DeviceSession) error {
 
 // UpdateSession 更新 Session
 func (s *EventStore) UpdateSession(session *DeviceSession) error {
-	metadata, _ := json.Marshal(session.Metadata)
-	_, err := s.stmtUpdateSession.Exec(
+	metadata, err := json.Marshal(session.Metadata)
+	if err != nil {
+		LogWarn("event_store").Err(err).Str("sessionId", session.ID).Msg("Failed to marshal session metadata")
+		metadata = []byte("{}")
+	}
+	_, err = s.stmtUpdateSession.Exec(
 		session.EndTime, session.Status, session.EventCount,
 		nullString(session.VideoPath), session.VideoDuration, session.VideoOffset,
 		string(metadata), time.Now().UnixMilli(),
@@ -1364,13 +1372,17 @@ func (s *EventStore) CreateAssertion(assertion *StoredAssertion) error {
 		timeRangeEnd = sql.NullInt64{Int64: assertion.TimeRange.End, Valid: true}
 	}
 
-	tagsJSON, _ := json.Marshal(assertion.Tags)
+	tagsJSON, err := json.Marshal(assertion.Tags)
+	if err != nil {
+		LogWarn("event_store").Err(err).Str("assertionId", assertion.ID).Msg("Failed to marshal assertion tags")
+		tagsJSON = []byte("[]")
+	}
 	isTemplate := 0
 	if assertion.IsTemplate {
 		isTemplate = 1
 	}
 
-	_, err := s.stmtInsertAssertion.Exec(
+	_, err = s.stmtInsertAssertion.Exec(
 		assertion.ID, assertion.Name, nullString(assertion.Description),
 		assertion.Type, nullString(assertion.SessionID), nullString(assertion.DeviceID),
 		timeRangeStart, timeRangeEnd,
@@ -1389,13 +1401,17 @@ func (s *EventStore) UpdateAssertion(assertion *StoredAssertion) error {
 		timeRangeEnd = sql.NullInt64{Int64: assertion.TimeRange.End, Valid: true}
 	}
 
-	tagsJSON, _ := json.Marshal(assertion.Tags)
+	tagsJSON, err := json.Marshal(assertion.Tags)
+	if err != nil {
+		LogWarn("event_store").Err(err).Str("assertionId", assertion.ID).Msg("Failed to marshal assertion tags")
+		tagsJSON = []byte("[]")
+	}
 	isTemplate := 0
 	if assertion.IsTemplate {
 		isTemplate = 1
 	}
 
-	_, err := s.stmtUpdateAssertion.Exec(
+	_, err = s.stmtUpdateAssertion.Exec(
 		assertion.Name, nullString(assertion.Description),
 		assertion.Type, nullString(assertion.SessionID), nullString(assertion.DeviceID),
 		timeRangeStart, timeRangeEnd,
@@ -1578,13 +1594,17 @@ type StoredAssertionResult struct {
 
 // SaveAssertionResult 保存断言结果
 func (s *EventStore) SaveAssertionResult(result *StoredAssertionResult) error {
-	matchedEventsJSON, _ := json.Marshal(result.MatchedEvents)
+	matchedEventsJSON, err := json.Marshal(result.MatchedEvents)
+	if err != nil {
+		LogWarn("event_store").Err(err).Str("resultId", result.ID).Msg("Failed to marshal matched events")
+		matchedEventsJSON = []byte("[]")
+	}
 	passed := 0
 	if result.Passed {
 		passed = 1
 	}
 
-	_, err := s.stmtInsertAssertResult.Exec(
+	_, err = s.stmtInsertAssertResult.Exec(
 		result.ID, result.AssertionID, result.AssertionName, nullString(result.SessionID),
 		passed, nullString(result.Message),
 		string(matchedEventsJSON), string(result.ActualValue), string(result.ExpectedValue),

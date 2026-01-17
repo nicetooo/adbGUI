@@ -18,6 +18,16 @@ import (
 // 监控电池、网络、屏幕状态和应用生命周期
 // ========================================
 
+// mustMarshal 序列化数据，失败时返回空 JSON 对象
+func mustMarshal(v interface{}) json.RawMessage {
+	data, err := json.Marshal(v)
+	if err != nil {
+		LogWarn("device_monitor").Err(err).Msg("Failed to marshal event data")
+		return json.RawMessage("{}")
+	}
+	return data
+}
+
 type DeviceMonitor struct {
 	app      *App
 	deviceID string
@@ -488,7 +498,7 @@ func (m *DeviceMonitor) emitTouchEvent(x, y int, action string, duration int64) 
 
 	LogDebug("device_monitor").Msgf("[DeviceMonitor] emitTouchEvent: %s", title)
 
-	data, _ := json.Marshal(map[string]interface{}{
+	data := mustMarshal(map[string]interface{}{
 		"action":   action,
 		"x":        x,
 		"y":        y,
@@ -527,7 +537,7 @@ func (m *DeviceMonitor) emitBatteryEvent(state *BatteryState) {
 		title = fmt.Sprintf("⚠️ Low Battery: %d%%", state.Level)
 	}
 
-	data, _ := json.Marshal(state)
+	data := mustMarshal(state)
 
 	m.app.eventPipeline.Emit(UnifiedEvent{
 		DeviceID:  m.deviceID,
@@ -554,7 +564,7 @@ func (m *DeviceMonitor) emitNetworkEvent(state *NetworkState) {
 		title = "Network: Disconnected"
 	}
 
-	data, _ := json.Marshal(state)
+	data := mustMarshal(state)
 
 	m.app.eventPipeline.Emit(UnifiedEvent{
 		DeviceID:  m.deviceID,
@@ -578,7 +588,7 @@ func (m *DeviceMonitor) emitScreenEvent(state *ScreenState) {
 		title = fmt.Sprintf("Screen: On (%s)", state.Orientation)
 	}
 
-	data, _ := json.Marshal(state)
+	data := mustMarshal(state)
 
 	m.app.eventPipeline.Emit(UnifiedEvent{
 		DeviceID:  m.deviceID,
@@ -600,7 +610,7 @@ func (m *DeviceMonitor) emitActivityEvent(pkg, activity, action string) {
 	eventType := "activity_" + action
 	title := fmt.Sprintf("%s: %s/%s", strings.Title(action), pkg, activity)
 
-	data, _ := json.Marshal(map[string]interface{}{
+	data := mustMarshal(map[string]interface{}{
 		"packageName":  pkg,
 		"activityName": activity,
 		"action":       action,
@@ -628,7 +638,7 @@ func (m *DeviceMonitor) emitActivityDisplayed(pkg, activity string, launchTime i
 		title += fmt.Sprintf(" (+%dms)", launchTime)
 	}
 
-	data, _ := json.Marshal(map[string]interface{}{
+	data := mustMarshal(map[string]interface{}{
 		"packageName":  pkg,
 		"activityName": activity,
 		"launchTime":   launchTime,
@@ -652,7 +662,7 @@ func (m *DeviceMonitor) emitCrashEvent(logLine string) {
 		return
 	}
 
-	data, _ := json.Marshal(map[string]interface{}{
+	data := mustMarshal(map[string]interface{}{
 		"crashType": "java",
 		"raw":       logLine,
 	})
@@ -674,7 +684,7 @@ func (m *DeviceMonitor) emitANREvent(pkg, logLine string) {
 		return
 	}
 
-	data, _ := json.Marshal(map[string]interface{}{
+	data := mustMarshal(map[string]interface{}{
 		"packageName": pkg,
 		"raw":         logLine,
 	})
@@ -696,7 +706,7 @@ func (m *DeviceMonitor) emitProcessDied(pkg, pid string) {
 		return
 	}
 
-	data, _ := json.Marshal(map[string]interface{}{
+	data := mustMarshal(map[string]interface{}{
 		"packageName": pkg,
 		"pid":         pid,
 	})

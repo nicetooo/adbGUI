@@ -114,7 +114,7 @@ func (a *App) ExecuteSingleWorkflowStep(deviceId string, step WorkflowStep) erro
 		return nil
 	}
 
-	ctx := context.Background()
+	ctx := a.ctx
 	vars := make(map[string]string)
 
 	// Handle pre-wait
@@ -147,7 +147,7 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 		return fmt.Errorf("workflow execution already in progress")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(a.ctx)
 	touchPlaybackCancel[deviceId] = cancel
 	touchPlaybackMu.Unlock()
 

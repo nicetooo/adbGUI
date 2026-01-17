@@ -210,9 +210,21 @@ func (e *AssertionEngine) persistResult(result *AssertionResult) {
 		return
 	}
 
-	actualValueJSON, _ := json.Marshal(result.ActualValue)
-	expectedValueJSON, _ := json.Marshal(result.ExpectedValue)
-	detailsJSON, _ := json.Marshal(result.Details)
+	actualValueJSON, err := json.Marshal(result.ActualValue)
+	if err != nil {
+		LogWarn("event_assertion").Err(err).Str("resultId", result.ID).Msg("Failed to marshal actual value")
+		actualValueJSON = []byte("null")
+	}
+	expectedValueJSON, err := json.Marshal(result.ExpectedValue)
+	if err != nil {
+		LogWarn("event_assertion").Err(err).Str("resultId", result.ID).Msg("Failed to marshal expected value")
+		expectedValueJSON = []byte("null")
+	}
+	detailsJSON, err := json.Marshal(result.Details)
+	if err != nil {
+		LogWarn("event_assertion").Err(err).Str("resultId", result.ID).Msg("Failed to marshal details")
+		detailsJSON = []byte("{}")
+	}
 
 	storedResult := &StoredAssertionResult{
 		ID:            result.ID,
@@ -618,7 +630,11 @@ func (e *AssertionEngine) emitAssertionResult(assertion *Assertion, result *Asse
 
 	title := fmt.Sprintf("Assertion %s: %s", assertion.Name, map[bool]string{true: "PASSED", false: "FAILED"}[result.Passed])
 
-	data, _ := json.Marshal(result)
+	data, err := json.Marshal(result)
+	if err != nil {
+		LogWarn("event_assertion").Err(err).Str("assertionName", assertion.Name).Msg("Failed to marshal assertion result")
+		data = []byte("{}")
+	}
 
 	e.pipeline.Emit(UnifiedEvent{
 		DeviceID:  assertion.DeviceID,
@@ -724,7 +740,11 @@ func (e *AssertionEngine) CreateAssertion(assertion *Assertion, saveAsTemplate b
 	if err != nil {
 		return fmt.Errorf("marshal expected: %w", err)
 	}
-	metadataJSON, _ := json.Marshal(assertion.Metadata)
+	metadataJSON, err := json.Marshal(assertion.Metadata)
+	if err != nil {
+		LogWarn("event_assertion").Err(err).Str("assertionId", assertion.ID).Msg("Failed to marshal metadata")
+		metadataJSON = []byte("{}")
+	}
 
 	stored := &StoredAssertion{
 		ID:          assertion.ID,
@@ -778,7 +798,11 @@ func (e *AssertionEngine) UpdateAssertion(assertion *Assertion) error {
 	if err != nil {
 		return fmt.Errorf("marshal expected: %w", err)
 	}
-	metadataJSON, _ := json.Marshal(assertion.Metadata)
+	metadataJSON, err := json.Marshal(assertion.Metadata)
+	if err != nil {
+		LogWarn("event_assertion").Err(err).Str("assertionId", assertion.ID).Msg("Failed to marshal metadata in update")
+		metadataJSON = []byte("{}")
+	}
 
 	stored := &StoredAssertion{
 		ID:          assertion.ID,
