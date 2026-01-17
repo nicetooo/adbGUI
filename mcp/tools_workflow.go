@@ -113,8 +113,7 @@ Step types:
 - App: launch_app, stop_app, clear_app, open_settings
 - Keys: key_back, key_home, key_recent, key_power, key_volume_up, key_volume_down
 - Screen: screen_on, screen_off
-- Control: wait, adb, set_variable
-- Aliases: tap=click_element, input=input_text, swipe=swipe_element, back=key_back, home=key_home, launch=launch_app`),
+- Control: wait, adb, set_variable`),
 			mcp.WithString("device_id",
 				mcp.Required(),
 				mcp.Description("Device ID"),
@@ -451,22 +450,6 @@ func (s *MCPServer) handleWorkflowExecuteStep(ctx context.Context, request mcp.C
 	stepType, ok := args["step_type"].(string)
 	if !ok || stepType == "" {
 		return nil, fmt.Errorf("step_type is required")
-	}
-
-	// Map aliases to actual step types
-	typeAliases := map[string]string{
-		"tap":    "click_element",
-		"click":  "click_element",
-		"input":  "input_text",
-		"swipe":  "swipe_element",
-		"back":   "key_back",
-		"home":   "key_home",
-		"launch": "launch_app",
-		"stop":   "stop_app",
-		"clear":  "clear_app",
-	}
-	if alias, exists := typeAliases[stepType]; exists {
-		stepType = alias
 	}
 
 	// Validate step type

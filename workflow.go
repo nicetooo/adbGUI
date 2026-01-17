@@ -603,15 +603,15 @@ func (a *App) runWorkflowStep(ctx context.Context, deviceId string, step Workflo
 
 		return true, a.playTouchScriptSync(ctx, deviceId, script, nil)
 
-	case "launch_app", "launch":
+	case "launch_app":
 		_, err := a.StartApp(deviceId, step.Value)
 		return true, err
 
-	case "stop_app", "stop":
+	case "stop_app":
 		_, err := a.ForceStopApp(deviceId, step.Value)
 		return true, err
 
-	case "clear_app", "clear":
+	case "clear_app":
 		_, err := a.ClearAppData(deviceId, step.Value)
 		return true, err
 
@@ -619,7 +619,7 @@ func (a *App) runWorkflowStep(ctx context.Context, deviceId string, step Workflo
 		_, err := a.OpenSettings(deviceId, "android.settings.APPLICATION_DETAILS_SETTINGS", "package:"+step.Value)
 		return true, err
 
-	case "click_element", "tap", "click", "long_click_element", "input_text", "input", "assert_element", "wait_element", "wait_gone", "swipe_element", "swipe":
+	case "click_element", "long_click_element", "input_text", "assert_element", "wait_element", "wait_gone", "swipe_element":
 		// Create a copy of the step with processed values for the handler
 		processedStep := step
 		processedStep.Value = processedValue
@@ -629,10 +629,10 @@ func (a *App) runWorkflowStep(ctx context.Context, deviceId string, step Workflo
 		return true, a.handleElementAction(ctx, deviceId, processedStep)
 
 	// System key events
-	case "key_back", "back":
+	case "key_back":
 		_, err := a.RunAdbCommand(deviceId, "shell input keyevent 4")
 		return true, err
-	case "key_home", "home":
+	case "key_home":
 		_, err := a.RunAdbCommand(deviceId, "shell input keyevent 3")
 		return true, err
 	case "key_recent":
