@@ -106,29 +106,46 @@ func (s *MCPServer) registerWorkflowTools() {
 	// workflow_execute_step - Execute a single workflow step
 	s.server.AddTool(
 		mcp.NewTool("workflow_execute_step",
-			mcp.WithDescription("Execute a single workflow step on a device. Useful for building workflows step by step or testing individual actions."),
+			mcp.WithDescription(`Execute a single workflow step on a device.
+
+Step types:
+- Element: click_element, long_click_element, input_text, swipe_element, wait_element, wait_gone, assert_element
+- App: launch_app, stop_app, clear_app, open_settings
+- Keys: key_back, key_home, key_recent, key_power, key_volume_up, key_volume_down
+- Screen: screen_on, screen_off
+- Control: wait, adb, set_variable
+- Aliases: tap=click_element, input=input_text, swipe=swipe_element, back=key_back, home=key_home, launch=launch_app`),
 			mcp.WithString("device_id",
 				mcp.Required(),
 				mcp.Description("Device ID"),
 			),
 			mcp.WithString("step_type",
 				mcp.Required(),
-				mcp.Description("Step type: tap, swipe, input, wait, back, home, launch, screenshot"),
+				mcp.Description("Step type (see description for full list)"),
 			),
 			mcp.WithString("selector_type",
-				mcp.Description("Element selector type: resourceId, text, contentDesc, className, xpath (required for tap/swipe/input on elements)"),
+				mcp.Description("Element selector type: resourceId, text, contentDesc, className, xpath"),
 			),
 			mcp.WithString("selector_value",
-				mcp.Description("Element selector value (required when selector_type is specified)"),
+				mcp.Description("Element selector value"),
 			),
 			mcp.WithString("value",
-				mcp.Description("Input value for 'input' type, package name for 'launch' type, or duration(ms) for 'wait' type"),
+				mcp.Description("Value: text for input, package for app ops, duration(ms) for wait, command for adb, variable value for set_variable"),
+			),
+			mcp.WithString("variable_name",
+				mcp.Description("Variable name for set_variable step"),
 			),
 			mcp.WithNumber("timeout",
-				mcp.Description("Timeout in milliseconds for finding elements (default: 5000)"),
+				mcp.Description("Timeout in milliseconds (default: 5000)"),
 			),
 			mcp.WithNumber("post_delay",
-				mcp.Description("Delay in milliseconds after executing the step (default: 500)"),
+				mcp.Description("Delay after step in milliseconds (default: 500)"),
+			),
+			mcp.WithString("swipe_direction",
+				mcp.Description("Swipe direction for swipe_element: up, down, left, right"),
+			),
+			mcp.WithString("condition_type",
+				mcp.Description("Condition for assert/wait: exists, not_exists, text_equals, text_contains"),
 			),
 		),
 		s.handleWorkflowExecuteStep,
@@ -436,13 +453,39 @@ func (s *MCPServer) handleWorkflowExecuteStep(ctx context.Context, request mcp.C
 		return nil, fmt.Errorf("step_type is required")
 	}
 
+	// Map aliases to actual step types
+	typeAliases := map[string]string{
+		"tap":    "click_element",
+		"click":  "click_element",
+		"input":  "input_text",
+		"swipe":  "swipe_element",
+		"back":   "key_back",
+		"home":   "key_home",
+		"launch": "launch_app",
+		"stop":   "stop_app",
+		"clear":  "clear_app",
+	}
+	if alias, exists := typeAliases[stepType]; exists {
+		stepType = alias
+	}
+
 	// Validate step type
 	validTypes := map[string]bool{
-		"tap": true, "swipe": true, "input": true, "wait": true,
-		"back": true, "home": true, "launch": true, "screenshot": true,
+		// Element operations
+		"click_element": true, "long_click_element": true, "input_text": true,
+		"swipe_element": true, "wait_element": true, "wait_gone": true, "assert_element": true,
+		// App operations
+		"launch_app": true, "stop_app": true, "clear_app": true, "open_settings": true,
+		// Key events
+		"key_back": true, "key_home": true, "key_recent": true, "key_power": true,
+		"key_volume_up": true, "key_volume_down": true,
+		// Screen control
+		"screen_on": true, "screen_off": true,
+		// Control flow
+		"wait": true, "adb": true, "set_variable": true,
 	}
 	if !validTypes[stepType] {
-		return nil, fmt.Errorf("invalid step_type '%s'. Valid types: tap, swipe, input, wait, back, home, launch, screenshot", stepType)
+		return nil, fmt.Errorf("invalid step_type '%s'", stepType)
 	}
 
 	// Build the step
@@ -452,7 +495,7 @@ func (s *MCPServer) handleWorkflowExecuteStep(ctx context.Context, request mcp.C
 		Name: fmt.Sprintf("MCP %s step", stepType),
 	}
 
-	// Handle selector
+	// Handle selector (for element operations)
 	if selectorType, ok := args["selector_type"].(string); ok && selectorType != "" {
 		selectorValue, _ := args["selector_value"].(string)
 		if selectorValue == "" {
@@ -469,6 +512,11 @@ func (s *MCPServer) handleWorkflowExecuteStep(ctx context.Context, request mcp.C
 		step.Value = value
 	}
 
+	// Handle variable name for set_variable
+	if varName, ok := args["variable_name"].(string); ok && varName != "" {
+		step.Name = varName
+	}
+
 	// Handle timeout
 	step.Timeout = 5000 // default
 	if timeout, ok := args["timeout"].(float64); ok && timeout > 0 {
@@ -481,11 +529,50 @@ func (s *MCPServer) handleWorkflowExecuteStep(ctx context.Context, request mcp.C
 		step.PostDelay = int(postDelay)
 	}
 
-	// Special handling for 'wait' type
+	// Handle swipe direction
+	if swipeDir, ok := args["swipe_direction"].(string); ok && swipeDir != "" {
+		// Convert direction to swipe distance
+		switch swipeDir {
+		case "up":
+			step.SwipeDistance = -500
+		case "down":
+			step.SwipeDistance = 500
+		case "left":
+			step.SwipeDistance = -500
+		case "right":
+			step.SwipeDistance = 500
+		}
+		step.SwipeDuration = 300
+	}
+
+	// Handle condition type for assert/wait operations
+	if condType, ok := args["condition_type"].(string); ok && condType != "" {
+		step.ConditionType = condType
+	}
+
+	// Special handling for 'wait' type - use value as duration
 	if stepType == "wait" && step.Value != "" {
 		if duration, err := strconv.Atoi(step.Value); err == nil {
 			step.Timeout = duration
 		}
+	}
+
+	// Validate required fields for specific step types
+	elementOps := map[string]bool{
+		"click_element": true, "long_click_element": true, "input_text": true,
+		"swipe_element": true, "wait_element": true, "wait_gone": true, "assert_element": true,
+	}
+	if elementOps[stepType] && step.Selector == nil {
+		return nil, fmt.Errorf("selector_type and selector_value are required for %s", stepType)
+	}
+
+	appOps := map[string]bool{"launch_app": true, "stop_app": true, "clear_app": true, "open_settings": true}
+	if appOps[stepType] && step.Value == "" {
+		return nil, fmt.Errorf("value (package name) is required for %s", stepType)
+	}
+
+	if stepType == "adb" && step.Value == "" {
+		return nil, fmt.Errorf("value (adb command) is required for adb step")
 	}
 
 	// Execute the step
