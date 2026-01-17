@@ -265,6 +265,16 @@ func (s *MCPServer) handleWorkflowCreate(ctx context.Context, request mcp.CallTo
 		}
 	}
 
+	// Auto-link steps sequentially (if not already linked)
+	for i := range steps {
+		if steps[i].NextStepId == "" && i < len(steps)-1 {
+			steps[i].NextStepId = steps[i+1].ID
+		}
+		// Set positions
+		steps[i].PosX = 20
+		steps[i].PosY = float64(180 + i*160)
+	}
+
 	// Auto-add start node at the beginning
 	startStep := WorkflowStep{
 		ID:      fmt.Sprintf("step_%s", uuid.New().String()[:8]),
@@ -278,11 +288,6 @@ func (s *MCPServer) handleWorkflowCreate(ctx context.Context, request mcp.CallTo
 	// Link start node to first step if exists
 	if len(steps) > 0 {
 		startStep.NextStepId = steps[0].ID
-		// Adjust positions for other steps
-		for i := range steps {
-			steps[i].PosX = 20
-			steps[i].PosY = float64(180 + i*160)
-		}
 	}
 	steps = append([]WorkflowStep{startStep}, steps...)
 
