@@ -392,7 +392,12 @@ func (a *App) bridgeToNewPipeline(event SessionEvent) {
 	// Convert detail to JSON
 	var data json.RawMessage
 	if event.Detail != nil {
-		data, _ = json.Marshal(event.Detail)
+		var err error
+		data, err = json.Marshal(event.Detail)
+		if err != nil {
+			LogWarn("session_manager").Err(err).Str("eventType", event.Type).Msg("Failed to marshal event detail")
+			data = []byte("{}")
+		}
 	}
 
 	// Create unified event
@@ -691,7 +696,10 @@ func matchesFilter(event SessionEvent, filter *SessionFilter) bool {
 		text := strings.ToLower(filter.SearchText)
 		if !strings.Contains(strings.ToLower(event.Title), text) {
 			// Check detail
-			detailBytes, _ := json.Marshal(event.Detail)
+			detailBytes, err := json.Marshal(event.Detail)
+			if err != nil {
+				return false // 无法序列化，跳过搜索匹配
+			}
 			if !strings.Contains(strings.ToLower(string(detailBytes)), text) {
 				return false
 			}

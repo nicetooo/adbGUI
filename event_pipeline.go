@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -262,12 +263,13 @@ type BackpressureController struct {
 
 type EventSampler struct {
 	rate    int
-	counter int64
+	counter int64 // 虽然当前在锁内使用，但用 atomic 增强健壮性
 }
 
 func (s *EventSampler) ShouldKeep() bool {
-	s.counter++
-	return s.counter%int64(s.rate) == 0
+	// 使用 atomic 确保线程安全，即使将来在锁外使用
+	count := atomic.AddInt64(&s.counter, 1)
+	return count%int64(s.rate) == 0
 }
 
 func NewBackpressureController(maxPerSecond int) *BackpressureController {
@@ -497,7 +499,11 @@ func (p *EventPipeline) Emit(event UnifiedEvent) {
 func (p *EventPipeline) EmitRaw(deviceID string, source EventSource, eventType string,
 	level EventLevel, title string, data interface{}) {
 
-	dataBytes, _ := json.Marshal(data)
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
+		LogWarn("event_pipeline").Err(err).Str("eventType", eventType).Msg("Failed to marshal event data")
+		dataBytes = []byte("{}")
+	}
 
 	event := UnifiedEvent{
 		ID:        uuid.New().String(),

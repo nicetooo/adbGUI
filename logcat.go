@@ -54,7 +54,7 @@ func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex b
 		a.StopLogcat()
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(a.ctx)
 	a.logcatCancel = cancel
 
 	var cmd *exec.Cmd
