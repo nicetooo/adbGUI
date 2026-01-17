@@ -168,6 +168,7 @@ func TestHandleWorkflowRun_LoadWorkflowsError(t *testing.T) {
 func TestHandleWorkflowStop_Success(t *testing.T) {
 	mock := NewMockGazeApp()
 	mock.SetupWithDevices(SampleDevice("device1"))
+	mock.IsWorkflowRunningResult = true // Workflow must be running to stop it
 	server := NewMCPServer(mock)
 
 	result, err := server.handleWorkflowStop(context.Background(), makeToolRequest(map[string]interface{}{
@@ -188,9 +189,34 @@ func TestHandleWorkflowStop_Success(t *testing.T) {
 	}
 }
 
+func TestHandleWorkflowStop_NotRunning(t *testing.T) {
+	mock := NewMockGazeApp()
+	mock.SetupWithDevices(SampleDevice("device1"))
+	mock.IsWorkflowRunningResult = false // No workflow running
+	server := NewMCPServer(mock)
+
+	result, err := server.handleWorkflowStop(context.Background(), makeToolRequest(map[string]interface{}{
+		"device_id": "device1",
+	}))
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	text := getTextContent(result)
+	if !strings.Contains(strings.ToLower(text), "no workflow") {
+		t.Error("Result should indicate no workflow is running")
+	}
+
+	// StopWorkflow should NOT have been called
+	if mock.WasMethodCalled("StopWorkflow") {
+		t.Error("StopWorkflow should not have been called when no workflow is running")
+	}
+}
+
 func TestHandleWorkflowStop_DeviceNotFound(t *testing.T) {
 	mock := NewMockGazeApp()
-	mock.GetDevicesResult = []Device{} // No devices
+	mock.GetDevicesResult = []Device{}  // No devices
+	mock.IsWorkflowRunningResult = true // Workflow is running (so we try to stop)
 	server := NewMCPServer(mock)
 
 	_, err := server.handleWorkflowStop(context.Background(), makeToolRequest(map[string]interface{}{
@@ -214,6 +240,7 @@ func TestHandleWorkflowStop_MissingDeviceId(t *testing.T) {
 func TestHandleWorkflowStop_GetDevicesError(t *testing.T) {
 	mock := NewMockGazeApp()
 	mock.SetupWithError("GetDevices", ErrDeviceOffline)
+	mock.IsWorkflowRunningResult = true // Workflow is running (so we try to stop)
 	server := NewMCPServer(mock)
 
 	_, err := server.handleWorkflowStop(context.Background(), makeToolRequest(map[string]interface{}{

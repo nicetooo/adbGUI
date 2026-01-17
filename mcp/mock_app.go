@@ -78,9 +78,15 @@ type MockGazeApp struct {
 	GetSessionStatsError     error
 
 	// Workflow
-	LoadWorkflowsResult []Workflow
-	LoadWorkflowsError  error
-	RunWorkflowError    error
+	LoadWorkflowsResult     []Workflow
+	LoadWorkflowsError      error
+	GetWorkflowResult       *Workflow
+	GetWorkflowError        error
+	SaveWorkflowError       error
+	DeleteWorkflowError     error
+	RunWorkflowError        error
+	ExecuteSingleStepError  error
+	IsWorkflowRunningResult bool
 	// StopWorkflow has no return
 
 	// Proxy
@@ -333,6 +339,33 @@ func (m *MockGazeApp) LoadWorkflows() ([]Workflow, error) {
 	return m.LoadWorkflowsResult, m.LoadWorkflowsError
 }
 
+func (m *MockGazeApp) GetWorkflow(workflowID string) (*Workflow, error) {
+	m.recordCall("GetWorkflow", workflowID)
+	if m.GetWorkflowError != nil {
+		return nil, m.GetWorkflowError
+	}
+	if m.GetWorkflowResult != nil {
+		return m.GetWorkflowResult, nil
+	}
+	// Fallback: search in LoadWorkflowsResult
+	for _, wf := range m.LoadWorkflowsResult {
+		if wf.ID == workflowID {
+			return &wf, nil
+		}
+	}
+	return nil, errors.New("workflow not found")
+}
+
+func (m *MockGazeApp) SaveWorkflow(workflow Workflow) error {
+	m.recordCall("SaveWorkflow", workflow)
+	return m.SaveWorkflowError
+}
+
+func (m *MockGazeApp) DeleteWorkflow(id string) error {
+	m.recordCall("DeleteWorkflow", id)
+	return m.DeleteWorkflowError
+}
+
 func (m *MockGazeApp) RunWorkflow(device Device, workflow Workflow) error {
 	m.recordCall("RunWorkflow", device, workflow)
 	return m.RunWorkflowError
@@ -340,6 +373,16 @@ func (m *MockGazeApp) RunWorkflow(device Device, workflow Workflow) error {
 
 func (m *MockGazeApp) StopWorkflow(device Device) {
 	m.recordCall("StopWorkflow", device)
+}
+
+func (m *MockGazeApp) ExecuteSingleWorkflowStep(deviceId string, step WorkflowStep) error {
+	m.recordCall("ExecuteSingleWorkflowStep", deviceId, step)
+	return m.ExecuteSingleStepError
+}
+
+func (m *MockGazeApp) IsWorkflowRunning(deviceId string) bool {
+	m.recordCall("IsWorkflowRunning", deviceId)
+	return m.IsWorkflowRunningResult
 }
 
 // === Proxy ===
@@ -527,8 +570,20 @@ func SampleWorkflow(id, name string) Workflow {
 		ID:          id,
 		Name:        name,
 		Description: "Test workflow",
+		CreatedAt:   "2024-01-01T00:00:00Z",
+		UpdatedAt:   "2024-01-01T00:00:00Z",
 		Steps: []WorkflowStep{
-			{Type: "tap", Name: "Tap button", Params: map[string]interface{}{"x": 100, "y": 200}},
+			{
+				ID:   "step_1",
+				Type: "tap",
+				Name: "Tap button",
+				Selector: &ElementSelector{
+					Type:  "resourceId",
+					Value: "com.example:id/button",
+				},
+				Timeout:   5000,
+				PostDelay: 500,
+			},
 		},
 	}
 }

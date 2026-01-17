@@ -57,8 +57,13 @@ type GazeApp interface {
 
 	// Workflow
 	LoadWorkflows() ([]Workflow, error)
+	GetWorkflow(workflowID string) (*Workflow, error)
+	SaveWorkflow(workflow Workflow) error
+	DeleteWorkflow(id string) error
 	RunWorkflow(device Device, workflow Workflow) error
 	StopWorkflow(device Device)
+	ExecuteSingleWorkflowStep(deviceId string, step WorkflowStep) error
+	IsWorkflowRunning(deviceId string) bool
 
 	// Proxy
 	StartProxy(port int) (string, error)
@@ -165,16 +170,40 @@ type DeviceSession = struct {
 }
 
 type Workflow = struct {
-	ID          string         `json:"id"`
-	Name        string         `json:"name"`
-	Description string         `json:"description,omitempty"`
-	Steps       []WorkflowStep `json:"steps"`
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	Description string            `json:"description,omitempty"`
+	Steps       []WorkflowStep    `json:"steps"`
+	Variables   map[string]string `json:"variables,omitempty"`
+	CreatedAt   string            `json:"createdAt,omitempty"`
+	UpdatedAt   string            `json:"updatedAt,omitempty"`
+}
+
+type ElementSelector = struct {
+	Type  string `json:"type"`            // "resourceId", "text", "contentDesc", "className", "xpath"
+	Value string `json:"value"`           // Selector value
+	Index int    `json:"index,omitempty"` // Index for multiple matches
 }
 
 type WorkflowStep = struct {
-	Type   string                 `json:"type"`
-	Name   string                 `json:"name,omitempty"`
-	Params map[string]interface{} `json:"params,omitempty"`
+	ID            string           `json:"id"`
+	Type          string           `json:"type"` // "tap", "swipe", "input", "wait", "assert", "launch", "back", "home", "screenshot", "branch", "loop", "start", "end"
+	Name          string           `json:"name,omitempty"`
+	Selector      *ElementSelector `json:"selector,omitempty"`
+	Value         string           `json:"value,omitempty"`
+	Timeout       int              `json:"timeout,omitempty"`
+	OnError       string           `json:"onError,omitempty"` // "stop", "continue"
+	Loop          int              `json:"loop,omitempty"`
+	PostDelay     int              `json:"postDelay,omitempty"`
+	PreWait       int              `json:"preWait,omitempty"`
+	SwipeDistance int              `json:"swipeDistance,omitempty"`
+	SwipeDuration int              `json:"swipeDuration,omitempty"`
+	ConditionType string           `json:"conditionType,omitempty"` // "exists", "not_exists", "text_equals", "text_contains"
+	NextStepId    string           `json:"nextStepId,omitempty"`
+	TrueStepId    string           `json:"trueStepId,omitempty"`
+	FalseStepId   string           `json:"falseStepId,omitempty"`
+	PosX          float64          `json:"posX,omitempty"`
+	PosY          float64          `json:"posY,omitempty"`
 }
 
 type VideoMetadata = struct {

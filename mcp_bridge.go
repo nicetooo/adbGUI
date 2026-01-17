@@ -312,19 +312,8 @@ func (b *MCPBridge) LoadWorkflows() ([]mcp.Workflow, error) {
 	}
 	result := make([]mcp.Workflow, len(workflows))
 	for i, wf := range workflows {
-		steps := make([]mcp.WorkflowStep, len(wf.Steps))
-		for j, s := range wf.Steps {
-			steps[j] = mcp.WorkflowStep{
-				Type: s.Type,
-				Name: s.Name,
-			}
-		}
-		result[i] = mcp.Workflow{
-			ID:          wf.ID,
-			Name:        wf.Name,
-			Description: wf.Description,
-			Steps:       steps,
-		}
+		converted := b.convertWorkflowToMCP(&wf)
+		result[i] = *converted
 	}
 	return result, nil
 }
@@ -343,19 +332,7 @@ func (b *MCPBridge) RunWorkflow(device mcp.Device, workflow mcp.Workflow) error 
 		LastActive: device.LastActive,
 		IsPinned:   device.IsPinned,
 	}
-	steps := make([]WorkflowStep, len(workflow.Steps))
-	for i, s := range workflow.Steps {
-		steps[i] = WorkflowStep{
-			Type: s.Type,
-			Name: s.Name,
-		}
-	}
-	mainWorkflow := Workflow{
-		ID:          workflow.ID,
-		Name:        workflow.Name,
-		Description: workflow.Description,
-		Steps:       steps,
-	}
+	mainWorkflow := b.convertWorkflowFromMCP(workflow)
 	return b.app.RunWorkflow(mainDevice, mainWorkflow)
 }
 
@@ -373,6 +350,130 @@ func (b *MCPBridge) StopWorkflow(device mcp.Device) {
 		IsPinned:   device.IsPinned,
 	}
 	b.app.StopWorkflow(mainDevice)
+}
+
+func (b *MCPBridge) GetWorkflow(workflowID string) (*mcp.Workflow, error) {
+	wf, err := b.app.GetWorkflow(workflowID)
+	if err != nil {
+		return nil, err
+	}
+	return b.convertWorkflowToMCP(wf), nil
+}
+
+func (b *MCPBridge) SaveWorkflow(workflow mcp.Workflow) error {
+	mainWorkflow := b.convertWorkflowFromMCP(workflow)
+	return b.app.SaveWorkflow(mainWorkflow)
+}
+
+func (b *MCPBridge) DeleteWorkflow(id string) error {
+	return b.app.DeleteWorkflow(id)
+}
+
+func (b *MCPBridge) ExecuteSingleWorkflowStep(deviceId string, step mcp.WorkflowStep) error {
+	mainStep := b.convertStepFromMCP(step)
+	return b.app.ExecuteSingleWorkflowStep(deviceId, mainStep)
+}
+
+func (b *MCPBridge) IsWorkflowRunning(deviceId string) bool {
+	return b.app.IsPlayingTouch(deviceId)
+}
+
+// Helper functions for workflow type conversion
+func (b *MCPBridge) convertWorkflowToMCP(wf *Workflow) *mcp.Workflow {
+	if wf == nil {
+		return nil
+	}
+	steps := make([]mcp.WorkflowStep, len(wf.Steps))
+	for i, s := range wf.Steps {
+		steps[i] = b.convertStepToMCP(s)
+	}
+	return &mcp.Workflow{
+		ID:          wf.ID,
+		Name:        wf.Name,
+		Description: wf.Description,
+		Steps:       steps,
+		Variables:   wf.Variables,
+		CreatedAt:   wf.CreatedAt,
+		UpdatedAt:   wf.UpdatedAt,
+	}
+}
+
+func (b *MCPBridge) convertStepToMCP(s WorkflowStep) mcp.WorkflowStep {
+	var selector *mcp.ElementSelector
+	if s.Selector != nil {
+		selector = &mcp.ElementSelector{
+			Type:  s.Selector.Type,
+			Value: s.Selector.Value,
+			Index: s.Selector.Index,
+		}
+	}
+	return mcp.WorkflowStep{
+		ID:            s.ID,
+		Type:          s.Type,
+		Name:          s.Name,
+		Selector:      selector,
+		Value:         s.Value,
+		Timeout:       s.Timeout,
+		OnError:       s.OnError,
+		Loop:          s.Loop,
+		PostDelay:     s.PostDelay,
+		PreWait:       s.PreWait,
+		SwipeDistance: s.SwipeDistance,
+		SwipeDuration: s.SwipeDuration,
+		ConditionType: s.ConditionType,
+		NextStepId:    s.NextStepId,
+		TrueStepId:    s.TrueStepId,
+		FalseStepId:   s.FalseStepId,
+		PosX:          s.PosX,
+		PosY:          s.PosY,
+	}
+}
+
+func (b *MCPBridge) convertWorkflowFromMCP(wf mcp.Workflow) Workflow {
+	steps := make([]WorkflowStep, len(wf.Steps))
+	for i, s := range wf.Steps {
+		steps[i] = b.convertStepFromMCP(s)
+	}
+	return Workflow{
+		ID:          wf.ID,
+		Name:        wf.Name,
+		Description: wf.Description,
+		Steps:       steps,
+		Variables:   wf.Variables,
+		CreatedAt:   wf.CreatedAt,
+		UpdatedAt:   wf.UpdatedAt,
+	}
+}
+
+func (b *MCPBridge) convertStepFromMCP(s mcp.WorkflowStep) WorkflowStep {
+	var selector *ElementSelector
+	if s.Selector != nil {
+		selector = &ElementSelector{
+			Type:  s.Selector.Type,
+			Value: s.Selector.Value,
+			Index: s.Selector.Index,
+		}
+	}
+	return WorkflowStep{
+		ID:            s.ID,
+		Type:          s.Type,
+		Name:          s.Name,
+		Selector:      selector,
+		Value:         s.Value,
+		Timeout:       s.Timeout,
+		OnError:       s.OnError,
+		Loop:          s.Loop,
+		PostDelay:     s.PostDelay,
+		PreWait:       s.PreWait,
+		SwipeDistance: s.SwipeDistance,
+		SwipeDuration: s.SwipeDuration,
+		ConditionType: s.ConditionType,
+		NextStepId:    s.NextStepId,
+		TrueStepId:    s.TrueStepId,
+		FalseStepId:   s.FalseStepId,
+		PosX:          s.PosX,
+		PosY:          s.PosY,
+	}
 }
 
 func (b *MCPBridge) StartProxy(port int) (string, error) {
