@@ -265,6 +265,27 @@ func (s *MCPServer) handleWorkflowCreate(ctx context.Context, request mcp.CallTo
 		}
 	}
 
+	// Auto-add start node at the beginning
+	startStep := WorkflowStep{
+		ID:      fmt.Sprintf("step_%s", uuid.New().String()[:8]),
+		Type:    "start",
+		Name:    "Start",
+		OnError: "stop",
+		Loop:    1,
+		PosX:    20,
+		PosY:    20,
+	}
+	// Link start node to first step if exists
+	if len(steps) > 0 {
+		startStep.NextStepId = steps[0].ID
+		// Adjust positions for other steps
+		for i := range steps {
+			steps[i].PosX = 20
+			steps[i].PosY = float64(180 + i*160)
+		}
+	}
+	steps = append([]WorkflowStep{startStep}, steps...)
+
 	// Create workflow
 	now := time.Now().Format(time.RFC3339)
 	workflow := Workflow{
