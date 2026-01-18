@@ -202,11 +202,13 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 			"sessionId":  sessionId,
 		})
 
-	wailsRuntime.EventsEmit(a.ctx, "workflow-started", map[string]interface{}{
-		"workflowId":   workflow.ID,
-		"workflowName": workflow.Name,
-		"deviceId":     deviceId,
-	})
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "workflow-started", map[string]interface{}{
+			"workflowId":   workflow.ID,
+			"workflowName": workflow.Name,
+			"deviceId":     deviceId,
+		})
+	}
 
 	go func() {
 		startTime := time.Now()
@@ -253,12 +255,14 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 					"duration":   duration,
 				})
 
-			wailsRuntime.EventsEmit(a.ctx, "workflow-error", map[string]interface{}{
-				"workflowId":   workflow.ID,
-				"workflowName": workflow.Name,
-				"deviceId":     deviceId,
-				"error":        err.Error(),
-			})
+			if !a.mcpMode {
+				wailsRuntime.EventsEmit(a.ctx, "workflow-error", map[string]interface{}{
+					"workflowId":   workflow.ID,
+					"workflowName": workflow.Name,
+					"deviceId":     deviceId,
+					"error":        err.Error(),
+				})
+			}
 		} else {
 			a.eventPipeline.EmitRaw(deviceId, SourceWorkflow, "workflow_complete", LevelInfo,
 				fmt.Sprintf("Workflow completed: %s", workflow.Name),
@@ -268,12 +272,14 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 					"duration":   duration,
 				})
 
-			wailsRuntime.EventsEmit(a.ctx, "workflow-completed", map[string]interface{}{
-				"workflowId":   workflow.ID,
-				"workflowName": workflow.Name,
-				"deviceId":     deviceId,
-				"duration":     duration,
-			})
+			if !a.mcpMode {
+				wailsRuntime.EventsEmit(a.ctx, "workflow-completed", map[string]interface{}{
+					"workflowId":   workflow.ID,
+					"workflowName": workflow.Name,
+					"deviceId":     deviceId,
+					"duration":     duration,
+				})
+			}
 		}
 	}()
 
@@ -336,12 +342,14 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 
 		stepCount++
 
-		wailsRuntime.EventsEmit(a.ctx, "workflow-step-running", map[string]interface{}{
-			"workflowId": workflow.ID,
-			"stepId":     step.ID,
-			"stepType":   step.Type,
-			"stepName":   step.Name,
-		})
+		if !a.mcpMode {
+			wailsRuntime.EventsEmit(a.ctx, "workflow-step-running", map[string]interface{}{
+				"workflowId": workflow.ID,
+				"stepId":     step.ID,
+				"stepType":   step.Type,
+				"stepName":   step.Name,
+			})
+		}
 
 		a.eventPipeline.EmitRaw(deviceId, SourceWorkflow, "workflow_step_start", LevelInfo,
 			fmt.Sprintf("Step: %s (%s)", step.Name, step.Type),
