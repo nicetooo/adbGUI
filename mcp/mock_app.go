@@ -578,28 +578,28 @@ func SampleWorkflow(id, name string) Workflow {
 				ID:   "start",
 				Type: "start",
 				Name: "Start",
-				Common: &StepCommon{
+				Common: StepCommon{
 					OnError: "stop",
 					Loop:    1,
 				},
-				Connections: &StepConnections{
+				Connections: StepConnections{
 					SuccessStepId: "step_1",
 				},
-				Layout: &StepLayout{PosX: 20, PosY: 20},
+				Layout: StepLayout{PosX: 20, PosY: 20},
 			},
 			{
 				ID:   "step_1",
 				Type: "tap",
 				Name: "Tap button",
 				Tap:  &TapParams{X: 540, Y: 960},
-				Common: &StepCommon{
+				Common: StepCommon{
 					Timeout:   5000,
 					PostDelay: 500,
 					OnError:   "stop",
 					Loop:      1,
 				},
-				Connections: &StepConnections{},
-				Layout:      &StepLayout{PosX: 20, PosY: 180},
+				Connections: StepConnections{},
+				Layout:      StepLayout{PosX: 20, PosY: 180},
 			},
 		},
 	}

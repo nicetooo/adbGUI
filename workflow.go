@@ -13,6 +13,10 @@ import (
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+// DefaultMaxWorkflowSteps is the maximum number of steps a workflow can execute
+// This prevents infinite loops in workflows with circular connections
+const DefaultMaxWorkflowSteps = 2000
+
 // StepResult represents the result of executing a step
 type StepResult struct {
 	Success        bool  // Whether the step executed successfully
@@ -160,15 +164,15 @@ func (a *App) ExecuteSingleWorkflowStep(deviceId string, step WorkflowStep) erro
 func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 	deviceId := device.ID
 
-	touchPlaybackMu.Lock()
-	if _, exists := touchPlaybackCancel[deviceId]; exists {
-		touchPlaybackMu.Unlock()
+	activeTaskMu.Lock()
+	if _, exists := activeTaskCancel[deviceId]; exists {
+		activeTaskMu.Unlock()
 		return fmt.Errorf("workflow execution already in progress")
 	}
 
 	ctx, cancel := context.WithCancel(a.ctx)
-	touchPlaybackCancel[deviceId] = cancel
-	touchPlaybackMu.Unlock()
+	activeTaskCancel[deviceId] = cancel
+	activeTaskMu.Unlock()
 
 	sessionId := a.EnsureActiveSession(deviceId)
 
@@ -199,9 +203,9 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 
 		duration := time.Since(startTime).Milliseconds()
 
-		touchPlaybackMu.Lock()
-		delete(touchPlaybackCancel, deviceId)
-		touchPlaybackMu.Unlock()
+		activeTaskMu.Lock()
+		delete(activeTaskCancel, deviceId)
+		activeTaskMu.Unlock()
 
 		if err != nil {
 			sessionStatus = "error"
@@ -287,7 +291,7 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 		return nil
 	}
 
-	maxSteps := 2000
+	maxSteps := DefaultMaxWorkflowSteps
 	stepCount := 0
 
 	for currentStepId != "" && stepCount < maxSteps {

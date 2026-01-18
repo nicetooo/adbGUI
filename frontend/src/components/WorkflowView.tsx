@@ -82,11 +82,7 @@ import dagre from 'dagre';
 import DeviceSelector from "./DeviceSelector";
 import ElementPicker, { ElementSelector } from "./ElementPicker";
 import { useDeviceStore, useAutomationStore, useWorkflowStore } from "../stores";
-import type { WorkflowV2, WorkflowStepV2 } from "../types/workflow";
-
-// Type aliases for backward compatibility in this file
-type Workflow = WorkflowV2;
-type WorkflowStep = WorkflowStepV2;
+import type { Workflow, WorkflowStep } from "../types/workflow";
 
 const { Text, Title } = Typography;
 

@@ -334,23 +334,21 @@ func (s *MCPServer) handleWorkflowGet(ctx context.Context, request mcp.CallToolR
 		}
 
 		// Show connections
-		if step.Connections != nil {
-			if step.Connections.SuccessStepId != "" {
-				result += fmt.Sprintf("   -> Success: %s\n", step.Connections.SuccessStepId)
-			}
-			if step.Connections.ErrorStepId != "" {
-				result += fmt.Sprintf("   -> Error: %s\n", step.Connections.ErrorStepId)
-			}
-			if step.Connections.TrueStepId != "" {
-				result += fmt.Sprintf("   -> True: %s\n", step.Connections.TrueStepId)
-			}
-			if step.Connections.FalseStepId != "" {
-				result += fmt.Sprintf("   -> False: %s\n", step.Connections.FalseStepId)
-			}
+		if step.Connections.SuccessStepId != "" {
+			result += fmt.Sprintf("   -> Success: %s\n", step.Connections.SuccessStepId)
+		}
+		if step.Connections.ErrorStepId != "" {
+			result += fmt.Sprintf("   -> Error: %s\n", step.Connections.ErrorStepId)
+		}
+		if step.Connections.TrueStepId != "" {
+			result += fmt.Sprintf("   -> True: %s\n", step.Connections.TrueStepId)
+		}
+		if step.Connections.FalseStepId != "" {
+			result += fmt.Sprintf("   -> False: %s\n", step.Connections.FalseStepId)
 		}
 
 		// Show common config
-		if step.Common != nil && step.Common.Timeout > 0 {
+		if step.Common.Timeout > 0 {
 			result += fmt.Sprintf("   Timeout: %dms\n", step.Common.Timeout)
 		}
 	}
@@ -391,21 +389,18 @@ func (s *MCPServer) handleWorkflowCreate(ctx context.Context, request mcp.CallTo
 		if steps[i].ID == "" {
 			steps[i].ID = fmt.Sprintf("step_%s", uuid.New().String()[:8])
 		}
-		// Ensure common and connections exist
-		if steps[i].Common == nil {
-			steps[i].Common = &StepCommon{
+		// Ensure common has default values if not set
+		if steps[i].Common.Timeout == 0 && steps[i].Common.OnError == "" {
+			steps[i].Common = StepCommon{
 				Timeout:   5000,
 				OnError:   "stop",
 				Loop:      1,
 				PostDelay: 500,
 			}
 		}
-		if steps[i].Connections == nil {
-			steps[i].Connections = &StepConnections{}
-		}
-		// Set layout positions
-		if steps[i].Layout == nil {
-			steps[i].Layout = &StepLayout{
+		// Set layout positions if not set
+		if steps[i].Layout.PosX == 0 && steps[i].Layout.PosY == 0 {
+			steps[i].Layout = StepLayout{
 				PosX: 20,
 				PosY: float64(180 + i*160),
 			}
@@ -424,12 +419,12 @@ func (s *MCPServer) handleWorkflowCreate(ctx context.Context, request mcp.CallTo
 		ID:   fmt.Sprintf("step_%s", uuid.New().String()[:8]),
 		Type: "start",
 		Name: "Start",
-		Common: &StepCommon{
+		Common: StepCommon{
 			OnError: "stop",
 			Loop:    1,
 		},
-		Connections: &StepConnections{},
-		Layout: &StepLayout{
+		Connections: StepConnections{},
+		Layout: StepLayout{
 			PosX: 20,
 			PosY: 20,
 		},
@@ -530,14 +525,11 @@ func (s *MCPServer) handleWorkflowUpdate(ctx context.Context, request mcp.CallTo
 			if steps[i].ID == "" {
 				steps[i].ID = fmt.Sprintf("step_%s", uuid.New().String()[:8])
 			}
-			if steps[i].Common == nil {
-				steps[i].Common = &StepCommon{Timeout: 5000, OnError: "stop", Loop: 1, PostDelay: 500}
+			if steps[i].Common.Timeout == 0 && steps[i].Common.OnError == "" {
+				steps[i].Common = StepCommon{Timeout: 5000, OnError: "stop", Loop: 1, PostDelay: 500}
 			}
-			if steps[i].Connections == nil {
-				steps[i].Connections = &StepConnections{}
-			}
-			if steps[i].Layout == nil {
-				steps[i].Layout = &StepLayout{PosX: 20, PosY: float64(180 + i*160)}
+			if steps[i].Layout.PosX == 0 && steps[i].Layout.PosY == 0 {
+				steps[i].Layout = StepLayout{PosX: 20, PosY: float64(180 + i*160)}
 			}
 		}
 
@@ -562,9 +554,9 @@ func (s *MCPServer) handleWorkflowUpdate(ctx context.Context, request mcp.CallTo
 				ID:          fmt.Sprintf("step_%s", uuid.New().String()[:8]),
 				Type:        "start",
 				Name:        "Start",
-				Common:      &StepCommon{OnError: "stop", Loop: 1},
-				Connections: &StepConnections{},
-				Layout:      &StepLayout{PosX: 20, PosY: 20},
+				Common:      StepCommon{OnError: "stop", Loop: 1},
+				Connections: StepConnections{},
+				Layout:      StepLayout{PosX: 20, PosY: 20},
 			}
 			if len(steps) > 0 {
 				startStep.Connections.SuccessStepId = steps[0].ID
@@ -766,13 +758,13 @@ func (s *MCPServer) handleWorkflowExecuteStep(ctx context.Context, request mcp.C
 		ID:   fmt.Sprintf("mcp_step_%s", uuid.New().String()[:8]),
 		Type: stepType,
 		Name: fmt.Sprintf("MCP %s step", stepType),
-		Common: &StepCommon{
+		Common: StepCommon{
 			Timeout:   5000,
 			OnError:   "stop",
 			Loop:      1,
 			PostDelay: 500,
 		},
-		Connections: &StepConnections{},
+		Connections: StepConnections{},
 	}
 
 	// Handle timeout

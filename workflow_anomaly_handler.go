@@ -389,33 +389,15 @@ func (h *WorkflowAnomalyHandler) ExecuteSuggestedAction(ctx context.Context, dev
 }
 
 // executeStep 执行单个步骤
+// Delegates to App.ExecuteSingleWorkflowStep which uses the full executeStep implementation
 func (h *WorkflowAnomalyHandler) executeStep(ctx context.Context, deviceID string, step *WorkflowStep) error {
-	switch step.Type {
-	case "click_element":
-		if step.Element != nil {
-			cfg := DefaultElementActionConfig()
-			return h.app.ClickElement(ctx, deviceID, &step.Element.Selector, &cfg)
-		}
-		return fmt.Errorf("no element specified for click_element")
-
-	case "wait":
-		timeout := step.Common.Timeout
-		if step.Wait != nil && step.Wait.DurationMs > 0 {
-			timeout = step.Wait.DurationMs
-		}
-		if timeout <= 0 {
-			timeout = 1000
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(time.Duration(timeout) * time.Millisecond):
-			return nil
-		}
-
+	// Check context cancellation first
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
 	default:
-		return fmt.Errorf("unsupported step type: %s", step.Type)
 	}
+	return h.app.ExecuteSingleWorkflowStep(deviceID, *step)
 }
 
 // Helper functions

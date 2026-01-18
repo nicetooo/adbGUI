@@ -408,8 +408,8 @@ func (b *MCPBridge) convertStepToMCP(s WorkflowStep) mcp.WorkflowStep {
 		Name: s.Name,
 	}
 
-	// Convert Common (value to pointer)
-	result.Common = &mcp.StepCommon{
+	// Convert Common (value to value)
+	result.Common = mcp.StepCommon{
 		Timeout:   s.Common.Timeout,
 		OnError:   s.Common.OnError,
 		Loop:      s.Common.Loop,
@@ -417,16 +417,16 @@ func (b *MCPBridge) convertStepToMCP(s WorkflowStep) mcp.WorkflowStep {
 		PreWait:   s.Common.PreWait,
 	}
 
-	// Convert Connections (value to pointer)
-	result.Connections = &mcp.StepConnections{
+	// Convert Connections (value to value)
+	result.Connections = mcp.StepConnections{
 		SuccessStepId: s.Connections.SuccessStepId,
 		ErrorStepId:   s.Connections.ErrorStepId,
 		TrueStepId:    s.Connections.TrueStepId,
 		FalseStepId:   s.Connections.FalseStepId,
 	}
 
-	// Convert Layout (value to pointer)
-	result.Layout = &mcp.StepLayout{
+	// Convert Layout (value to value)
+	result.Layout = mcp.StepLayout{
 		PosX: s.Layout.PosX,
 		PosY: s.Layout.PosY,
 	}
@@ -517,40 +517,34 @@ func (b *MCPBridge) convertStepFromMCP(s mcp.WorkflowStep) WorkflowStep {
 		Name: s.Name,
 	}
 
-	// Convert Common (pointer to value)
-	if s.Common != nil {
-		result.Common = StepCommon{
-			Timeout:   s.Common.Timeout,
-			OnError:   s.Common.OnError,
-			Loop:      s.Common.Loop,
-			PostDelay: s.Common.PostDelay,
-			PreWait:   s.Common.PreWait,
-		}
+	// Convert Common (value to value)
+	result.Common = StepCommon{
+		Timeout:   s.Common.Timeout,
+		OnError:   s.Common.OnError,
+		Loop:      s.Common.Loop,
+		PostDelay: s.Common.PostDelay,
+		PreWait:   s.Common.PreWait,
 	}
 
-	// Convert Connections (pointer to value)
-	if s.Connections != nil {
-		result.Connections = StepConnections{
-			SuccessStepId: s.Connections.SuccessStepId,
-			ErrorStepId:   s.Connections.ErrorStepId,
-			TrueStepId:    s.Connections.TrueStepId,
-			FalseStepId:   s.Connections.FalseStepId,
-		}
+	// Convert Connections (value to value)
+	result.Connections = StepConnections{
+		SuccessStepId: s.Connections.SuccessStepId,
+		ErrorStepId:   s.Connections.ErrorStepId,
+		TrueStepId:    s.Connections.TrueStepId,
+		FalseStepId:   s.Connections.FalseStepId,
 	}
 
-	// Convert Layout (pointer to value)
-	if s.Layout != nil {
-		result.Layout = StepLayout{
-			PosX: s.Layout.PosX,
-			PosY: s.Layout.PosY,
-		}
-		if s.Layout.Handles != nil {
-			result.Layout.Handles = make(map[string]HandleInfo)
-			for k, v := range s.Layout.Handles {
-				result.Layout.Handles[k] = HandleInfo{
-					SourceHandle: v.SourceHandle,
-					TargetHandle: v.TargetHandle,
-				}
+	// Convert Layout (value to value)
+	result.Layout = StepLayout{
+		PosX: s.Layout.PosX,
+		PosY: s.Layout.PosY,
+	}
+	if s.Layout.Handles != nil {
+		result.Layout.Handles = make(map[string]HandleInfo)
+		for k, v := range s.Layout.Handles {
+			result.Layout.Handles[k] = HandleInfo{
+				SourceHandle: v.SourceHandle,
+				TargetHandle: v.TargetHandle,
 			}
 		}
 	}

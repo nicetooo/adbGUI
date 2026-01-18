@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 )
@@ -381,109 +380,7 @@ func (a *App) ExecuteWorkflowWithAI(deviceID string, workflowID string, config *
 }
 
 // executeAutomationStep is a helper to execute a single step
+// It delegates to ExecuteSingleWorkflowStep which uses the full executeStep implementation
 func (a *App) executeAutomationStep(deviceID string, step *WorkflowStep) error {
-	ctx := context.Background()
-
-	// Use the existing automation engine
-	switch step.Type {
-	case "tap":
-		if step.Tap != nil {
-			return a.performTap(deviceID, step.Tap.X, step.Tap.Y)
-		}
-		return fmt.Errorf("no tap params for tap step")
-
-	case "click_element":
-		if step.Element != nil {
-			cfg := DefaultElementActionConfig()
-			return a.ClickElement(ctx, deviceID, &step.Element.Selector, &cfg)
-		}
-		return fmt.Errorf("no element params for click_element step")
-
-	case "long_click_element":
-		if step.Element != nil {
-			cfg := DefaultElementActionConfig()
-			return a.LongClickElement(ctx, deviceID, &step.Element.Selector, 1000, &cfg)
-		}
-		return fmt.Errorf("no element params for long_click_element step")
-
-	case "swipe":
-		if step.Swipe != nil {
-			duration := step.Swipe.Duration
-			if duration == 0 {
-				duration = 300
-			}
-			return a.performSwipe(deviceID, step.Swipe.X, step.Swipe.Y, step.Swipe.X2, step.Swipe.Y2, duration)
-		}
-		return fmt.Errorf("no swipe params for swipe step")
-
-	case "input_text":
-		if step.Element != nil {
-			cfg := DefaultElementActionConfig()
-			if err := a.ClickElement(ctx, deviceID, &step.Element.Selector, &cfg); err != nil {
-				return err
-			}
-			return a.performInputText(deviceID, step.Element.InputText)
-		}
-		return fmt.Errorf("no element params for input_text step")
-
-	case "wait":
-		if step.Wait != nil && step.Wait.DurationMs > 0 {
-			time.Sleep(time.Duration(step.Wait.DurationMs) * time.Millisecond)
-		} else if step.Common.Timeout > 0 {
-			time.Sleep(time.Duration(step.Common.Timeout) * time.Millisecond)
-		} else {
-			time.Sleep(time.Second)
-		}
-		return nil
-
-	case "key_back":
-		return a.performPressBack(deviceID)
-
-	case "key_home":
-		return a.performPressHome(deviceID)
-
-	case "launch_app":
-		if step.App != nil {
-			_, err := a.StartApp(deviceID, step.App.PackageName)
-			return err
-		}
-		return fmt.Errorf("no app params for launch_app step")
-
-	case "stop_app":
-		if step.App != nil {
-			_, err := a.ForceStopApp(deviceID, step.App.PackageName)
-			return err
-		}
-		return fmt.Errorf("no app params for stop_app step")
-
-	default:
-		return fmt.Errorf("unknown step type: %s", step.Type)
-	}
-}
-
-// Helper methods for basic ADB actions
-func (a *App) performTap(deviceID string, x, y int) error {
-	_, err := a.RunAdbCommand(deviceID, fmt.Sprintf("shell input tap %d %d", x, y))
-	return err
-}
-
-func (a *App) performSwipe(deviceID string, x1, y1, x2, y2, duration int) error {
-	_, err := a.RunAdbCommand(deviceID, fmt.Sprintf("shell input swipe %d %d %d %d %d", x1, y1, x2, y2, duration))
-	return err
-}
-
-func (a *App) performInputText(deviceID, text string) error {
-	text = strings.ReplaceAll(text, " ", "%s")
-	_, err := a.RunAdbCommand(deviceID, fmt.Sprintf("shell input text '%s'", text))
-	return err
-}
-
-func (a *App) performPressBack(deviceID string) error {
-	_, err := a.RunAdbCommand(deviceID, "shell input keyevent 4")
-	return err
-}
-
-func (a *App) performPressHome(deviceID string) error {
-	_, err := a.RunAdbCommand(deviceID, "shell input keyevent 3")
-	return err
+	return a.ExecuteSingleWorkflowStep(deviceID, *step)
 }

@@ -7,8 +7,8 @@ import (
 
 // ==================== Serialization Tests ====================
 
-func TestWorkflowStepV2Serialization_Tap(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepSerialization_Tap(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Name: "Click button",
@@ -35,7 +35,7 @@ func TestWorkflowStepV2Serialization_Tap(t *testing.T) {
 	}
 
 	// Unmarshal
-	var decoded WorkflowStepV2
+	var decoded WorkflowStep
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Failed to unmarshal: %v", err)
 	}
@@ -67,8 +67,8 @@ func TestWorkflowStepV2Serialization_Tap(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Serialization_Swipe_Coordinates(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepSerialization_Swipe_Coordinates(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "swipe",
 		Swipe: &SwipeParams{
@@ -85,7 +85,7 @@ func TestWorkflowStepV2Serialization_Swipe_Coordinates(t *testing.T) {
 		t.Fatalf("Failed to marshal: %v", err)
 	}
 
-	var decoded WorkflowStepV2
+	var decoded WorkflowStep
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Failed to unmarshal: %v", err)
 	}
@@ -104,8 +104,8 @@ func TestWorkflowStepV2Serialization_Swipe_Coordinates(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Serialization_Swipe_Direction(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepSerialization_Swipe_Direction(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "swipe",
 		Swipe: &SwipeParams{
@@ -122,7 +122,7 @@ func TestWorkflowStepV2Serialization_Swipe_Direction(t *testing.T) {
 		t.Fatalf("Failed to marshal: %v", err)
 	}
 
-	var decoded WorkflowStepV2
+	var decoded WorkflowStep
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Failed to unmarshal: %v", err)
 	}
@@ -135,11 +135,11 @@ func TestWorkflowStepV2Serialization_Swipe_Direction(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Serialization_Element(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepSerialization_Element(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "click_element",
-		Element: &ElementParamsV2{
+		Element: &ElementParams{
 			Selector: ElementSelector{
 				Type:  "text",
 				Value: "Submit",
@@ -154,7 +154,7 @@ func TestWorkflowStepV2Serialization_Element(t *testing.T) {
 		t.Fatalf("Failed to marshal: %v", err)
 	}
 
-	var decoded WorkflowStepV2
+	var decoded WorkflowStep
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Failed to unmarshal: %v", err)
 	}
@@ -173,11 +173,11 @@ func TestWorkflowStepV2Serialization_Element(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Serialization_ElementInput(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepSerialization_ElementInput(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "input_text",
-		Element: &ElementParamsV2{
+		Element: &ElementParams{
 			Selector: ElementSelector{
 				Type:  "id",
 				Value: "email",
@@ -192,7 +192,7 @@ func TestWorkflowStepV2Serialization_ElementInput(t *testing.T) {
 		t.Fatalf("Failed to marshal: %v", err)
 	}
 
-	var decoded WorkflowStepV2
+	var decoded WorkflowStep
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Failed to unmarshal: %v", err)
 	}
@@ -202,7 +202,7 @@ func TestWorkflowStepV2Serialization_ElementInput(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Serialization_App(t *testing.T) {
+func TestWorkflowStepSerialization_App(t *testing.T) {
 	testCases := []struct {
 		name   string
 		action string
@@ -215,7 +215,7 @@ func TestWorkflowStepV2Serialization_App(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			step := WorkflowStepV2{
+			step := WorkflowStep{
 				ID:   "step1",
 				Type: tc.name + "_app",
 				App: &AppParams{
@@ -229,7 +229,7 @@ func TestWorkflowStepV2Serialization_App(t *testing.T) {
 				t.Fatalf("Failed to marshal: %v", err)
 			}
 
-			var decoded WorkflowStepV2
+			var decoded WorkflowStep
 			if err := json.Unmarshal(data, &decoded); err != nil {
 				t.Fatalf("Failed to unmarshal: %v", err)
 			}
@@ -247,8 +247,8 @@ func TestWorkflowStepV2Serialization_App(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Serialization_Branch(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepSerialization_Branch(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "branch1",
 		Type: "branch",
 		Branch: &BranchParams{
@@ -270,7 +270,7 @@ func TestWorkflowStepV2Serialization_Branch(t *testing.T) {
 		t.Fatalf("Failed to marshal: %v", err)
 	}
 
-	var decoded WorkflowStepV2
+	var decoded WorkflowStep
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Failed to unmarshal: %v", err)
 	}
@@ -292,8 +292,8 @@ func TestWorkflowStepV2Serialization_Branch(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Serialization_Wait(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepSerialization_Wait(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "wait",
 		Wait: &WaitParams{
@@ -306,7 +306,7 @@ func TestWorkflowStepV2Serialization_Wait(t *testing.T) {
 		t.Fatalf("Failed to marshal: %v", err)
 	}
 
-	var decoded WorkflowStepV2
+	var decoded WorkflowStep
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Failed to unmarshal: %v", err)
 	}
@@ -319,8 +319,8 @@ func TestWorkflowStepV2Serialization_Wait(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Serialization_Script(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepSerialization_Script(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "script",
 		Script: &ScriptParams{
@@ -333,7 +333,7 @@ func TestWorkflowStepV2Serialization_Script(t *testing.T) {
 		t.Fatalf("Failed to marshal: %v", err)
 	}
 
-	var decoded WorkflowStepV2
+	var decoded WorkflowStep
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Failed to unmarshal: %v", err)
 	}
@@ -346,8 +346,8 @@ func TestWorkflowStepV2Serialization_Script(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Serialization_Variable(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepSerialization_Variable(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "set_variable",
 		Variable: &VariableParams{
@@ -361,7 +361,7 @@ func TestWorkflowStepV2Serialization_Variable(t *testing.T) {
 		t.Fatalf("Failed to marshal: %v", err)
 	}
 
-	var decoded WorkflowStepV2
+	var decoded WorkflowStep
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Failed to unmarshal: %v", err)
 	}
@@ -377,8 +377,8 @@ func TestWorkflowStepV2Serialization_Variable(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Serialization_ADB(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepSerialization_ADB(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "adb",
 		ADB: &ADBParams{
@@ -391,7 +391,7 @@ func TestWorkflowStepV2Serialization_ADB(t *testing.T) {
 		t.Fatalf("Failed to marshal: %v", err)
 	}
 
-	var decoded WorkflowStepV2
+	var decoded WorkflowStep
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Failed to unmarshal: %v", err)
 	}
@@ -404,8 +404,8 @@ func TestWorkflowStepV2Serialization_ADB(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Serialization_SubWorkflow(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepSerialization_SubWorkflow(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "run_workflow",
 		Workflow: &SubWorkflowParams{
@@ -418,7 +418,7 @@ func TestWorkflowStepV2Serialization_SubWorkflow(t *testing.T) {
 		t.Fatalf("Failed to marshal: %v", err)
 	}
 
-	var decoded WorkflowStepV2
+	var decoded WorkflowStep
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Failed to unmarshal: %v", err)
 	}
@@ -433,8 +433,8 @@ func TestWorkflowStepV2Serialization_SubWorkflow(t *testing.T) {
 
 // ==================== Validation Tests ====================
 
-func TestWorkflowStepV2Validation_TapWithoutParams(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_TapWithoutParams(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Tap:  nil,
@@ -446,8 +446,8 @@ func TestWorkflowStepV2Validation_TapWithoutParams(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Validation_TapValid(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_TapValid(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Tap:  &TapParams{X: 100, Y: 200},
@@ -459,8 +459,8 @@ func TestWorkflowStepV2Validation_TapValid(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Validation_SwipeWithoutParams(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_SwipeWithoutParams(t *testing.T) {
+	step := WorkflowStep{
 		ID:    "step1",
 		Type:  "swipe",
 		Swipe: nil,
@@ -472,8 +472,8 @@ func TestWorkflowStepV2Validation_SwipeWithoutParams(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Validation_SwipeWithoutCoordsOrDirection(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_SwipeWithoutCoordsOrDirection(t *testing.T) {
+	step := WorkflowStep{
 		ID:    "step1",
 		Type:  "swipe",
 		Swipe: &SwipeParams{},
@@ -485,11 +485,11 @@ func TestWorkflowStepV2Validation_SwipeWithoutCoordsOrDirection(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Validation_ElementWithoutSelector(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_ElementWithoutSelector(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "click_element",
-		Element: &ElementParamsV2{
+		Element: &ElementParams{
 			Selector: ElementSelector{},
 			Action:   "click",
 		},
@@ -501,11 +501,11 @@ func TestWorkflowStepV2Validation_ElementWithoutSelector(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Validation_InputTextWithoutInputText(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_InputTextWithoutInputText(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "input_text",
-		Element: &ElementParamsV2{
+		Element: &ElementParams{
 			Selector: ElementSelector{
 				Type:  "id",
 				Value: "email",
@@ -521,8 +521,8 @@ func TestWorkflowStepV2Validation_InputTextWithoutInputText(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Validation_AppWithoutPackageName(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_AppWithoutPackageName(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "launch_app",
 		App: &AppParams{
@@ -537,8 +537,8 @@ func TestWorkflowStepV2Validation_AppWithoutPackageName(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Validation_BranchWithoutCondition(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_BranchWithoutCondition(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "branch1",
 		Type: "branch",
 		Branch: &BranchParams{
@@ -552,8 +552,8 @@ func TestWorkflowStepV2Validation_BranchWithoutCondition(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Validation_BranchWithoutSelector(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_BranchWithoutSelector(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "branch1",
 		Type: "branch",
 		Branch: &BranchParams{
@@ -568,8 +568,8 @@ func TestWorkflowStepV2Validation_BranchWithoutSelector(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Validation_BranchVariableEqualsWithoutSelector(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_BranchVariableEqualsWithoutSelector(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "branch1",
 		Type: "branch",
 		Branch: &BranchParams{
@@ -585,8 +585,8 @@ func TestWorkflowStepV2Validation_BranchVariableEqualsWithoutSelector(t *testing
 	}
 }
 
-func TestWorkflowStepV2Validation_WaitNegativeDuration(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_WaitNegativeDuration(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "wait",
 		Wait: &WaitParams{
@@ -600,8 +600,8 @@ func TestWorkflowStepV2Validation_WaitNegativeDuration(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Validation_WaitZeroDuration(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_WaitZeroDuration(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "wait",
 		Wait: &WaitParams{
@@ -615,8 +615,8 @@ func TestWorkflowStepV2Validation_WaitZeroDuration(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Validation_ScriptWithoutName(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_ScriptWithoutName(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "script",
 		Script: &ScriptParams{
@@ -630,8 +630,8 @@ func TestWorkflowStepV2Validation_ScriptWithoutName(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Validation_VariableWithoutName(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_VariableWithoutName(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "set_variable",
 		Variable: &VariableParams{
@@ -646,8 +646,8 @@ func TestWorkflowStepV2Validation_VariableWithoutName(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Validation_ADBWithoutCommand(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_ADBWithoutCommand(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "adb",
 		ADB: &ADBParams{
@@ -661,8 +661,8 @@ func TestWorkflowStepV2Validation_ADBWithoutCommand(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Validation_SubWorkflowWithoutId(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_SubWorkflowWithoutId(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "run_workflow",
 		Workflow: &SubWorkflowParams{
@@ -676,12 +676,12 @@ func TestWorkflowStepV2Validation_SubWorkflowWithoutId(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Validation_SystemKeys(t *testing.T) {
+func TestWorkflowStepValidation_SystemKeys(t *testing.T) {
 	keyTypes := []string{"key_back", "key_home", "key_recent", "key_power", "key_volume_up", "key_volume_down", "screen_on", "screen_off"}
 
 	for _, keyType := range keyTypes {
 		t.Run(keyType, func(t *testing.T) {
-			step := WorkflowStepV2{
+			step := WorkflowStep{
 				ID:   "step1",
 				Type: keyType,
 			}
@@ -694,8 +694,8 @@ func TestWorkflowStepV2Validation_SystemKeys(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Validation_UnknownType(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_UnknownType(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "unknown_type",
 	}
@@ -706,8 +706,8 @@ func TestWorkflowStepV2Validation_UnknownType(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Validation_MissingId(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_MissingId(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "",
 		Type: "tap",
 		Tap:  &TapParams{X: 100, Y: 200},
@@ -719,8 +719,8 @@ func TestWorkflowStepV2Validation_MissingId(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2Validation_MissingType(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStepValidation_MissingType(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "",
 	}
@@ -733,11 +733,11 @@ func TestWorkflowStepV2Validation_MissingType(t *testing.T) {
 
 // ==================== Workflow Validation Tests ====================
 
-func TestWorkflowV2Validation_Valid(t *testing.T) {
-	workflow := WorkflowV2{
+func TestWorkflowValidation_Valid(t *testing.T) {
+	workflow := Workflow{
 		ID:   "wf1",
 		Name: "Test Workflow",
-		Steps: []WorkflowStepV2{
+		Steps: []WorkflowStep{
 			{ID: "start", Type: "start", Connections: StepConnections{SuccessStepId: "step1"}},
 			{ID: "step1", Type: "tap", Tap: &TapParams{X: 100, Y: 200}},
 		},
@@ -749,11 +749,11 @@ func TestWorkflowV2Validation_Valid(t *testing.T) {
 	}
 }
 
-func TestWorkflowV2Validation_MissingId(t *testing.T) {
-	workflow := WorkflowV2{
+func TestWorkflowValidation_MissingId(t *testing.T) {
+	workflow := Workflow{
 		ID:   "",
 		Name: "Test",
-		Steps: []WorkflowStepV2{
+		Steps: []WorkflowStep{
 			{ID: "start", Type: "start"},
 		},
 	}
@@ -764,11 +764,11 @@ func TestWorkflowV2Validation_MissingId(t *testing.T) {
 	}
 }
 
-func TestWorkflowV2Validation_MissingName(t *testing.T) {
-	workflow := WorkflowV2{
+func TestWorkflowValidation_MissingName(t *testing.T) {
+	workflow := Workflow{
 		ID:   "wf1",
 		Name: "",
-		Steps: []WorkflowStepV2{
+		Steps: []WorkflowStep{
 			{ID: "start", Type: "start"},
 		},
 	}
@@ -779,11 +779,11 @@ func TestWorkflowV2Validation_MissingName(t *testing.T) {
 	}
 }
 
-func TestWorkflowV2Validation_NoStartNode(t *testing.T) {
-	workflow := WorkflowV2{
+func TestWorkflowValidation_NoStartNode(t *testing.T) {
+	workflow := Workflow{
 		ID:   "wf1",
 		Name: "Test",
-		Steps: []WorkflowStepV2{
+		Steps: []WorkflowStep{
 			{ID: "step1", Type: "tap", Tap: &TapParams{X: 100, Y: 200}},
 		},
 	}
@@ -801,11 +801,11 @@ func TestWorkflowV2Validation_NoStartNode(t *testing.T) {
 	}
 }
 
-func TestWorkflowV2Validation_MultipleStartNodes(t *testing.T) {
-	workflow := WorkflowV2{
+func TestWorkflowValidation_MultipleStartNodes(t *testing.T) {
+	workflow := Workflow{
 		ID:   "wf1",
 		Name: "Test",
-		Steps: []WorkflowStepV2{
+		Steps: []WorkflowStep{
 			{ID: "start1", Type: "start"},
 			{ID: "start2", Type: "start"},
 		},
@@ -824,11 +824,11 @@ func TestWorkflowV2Validation_MultipleStartNodes(t *testing.T) {
 	}
 }
 
-func TestWorkflowV2Validation_InvalidConnection(t *testing.T) {
-	workflow := WorkflowV2{
+func TestWorkflowValidation_InvalidConnection(t *testing.T) {
+	workflow := Workflow{
 		ID:   "wf1",
 		Name: "Test",
-		Steps: []WorkflowStepV2{
+		Steps: []WorkflowStep{
 			{ID: "start", Type: "start", Connections: StepConnections{SuccessStepId: "nonexistent"}},
 		},
 	}
@@ -849,7 +849,7 @@ func TestWorkflowV2Validation_InvalidConnection(t *testing.T) {
 // ==================== Helper Method Tests ====================
 
 func TestGetNextStepId_NormalNode_Success(t *testing.T) {
-	step := WorkflowStepV2{
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Connections: StepConnections{
@@ -865,7 +865,7 @@ func TestGetNextStepId_NormalNode_Success(t *testing.T) {
 }
 
 func TestGetNextStepId_NormalNode_Error(t *testing.T) {
-	step := WorkflowStepV2{
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Connections: StepConnections{
@@ -881,7 +881,7 @@ func TestGetNextStepId_NormalNode_Error(t *testing.T) {
 }
 
 func TestGetNextStepId_Branch_True(t *testing.T) {
-	step := WorkflowStepV2{
+	step := WorkflowStep{
 		ID:   "branch1",
 		Type: "branch",
 		Connections: StepConnections{
@@ -897,7 +897,7 @@ func TestGetNextStepId_Branch_True(t *testing.T) {
 }
 
 func TestGetNextStepId_Branch_False(t *testing.T) {
-	step := WorkflowStepV2{
+	step := WorkflowStep{
 		ID:   "branch1",
 		Type: "branch",
 		Connections: StepConnections{
@@ -913,7 +913,7 @@ func TestGetNextStepId_Branch_False(t *testing.T) {
 }
 
 func TestShouldStopOnError_ErrorPathConnected(t *testing.T) {
-	step := WorkflowStepV2{
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Connections: StepConnections{
@@ -928,7 +928,7 @@ func TestShouldStopOnError_ErrorPathConnected(t *testing.T) {
 }
 
 func TestShouldStopOnError_NoErrorPath_Stop(t *testing.T) {
-	step := WorkflowStepV2{
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Connections: StepConnections{
@@ -943,7 +943,7 @@ func TestShouldStopOnError_NoErrorPath_Stop(t *testing.T) {
 }
 
 func TestShouldStopOnError_NoErrorPath_Continue(t *testing.T) {
-	step := WorkflowStepV2{
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Connections: StepConnections{
@@ -958,7 +958,7 @@ func TestShouldStopOnError_NoErrorPath_Continue(t *testing.T) {
 }
 
 func TestGetFallbackStepId_ErrorPathConnected(t *testing.T) {
-	step := WorkflowStepV2{
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Connections: StepConnections{
@@ -974,7 +974,7 @@ func TestGetFallbackStepId_ErrorPathConnected(t *testing.T) {
 }
 
 func TestGetFallbackStepId_NoErrorPath_Continue(t *testing.T) {
-	step := WorkflowStepV2{
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Connections: StepConnections{
@@ -991,7 +991,7 @@ func TestGetFallbackStepId_NoErrorPath_Continue(t *testing.T) {
 }
 
 func TestGetFallbackStepId_NoErrorPath_Stop(t *testing.T) {
-	step := WorkflowStepV2{
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Connections: StepConnections{
@@ -1009,13 +1009,13 @@ func TestGetFallbackStepId_NoErrorPath_Stop(t *testing.T) {
 
 // ==================== Full Workflow Serialization ====================
 
-func TestWorkflowV2Serialization(t *testing.T) {
-	workflow := WorkflowV2{
+func TestWorkflowSerialization(t *testing.T) {
+	workflow := Workflow{
 		ID:          "wf1",
 		Name:        "Login Test",
 		Description: "Test login flow",
-		Version:     WorkflowSchemaVersion,
-		Steps: []WorkflowStepV2{
+		Version:     2, // V2 schema version
+		Steps: []WorkflowStep{
 			{
 				ID:   "start",
 				Type: "start",
@@ -1035,7 +1035,7 @@ func TestWorkflowV2Serialization(t *testing.T) {
 			{
 				ID:   "step2",
 				Type: "input_text",
-				Element: &ElementParamsV2{
+				Element: &ElementParams{
 					Selector:  ElementSelector{Type: "id", Value: "email"},
 					Action:    "input",
 					InputText: "test@example.com",
@@ -1059,7 +1059,7 @@ func TestWorkflowV2Serialization(t *testing.T) {
 		t.Fatalf("Failed to marshal: %v", err)
 	}
 
-	var decoded WorkflowV2
+	var decoded Workflow
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("Failed to unmarshal: %v", err)
 	}
@@ -1067,8 +1067,8 @@ func TestWorkflowV2Serialization(t *testing.T) {
 	if decoded.ID != "wf1" {
 		t.Errorf("Expected ID 'wf1', got '%s'", decoded.ID)
 	}
-	if decoded.Version != WorkflowSchemaVersion {
-		t.Errorf("Expected Version %d, got %d", WorkflowSchemaVersion, decoded.Version)
+	if decoded.Version != 2 {
+		t.Errorf("Expected Version 2, got %d", decoded.Version)
 	}
 	if len(decoded.Steps) != 4 {
 		t.Errorf("Expected 4 steps, got %d", len(decoded.Steps))

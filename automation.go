@@ -25,8 +25,10 @@ var (
 	touchRecordData   = make(map[string]*TouchRecordingSession)
 	touchRecordMu     sync.Mutex
 
-	touchPlaybackCancel = make(map[string]context.CancelFunc)
-	touchPlaybackMu     sync.Mutex
+	// Active task management (used for both touch playback and workflow execution)
+	activeTaskCancel = make(map[string]context.CancelFunc)
+	activeTaskMu     sync.Mutex
+
 	// Pause control
 	taskPauseSignal = make(map[string]chan struct{})
 	taskIsPaused    = make(map[string]bool)
@@ -1273,24 +1275,24 @@ func (a *App) PlayTouchScript(deviceId string, script TouchScript) error {
 		"event_count": len(script.Events),
 	})
 
-	touchPlaybackMu.Lock()
-	if _, exists := touchPlaybackCancel[deviceId]; exists {
-		touchPlaybackMu.Unlock()
+	activeTaskMu.Lock()
+	if _, exists := activeTaskCancel[deviceId]; exists {
+		activeTaskMu.Unlock()
 		return fmt.Errorf("playback already in progress")
 	}
 
 	ctx, cancel := context.WithCancel(a.ctx)
-	touchPlaybackCancel[deviceId] = cancel
-	touchPlaybackMu.Unlock()
+	activeTaskCancel[deviceId] = cancel
+	activeTaskMu.Unlock()
 
 	go func() {
 		defer func() {
 			// Clean up pause state first (in case task was paused when it ended)
 			cleanupTaskPause(deviceId)
 
-			touchPlaybackMu.Lock()
-			delete(touchPlaybackCancel, deviceId)
-			touchPlaybackMu.Unlock()
+			activeTaskMu.Lock()
+			delete(activeTaskCancel, deviceId)
+			activeTaskMu.Unlock()
 
 			if !a.mcpMode {
 				wailsRuntime.EventsEmit(a.ctx, "touch-playback-completed", map[string]interface{}{
@@ -1437,20 +1439,20 @@ func parseResolution(res string) (int, int, bool) {
 
 // StopTouchPlayback stops an ongoing touch playback
 func (a *App) StopTouchPlayback(deviceId string) {
-	touchPlaybackMu.Lock()
-	defer touchPlaybackMu.Unlock()
+	activeTaskMu.Lock()
+	defer activeTaskMu.Unlock()
 
-	if cancel, exists := touchPlaybackCancel[deviceId]; exists {
+	if cancel, exists := activeTaskCancel[deviceId]; exists {
 		cancel()
-		delete(touchPlaybackCancel, deviceId)
+		delete(activeTaskCancel, deviceId)
 	}
 }
 
 // IsPlayingTouch returns whether touch playback is active for a device
 func (a *App) IsPlayingTouch(deviceId string) bool {
-	touchPlaybackMu.Lock()
-	defer touchPlaybackMu.Unlock()
-	_, exists := touchPlaybackCancel[deviceId]
+	activeTaskMu.Lock()
+	defer activeTaskMu.Unlock()
+	_, exists := activeTaskCancel[deviceId]
 	return exists
 }
 
@@ -1738,24 +1740,24 @@ func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
 		"step_count": len(task.Steps),
 	})
 
-	touchPlaybackMu.Lock()
-	if _, exists := touchPlaybackCancel[deviceId]; exists {
-		touchPlaybackMu.Unlock()
+	activeTaskMu.Lock()
+	if _, exists := activeTaskCancel[deviceId]; exists {
+		activeTaskMu.Unlock()
 		return fmt.Errorf("playback already in progress")
 	}
 
 	ctx, cancel := context.WithCancel(a.ctx)
-	touchPlaybackCancel[deviceId] = cancel
-	touchPlaybackMu.Unlock()
+	activeTaskCancel[deviceId] = cancel
+	activeTaskMu.Unlock()
 
 	go func() {
 		defer func() {
 			// Clean up pause state first (in case task was paused when it ended)
 			cleanupTaskPause(deviceId)
 
-			touchPlaybackMu.Lock()
-			delete(touchPlaybackCancel, deviceId)
-			touchPlaybackMu.Unlock()
+			activeTaskMu.Lock()
+			delete(activeTaskCancel, deviceId)
+			activeTaskMu.Unlock()
 
 			if !a.mcpMode {
 				wailsRuntime.EventsEmit(a.ctx, "task-completed", map[string]interface{}{

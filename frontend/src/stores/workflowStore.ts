@@ -18,8 +18,9 @@ import {
 export type { Workflow, WorkflowStep, StepType, StepConnections, StepCommon };
 
 // Legacy type aliases for backward compatibility
-export type WorkflowV2 = Workflow;
-export type WorkflowStepV2 = WorkflowStep;
+// @deprecated Use Workflow instead
+// @deprecated Use WorkflowStep instead
+// These are kept for backward compatibility and will be removed in a future version
 
 interface StepStatus {
   stepId: string;

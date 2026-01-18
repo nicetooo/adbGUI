@@ -5,10 +5,10 @@ import (
 	"testing"
 )
 
-// ==================== V2StepResult Tests ====================
+// ==================== StepResult Tests ====================
 
-func TestV2StepResult_Success(t *testing.T) {
-	result := V2StepResult{
+func TestStepResult_Success(t *testing.T) {
+	result := StepResult{
 		Success:        true,
 		IsBranchResult: false,
 		Error:          nil,
@@ -25,8 +25,8 @@ func TestV2StepResult_Success(t *testing.T) {
 	}
 }
 
-func TestV2StepResult_Failure(t *testing.T) {
-	result := V2StepResult{
+func TestStepResult_Failure(t *testing.T) {
+	result := StepResult{
 		Success:        false,
 		IsBranchResult: false,
 		Error:          fmt.Errorf("test error"),
@@ -43,8 +43,8 @@ func TestV2StepResult_Failure(t *testing.T) {
 	}
 }
 
-func TestV2StepResult_BranchTrue(t *testing.T) {
-	result := V2StepResult{
+func TestStepResult_BranchTrue(t *testing.T) {
+	result := StepResult{
 		Success:        true,
 		IsBranchResult: true,
 		Error:          nil,
@@ -58,8 +58,8 @@ func TestV2StepResult_BranchTrue(t *testing.T) {
 	}
 }
 
-func TestV2StepResult_BranchFalse(t *testing.T) {
-	result := V2StepResult{
+func TestStepResult_BranchFalse(t *testing.T) {
+	result := StepResult{
 		Success:        false,
 		IsBranchResult: true,
 		Error:          nil,
@@ -77,11 +77,11 @@ func TestV2StepResult_BranchFalse(t *testing.T) {
 	}
 }
 
-// ==================== DetermineNextStepV2 Tests ====================
+// ==================== DetermineNextStep Tests ====================
 
-func TestDetermineNextStepV2_NormalSuccess(t *testing.T) {
+func TestDetermineNextStep_NormalSuccess(t *testing.T) {
 	app := &App{}
-	step := &WorkflowStepV2{
+	step := &WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Connections: StepConnections{
@@ -89,18 +89,18 @@ func TestDetermineNextStepV2_NormalSuccess(t *testing.T) {
 			ErrorStepId:   "error_handler",
 		},
 	}
-	result := V2StepResult{Success: true, IsBranchResult: false}
+	result := StepResult{Success: true, IsBranchResult: false}
 
-	nextId := app.determineNextStepV2(step, result)
+	nextId := app.determineNextStep(step, result)
 
 	if nextId != "step2" {
 		t.Errorf("Expected 'step2', got '%s'", nextId)
 	}
 }
 
-func TestDetermineNextStepV2_NormalError_WithErrorPath(t *testing.T) {
+func TestDetermineNextStep_NormalError_WithErrorPath(t *testing.T) {
 	app := &App{}
-	step := &WorkflowStepV2{
+	step := &WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Connections: StepConnections{
@@ -108,18 +108,18 @@ func TestDetermineNextStepV2_NormalError_WithErrorPath(t *testing.T) {
 			ErrorStepId:   "error_handler",
 		},
 	}
-	result := V2StepResult{Success: false, IsBranchResult: false, Error: fmt.Errorf("failed")}
+	result := StepResult{Success: false, IsBranchResult: false, Error: fmt.Errorf("failed")}
 
-	nextId := app.determineNextStepV2(step, result)
+	nextId := app.determineNextStep(step, result)
 
 	if nextId != "error_handler" {
 		t.Errorf("Expected 'error_handler', got '%s'", nextId)
 	}
 }
 
-func TestDetermineNextStepV2_NormalError_NoErrorPath_Stop(t *testing.T) {
+func TestDetermineNextStep_NormalError_NoErrorPath_Stop(t *testing.T) {
 	app := &App{}
-	step := &WorkflowStepV2{
+	step := &WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Common: StepCommon{
@@ -130,18 +130,18 @@ func TestDetermineNextStepV2_NormalError_NoErrorPath_Stop(t *testing.T) {
 			ErrorStepId:   "", // No error path
 		},
 	}
-	result := V2StepResult{Success: false, IsBranchResult: false, Error: fmt.Errorf("failed")}
+	result := StepResult{Success: false, IsBranchResult: false, Error: fmt.Errorf("failed")}
 
-	nextId := app.determineNextStepV2(step, result)
+	nextId := app.determineNextStep(step, result)
 
 	if nextId != "" {
 		t.Errorf("Expected empty string (stop), got '%s'", nextId)
 	}
 }
 
-func TestDetermineNextStepV2_NormalError_NoErrorPath_Continue(t *testing.T) {
+func TestDetermineNextStep_NormalError_NoErrorPath_Continue(t *testing.T) {
 	app := &App{}
-	step := &WorkflowStepV2{
+	step := &WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Common: StepCommon{
@@ -152,18 +152,18 @@ func TestDetermineNextStepV2_NormalError_NoErrorPath_Continue(t *testing.T) {
 			ErrorStepId:   "", // No error path
 		},
 	}
-	result := V2StepResult{Success: false, IsBranchResult: false, Error: fmt.Errorf("failed")}
+	result := StepResult{Success: false, IsBranchResult: false, Error: fmt.Errorf("failed")}
 
-	nextId := app.determineNextStepV2(step, result)
+	nextId := app.determineNextStep(step, result)
 
 	if nextId != "step2" {
 		t.Errorf("Expected 'step2' (continue to success path), got '%s'", nextId)
 	}
 }
 
-func TestDetermineNextStepV2_BranchTrue(t *testing.T) {
+func TestDetermineNextStep_BranchTrue(t *testing.T) {
 	app := &App{}
-	step := &WorkflowStepV2{
+	step := &WorkflowStep{
 		ID:   "branch1",
 		Type: "branch",
 		Connections: StepConnections{
@@ -173,18 +173,18 @@ func TestDetermineNextStepV2_BranchTrue(t *testing.T) {
 			ErrorStepId:   "step_error",
 		},
 	}
-	result := V2StepResult{Success: true, IsBranchResult: true}
+	result := StepResult{Success: true, IsBranchResult: true}
 
-	nextId := app.determineNextStepV2(step, result)
+	nextId := app.determineNextStep(step, result)
 
 	if nextId != "step_yes" {
 		t.Errorf("Expected 'step_yes', got '%s'", nextId)
 	}
 }
 
-func TestDetermineNextStepV2_BranchFalse(t *testing.T) {
+func TestDetermineNextStep_BranchFalse(t *testing.T) {
 	app := &App{}
-	step := &WorkflowStepV2{
+	step := &WorkflowStep{
 		ID:   "branch1",
 		Type: "branch",
 		Connections: StepConnections{
@@ -194,18 +194,18 @@ func TestDetermineNextStepV2_BranchFalse(t *testing.T) {
 			ErrorStepId:   "step_error",
 		},
 	}
-	result := V2StepResult{Success: false, IsBranchResult: true}
+	result := StepResult{Success: false, IsBranchResult: true}
 
-	nextId := app.determineNextStepV2(step, result)
+	nextId := app.determineNextStep(step, result)
 
 	if nextId != "step_no" {
 		t.Errorf("Expected 'step_no', got '%s'", nextId)
 	}
 }
 
-func TestDetermineNextStepV2_BranchExecutionError(t *testing.T) {
+func TestDetermineNextStep_BranchExecutionError(t *testing.T) {
 	app := &App{}
-	step := &WorkflowStepV2{
+	step := &WorkflowStep{
 		ID:   "branch1",
 		Type: "branch",
 		Connections: StepConnections{
@@ -216,67 +216,19 @@ func TestDetermineNextStepV2_BranchExecutionError(t *testing.T) {
 		},
 	}
 	// Branch execution failed (not a condition result)
-	result := V2StepResult{Success: false, IsBranchResult: false, Error: fmt.Errorf("UI dump failed")}
+	result := StepResult{Success: false, IsBranchResult: false, Error: fmt.Errorf("UI dump failed")}
 
-	nextId := app.determineNextStepV2(step, result)
+	nextId := app.determineNextStep(step, result)
 
 	if nextId != "step_error" {
 		t.Errorf("Expected 'step_error', got '%s'", nextId)
 	}
 }
 
-// ==================== String Helper Tests ====================
-
-func TestContainsIgnoreCaseV2(t *testing.T) {
-	testCases := []struct {
-		s      string
-		substr string
-		expect bool
-	}{
-		{"Hello World", "world", true},
-		{"Hello World", "HELLO", true},
-		{"Hello World", "hello world", true},
-		{"Hello World", "foo", false},
-		{"Hello World", "", true},
-		{"", "foo", false},
-		{"", "", true},
-		{"abc", "abcd", false},
-	}
-
-	for _, tc := range testCases {
-		result := containsIgnoreCaseV2(tc.s, tc.substr)
-		if result != tc.expect {
-			t.Errorf("containsIgnoreCaseV2(%q, %q) = %v, want %v", tc.s, tc.substr, result, tc.expect)
-		}
-	}
-}
-
-func TestEqualFoldAtV2(t *testing.T) {
-	testCases := []struct {
-		s      string
-		i      int
-		substr string
-		expect bool
-	}{
-		{"Hello", 0, "hello", true},
-		{"Hello", 0, "HELLO", true},
-		{"Hello World", 6, "world", true},
-		{"Hello World", 6, "WORLD", true},
-		{"Hello", 0, "World", false},
-	}
-
-	for _, tc := range testCases {
-		result := equalFoldAtV2(tc.s, tc.i, tc.substr)
-		if result != tc.expect {
-			t.Errorf("equalFoldAtV2(%q, %d, %q) = %v, want %v", tc.s, tc.i, tc.substr, result, tc.expect)
-		}
-	}
-}
-
 // ==================== StepCommon Helpers Tests ====================
 
-func TestWorkflowStepV2_ShouldStopOnError_WithErrorPath(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStep_ShouldStopOnError_WithErrorPath(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Connections: StepConnections{
@@ -292,8 +244,8 @@ func TestWorkflowStepV2_ShouldStopOnError_WithErrorPath(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2_ShouldStopOnError_NoErrorPath_Stop(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStep_ShouldStopOnError_NoErrorPath_Stop(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Connections: StepConnections{
@@ -309,8 +261,8 @@ func TestWorkflowStepV2_ShouldStopOnError_NoErrorPath_Stop(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2_ShouldStopOnError_NoErrorPath_Continue(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStep_ShouldStopOnError_NoErrorPath_Continue(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Connections: StepConnections{
@@ -326,8 +278,8 @@ func TestWorkflowStepV2_ShouldStopOnError_NoErrorPath_Continue(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2_ShouldStopOnError_NoErrorPath_DefaultStop(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStep_ShouldStopOnError_NoErrorPath_DefaultStop(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Connections: StepConnections{
@@ -345,11 +297,11 @@ func TestWorkflowStepV2_ShouldStopOnError_NoErrorPath_DefaultStop(t *testing.T) 
 
 // ==================== Workflow Execution Flow Tests ====================
 
-func TestWorkflowV2_EmptyWorkflow(t *testing.T) {
-	workflow := WorkflowV2{
+func TestWorkflow_EmptyWorkflow(t *testing.T) {
+	workflow := Workflow{
 		ID:    "wf1",
 		Name:  "Empty",
-		Steps: []WorkflowStepV2{},
+		Steps: []WorkflowStep{},
 	}
 
 	errors := workflow.Validate()
@@ -371,11 +323,11 @@ func TestWorkflowV2_EmptyWorkflow(t *testing.T) {
 	}
 }
 
-func TestWorkflowV2_StartOnlyWorkflow(t *testing.T) {
-	workflow := WorkflowV2{
+func TestWorkflow_StartOnlyWorkflow(t *testing.T) {
+	workflow := Workflow{
 		ID:   "wf1",
 		Name: "StartOnly",
-		Steps: []WorkflowStepV2{
+		Steps: []WorkflowStep{
 			{
 				ID:   "start",
 				Type: "start",
@@ -392,11 +344,11 @@ func TestWorkflowV2_StartOnlyWorkflow(t *testing.T) {
 	}
 }
 
-func TestWorkflowV2_LinearFlow(t *testing.T) {
-	workflow := WorkflowV2{
+func TestWorkflow_LinearFlow(t *testing.T) {
+	workflow := Workflow{
 		ID:   "wf1",
 		Name: "Linear",
-		Steps: []WorkflowStepV2{
+		Steps: []WorkflowStep{
 			{
 				ID:   "start",
 				Type: "start",
@@ -429,11 +381,11 @@ func TestWorkflowV2_LinearFlow(t *testing.T) {
 	}
 }
 
-func TestWorkflowV2_BranchFlow(t *testing.T) {
-	workflow := WorkflowV2{
+func TestWorkflow_BranchFlow(t *testing.T) {
+	workflow := Workflow{
 		ID:   "wf1",
 		Name: "Branch",
-		Steps: []WorkflowStepV2{
+		Steps: []WorkflowStep{
 			{
 				ID:   "start",
 				Type: "start",
@@ -481,11 +433,11 @@ func TestWorkflowV2_BranchFlow(t *testing.T) {
 	}
 }
 
-func TestWorkflowV2_WithErrorPath(t *testing.T) {
-	workflow := WorkflowV2{
+func TestWorkflow_WithErrorPath(t *testing.T) {
+	workflow := Workflow{
 		ID:   "wf1",
 		Name: "WithErrorPath",
-		Steps: []WorkflowStepV2{
+		Steps: []WorkflowStep{
 			{
 				ID:   "start",
 				Type: "start",
@@ -496,7 +448,7 @@ func TestWorkflowV2_WithErrorPath(t *testing.T) {
 			{
 				ID:   "step1",
 				Type: "click_element",
-				Element: &ElementParamsV2{
+				Element: &ElementParams{
 					Selector: ElementSelector{
 						Type:  "text",
 						Value: "Submit",
@@ -530,11 +482,11 @@ func TestWorkflowV2_WithErrorPath(t *testing.T) {
 	}
 }
 
-func TestWorkflowV2_InvalidConnection(t *testing.T) {
-	workflow := WorkflowV2{
+func TestWorkflow_InvalidConnection(t *testing.T) {
+	workflow := Workflow{
 		ID:   "wf1",
 		Name: "InvalidConnection",
-		Steps: []WorkflowStepV2{
+		Steps: []WorkflowStep{
 			{
 				ID:   "start",
 				Type: "start",
@@ -558,11 +510,11 @@ func TestWorkflowV2_InvalidConnection(t *testing.T) {
 	}
 }
 
-func TestWorkflowV2_MultipleStartNodes(t *testing.T) {
-	workflow := WorkflowV2{
+func TestWorkflow_MultipleStartNodes(t *testing.T) {
+	workflow := Workflow{
 		ID:   "wf1",
 		Name: "MultipleStart",
-		Steps: []WorkflowStepV2{
+		Steps: []WorkflowStep{
 			{
 				ID:   "start1",
 				Type: "start",
@@ -589,16 +541,16 @@ func TestWorkflowV2_MultipleStartNodes(t *testing.T) {
 
 // ==================== Variable Substitution Tests ====================
 
-func TestWorkflowV2_VariableSubstitution(t *testing.T) {
+func TestWorkflow_VariableSubstitution(t *testing.T) {
 	// This is a conceptual test - actual execution would need mocking
-	workflow := WorkflowV2{
+	workflow := Workflow{
 		ID:   "wf1",
 		Name: "VariableTest",
 		Variables: map[string]string{
 			"email":    "test@example.com",
 			"password": "secret123",
 		},
-		Steps: []WorkflowStepV2{
+		Steps: []WorkflowStep{
 			{
 				ID:   "start",
 				Type: "start",
@@ -609,7 +561,7 @@ func TestWorkflowV2_VariableSubstitution(t *testing.T) {
 			{
 				ID:   "input_email",
 				Type: "input_text",
-				Element: &ElementParamsV2{
+				Element: &ElementParams{
 					Selector: ElementSelector{
 						Type:  "id",
 						Value: "email_field",
@@ -624,7 +576,7 @@ func TestWorkflowV2_VariableSubstitution(t *testing.T) {
 			{
 				ID:   "input_password",
 				Type: "input_text",
-				Element: &ElementParamsV2{
+				Element: &ElementParams{
 					Selector: ElementSelector{
 						Type:  "id",
 						Value: "password_field",
@@ -649,8 +601,8 @@ func TestWorkflowV2_VariableSubstitution(t *testing.T) {
 
 // ==================== Loop Execution Tests ====================
 
-func TestWorkflowStepV2_LoopConfig(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStep_LoopConfig(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Tap:  &TapParams{X: 100, Y: 200},
@@ -664,8 +616,8 @@ func TestWorkflowStepV2_LoopConfig(t *testing.T) {
 	}
 }
 
-func TestWorkflowStepV2_DefaultLoop(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStep_DefaultLoop(t *testing.T) {
+	step := WorkflowStep{
 		ID:     "step1",
 		Type:   "tap",
 		Tap:    &TapParams{X: 100, Y: 200},
@@ -686,11 +638,11 @@ func TestWorkflowStepV2_DefaultLoop(t *testing.T) {
 
 // ==================== Timeout Tests ====================
 
-func TestWorkflowStepV2_TimeoutConfig(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStep_TimeoutConfig(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "wait_element",
-		Element: &ElementParamsV2{
+		Element: &ElementParams{
 			Selector: ElementSelector{
 				Type:  "text",
 				Value: "Loading",
@@ -709,8 +661,8 @@ func TestWorkflowStepV2_TimeoutConfig(t *testing.T) {
 
 // ==================== Pre/Post Delay Tests ====================
 
-func TestWorkflowStepV2_DelayConfig(t *testing.T) {
-	step := WorkflowStepV2{
+func TestWorkflowStep_DelayConfig(t *testing.T) {
+	step := WorkflowStep{
 		ID:   "step1",
 		Type: "tap",
 		Tap:  &TapParams{X: 100, Y: 200},

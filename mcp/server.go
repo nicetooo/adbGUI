@@ -9,8 +9,43 @@ import (
 	"os/signal"
 	"sync"
 
+	"Gaze/pkg/types"
+
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+)
+
+// Type aliases from shared types package
+// This avoids code duplication and ensures type consistency
+type (
+	Device            = types.Device
+	DeviceInfo        = types.DeviceInfo
+	AppPackage        = types.AppPackage
+	ScrcpyConfig      = types.ScrcpyConfig
+	UIHierarchyResult = types.UIHierarchyResult
+	EventQuery        = types.EventQuery
+	EventQueryResult  = types.EventQueryResult
+	DeviceSession     = types.DeviceSession
+	VideoMetadata     = types.VideoMetadata
+
+	// Workflow types
+	Workflow          = types.Workflow
+	WorkflowStep      = types.WorkflowStep
+	StepConnections   = types.StepConnections
+	StepCommon        = types.StepCommon
+	StepLayout        = types.StepLayout
+	HandleInfo        = types.HandleInfo
+	ElementSelector   = types.ElementSelector
+	TapParams         = types.TapParams
+	SwipeParams       = types.SwipeParams
+	ElementParams     = types.ElementParams
+	AppParams         = types.AppParams
+	BranchParams      = types.BranchParams
+	WaitParams        = types.WaitParams
+	ScriptParams      = types.ScriptParams
+	VariableParams    = types.VariableParams
+	ADBParams         = types.ADBParams
+	SubWorkflowParams = types.SubWorkflowParams
 )
 
 // GazeApp interface defines the methods that MCP server needs from the main App
@@ -77,244 +112,6 @@ type GazeApp interface {
 
 	// Utility
 	GetAppVersion() string
-}
-
-// Type aliases for the main app types (to avoid import cycles)
-// These MUST match the actual types in the main package
-
-type Device = struct {
-	ID         string   `json:"id"`
-	Serial     string   `json:"serial"`
-	State      string   `json:"state"`
-	Model      string   `json:"model"`
-	Brand      string   `json:"brand"`
-	Type       string   `json:"type"` // "wired", "wireless", or "both"
-	IDs        []string `json:"ids"`
-	WifiAddr   string   `json:"wifiAddr"`
-	LastActive int64    `json:"lastActive"`
-	IsPinned   bool     `json:"isPinned"`
-}
-
-type DeviceInfo = struct {
-	Model        string            `json:"model"`
-	Brand        string            `json:"brand"`
-	Manufacturer string            `json:"manufacturer"`
-	AndroidVer   string            `json:"androidVer"`
-	SDK          string            `json:"sdk"`
-	ABI          string            `json:"abi"`
-	Serial       string            `json:"serial"`
-	Resolution   string            `json:"resolution"`
-	Density      string            `json:"density"`
-	CPU          string            `json:"cpu"`
-	Memory       string            `json:"memory"`
-	Props        map[string]string `json:"props"`
-}
-
-type AppPackage = struct {
-	Name                 string   `json:"name"`
-	Label                string   `json:"label"`
-	Icon                 string   `json:"icon"`
-	Type                 string   `json:"type"`  // "system" or "user"
-	State                string   `json:"state"` // "enabled" or "disabled"
-	VersionName          string   `json:"versionName"`
-	VersionCode          string   `json:"versionCode"`
-	MinSdkVersion        string   `json:"minSdkVersion"`
-	TargetSdkVersion     string   `json:"targetSdkVersion"`
-	Permissions          []string `json:"permissions"`
-	Activities           []string `json:"activities"`
-	LaunchableActivities []string `json:"launchableActivities"`
-}
-
-type ScrcpyConfig = struct {
-	MaxSize     int  `json:"maxSize"`
-	BitRate     int  `json:"bitRate"`
-	MaxFps      int  `json:"maxFps"`
-	ShowTouches bool `json:"showTouches"`
-}
-
-type UIHierarchyResult = struct {
-	Root   interface{} `json:"root"`
-	RawXML string      `json:"rawXml"`
-}
-
-type EventQuery = struct {
-	SessionID  string   `json:"sessionId,omitempty"`
-	DeviceID   string   `json:"deviceId,omitempty"`
-	Types      []string `json:"types,omitempty"`
-	Sources    []string `json:"sources,omitempty"` // Will be converted to EventSource
-	Levels     []string `json:"levels,omitempty"`  // Will be converted to EventLevel
-	StartTime  int64    `json:"startTime,omitempty"`
-	EndTime    int64    `json:"endTime,omitempty"`
-	SearchText string   `json:"searchText,omitempty"`
-	Limit      int      `json:"limit,omitempty"`
-	Offset     int      `json:"offset,omitempty"`
-}
-
-type EventQueryResult = struct {
-	Events  []interface{} `json:"events"`
-	Total   int           `json:"total"`
-	HasMore bool          `json:"hasMore"`
-}
-
-type DeviceSession = struct {
-	ID            string `json:"id"`
-	DeviceID      string `json:"deviceId"`
-	Name          string `json:"name"`
-	Type          string `json:"type"`
-	Status        string `json:"status"`
-	StartTime     int64  `json:"startTime"`
-	EndTime       int64  `json:"endTime,omitempty"`
-	EventCount    int    `json:"eventCount"`
-	VideoPath     string `json:"videoPath,omitempty"`
-	VideoDuration int64  `json:"videoDuration,omitempty"`
-}
-
-// ============== Workflow V2 Types ==============
-
-type Workflow = struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Description string            `json:"description,omitempty"`
-	Version     int               `json:"version"` // V2: Schema version
-	Steps       []WorkflowStep    `json:"steps"`
-	Variables   map[string]string `json:"variables,omitempty"`
-	CreatedAt   string            `json:"createdAt,omitempty"`
-	UpdatedAt   string            `json:"updatedAt,omitempty"`
-}
-
-type ElementSelector = struct {
-	Type  string `json:"type"`            // "resourceId", "text", "contentDesc", "className", "xpath"
-	Value string `json:"value"`           // Selector value
-	Index int    `json:"index,omitempty"` // Index for multiple matches
-}
-
-// StepConnections defines flow connections (V2)
-type StepConnections = struct {
-	SuccessStepId string `json:"successStepId,omitempty"` // Next step on success
-	ErrorStepId   string `json:"errorStepId,omitempty"`   // Next step on error
-	TrueStepId    string `json:"trueStepId,omitempty"`    // Branch condition true
-	FalseStepId   string `json:"falseStepId,omitempty"`   // Branch condition false
-}
-
-// StepCommon defines common step configuration (V2)
-type StepCommon = struct {
-	Timeout   int    `json:"timeout,omitempty"`
-	OnError   string `json:"onError,omitempty"` // "stop", "continue"
-	Loop      int    `json:"loop,omitempty"`
-	PostDelay int    `json:"postDelay,omitempty"`
-	PreWait   int    `json:"preWait,omitempty"`
-}
-
-// HandleInfo stores handle connection info for UI
-type HandleInfo = struct {
-	SourceHandle string `json:"sourceHandle,omitempty"`
-	TargetHandle string `json:"targetHandle,omitempty"`
-}
-
-// StepLayout stores UI position and handle info (V2)
-type StepLayout = struct {
-	PosX    float64               `json:"posX,omitempty"`
-	PosY    float64               `json:"posY,omitempty"`
-	Handles map[string]HandleInfo `json:"handles,omitempty"`
-}
-
-// Type-specific parameter structs (V2)
-
-type TapParams = struct {
-	X int `json:"x"`
-	Y int `json:"y"`
-}
-
-type SwipeParams = struct {
-	X         int    `json:"x,omitempty"`
-	Y         int    `json:"y,omitempty"`
-	X2        int    `json:"x2,omitempty"`
-	Y2        int    `json:"y2,omitempty"`
-	Direction string `json:"direction,omitempty"` // "up", "down", "left", "right"
-	Distance  int    `json:"distance,omitempty"`
-	Duration  int    `json:"duration,omitempty"`
-}
-
-type ElementParams = struct {
-	Selector      ElementSelector `json:"selector"`
-	Action        string          `json:"action"` // "click", "long_click", "input", "swipe", "wait", "wait_gone", "assert"
-	InputText     string          `json:"inputText,omitempty"`
-	SwipeDir      string          `json:"swipeDir,omitempty"`
-	SwipeDistance int             `json:"swipeDistance,omitempty"`
-	SwipeDuration int             `json:"swipeDuration,omitempty"`
-}
-
-type AppParams = struct {
-	PackageName string `json:"packageName"`
-	Action      string `json:"action"` // "launch", "stop", "clear", "settings"
-}
-
-type BranchParams = struct {
-	Condition     string           `json:"condition"` // "exists", "not_exists", "text_equals", "text_contains", "variable_equals"
-	Selector      *ElementSelector `json:"selector,omitempty"`
-	ExpectedValue string           `json:"expectedValue,omitempty"`
-	VariableName  string           `json:"variableName,omitempty"`
-}
-
-type WaitParams = struct {
-	DurationMs int `json:"durationMs"`
-}
-
-type ScriptParams = struct {
-	ScriptName string `json:"scriptName"`
-}
-
-type VariableParams = struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-}
-
-type ADBParams = struct {
-	Command string `json:"command"`
-}
-
-type SubWorkflowParams = struct {
-	WorkflowId string `json:"workflowId"`
-}
-
-// WorkflowStep V2 with type-specific parameters
-type WorkflowStep = struct {
-	ID   string `json:"id"`
-	Type string `json:"type"` // Step type
-	Name string `json:"name,omitempty"`
-
-	// V2: Common configuration
-	Common *StepCommon `json:"common,omitempty"`
-
-	// V2: Flow connections
-	Connections *StepConnections `json:"connections,omitempty"`
-
-	// V2: Type-specific parameters (only one should be set based on type)
-	Tap      *TapParams         `json:"tap,omitempty"`
-	Swipe    *SwipeParams       `json:"swipe,omitempty"`
-	Element  *ElementParams     `json:"element,omitempty"`
-	App      *AppParams         `json:"app,omitempty"`
-	Branch   *BranchParams      `json:"branch,omitempty"`
-	Wait     *WaitParams        `json:"wait,omitempty"`
-	Script   *ScriptParams      `json:"script,omitempty"`
-	Variable *VariableParams    `json:"variable,omitempty"`
-	ADB      *ADBParams         `json:"adb,omitempty"`
-	Workflow *SubWorkflowParams `json:"workflow,omitempty"`
-
-	// V2: UI Layout
-	Layout *StepLayout `json:"layout,omitempty"`
-}
-
-type VideoMetadata = struct {
-	Path        string  `json:"path"`
-	Duration    float64 `json:"duration"`   // Duration in seconds
-	DurationMs  int64   `json:"durationMs"` // Duration in milliseconds
-	Width       int     `json:"width"`
-	Height      int     `json:"height"`
-	FrameRate   float64 `json:"frameRate"`
-	Codec       string  `json:"codec"`
-	BitRate     int64   `json:"bitRate"`
-	TotalFrames int64   `json:"totalFrames"`
 }
 
 // MCPServer wraps the MCP server and provides Gaze-specific functionality
