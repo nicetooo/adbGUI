@@ -129,7 +129,7 @@ Only provided fields will be updated. Use workflow_get first to see current stat
 	// workflow_run - Run a workflow
 	s.server.AddTool(
 		mcp.NewTool("workflow_run",
-			mcp.WithDescription("Run a workflow on a device"),
+			mcp.WithDescription("Run a workflow on a device. By default runs asynchronously. Set wait=true to wait for completion."),
 			mcp.WithString("device_id",
 				mcp.Required(),
 				mcp.Description("Device ID to run the workflow on"),
@@ -137,6 +137,9 @@ Only provided fields will be updated. Use workflow_get first to see current stat
 			mcp.WithString("workflow_id",
 				mcp.Required(),
 				mcp.Description("Workflow ID to run"),
+			),
+			mcp.WithBoolean("wait",
+				mcp.Description("Wait for workflow to complete before returning (default: false). If true, returns final status."),
 			),
 		),
 		s.handleWorkflowRun,
@@ -152,6 +155,30 @@ Only provided fields will be updated. Use workflow_get first to see current stat
 			),
 		),
 		s.handleWorkflowStop,
+	)
+
+	// workflow_pause - Pause a running workflow
+	s.server.AddTool(
+		mcp.NewTool("workflow_pause",
+			mcp.WithDescription("Pause a running workflow on a device. The workflow can be resumed later with workflow_resume."),
+			mcp.WithString("device_id",
+				mcp.Required(),
+				mcp.Description("Device ID"),
+			),
+		),
+		s.handleWorkflowPause,
+	)
+
+	// workflow_resume - Resume a paused workflow
+	s.server.AddTool(
+		mcp.NewTool("workflow_resume",
+			mcp.WithDescription("Resume a paused workflow on a device"),
+			mcp.WithString("device_id",
+				mcp.Required(),
+				mcp.Description("Device ID"),
+			),
+		),
+		s.handleWorkflowResume,
 	)
 
 	// workflow_status - Get workflow running status
@@ -605,6 +632,7 @@ func (s *MCPServer) handleWorkflowRun(ctx context.Context, request mcp.CallToolR
 	if !ok || workflowID == "" {
 		return nil, fmt.Errorf("workflow_id is required")
 	}
+	waitForCompletion, _ := args["wait"].(bool)
 
 	// Check if already running
 	if s.app.IsWorkflowRunning(deviceID) {
@@ -640,19 +668,51 @@ func (s *MCPServer) handleWorkflowRun(ctx context.Context, request mcp.CallToolR
 		return nil, fmt.Errorf("device not found: %s", deviceID)
 	}
 
-	// Run the workflow in a goroutine (non-blocking)
-	go func() {
-		err := s.app.RunWorkflow(*targetDevice, *workflow)
-		if err != nil {
-			fmt.Printf("[MCP] Workflow %s failed: %v\n", workflowID, err)
-		}
-	}()
+	startTime := time.Now()
 
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			mcp.NewTextContent(fmt.Sprintf("Started workflow '%s' (V%d) on device %s\n\nWorkflow has %d steps and is running in background.\n\nUse workflow_status to check progress or workflow_stop to stop.", workflow.Name, workflow.Version, deviceID, len(workflow.Steps))),
-		},
-	}, nil
+	// Start the workflow
+	err = s.app.RunWorkflow(*targetDevice, *workflow)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start workflow: %w", err)
+	}
+
+	// If not waiting, return immediately
+	if !waitForCompletion {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				mcp.NewTextContent(fmt.Sprintf("Started workflow '%s' (V%d) on device %s\n\nWorkflow has %d steps and is running in background.\n\nUse workflow_status to check progress or workflow_stop to stop.", workflow.Name, workflow.Version, deviceID, len(workflow.Steps))),
+			},
+		}, nil
+	}
+
+	// Wait for workflow to complete (poll every 500ms, timeout after 30 minutes)
+	maxWait := 30 * time.Minute
+	pollInterval := 500 * time.Millisecond
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(pollInterval):
+			if !s.app.IsWorkflowRunning(deviceID) {
+				// Workflow completed
+				duration := time.Since(startTime)
+				return &mcp.CallToolResult{
+					Content: []mcp.Content{
+						mcp.NewTextContent(fmt.Sprintf("Workflow '%s' completed in %s\n\nDevice: %s\nSteps: %d", workflow.Name, duration.Round(time.Millisecond), deviceID, len(workflow.Steps))),
+					},
+				}, nil
+			}
+
+			if time.Since(startTime) > maxWait {
+				return &mcp.CallToolResult{
+					Content: []mcp.Content{
+						mcp.NewTextContent(fmt.Sprintf("Workflow '%s' is still running after %s. Use workflow_status to check progress.", workflow.Name, maxWait)),
+					},
+				}, nil
+			}
+		}
+	}
 }
 
 func (s *MCPServer) handleWorkflowStop(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -695,6 +755,56 @@ func (s *MCPServer) handleWorkflowStop(ctx context.Context, request mcp.CallTool
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
 			mcp.NewTextContent(fmt.Sprintf("Stopped workflow on device %s", deviceID)),
+		},
+	}, nil
+}
+
+func (s *MCPServer) handleWorkflowPause(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	deviceID, ok := args["device_id"].(string)
+	if !ok || deviceID == "" {
+		return nil, fmt.Errorf("device_id is required")
+	}
+
+	// Check if running
+	if !s.app.IsWorkflowRunning(deviceID) {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				mcp.NewTextContent(fmt.Sprintf("No workflow is running on device %s", deviceID)),
+			},
+		}, nil
+	}
+
+	s.app.PauseTask(deviceID)
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			mcp.NewTextContent(fmt.Sprintf("Paused workflow on device %s. Use workflow_resume to continue.", deviceID)),
+		},
+	}, nil
+}
+
+func (s *MCPServer) handleWorkflowResume(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	deviceID, ok := args["device_id"].(string)
+	if !ok || deviceID == "" {
+		return nil, fmt.Errorf("device_id is required")
+	}
+
+	// Check if running (paused workflows are still considered "running")
+	if !s.app.IsWorkflowRunning(deviceID) {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				mcp.NewTextContent(fmt.Sprintf("No workflow is running or paused on device %s", deviceID)),
+			},
+		}, nil
+	}
+
+	s.app.ResumeTask(deviceID)
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			mcp.NewTextContent(fmt.Sprintf("Resumed workflow on device %s", deviceID)),
 		},
 	}, nil
 }

@@ -352,6 +352,14 @@ func (b *MCPBridge) StopWorkflow(device mcp.Device) {
 	b.app.StopWorkflow(mainDevice)
 }
 
+func (b *MCPBridge) PauseTask(deviceId string) {
+	b.app.PauseTask(deviceId)
+}
+
+func (b *MCPBridge) ResumeTask(deviceId string) {
+	b.app.ResumeTask(deviceId)
+}
+
 func (b *MCPBridge) GetWorkflow(workflowID string) (*mcp.Workflow, error) {
 	wf, err := b.app.GetWorkflow(workflowID)
 	if err != nil {

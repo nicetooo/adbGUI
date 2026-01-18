@@ -180,18 +180,6 @@ export interface Workflow {
   updatedAt?: string;
 }
 
-// ============== Type Aliases for Backward Compatibility ==============
-// These will be removed in future versions
-
-/** @deprecated Use WorkflowStep instead */
-export type WorkflowStepV2 = WorkflowStep;
-
-/** @deprecated Use Workflow instead */
-export type WorkflowV2 = Workflow;
-
-/** @deprecated Use ElementParams instead */
-export type ElementParamsV2 = ElementParams;
-
 // ============== Helper Functions ==============
 
 export function getDefaultStepCommon(): StepCommon {
@@ -229,9 +217,6 @@ export function createEmptyWorkflow(id: string, name: string): Workflow {
     updatedAt: new Date().toISOString(),
   };
 }
-
-/** @deprecated Use createEmptyWorkflow instead */
-export const createEmptyWorkflowV2 = createEmptyWorkflow;
 
 // ============== Step Helpers ==============
 

@@ -97,6 +97,8 @@ type GazeApp interface {
 	DeleteWorkflow(id string) error
 	RunWorkflow(device Device, workflow Workflow) error
 	StopWorkflow(device Device)
+	PauseTask(deviceId string)
+	ResumeTask(deviceId string)
 	ExecuteSingleWorkflowStep(deviceId string, step WorkflowStep) error
 	IsWorkflowRunning(deviceId string) bool
 

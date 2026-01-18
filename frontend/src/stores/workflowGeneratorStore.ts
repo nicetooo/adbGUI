@@ -5,7 +5,10 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 
-interface WorkflowStep {
+// GeneratedStep is a simplified step structure used during workflow generation
+// It differs from the full WorkflowStep type as it's a lightweight representation
+// for AI-generated workflows before conversion to the full format
+interface GeneratedStep {
   id: string;
   type: string;
   name: string;
@@ -32,7 +35,7 @@ interface GeneratedWorkflow {
   sessionId: string;
   name: string;
   description: string;
-  steps: WorkflowStep[];
+  steps: GeneratedStep[];
   suggestions: string[];
   confidence: number;
   loops: LoopPattern[];
@@ -74,7 +77,7 @@ interface WorkflowGeneratorState {
   
   // 编辑弹窗
   editModalVisible: boolean;
-  editingStep: WorkflowStep | null;
+  editingStep: GeneratedStep | null;
   editingIndex: number;
   
   // 配置弹窗
@@ -95,10 +98,10 @@ interface WorkflowGeneratorState {
   setGeneratedWorkflow: (workflow: GeneratedWorkflow | null) => void;
   
   // 编辑弹窗
-  openEditModal: (step: WorkflowStep, index: number) => void;
+  openEditModal: (step: GeneratedStep, index: number) => void;
   closeEditModal: () => void;
-  setEditingStep: (step: WorkflowStep | null) => void;
-  updateEditingStep: (updates: Partial<WorkflowStep>) => void;
+  setEditingStep: (step: GeneratedStep | null) => void;
+  updateEditingStep: (updates: Partial<GeneratedStep>) => void;
   
   // 配置弹窗
   openConfigModal: () => void;

@@ -228,9 +228,4 @@ type ScriptTask struct {
 	CreatedAt string     `json:"createdAt"`
 }
 
-// ElementSelector for UI element selection
-type ElementSelector struct {
-	Type  string `json:"type"` // "text", "id", "xpath", "contentDesc", "className", "advanced"
-	Value string `json:"value"`
-	Index int    `json:"index,omitempty"`
-}
+// ElementSelector is defined in workflow_types.go as alias to pkg/types.ElementSelector

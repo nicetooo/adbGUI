@@ -176,18 +176,13 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 
 	sessionId := a.EnsureActiveSession(deviceId)
 
-	a.EmitSessionEventFull(SessionEvent{
-		DeviceID: deviceId,
-		Type:     "workflow_start",
-		Category: "workflow",
-		Level:    "info",
-		Title:    fmt.Sprintf("Workflow started: %s", workflow.Name),
-		Detail: map[string]interface{}{
+	a.eventPipeline.EmitRaw(deviceId, SourceWorkflow, "workflow_start", LevelInfo,
+		fmt.Sprintf("Workflow started: %s", workflow.Name),
+		map[string]interface{}{
 			"workflowId": workflow.ID,
 			"totalSteps": len(workflow.Steps),
 			"sessionId":  sessionId,
-		},
-	})
+		})
 
 	wailsRuntime.EventsEmit(a.ctx, "workflow-started", map[string]interface{}{
 		"workflowId":   workflow.ID,
@@ -213,19 +208,14 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 				sessionStatus = "cancelled"
 			}
 
-			a.EmitSessionEventFull(SessionEvent{
-				DeviceID: deviceId,
-				Type:     "workflow_error",
-				Category: "workflow",
-				Level:    "error",
-				Title:    fmt.Sprintf("Workflow error: %s", workflow.Name),
-				Duration: duration,
-				Detail: map[string]interface{}{
+			a.eventPipeline.EmitRaw(deviceId, SourceWorkflow, "workflow_error", LevelError,
+				fmt.Sprintf("Workflow error: %s", workflow.Name),
+				map[string]interface{}{
 					"workflowId": workflow.ID,
 					"error":      err.Error(),
 					"status":     sessionStatus,
-				},
-			})
+					"duration":   duration,
+				})
 
 			wailsRuntime.EventsEmit(a.ctx, "workflow-error", map[string]interface{}{
 				"workflowId":   workflow.ID,
@@ -234,18 +224,13 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 				"error":        err.Error(),
 			})
 		} else {
-			a.EmitSessionEventFull(SessionEvent{
-				DeviceID: deviceId,
-				Type:     "workflow_completed",
-				Category: "workflow",
-				Level:    "info",
-				Title:    fmt.Sprintf("Workflow completed: %s", workflow.Name),
-				Duration: duration,
-				Detail: map[string]interface{}{
+			a.eventPipeline.EmitRaw(deviceId, SourceWorkflow, "workflow_complete", LevelInfo,
+				fmt.Sprintf("Workflow completed: %s", workflow.Name),
+				map[string]interface{}{
 					"workflowId": workflow.ID,
 					"status":     sessionStatus,
-				},
-			})
+					"duration":   duration,
+				})
 
 			wailsRuntime.EventsEmit(a.ctx, "workflow-completed", map[string]interface{}{
 				"workflowId":   workflow.ID,
@@ -315,18 +300,13 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 			"stepName":   step.Name,
 		})
 
-		a.EmitSessionEventFull(SessionEvent{
-			DeviceID: deviceId,
-			Type:     "workflow_step_start",
-			Category: "workflow",
-			Level:    "info",
-			Title:    fmt.Sprintf("Step: %s (%s)", step.Name, step.Type),
-			Detail: map[string]interface{}{
+		a.eventPipeline.EmitRaw(deviceId, SourceWorkflow, "workflow_step_start", LevelInfo,
+			fmt.Sprintf("Step: %s (%s)", step.Name, step.Type),
+			map[string]interface{}{
 				"workflowId": workflow.ID,
 				"stepId":     step.ID,
 				"stepType":   step.Type,
-			},
-		})
+			})
 
 		loopCount := step.Common.Loop
 		if loopCount <= 0 {
@@ -352,23 +332,18 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 
 		nextStepId := a.determineNextStep(step, result)
 
-		logLevel := "info"
+		logLevel := LevelInfo
 		if !result.Success {
-			logLevel = "warn"
+			logLevel = LevelWarn
 		}
-		a.EmitSessionEventFull(SessionEvent{
-			DeviceID: deviceId,
-			Type:     "workflow_step_end",
-			Category: "workflow",
-			Level:    logLevel,
-			Title:    fmt.Sprintf("Step completed: %s", step.Name),
-			Detail: map[string]interface{}{
+		a.eventPipeline.EmitRaw(deviceId, SourceWorkflow, "workflow_step_end", logLevel,
+			fmt.Sprintf("Step completed: %s", step.Name),
+			map[string]interface{}{
 				"workflowId": workflow.ID,
 				"stepId":     step.ID,
 				"success":    result.Success,
 				"nextStepId": nextStepId,
-			},
-		})
+			})
 
 		if result.Error != nil && nextStepId == "" && step.ShouldStopOnError() {
 			return fmt.Errorf("step %s failed: %w", step.ID, result.Error)

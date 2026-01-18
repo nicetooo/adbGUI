@@ -433,6 +433,3 @@ export function createStep(
 
 // Re-export utility functions
 export { createEmptyWorkflow, getDefaultStepCommon, getDefaultConnections };
-
-/** @deprecated Use createEmptyWorkflow instead */
-export const createEmptyWorkflowV2 = createEmptyWorkflow;

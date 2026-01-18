@@ -129,442 +129,6 @@ export namespace http {
 
 export namespace main {
 	
-	export class ADBParams {
-	    command: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new ADBParams(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.command = source["command"];
-	    }
-	}
-	export class HandleInfo {
-	    sourceHandle?: string;
-	    targetHandle?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new HandleInfo(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.sourceHandle = source["sourceHandle"];
-	        this.targetHandle = source["targetHandle"];
-	    }
-	}
-	export class StepLayout {
-	    posX?: number;
-	    posY?: number;
-	    handles?: Record<string, HandleInfo>;
-	
-	    static createFrom(source: any = {}) {
-	        return new StepLayout(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.posX = source["posX"];
-	        this.posY = source["posY"];
-	        this.handles = this.convertValues(source["handles"], HandleInfo, true);
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	export class SubWorkflowParams {
-	    workflowId: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new SubWorkflowParams(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.workflowId = source["workflowId"];
-	    }
-	}
-	export class VariableParams {
-	    name: string;
-	    value: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new VariableParams(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.value = source["value"];
-	    }
-	}
-	export class ScriptParams {
-	    scriptName: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new ScriptParams(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.scriptName = source["scriptName"];
-	    }
-	}
-	export class WaitParams {
-	    durationMs: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new WaitParams(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.durationMs = source["durationMs"];
-	    }
-	}
-	export class BranchParams {
-	    condition: string;
-	    selector?: ElementSelector;
-	    expectedValue?: string;
-	    variableName?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new BranchParams(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.condition = source["condition"];
-	        this.selector = this.convertValues(source["selector"], ElementSelector);
-	        this.expectedValue = source["expectedValue"];
-	        this.variableName = source["variableName"];
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	export class AppParams {
-	    packageName: string;
-	    action: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new AppParams(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.packageName = source["packageName"];
-	        this.action = source["action"];
-	    }
-	}
-	export class ElementSelector {
-	    type: string;
-	    value: string;
-	    index?: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new ElementSelector(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.type = source["type"];
-	        this.value = source["value"];
-	        this.index = source["index"];
-	    }
-	}
-	export class ElementParams {
-	    selector: ElementSelector;
-	    action: string;
-	    inputText?: string;
-	    swipeDir?: string;
-	    swipeDistance?: number;
-	    swipeDuration?: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new ElementParams(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.selector = this.convertValues(source["selector"], ElementSelector);
-	        this.action = source["action"];
-	        this.inputText = source["inputText"];
-	        this.swipeDir = source["swipeDir"];
-	        this.swipeDistance = source["swipeDistance"];
-	        this.swipeDuration = source["swipeDuration"];
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	export class SwipeParams {
-	    x?: number;
-	    y?: number;
-	    x2?: number;
-	    y2?: number;
-	    direction?: string;
-	    distance?: number;
-	    duration?: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new SwipeParams(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.x = source["x"];
-	        this.y = source["y"];
-	        this.x2 = source["x2"];
-	        this.y2 = source["y2"];
-	        this.direction = source["direction"];
-	        this.distance = source["distance"];
-	        this.duration = source["duration"];
-	    }
-	}
-	export class TapParams {
-	    x: number;
-	    y: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new TapParams(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.x = source["x"];
-	        this.y = source["y"];
-	    }
-	}
-	export class StepConnections {
-	    successStepId?: string;
-	    errorStepId?: string;
-	    trueStepId?: string;
-	    falseStepId?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new StepConnections(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.successStepId = source["successStepId"];
-	        this.errorStepId = source["errorStepId"];
-	        this.trueStepId = source["trueStepId"];
-	        this.falseStepId = source["falseStepId"];
-	    }
-	}
-	export class StepCommon {
-	    timeout?: number;
-	    onError?: string;
-	    loop?: number;
-	    postDelay?: number;
-	    preWait?: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new StepCommon(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.timeout = source["timeout"];
-	        this.onError = source["onError"];
-	        this.loop = source["loop"];
-	        this.postDelay = source["postDelay"];
-	        this.preWait = source["preWait"];
-	    }
-	}
-	export class WorkflowStep {
-	    id: string;
-	    type: string;
-	    name?: string;
-	    common?: StepCommon;
-	    connections?: StepConnections;
-	    tap?: TapParams;
-	    swipe?: SwipeParams;
-	    element?: ElementParams;
-	    app?: AppParams;
-	    branch?: BranchParams;
-	    wait?: WaitParams;
-	    script?: ScriptParams;
-	    variable?: VariableParams;
-	    adb?: ADBParams;
-	    workflow?: SubWorkflowParams;
-	    layout?: StepLayout;
-	
-	    static createFrom(source: any = {}) {
-	        return new WorkflowStep(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.type = source["type"];
-	        this.name = source["name"];
-	        this.common = this.convertValues(source["common"], StepCommon);
-	        this.connections = this.convertValues(source["connections"], StepConnections);
-	        this.tap = this.convertValues(source["tap"], TapParams);
-	        this.swipe = this.convertValues(source["swipe"], SwipeParams);
-	        this.element = this.convertValues(source["element"], ElementParams);
-	        this.app = this.convertValues(source["app"], AppParams);
-	        this.branch = this.convertValues(source["branch"], BranchParams);
-	        this.wait = this.convertValues(source["wait"], WaitParams);
-	        this.script = this.convertValues(source["script"], ScriptParams);
-	        this.variable = this.convertValues(source["variable"], VariableParams);
-	        this.adb = this.convertValues(source["adb"], ADBParams);
-	        this.workflow = this.convertValues(source["workflow"], SubWorkflowParams);
-	        this.layout = this.convertValues(source["layout"], StepLayout);
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	export class SuggestedAction {
-	    id: string;
-	    label: string;
-	    description: string;
-	    steps: WorkflowStep[];
-	    priority: number;
-	    autoExecute: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new SuggestedAction(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.label = source["label"];
-	        this.description = source["description"];
-	        this.steps = this.convertValues(source["steps"], WorkflowStep);
-	        this.priority = source["priority"];
-	        this.autoExecute = source["autoExecute"];
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	export class AnomalyAnalysis {
-	    anomalyType: string;
-	    description: string;
-	    confidence: number;
-	    suggestedActions: SuggestedAction[];
-	    autoResolvable: boolean;
-	    dialogTitle?: string;
-	    dialogMessage?: string;
-	    detectedButtons?: string[];
-	
-	    static createFrom(source: any = {}) {
-	        return new AnomalyAnalysis(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.anomalyType = source["anomalyType"];
-	        this.description = source["description"];
-	        this.confidence = source["confidence"];
-	        this.suggestedActions = this.convertValues(source["suggestedActions"], SuggestedAction);
-	        this.autoResolvable = source["autoResolvable"];
-	        this.dialogTitle = source["dialogTitle"];
-	        this.dialogMessage = source["dialogMessage"];
-	        this.detectedButtons = source["detectedButtons"];
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
 	export class AppPackage {
 	    name: string;
 	    label: string;
@@ -599,7 +163,6 @@ export namespace main {
 	        this.launchableActivities = source["launchableActivities"];
 	    }
 	}
-	
 	export class AssertionExpected {
 	    exists?: boolean;
 	    count?: number;
@@ -909,7 +472,6 @@ export namespace main {
 	    }
 	}
 	
-	
 	export class Device {
 	    id: string;
 	    serial: string;
@@ -1149,7 +711,7 @@ export namespace main {
 	    y: number;
 	    class: string;
 	    bounds: string;
-	    selector?: ElementSelector;
+	    selector?: types.ElementSelector;
 	    timestamp: number;
 	
 	    static createFrom(source: any = {}) {
@@ -1162,7 +724,7 @@ export namespace main {
 	        this.y = source["y"];
 	        this.class = source["class"];
 	        this.bounds = source["bounds"];
-	        this.selector = this.convertValues(source["selector"], ElementSelector);
+	        this.selector = this.convertValues(source["selector"], types.ElementSelector);
 	        this.timestamp = source["timestamp"];
 	    }
 	
@@ -1184,8 +746,6 @@ export namespace main {
 		    return a;
 		}
 	}
-	
-	
 	
 	export class EventQuery {
 	    sessionId?: string;
@@ -1354,7 +914,7 @@ export namespace main {
 	export class GeneratedWorkflow {
 	    name: string;
 	    description: string;
-	    steps: WorkflowStep[];
+	    steps: types.WorkflowStep[];
 	    metadata?: Record<string, any>;
 	    suggestions?: string[];
 	    confidence?: number;
@@ -1369,7 +929,7 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
 	        this.description = source["description"];
-	        this.steps = this.convertValues(source["steps"], WorkflowStep);
+	        this.steps = this.convertValues(source["steps"], types.WorkflowStep);
 	        this.metadata = source["metadata"];
 	        this.suggestions = source["suggestions"];
 	        this.confidence = source["confidence"];
@@ -1395,7 +955,6 @@ export namespace main {
 		    return a;
 		}
 	}
-	
 	export class HistoryDevice {
 	    id: string;
 	    serial: string;
@@ -1515,7 +1074,6 @@ export namespace main {
 	        this.noPowerOn = source["noPowerOn"];
 	    }
 	}
-	
 	export class TaskStep {
 	    type: string;
 	    value: string;
@@ -1787,49 +1345,6 @@ export namespace main {
 	        this.searchText = source["searchText"];
 	    }
 	}
-	
-	
-	export class StepExecutionResult {
-	    stepId: string;
-	    success: boolean;
-	    error?: string;
-	    duration: number;
-	    anomaly?: AnomalyAnalysis;
-	    handled: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new StepExecutionResult(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.stepId = source["stepId"];
-	        this.success = source["success"];
-	        this.error = source["error"];
-	        this.duration = source["duration"];
-	        this.anomaly = this.convertValues(source["anomaly"], AnomalyAnalysis);
-	        this.handled = source["handled"];
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	
 	export class StoredAssertion {
 	    id: string;
 	    name: string;
@@ -1924,10 +1439,6 @@ export namespace main {
 	    }
 	}
 	
-	
-	
-	
-	
 	export class TimeIndexEntry {
 	    second: number;
 	    eventCount: number;
@@ -1955,7 +1466,7 @@ export namespace main {
 	    x2?: number;
 	    y2?: number;
 	    duration?: number;
-	    selector?: ElementSelector;
+	    selector?: types.ElementSelector;
 	
 	    static createFrom(source: any = {}) {
 	        return new TouchEvent(source);
@@ -1970,7 +1481,7 @@ export namespace main {
 	        this.x2 = source["x2"];
 	        this.y2 = source["y2"];
 	        this.duration = source["duration"];
-	        this.selector = this.convertValues(source["selector"], ElementSelector);
+	        this.selector = this.convertValues(source["selector"], types.ElementSelector);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -2065,7 +1576,6 @@ export namespace main {
 	}
 	
 	
-	
 	export class VideoMetadata {
 	    path: string;
 	    duration: number;
@@ -2128,73 +1638,6 @@ export namespace main {
 	        this.base64 = source["base64"];
 	        this.width = source["width"];
 	        this.height = source["height"];
-	    }
-	}
-	
-	export class Workflow {
-	    id: string;
-	    name: string;
-	    description?: string;
-	    version?: number;
-	    steps: WorkflowStep[];
-	    variables?: Record<string, string>;
-	    createdAt: string;
-	    updatedAt: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new Workflow(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.description = source["description"];
-	        this.version = source["version"];
-	        this.steps = this.convertValues(source["steps"], WorkflowStep);
-	        this.variables = source["variables"];
-	        this.createdAt = source["createdAt"];
-	        this.updatedAt = source["updatedAt"];
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	export class WorkflowExecutionConfig {
-	    mode: string;
-	    autoHandlePermissions: boolean;
-	    autoHandleSystemDialogs: boolean;
-	    autoUpdateWorkflow: boolean;
-	    maxRetries: number;
-	    anomalyTimeout: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new WorkflowExecutionConfig(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.mode = source["mode"];
-	        this.autoHandlePermissions = source["autoHandlePermissions"];
-	        this.autoHandleSystemDialogs = source["autoHandleSystemDialogs"];
-	        this.autoUpdateWorkflow = source["autoUpdateWorkflow"];
-	        this.maxRetries = source["maxRetries"];
-	        this.anomalyTimeout = source["anomalyTimeout"];
 	    }
 	}
 	export class WorkflowGeneratorConfig {
@@ -2436,6 +1879,408 @@ export namespace tls {
 	        this.OCSPResponse = source["OCSPResponse"];
 	        this.TLSUnique = source["TLSUnique"];
 	        this.ECHAccepted = source["ECHAccepted"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
+export namespace types {
+	
+	export class ADBParams {
+	    command: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ADBParams(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.command = source["command"];
+	    }
+	}
+	export class AppParams {
+	    packageName: string;
+	    action: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AppParams(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.packageName = source["packageName"];
+	        this.action = source["action"];
+	    }
+	}
+	export class ElementSelector {
+	    type: string;
+	    value: string;
+	    index?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ElementSelector(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.type = source["type"];
+	        this.value = source["value"];
+	        this.index = source["index"];
+	    }
+	}
+	export class BranchParams {
+	    condition: string;
+	    selector?: ElementSelector;
+	    expectedValue?: string;
+	    variableName?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new BranchParams(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.condition = source["condition"];
+	        this.selector = this.convertValues(source["selector"], ElementSelector);
+	        this.expectedValue = source["expectedValue"];
+	        this.variableName = source["variableName"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ElementParams {
+	    selector: ElementSelector;
+	    action: string;
+	    inputText?: string;
+	    swipeDir?: string;
+	    swipeDistance?: number;
+	    swipeDuration?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ElementParams(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.selector = this.convertValues(source["selector"], ElementSelector);
+	        this.action = source["action"];
+	        this.inputText = source["inputText"];
+	        this.swipeDir = source["swipeDir"];
+	        this.swipeDistance = source["swipeDistance"];
+	        this.swipeDuration = source["swipeDuration"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	export class HandleInfo {
+	    sourceHandle?: string;
+	    targetHandle?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new HandleInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sourceHandle = source["sourceHandle"];
+	        this.targetHandle = source["targetHandle"];
+	    }
+	}
+	export class ScriptParams {
+	    scriptName: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ScriptParams(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.scriptName = source["scriptName"];
+	    }
+	}
+	export class StepCommon {
+	    timeout?: number;
+	    onError?: string;
+	    loop?: number;
+	    postDelay?: number;
+	    preWait?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new StepCommon(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.timeout = source["timeout"];
+	        this.onError = source["onError"];
+	        this.loop = source["loop"];
+	        this.postDelay = source["postDelay"];
+	        this.preWait = source["preWait"];
+	    }
+	}
+	export class StepConnections {
+	    successStepId?: string;
+	    errorStepId?: string;
+	    trueStepId?: string;
+	    falseStepId?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new StepConnections(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.successStepId = source["successStepId"];
+	        this.errorStepId = source["errorStepId"];
+	        this.trueStepId = source["trueStepId"];
+	        this.falseStepId = source["falseStepId"];
+	    }
+	}
+	export class StepLayout {
+	    posX?: number;
+	    posY?: number;
+	    handles?: Record<string, HandleInfo>;
+	
+	    static createFrom(source: any = {}) {
+	        return new StepLayout(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.posX = source["posX"];
+	        this.posY = source["posY"];
+	        this.handles = this.convertValues(source["handles"], HandleInfo, true);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class SubWorkflowParams {
+	    workflowId: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SubWorkflowParams(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.workflowId = source["workflowId"];
+	    }
+	}
+	export class SwipeParams {
+	    x?: number;
+	    y?: number;
+	    x2?: number;
+	    y2?: number;
+	    direction?: string;
+	    distance?: number;
+	    duration?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SwipeParams(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.x2 = source["x2"];
+	        this.y2 = source["y2"];
+	        this.direction = source["direction"];
+	        this.distance = source["distance"];
+	        this.duration = source["duration"];
+	    }
+	}
+	export class TapParams {
+	    x: number;
+	    y: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new TapParams(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.x = source["x"];
+	        this.y = source["y"];
+	    }
+	}
+	export class VariableParams {
+	    name: string;
+	    value: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new VariableParams(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.value = source["value"];
+	    }
+	}
+	export class WaitParams {
+	    durationMs: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new WaitParams(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.durationMs = source["durationMs"];
+	    }
+	}
+	export class WorkflowStep {
+	    id: string;
+	    type: string;
+	    name?: string;
+	    common?: StepCommon;
+	    connections?: StepConnections;
+	    tap?: TapParams;
+	    swipe?: SwipeParams;
+	    element?: ElementParams;
+	    app?: AppParams;
+	    branch?: BranchParams;
+	    wait?: WaitParams;
+	    script?: ScriptParams;
+	    variable?: VariableParams;
+	    adb?: ADBParams;
+	    workflow?: SubWorkflowParams;
+	    layout?: StepLayout;
+	
+	    static createFrom(source: any = {}) {
+	        return new WorkflowStep(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.type = source["type"];
+	        this.name = source["name"];
+	        this.common = this.convertValues(source["common"], StepCommon);
+	        this.connections = this.convertValues(source["connections"], StepConnections);
+	        this.tap = this.convertValues(source["tap"], TapParams);
+	        this.swipe = this.convertValues(source["swipe"], SwipeParams);
+	        this.element = this.convertValues(source["element"], ElementParams);
+	        this.app = this.convertValues(source["app"], AppParams);
+	        this.branch = this.convertValues(source["branch"], BranchParams);
+	        this.wait = this.convertValues(source["wait"], WaitParams);
+	        this.script = this.convertValues(source["script"], ScriptParams);
+	        this.variable = this.convertValues(source["variable"], VariableParams);
+	        this.adb = this.convertValues(source["adb"], ADBParams);
+	        this.workflow = this.convertValues(source["workflow"], SubWorkflowParams);
+	        this.layout = this.convertValues(source["layout"], StepLayout);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class Workflow {
+	    id: string;
+	    name: string;
+	    description?: string;
+	    version?: number;
+	    steps: WorkflowStep[];
+	    variables?: Record<string, string>;
+	    createdAt: string;
+	    updatedAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Workflow(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.version = source["version"];
+	        this.steps = this.convertValues(source["steps"], WorkflowStep);
+	        this.variables = source["variables"];
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

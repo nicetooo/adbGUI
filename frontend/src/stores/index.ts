@@ -76,9 +76,6 @@ export { useDeviceInfoModalStore } from './deviceInfoModalStore';
 // Batch Operation Store
 export { useBatchOperationStore } from './batchOperationStore';
 
-// Workflow Anomaly Store
-export { useWorkflowAnomalyStore } from './workflowAnomalyStore';
-
 // Assertions Panel Store
 export { useAssertionsPanelStore } from './assertionsPanelStore';
 

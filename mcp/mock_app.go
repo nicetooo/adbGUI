@@ -375,6 +375,14 @@ func (m *MockGazeApp) StopWorkflow(device Device) {
 	m.recordCall("StopWorkflow", device)
 }
 
+func (m *MockGazeApp) PauseTask(deviceId string) {
+	m.recordCall("PauseTask", deviceId)
+}
+
+func (m *MockGazeApp) ResumeTask(deviceId string) {
+	m.recordCall("ResumeTask", deviceId)
+}
+
 func (m *MockGazeApp) ExecuteSingleWorkflowStep(deviceId string, step WorkflowStep) error {
 	m.recordCall("ExecuteSingleWorkflowStep", deviceId, step)
 	return m.ExecuteSingleStepError
