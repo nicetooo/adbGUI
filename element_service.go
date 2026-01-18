@@ -368,6 +368,7 @@ func (a *App) performScroll(deviceId string, direction string) error {
 // ========================================
 
 // waitForElement waits for an element to appear and returns it
+// The timeout parameter strictly limits total execution time including UI dump operations
 func (a *App) waitForElement(ctx context.Context, deviceId string, selector *ElementSelector, timeout int, retryInterval int) (*UINode, error) {
 	if selector == nil {
 		return nil, fmt.Errorf("selector is nil")
@@ -378,20 +379,28 @@ func (a *App) waitForElement(ctx context.Context, deviceId string, selector *Ele
 		return &UINode{Bounds: selector.Value}, nil
 	}
 
-	startTime := time.Now()
+	// Create a context with the specified timeout to strictly control total execution time
+	// This ensures UI dump operations are also cancelled when timeout is reached
+	timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Millisecond)
+	defer cancel()
+
 	for {
 		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
+		case <-timeoutCtx.Done():
+			if timeoutCtx.Err() == context.DeadlineExceeded {
+				return nil, fmt.Errorf("element not found within timeout %dms (selector: %s=%s)", timeout, selector.Type, selector.Value)
+			}
+			return nil, timeoutCtx.Err()
 		default:
 		}
 
-		if time.Since(startTime) > time.Duration(timeout)*time.Millisecond {
-			return nil, fmt.Errorf("element not found within timeout (selector: %s=%s)", selector.Type, selector.Value)
-		}
-
-		hierarchy, err := a.GetUIHierarchy(deviceId)
+		// Use context-aware GetUIHierarchy so it respects timeout
+		hierarchy, err := a.GetUIHierarchyWithContext(timeoutCtx, deviceId)
 		if err != nil {
+			// Check if timeout was reached
+			if timeoutCtx.Err() != nil {
+				return nil, fmt.Errorf("element not found within timeout %dms (selector: %s=%s)", timeout, selector.Type, selector.Value)
+			}
 			time.Sleep(time.Duration(retryInterval) * time.Millisecond)
 			continue
 		}
@@ -401,7 +410,12 @@ func (a *App) waitForElement(ctx context.Context, deviceId string, selector *Ele
 			return node, nil
 		}
 
-		time.Sleep(time.Duration(retryInterval) * time.Millisecond)
+		// Wait before retry, but respect timeout
+		select {
+		case <-timeoutCtx.Done():
+			return nil, fmt.Errorf("element not found within timeout %dms (selector: %s=%s)", timeout, selector.Type, selector.Value)
+		case <-time.After(time.Duration(retryInterval) * time.Millisecond):
+		}
 	}
 }
 

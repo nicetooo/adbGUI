@@ -1989,8 +1989,15 @@ type UIHierarchyResult struct {
 	RawXML string  `json:"rawXml"`
 }
 
-// GetUIHierarchy dumps the UI hierarchy and parses it
+// GetUIHierarchy dumps the UI hierarchy and parses it (with default 30s timeout)
 func (a *App) GetUIHierarchy(deviceId string) (*UIHierarchyResult, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return a.GetUIHierarchyWithContext(ctx, deviceId)
+}
+
+// GetUIHierarchyWithContext dumps the UI hierarchy with context for timeout control
+func (a *App) GetUIHierarchyWithContext(ctx context.Context, deviceId string) (*UIHierarchyResult, error) {
 	// Try dumping several times as it can be flaky
 	var xmlContent string
 	var err error
@@ -1998,18 +2005,29 @@ func (a *App) GetUIHierarchy(deviceId string) (*UIHierarchyResult, error) {
 	dumpFile := "/data/local/tmp/view.xml"
 
 	for i := 0; i < maxRetries; i++ {
+		// Check context before each attempt
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
 		if i > 0 {
 			// Cleanup on retry: kill any existing uiautomator processes
-			a.RunAdbCommand(deviceId, "shell pkill uiautomator")
+			a.RunAdbCommandWithContext(ctx, deviceId, "shell pkill uiautomator")
 			time.Sleep(500 * time.Millisecond)
 		}
 
 		// Dump and read in single command to reduce adb overhead
 		// Using && ensures cat only runs if dump succeeds
 		combinedCmd := fmt.Sprintf("shell uiautomator dump %s && cat %s", dumpFile, dumpFile)
-		xmlContent, err = a.RunAdbCommand(deviceId, combinedCmd)
+		xmlContent, err = a.RunAdbCommandWithContext(ctx, deviceId, combinedCmd)
 		if err == nil && strings.Contains(xmlContent, "<?xml") {
 			break
+		}
+		// Check if context was cancelled
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
 		}
 		LogDebug("automation").Int("retry", i+1).Int("maxRetries", maxRetries).Err(err).Msg("UI dump retry")
 	}

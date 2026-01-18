@@ -648,15 +648,19 @@ func (a *App) RestartAdbServer() (string, error) {
 	return "ADB server restarted successfully", nil
 }
 
-// RunAdbCommand executes an arbitrary ADB command
+// RunAdbCommand executes an arbitrary ADB command with default 30s timeout
 func (a *App) RunAdbCommand(deviceId string, fullCmd string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return a.RunAdbCommandWithContext(ctx, deviceId, fullCmd)
+}
+
+// RunAdbCommandWithContext executes an arbitrary ADB command with context for timeout control
+func (a *App) RunAdbCommandWithContext(ctx context.Context, deviceId string, fullCmd string) (string, error) {
 	// 验证 deviceId 格式防止注入
 	if err := ValidateDeviceID(deviceId); err != nil {
 		return "", fmt.Errorf("invalid device ID: %w", err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 
 	fullCmd = strings.TrimSpace(fullCmd)
 	if fullCmd == "" {
