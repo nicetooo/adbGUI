@@ -505,7 +505,11 @@ func (s *MCPServer) handleWorkflowCreate(ctx context.Context, request mcp.CallTo
 	}
 
 	// Auto-link steps sequentially (if not already linked)
+	// Skip branch nodes - they use trueStepId/falseStepId instead of successStepId
 	for i := range steps {
+		if steps[i].Type == "branch" {
+			continue // Branch nodes should not use successStepId
+		}
 		if steps[i].Connections.SuccessStepId == "" && i < len(steps)-1 {
 			steps[i].Connections.SuccessStepId = steps[i+1].ID
 		}
@@ -646,7 +650,11 @@ func (s *MCPServer) handleWorkflowUpdate(ctx context.Context, request mcp.CallTo
 		}
 
 		// Auto-link steps sequentially (if not already linked)
+		// Skip branch nodes - they use trueStepId/falseStepId instead of successStepId
 		for i := range steps {
+			if steps[i].Type == "branch" {
+				continue // Branch nodes should not use successStepId
+			}
 			if steps[i].Connections.SuccessStepId == "" && i < len(steps)-1 {
 				steps[i].Connections.SuccessStepId = steps[i+1].ID
 			}
