@@ -204,6 +204,8 @@ export function GetTouchInputDevice(arg1:string):Promise<string>;
 
 export function GetUIHierarchy(arg1:string):Promise<main.UIHierarchyResult>;
 
+export function GetUIHierarchyWithContext(arg1:context.Context,arg2:string):Promise<main.UIHierarchyResult>;
+
 export function GetVideoFileURL(arg1:string):Promise<string>;
 
 export function GetVideoFrame(arg1:string,arg2:number,arg3:number):Promise<string>;
@@ -333,6 +335,8 @@ export function RestartAdbServer():Promise<string>;
 export function ResumeTask(arg1:string):Promise<void>;
 
 export function RunAdbCommand(arg1:string,arg2:string):Promise<string>;
+
+export function RunAdbCommandWithContext(arg1:context.Context,arg2:string,arg3:string):Promise<string>;
 
 export function RunScriptTask(arg1:string,arg2:main.ScriptTask):Promise<void>;
 

@@ -398,6 +398,10 @@ export function GetUIHierarchy(arg1) {
   return window['go']['main']['App']['GetUIHierarchy'](arg1);
 }
 
+export function GetUIHierarchyWithContext(arg1, arg2) {
+  return window['go']['main']['App']['GetUIHierarchyWithContext'](arg1, arg2);
+}
+
 export function GetVideoFileURL(arg1) {
   return window['go']['main']['App']['GetVideoFileURL'](arg1);
 }
@@ -656,6 +660,10 @@ export function ResumeTask(arg1) {
 
 export function RunAdbCommand(arg1, arg2) {
   return window['go']['main']['App']['RunAdbCommand'](arg1, arg2);
+}
+
+export function RunAdbCommandWithContext(arg1, arg2, arg3) {
+  return window['go']['main']['App']['RunAdbCommandWithContext'](arg1, arg2, arg3);
 }
 
 export function RunScriptTask(arg1, arg2) {
