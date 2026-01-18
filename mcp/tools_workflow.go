@@ -37,7 +37,7 @@ func (s *MCPServer) registerWorkflowTools() {
 		mcp.NewTool("workflow_create",
 			mcp.WithDescription(`Create a new workflow with the given name and steps (V2 format).
 
-A 'start' node is automatically added at the beginning - do NOT include it in steps_json.
+A 'start' node will be auto-added if not present in steps_json. You may include it or omit it.
 Steps are automatically linked sequentially via connections.successStepId.
 
 Step JSON format (V2):
@@ -515,26 +515,37 @@ func (s *MCPServer) handleWorkflowCreate(ctx context.Context, request mcp.CallTo
 		}
 	}
 
-	// Auto-add start node at the beginning
-	startStep := WorkflowStep{
-		ID:   fmt.Sprintf("step_%s", uuid.New().String()[:8]),
-		Type: "start",
-		Name: "Start",
-		Common: StepCommon{
-			OnError: "stop",
-			Loop:    1,
-		},
-		Connections: StepConnections{},
-		Layout: StepLayout{
-			PosX: 20,
-			PosY: 20,
-		},
+	// Check if start node already exists
+	hasStart := false
+	for _, s := range steps {
+		if s.Type == "start" {
+			hasStart = true
+			break
+		}
 	}
-	// Link start node to first step if exists
-	if len(steps) > 0 {
-		startStep.Connections.SuccessStepId = steps[0].ID
+
+	// Auto-add start node at the beginning only if not already present
+	if !hasStart {
+		startStep := WorkflowStep{
+			ID:   fmt.Sprintf("step_%s", uuid.New().String()[:8]),
+			Type: "start",
+			Name: "Start",
+			Common: StepCommon{
+				OnError: "stop",
+				Loop:    1,
+			},
+			Connections: StepConnections{},
+			Layout: StepLayout{
+				PosX: 20,
+				PosY: 20,
+			},
+		}
+		// Link start node to first step if exists
+		if len(steps) > 0 {
+			startStep.Connections.SuccessStepId = steps[0].ID
+		}
+		steps = append([]WorkflowStep{startStep}, steps...)
 	}
-	steps = append([]WorkflowStep{startStep}, steps...)
 
 	// Parse variables if provided
 	var variables map[string]string
