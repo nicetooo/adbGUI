@@ -54,55 +54,55 @@ type WorkflowAIExecutor struct {
 	mu              sync.RWMutex
 
 	// Channels for async operations
-	anomalyChan   chan *AnomalyContext
-	responseChan  chan *AnomalyResponse
-	stopChan      chan struct{}
+	anomalyChan  chan *AnomalyContext
+	responseChan chan *AnomalyResponse
+	stopChan     chan struct{}
 }
 
 // AnomalyContext represents the context when an anomaly is detected
 type AnomalyContext struct {
-	WorkflowID    string         `json:"workflowId"`
-	StepID        string         `json:"stepId"`
-	StepIndex     int            `json:"stepIndex"`
-	ExpectedState *UIState       `json:"expectedState,omitempty"`
-	ActualState   *UIState       `json:"actualState,omitempty"`
-	Screenshot    string         `json:"screenshot,omitempty"` // Base64
-	UIHierarchy   string         `json:"uiHierarchy,omitempty"`
-	ErrorMessage  string         `json:"errorMessage"`
-	Timestamp     int64          `json:"timestamp"`
+	WorkflowID    string   `json:"workflowId"`
+	StepID        string   `json:"stepId"`
+	StepIndex     int      `json:"stepIndex"`
+	ExpectedState *UIState `json:"expectedState,omitempty"`
+	ActualState   *UIState `json:"actualState,omitempty"`
+	Screenshot    string   `json:"screenshot,omitempty"` // Base64
+	UIHierarchy   string   `json:"uiHierarchy,omitempty"`
+	ErrorMessage  string   `json:"errorMessage"`
+	Timestamp     int64    `json:"timestamp"`
 }
 
 // UIState represents the expected or actual UI state
 type UIState struct {
-	Activity    string            `json:"activity,omitempty"`
-	Elements    []ElementState    `json:"elements,omitempty"`
-	ScreenText  []string          `json:"screenText,omitempty"`
+	Activity   string         `json:"activity,omitempty"`
+	Elements   []ElementState `json:"elements,omitempty"`
+	ScreenText []string       `json:"screenText,omitempty"`
 }
 
 // ElementState represents the state of a UI element
 type ElementState struct {
-	Selector    *ElementSelector `json:"selector,omitempty"`
-	Visible     bool             `json:"visible"`
-	Enabled     bool             `json:"enabled"`
-	Text        string           `json:"text,omitempty"`
+	Selector *ElementSelector `json:"selector,omitempty"`
+	Visible  bool             `json:"visible"`
+	Enabled  bool             `json:"enabled"`
+	Text     string           `json:"text,omitempty"`
 }
 
 // AnomalyResponse represents the user/AI response to an anomaly
 type AnomalyResponse struct {
-	Action       string         `json:"action"`       // "execute", "skip", "pause", "stop", "retry"
-	Steps        []WorkflowStep `json:"steps,omitempty"` // Steps to execute (for "execute" action)
-	UpdateWorkflow bool         `json:"updateWorkflow"`  // Whether to save this handling to workflow
-	Remember     bool           `json:"remember"`        // Remember this choice for future
+	Action         string         `json:"action"`          // "execute", "skip", "pause", "stop", "retry"
+	Steps          []WorkflowStep `json:"steps,omitempty"` // Steps to execute (for "execute" action)
+	UpdateWorkflow bool           `json:"updateWorkflow"`  // Whether to save this handling to workflow
+	Remember       bool           `json:"remember"`        // Remember this choice for future
 }
 
 // StepExecutionResult represents the result of executing a step
 type StepExecutionResult struct {
-	StepID      string           `json:"stepId"`
-	Success     bool             `json:"success"`
-	Error       string           `json:"error,omitempty"`
-	Duration    int64            `json:"duration"` // ms
-	Anomaly     *AnomalyAnalysis `json:"anomaly,omitempty"`
-	Handled     bool             `json:"handled"` // Whether anomaly was handled
+	StepID   string           `json:"stepId"`
+	Success  bool             `json:"success"`
+	Error    string           `json:"error,omitempty"`
+	Duration int64            `json:"duration"` // ms
+	Anomaly  *AnomalyAnalysis `json:"anomaly,omitempty"`
+	Handled  bool             `json:"handled"` // Whether anomaly was handled
 }
 
 // NewWorkflowAIExecutor creates a new AI executor
@@ -360,22 +360,6 @@ func (e *WorkflowAIExecutor) IsPaused() bool {
 // App Methods for AI Execution
 // ========================================
 
-// GetWorkflow loads a workflow by ID
-func (a *App) GetWorkflow(workflowID string) (*Workflow, error) {
-	workflows, err := a.LoadWorkflows()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load workflows: %w", err)
-	}
-
-	for _, w := range workflows {
-		if w.ID == workflowID {
-			return &w, nil
-		}
-	}
-
-	return nil, fmt.Errorf("workflow not found: %s", workflowID)
-}
-
 // ExecuteWorkflowWithAI executes a workflow with AI assistance
 func (a *App) ExecuteWorkflowWithAI(deviceID string, workflowID string, config *WorkflowExecutionConfig) ([]StepExecutionResult, error) {
 	workflow, err := a.GetWorkflow(workflowID)
@@ -402,54 +386,75 @@ func (a *App) executeAutomationStep(deviceID string, step *WorkflowStep) error {
 
 	// Use the existing automation engine
 	switch step.Type {
-	case "click", "tap", "click_element":
-		if step.Selector != nil {
-			cfg := DefaultElementActionConfig()
-			return a.ClickElement(ctx, deviceID, step.Selector, &cfg)
+	case "tap":
+		if step.Tap != nil {
+			return a.performTap(deviceID, step.Tap.X, step.Tap.Y)
 		}
-		// Fall back to coordinates if available
-		if step.Value != "" {
-			var x, y int
-			_, err := fmt.Sscanf(step.Value, "%d,%d", &x, &y)
-			if err == nil {
-				return a.performTap(deviceID, x, y)
-			}
-		}
-		return fmt.Errorf("no selector or coordinates for click step")
+		return fmt.Errorf("no tap params for tap step")
 
-	case "long_press":
-		if step.Selector != nil {
+	case "click_element":
+		if step.Element != nil {
 			cfg := DefaultElementActionConfig()
-			return a.LongClickElement(ctx, deviceID, step.Selector, 1000, &cfg)
+			return a.ClickElement(ctx, deviceID, &step.Element.Selector, &cfg)
 		}
-		return fmt.Errorf("no selector for long_press step")
+		return fmt.Errorf("no element params for click_element step")
+
+	case "long_click_element":
+		if step.Element != nil {
+			cfg := DefaultElementActionConfig()
+			return a.LongClickElement(ctx, deviceID, &step.Element.Selector, 1000, &cfg)
+		}
+		return fmt.Errorf("no element params for long_click_element step")
 
 	case "swipe":
-		// Parse swipe parameters from Value or use defaults
-		return a.performSwipe(deviceID, 500, 1000, 500, 200, 300)
+		if step.Swipe != nil {
+			duration := step.Swipe.Duration
+			if duration == 0 {
+				duration = 300
+			}
+			return a.performSwipe(deviceID, step.Swipe.X, step.Swipe.Y, step.Swipe.X2, step.Swipe.Y2, duration)
+		}
+		return fmt.Errorf("no swipe params for swipe step")
 
-	case "input", "type":
-		if step.Selector != nil {
+	case "input_text":
+		if step.Element != nil {
 			cfg := DefaultElementActionConfig()
-			if err := a.ClickElement(ctx, deviceID, step.Selector, &cfg); err != nil {
+			if err := a.ClickElement(ctx, deviceID, &step.Element.Selector, &cfg); err != nil {
 				return err
 			}
+			return a.performInputText(deviceID, step.Element.InputText)
 		}
-		return a.performInputText(deviceID, step.Value)
+		return fmt.Errorf("no element params for input_text step")
 
 	case "wait":
-		if step.Timeout > 0 {
-			time.Sleep(time.Duration(step.Timeout) * time.Millisecond)
+		if step.Wait != nil && step.Wait.DurationMs > 0 {
+			time.Sleep(time.Duration(step.Wait.DurationMs) * time.Millisecond)
+		} else if step.Common.Timeout > 0 {
+			time.Sleep(time.Duration(step.Common.Timeout) * time.Millisecond)
 		} else {
 			time.Sleep(time.Second)
 		}
 		return nil
 
-	case "back":
+	case "key_back":
 		return a.performPressBack(deviceID)
 
-	case "home":
+	case "key_home":
 		return a.performPressHome(deviceID)
+
+	case "launch_app":
+		if step.App != nil {
+			_, err := a.StartApp(deviceID, step.App.PackageName)
+			return err
+		}
+		return fmt.Errorf("no app params for launch_app step")
+
+	case "stop_app":
+		if step.App != nil {
+			_, err := a.ForceStopApp(deviceID, step.App.PackageName)
+			return err
+		}
+		return fmt.Errorf("no app params for stop_app step")
 
 	default:
 		return fmt.Errorf("unknown step type: %s", step.Type)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,64 +32,43 @@ func (s *MCPServer) registerWorkflowTools() {
 		s.handleWorkflowGet,
 	)
 
-	// workflow_create - Create a new workflow
+	// workflow_create - Create a new workflow (V2)
 	s.server.AddTool(
 		mcp.NewTool("workflow_create",
-			mcp.WithDescription(`Create a new workflow with the given name and steps.
+			mcp.WithDescription(`Create a new workflow with the given name and steps (V2 format).
 
 A 'start' node is automatically added at the beginning - do NOT include it in steps_json.
-Steps are automatically linked sequentially.
+Steps are automatically linked sequentially via connections.successStepId.
 
-Step types and required fields:
+Step JSON format (V2):
+{
+  "type": "step_type",
+  "name": "optional display name",
+  "common": { "timeout": 5000, "onError": "stop", "loop": 1, "postDelay": 500 },
+  "connections": { "successStepId": "", "errorStepId": "" },
+  // Type-specific params (only one based on type):
+  "tap": { "x": 540, "y": 960 },
+  "swipe": { "x": 540, "y": 1800, "x2": 540, "y2": 600 } or { "direction": "up", "distance": 500 },
+  "element": { "selector": {"type":"id","value":"com.app:id/btn"}, "action": "click" },
+  "app": { "packageName": "com.example.app", "action": "launch" },
+  "branch": { "condition": "exists", "selector": {...} },
+  "wait": { "durationMs": 2000 },
+  "adb": { "command": "shell input keyevent 4" },
+  "script": { "scriptName": "my_script" },
+  "variable": { "name": "myVar", "value": "myValue" },
+  "workflow": { "workflowId": "sub_workflow_id" }
+}
 
-COORDINATE-BASED (no selector needed):
-- tap: {type:"tap", x:540, y:960} - tap at coordinates
-- swipe: {type:"swipe", x:540, y:1800, x2:540, y2:600} - swipe from (x,y) to (x2,y2)
-- swipe: {type:"swipe", x:540, y:960, swipe_direction:"up"} - swipe in direction (up/down/left/right)
+Step types:
+- COORDINATE: tap, swipe
+- ELEMENT: click_element, long_click_element, input_text, swipe_element, wait_element, wait_gone, assert_element
+- APP: launch_app, stop_app, clear_app, open_settings
+- KEYS: key_back, key_home, key_recent, key_power, key_volume_up, key_volume_down
+- SCREEN: screen_on, screen_off
+- CONTROL: wait, adb, set_variable, branch, run_workflow, script
 
-ELEMENT-BASED (requires selector):
-- click_element: {type:"click_element", selector:{type:"resourceId",value:"com.app:id/btn"}}
-- long_click_element: {type:"long_click_element", selector:{...}}
-- input_text: {type:"input_text", selector:{...}, value:"text to input"}
-- swipe_element: {type:"swipe_element", selector:{...}, value:"up"} - swipe direction on element
-- wait_element: {type:"wait_element", selector:{...}} - wait for element to appear
-- wait_gone: {type:"wait_gone", selector:{...}} - wait for element to disappear
-- assert_element: {type:"assert_element", selector:{...}, condition_type:"exists"}
-
-Selector types: resourceId, text, contentDesc, className, xpath
-
-APP OPERATIONS:
-- launch_app: {type:"launch_app", value:"com.example.app"}
-- stop_app: {type:"stop_app", value:"com.example.app"}
-- clear_app: {type:"clear_app", value:"com.example.app"}
-- open_settings: {type:"open_settings", value:"com.example.app"}
-
-KEY EVENTS:
-- key_back: {type:"key_back"}
-- key_home: {type:"key_home"}
-- key_recent: {type:"key_recent"}
-- key_power: {type:"key_power"}
-- key_volume_up: {type:"key_volume_up"}
-- key_volume_down: {type:"key_volume_down"}
-
-SCREEN:
-- screen_on: {type:"screen_on"}
-- screen_off: {type:"screen_off"}
-
-CONTROL:
-- wait: {type:"wait", value:"1000"} - wait milliseconds
-- adb: {type:"adb", value:"shell pm list packages"} - run adb command
-- set_variable: {type:"set_variable", name:"myVar", value:"myValue"}
-
-CONDITIONAL:
-- branch: {type:"branch", selector:{type:"text",value:"Login"}, condition_type:"exists", trueStepId:"step_xxx", falseStepId:"step_yyy"}
-  condition_type options: exists, not_exists, text_equals, text_contains, variable_equals
-  For variable_equals: selector.value is variable name, value is expected value
-
-Optional fields for all steps:
-- name: step display name
-- timeout: timeout in ms (default 5000)
-- postDelay: delay after step in ms (default 500)`),
+Element selector types: id, text, contentDesc, className, xpath
+Element actions: click, long_click, input, swipe, wait, wait_gone, assert`),
 			mcp.WithString("name",
 				mcp.Required(),
 				mcp.Description("Workflow name"),
@@ -99,14 +77,14 @@ Optional fields for all steps:
 				mcp.Description("Workflow description"),
 			),
 			mcp.WithString("steps_json",
-				mcp.Description(`JSON array of workflow steps. Example:
+				mcp.Description(`JSON array of V2 workflow steps. Example:
 [
-  {"type":"launch_app","value":"com.example.app"},
-  {"type":"wait","value":"2000"},
-  {"type":"tap","x":540,"y":960},
-  {"type":"swipe","x":540,"y":1800,"x2":540,"y2":600},
-  {"type":"click_element","selector":{"type":"resourceId","value":"com.app:id/button"}},
-  {"type":"input_text","selector":{"type":"resourceId","value":"com.app:id/input"},"value":"Hello"},
+  {"type":"launch_app","app":{"packageName":"com.example.app","action":"launch"}},
+  {"type":"wait","wait":{"durationMs":2000}},
+  {"type":"tap","tap":{"x":540,"y":960}},
+  {"type":"swipe","swipe":{"x":540,"y":1800,"x2":540,"y2":600}},
+  {"type":"click_element","element":{"selector":{"type":"id","value":"com.app:id/button"},"action":"click"}},
+  {"type":"input_text","element":{"selector":{"type":"id","value":"com.app:id/input"},"action":"input","inputText":"Hello"}},
   {"type":"key_back"}
 ]`),
 			),
@@ -142,7 +120,7 @@ Only provided fields will be updated. Use workflow_get first to see current stat
 				mcp.Description("New workflow description (optional)"),
 			),
 			mcp.WithString("steps_json",
-				mcp.Description("New steps JSON array (optional, replaces all existing steps). Same format as workflow_create."),
+				mcp.Description("New steps JSON array (optional, replaces all existing steps). V2 format."),
 			),
 		),
 		s.handleWorkflowUpdate,
@@ -188,13 +166,13 @@ Only provided fields will be updated. Use workflow_get first to see current stat
 		s.handleWorkflowStatus,
 	)
 
-	// workflow_execute_step - Execute a single workflow step
+	// workflow_execute_step - Execute a single workflow step (V2)
 	s.server.AddTool(
 		mcp.NewTool("workflow_execute_step",
-			mcp.WithDescription(`Execute a single workflow step on a device.
+			mcp.WithDescription(`Execute a single workflow step on a device (V2 format).
 
 Step types:
-- Coordinate: tap (x,y), swipe (x,y,x2,y2 or x,y+direction)
+- Coordinate: tap (x,y), swipe (x,y,x2,y2 or direction+distance)
 - Element: click_element, long_click_element, input_text, swipe_element, wait_element, wait_gone, assert_element
 - App: launch_app, stop_app, clear_app, open_settings
 - Keys: key_back, key_home, key_recent, key_power, key_volume_up, key_volume_down
@@ -209,13 +187,13 @@ Step types:
 				mcp.Description("Step type (see description for full list)"),
 			),
 			mcp.WithString("selector_type",
-				mcp.Description("Element selector type: resourceId, text, contentDesc, className, xpath"),
+				mcp.Description("Element selector type: id, text, contentDesc, className, xpath"),
 			),
 			mcp.WithString("selector_value",
 				mcp.Description("Element selector value"),
 			),
 			mcp.WithString("value",
-				mcp.Description("Value: text for input, package for app ops, duration(ms) for wait, command for adb, variable value for set_variable"),
+				mcp.Description("Value: text for input, package for app ops, duration(ms) for wait, command for adb"),
 			),
 			mcp.WithString("variable_name",
 				mcp.Description("Variable name for set_variable step"),
@@ -245,7 +223,7 @@ Step types:
 				mcp.Description("Swipe distance in pixels when using direction (default: 500)"),
 			),
 			mcp.WithString("condition_type",
-				mcp.Description("Condition for assert/wait: exists, not_exists, text_equals, text_contains"),
+				mcp.Description("Condition for assert/branch: exists, not_exists, text_equals, text_contains"),
 			),
 		),
 		s.handleWorkflowExecuteStep,
@@ -274,7 +252,7 @@ func (s *MCPServer) handleWorkflowList(ctx context.Context, request mcp.CallTool
 		if wf.Description != "" {
 			result += fmt.Sprintf("   Description: %s\n", wf.Description)
 		}
-		result += fmt.Sprintf("   Steps: %d\n", len(wf.Steps))
+		result += fmt.Sprintf("   Steps: %d, Version: %d\n", len(wf.Steps), wf.Version)
 		if wf.CreatedAt != "" {
 			result += fmt.Sprintf("   Created: %s\n", wf.CreatedAt)
 		}
@@ -301,6 +279,7 @@ func (s *MCPServer) handleWorkflowGet(ctx context.Context, request mcp.CallToolR
 
 	result := fmt.Sprintf("Workflow: %s\n", workflow.Name)
 	result += fmt.Sprintf("ID: %s\n", workflow.ID)
+	result += fmt.Sprintf("Version: %d\n", workflow.Version)
 	if workflow.Description != "" {
 		result += fmt.Sprintf("Description: %s\n", workflow.Description)
 	}
@@ -314,17 +293,65 @@ func (s *MCPServer) handleWorkflowGet(ctx context.Context, request mcp.CallToolR
 
 	for i, step := range workflow.Steps {
 		result += fmt.Sprintf("\n%d. [%s] %s\n", i+1, step.Type, step.Name)
-		if step.Selector != nil {
-			result += fmt.Sprintf("   Selector: %s = %s\n", step.Selector.Type, step.Selector.Value)
+
+		// V2: Show type-specific params
+		if step.Tap != nil {
+			result += fmt.Sprintf("   Tap: (%d, %d)\n", step.Tap.X, step.Tap.Y)
 		}
-		if step.Value != "" {
-			result += fmt.Sprintf("   Value: %s\n", step.Value)
+		if step.Swipe != nil {
+			if step.Swipe.Direction != "" {
+				result += fmt.Sprintf("   Swipe: %s %dpx\n", step.Swipe.Direction, step.Swipe.Distance)
+			} else {
+				result += fmt.Sprintf("   Swipe: (%d,%d) -> (%d,%d)\n", step.Swipe.X, step.Swipe.Y, step.Swipe.X2, step.Swipe.Y2)
+			}
 		}
-		if step.Timeout > 0 {
-			result += fmt.Sprintf("   Timeout: %dms\n", step.Timeout)
+		if step.Element != nil {
+			result += fmt.Sprintf("   Element: %s = %s, Action: %s\n", step.Element.Selector.Type, step.Element.Selector.Value, step.Element.Action)
+			if step.Element.InputText != "" {
+				result += fmt.Sprintf("   InputText: %s\n", step.Element.InputText)
+			}
 		}
-		if step.PostDelay > 0 {
-			result += fmt.Sprintf("   Post Delay: %dms\n", step.PostDelay)
+		if step.App != nil {
+			result += fmt.Sprintf("   App: %s (%s)\n", step.App.PackageName, step.App.Action)
+		}
+		if step.Branch != nil {
+			result += fmt.Sprintf("   Branch: condition=%s\n", step.Branch.Condition)
+		}
+		if step.Wait != nil {
+			result += fmt.Sprintf("   Wait: %dms\n", step.Wait.DurationMs)
+		}
+		if step.ADB != nil {
+			result += fmt.Sprintf("   ADB: %s\n", step.ADB.Command)
+		}
+		if step.Script != nil {
+			result += fmt.Sprintf("   Script: %s\n", step.Script.ScriptName)
+		}
+		if step.Variable != nil {
+			result += fmt.Sprintf("   Variable: %s = %s\n", step.Variable.Name, step.Variable.Value)
+		}
+		if step.Workflow != nil {
+			result += fmt.Sprintf("   SubWorkflow: %s\n", step.Workflow.WorkflowId)
+		}
+
+		// Show connections
+		if step.Connections != nil {
+			if step.Connections.SuccessStepId != "" {
+				result += fmt.Sprintf("   -> Success: %s\n", step.Connections.SuccessStepId)
+			}
+			if step.Connections.ErrorStepId != "" {
+				result += fmt.Sprintf("   -> Error: %s\n", step.Connections.ErrorStepId)
+			}
+			if step.Connections.TrueStepId != "" {
+				result += fmt.Sprintf("   -> True: %s\n", step.Connections.TrueStepId)
+			}
+			if step.Connections.FalseStepId != "" {
+				result += fmt.Sprintf("   -> False: %s\n", step.Connections.FalseStepId)
+			}
+		}
+
+		// Show common config
+		if step.Common != nil && step.Common.Timeout > 0 {
+			result += fmt.Sprintf("   Timeout: %dms\n", step.Common.Timeout)
 		}
 	}
 
@@ -351,7 +378,7 @@ func (s *MCPServer) handleWorkflowCreate(ctx context.Context, request mcp.CallTo
 		description = d
 	}
 
-	// Parse steps from JSON
+	// Parse steps from JSON (V2 format)
 	var steps []WorkflowStep
 	if stepsJSON, ok := args["steps_json"].(string); ok && stepsJSON != "" {
 		if err := json.Unmarshal([]byte(stepsJSON), &steps); err != nil {
@@ -364,40 +391,62 @@ func (s *MCPServer) handleWorkflowCreate(ctx context.Context, request mcp.CallTo
 		if steps[i].ID == "" {
 			steps[i].ID = fmt.Sprintf("step_%s", uuid.New().String()[:8])
 		}
+		// Ensure common and connections exist
+		if steps[i].Common == nil {
+			steps[i].Common = &StepCommon{
+				Timeout:   5000,
+				OnError:   "stop",
+				Loop:      1,
+				PostDelay: 500,
+			}
+		}
+		if steps[i].Connections == nil {
+			steps[i].Connections = &StepConnections{}
+		}
+		// Set layout positions
+		if steps[i].Layout == nil {
+			steps[i].Layout = &StepLayout{
+				PosX: 20,
+				PosY: float64(180 + i*160),
+			}
+		}
 	}
 
 	// Auto-link steps sequentially (if not already linked)
 	for i := range steps {
-		if steps[i].NextStepId == "" && i < len(steps)-1 {
-			steps[i].NextStepId = steps[i+1].ID
+		if steps[i].Connections.SuccessStepId == "" && i < len(steps)-1 {
+			steps[i].Connections.SuccessStepId = steps[i+1].ID
 		}
-		// Set positions
-		steps[i].PosX = 20
-		steps[i].PosY = float64(180 + i*160)
 	}
 
 	// Auto-add start node at the beginning
 	startStep := WorkflowStep{
-		ID:      fmt.Sprintf("step_%s", uuid.New().String()[:8]),
-		Type:    "start",
-		Name:    "Start",
-		OnError: "stop",
-		Loop:    1,
-		PosX:    20,
-		PosY:    20,
+		ID:   fmt.Sprintf("step_%s", uuid.New().String()[:8]),
+		Type: "start",
+		Name: "Start",
+		Common: &StepCommon{
+			OnError: "stop",
+			Loop:    1,
+		},
+		Connections: &StepConnections{},
+		Layout: &StepLayout{
+			PosX: 20,
+			PosY: 20,
+		},
 	}
 	// Link start node to first step if exists
 	if len(steps) > 0 {
-		startStep.NextStepId = steps[0].ID
+		startStep.Connections.SuccessStepId = steps[0].ID
 	}
 	steps = append([]WorkflowStep{startStep}, steps...)
 
-	// Create workflow
+	// Create workflow (V2)
 	now := time.Now().Format(time.RFC3339)
 	workflow := Workflow{
 		ID:          uuid.New().String(),
 		Name:        name,
 		Description: description,
+		Version:     2, // V2 schema
 		Steps:       steps,
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -407,7 +456,7 @@ func (s *MCPServer) handleWorkflowCreate(ctx context.Context, request mcp.CallTo
 		return nil, fmt.Errorf("failed to save workflow: %w", err)
 	}
 
-	result := fmt.Sprintf("Created workflow '%s'\n", name)
+	result := fmt.Sprintf("Created workflow '%s' (V2)\n", name)
 	result += fmt.Sprintf("ID: %s\n", workflow.ID)
 	result += fmt.Sprintf("Steps: %d\n", len(steps))
 
@@ -469,28 +518,34 @@ func (s *MCPServer) handleWorkflowUpdate(ctx context.Context, request mcp.CallTo
 		updated = true
 	}
 
-	// Update steps if provided
+	// Update steps if provided (V2 format)
 	if stepsJSON, ok := args["steps_json"].(string); ok && stepsJSON != "" {
 		var steps []WorkflowStep
 		if err := json.Unmarshal([]byte(stepsJSON), &steps); err != nil {
 			return nil, fmt.Errorf("invalid steps_json format: %w", err)
 		}
 
-		// Generate IDs for steps that don't have one
+		// Generate IDs and ensure V2 structure
 		for i := range steps {
 			if steps[i].ID == "" {
 				steps[i].ID = fmt.Sprintf("step_%s", uuid.New().String()[:8])
+			}
+			if steps[i].Common == nil {
+				steps[i].Common = &StepCommon{Timeout: 5000, OnError: "stop", Loop: 1, PostDelay: 500}
+			}
+			if steps[i].Connections == nil {
+				steps[i].Connections = &StepConnections{}
+			}
+			if steps[i].Layout == nil {
+				steps[i].Layout = &StepLayout{PosX: 20, PosY: float64(180 + i*160)}
 			}
 		}
 
 		// Auto-link steps sequentially (if not already linked)
 		for i := range steps {
-			if steps[i].NextStepId == "" && i < len(steps)-1 {
-				steps[i].NextStepId = steps[i+1].ID
+			if steps[i].Connections.SuccessStepId == "" && i < len(steps)-1 {
+				steps[i].Connections.SuccessStepId = steps[i+1].ID
 			}
-			// Set positions
-			steps[i].PosX = 20
-			steps[i].PosY = float64(180 + i*160)
 		}
 
 		// Check if start node exists, if not add it
@@ -504,21 +559,21 @@ func (s *MCPServer) handleWorkflowUpdate(ctx context.Context, request mcp.CallTo
 
 		if !hasStart {
 			startStep := WorkflowStep{
-				ID:      fmt.Sprintf("step_%s", uuid.New().String()[:8]),
-				Type:    "start",
-				Name:    "Start",
-				OnError: "stop",
-				Loop:    1,
-				PosX:    20,
-				PosY:    20,
+				ID:          fmt.Sprintf("step_%s", uuid.New().String()[:8]),
+				Type:        "start",
+				Name:        "Start",
+				Common:      &StepCommon{OnError: "stop", Loop: 1},
+				Connections: &StepConnections{},
+				Layout:      &StepLayout{PosX: 20, PosY: 20},
 			}
 			if len(steps) > 0 {
-				startStep.NextStepId = steps[0].ID
+				startStep.Connections.SuccessStepId = steps[0].ID
 			}
 			steps = append([]WorkflowStep{startStep}, steps...)
 		}
 
 		workflow.Steps = steps
+		workflow.Version = 2 // Ensure V2
 		updated = true
 	}
 
@@ -603,7 +658,7 @@ func (s *MCPServer) handleWorkflowRun(ctx context.Context, request mcp.CallToolR
 
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
-			mcp.NewTextContent(fmt.Sprintf("Started workflow '%s' on device %s\n\nWorkflow has %d steps and is running in background.\n\nUse workflow_status to check progress or workflow_stop to stop.", workflow.Name, deviceID, len(workflow.Steps))),
+			mcp.NewTextContent(fmt.Sprintf("Started workflow '%s' (V%d) on device %s\n\nWorkflow has %d steps and is running in background.\n\nUse workflow_status to check progress or workflow_stop to stop.", workflow.Name, workflow.Version, deviceID, len(workflow.Steps))),
 		},
 	}, nil
 }
@@ -687,7 +742,7 @@ func (s *MCPServer) handleWorkflowExecuteStep(ctx context.Context, request mcp.C
 
 	// Validate step type
 	validTypes := map[string]bool{
-		// Coordinate operations (no element selection)
+		// Coordinate operations
 		"tap": true, "swipe": true,
 		// Element operations
 		"click_element": true, "long_click_element": true, "input_text": true,
@@ -706,115 +761,158 @@ func (s *MCPServer) handleWorkflowExecuteStep(ctx context.Context, request mcp.C
 		return nil, fmt.Errorf("invalid step_type '%s'", stepType)
 	}
 
-	// Build the step
+	// Build the V2 step
 	step := WorkflowStep{
 		ID:   fmt.Sprintf("mcp_step_%s", uuid.New().String()[:8]),
 		Type: stepType,
 		Name: fmt.Sprintf("MCP %s step", stepType),
-	}
-
-	// Handle selector (for element operations)
-	if selectorType, ok := args["selector_type"].(string); ok && selectorType != "" {
-		selectorValue, _ := args["selector_value"].(string)
-		if selectorValue == "" {
-			return nil, fmt.Errorf("selector_value is required when selector_type is specified")
-		}
-		step.Selector = &ElementSelector{
-			Type:  selectorType,
-			Value: selectorValue,
-		}
-	}
-
-	// Handle value
-	if value, ok := args["value"].(string); ok {
-		step.Value = value
-	}
-
-	// Handle variable name for set_variable
-	if varName, ok := args["variable_name"].(string); ok && varName != "" {
-		step.Name = varName
+		Common: &StepCommon{
+			Timeout:   5000,
+			OnError:   "stop",
+			Loop:      1,
+			PostDelay: 500,
+		},
+		Connections: &StepConnections{},
 	}
 
 	// Handle timeout
-	step.Timeout = 5000 // default
 	if timeout, ok := args["timeout"].(float64); ok && timeout > 0 {
-		step.Timeout = int(timeout)
+		step.Common.Timeout = int(timeout)
 	}
 
 	// Handle post delay
-	step.PostDelay = 500 // default
 	if postDelay, ok := args["post_delay"].(float64); ok && postDelay >= 0 {
-		step.PostDelay = int(postDelay)
+		step.Common.PostDelay = int(postDelay)
 	}
 
-	// Handle coordinates for tap/swipe
-	if x, ok := args["x"].(float64); ok {
-		step.X = int(x)
-	}
-	if y, ok := args["y"].(float64); ok {
-		step.Y = int(y)
-	}
-	if x2, ok := args["x2"].(float64); ok {
-		step.X2 = int(x2)
-	}
-	if y2, ok := args["y2"].(float64); ok {
-		step.Y2 = int(y2)
-	}
+	// Build type-specific params based on step type
+	value, _ := args["value"].(string)
 
-	// Handle swipe distance
-	step.SwipeDistance = 500 // default
-	if dist, ok := args["swipe_distance"].(float64); ok && dist > 0 {
-		step.SwipeDistance = int(dist)
-	}
-
-	// Handle swipe direction (sets value for direction-based swipe)
-	if swipeDir, ok := args["swipe_direction"].(string); ok && swipeDir != "" {
-		step.Value = swipeDir
-		step.SwipeDuration = 300
-	}
-
-	// Handle condition type for assert/wait operations
-	if condType, ok := args["condition_type"].(string); ok && condType != "" {
-		step.ConditionType = condType
-	}
-
-	// Special handling for 'wait' type - use value as duration
-	if stepType == "wait" && step.Value != "" {
-		if duration, err := strconv.Atoi(step.Value); err == nil {
-			step.Timeout = duration
+	switch stepType {
+	case "tap":
+		x, _ := args["x"].(float64)
+		y, _ := args["y"].(float64)
+		if x == 0 && y == 0 {
+			return nil, fmt.Errorf("x and y coordinates are required for tap")
 		}
-	}
+		step.Tap = &TapParams{X: int(x), Y: int(y)}
 
-	// Validate required fields for specific step types
-	if stepType == "tap" && (step.X == 0 && step.Y == 0) {
-		return nil, fmt.Errorf("x and y coordinates are required for tap")
-	}
-
-	if stepType == "swipe" {
-		if step.X == 0 && step.Y == 0 {
+	case "swipe":
+		x, _ := args["x"].(float64)
+		y, _ := args["y"].(float64)
+		if x == 0 && y == 0 {
 			return nil, fmt.Errorf("x and y coordinates are required for swipe")
 		}
-		// Either x2,y2 or direction must be specified
-		if step.X2 == 0 && step.Y2 == 0 && step.Value == "" {
+		step.Swipe = &SwipeParams{X: int(x), Y: int(y)}
+
+		x2, hasX2 := args["x2"].(float64)
+		y2, hasY2 := args["y2"].(float64)
+		direction, hasDir := args["swipe_direction"].(string)
+
+		if hasX2 && hasY2 {
+			step.Swipe.X2 = int(x2)
+			step.Swipe.Y2 = int(y2)
+		} else if hasDir && direction != "" {
+			step.Swipe.Direction = direction
+			if dist, ok := args["swipe_distance"].(float64); ok && dist > 0 {
+				step.Swipe.Distance = int(dist)
+			} else {
+				step.Swipe.Distance = 500
+			}
+			step.Swipe.Duration = 300
+		} else {
 			return nil, fmt.Errorf("either x2,y2 or swipe_direction is required for swipe")
 		}
-	}
 
-	elementOps := map[string]bool{
-		"click_element": true, "long_click_element": true, "input_text": true,
-		"swipe_element": true, "wait_element": true, "wait_gone": true, "assert_element": true,
-	}
-	if elementOps[stepType] && step.Selector == nil {
-		return nil, fmt.Errorf("selector_type and selector_value are required for %s", stepType)
-	}
+	case "click_element", "long_click_element", "wait_element", "wait_gone", "assert_element":
+		selectorType, _ := args["selector_type"].(string)
+		selectorValue, _ := args["selector_value"].(string)
+		if selectorType == "" || selectorValue == "" {
+			return nil, fmt.Errorf("selector_type and selector_value are required for %s", stepType)
+		}
 
-	appOps := map[string]bool{"launch_app": true, "stop_app": true, "clear_app": true, "open_settings": true}
-	if appOps[stepType] && step.Value == "" {
-		return nil, fmt.Errorf("value (package name) is required for %s", stepType)
-	}
+		action := "click"
+		if stepType == "long_click_element" {
+			action = "long_click"
+		} else if stepType == "wait_element" {
+			action = "wait"
+		} else if stepType == "wait_gone" {
+			action = "wait_gone"
+		} else if stepType == "assert_element" {
+			action = "assert"
+		}
 
-	if stepType == "adb" && step.Value == "" {
-		return nil, fmt.Errorf("value (adb command) is required for adb step")
+		step.Element = &ElementParams{
+			Selector: ElementSelector{Type: selectorType, Value: selectorValue},
+			Action:   action,
+		}
+
+	case "input_text":
+		selectorType, _ := args["selector_type"].(string)
+		selectorValue, _ := args["selector_value"].(string)
+		if selectorType == "" || selectorValue == "" {
+			return nil, fmt.Errorf("selector_type and selector_value are required for input_text")
+		}
+		step.Element = &ElementParams{
+			Selector:  ElementSelector{Type: selectorType, Value: selectorValue},
+			Action:    "input",
+			InputText: value,
+		}
+
+	case "swipe_element":
+		selectorType, _ := args["selector_type"].(string)
+		selectorValue, _ := args["selector_value"].(string)
+		if selectorType == "" || selectorValue == "" {
+			return nil, fmt.Errorf("selector_type and selector_value are required for swipe_element")
+		}
+		direction, _ := args["swipe_direction"].(string)
+		if direction == "" {
+			direction = value // Allow direction in value field for compatibility
+		}
+		step.Element = &ElementParams{
+			Selector:      ElementSelector{Type: selectorType, Value: selectorValue},
+			Action:        "swipe",
+			SwipeDir:      direction,
+			SwipeDistance: 500,
+			SwipeDuration: 300,
+		}
+		if dist, ok := args["swipe_distance"].(float64); ok && dist > 0 {
+			step.Element.SwipeDistance = int(dist)
+		}
+
+	case "launch_app", "stop_app", "clear_app", "open_settings":
+		if value == "" {
+			return nil, fmt.Errorf("value (package name) is required for %s", stepType)
+		}
+		action := "launch"
+		if stepType == "stop_app" {
+			action = "stop"
+		} else if stepType == "clear_app" {
+			action = "clear"
+		} else if stepType == "open_settings" {
+			action = "settings"
+		}
+		step.App = &AppParams{PackageName: value, Action: action}
+
+	case "wait":
+		duration := 1000
+		if value != "" {
+			fmt.Sscanf(value, "%d", &duration)
+		}
+		step.Wait = &WaitParams{DurationMs: duration}
+
+	case "adb":
+		if value == "" {
+			return nil, fmt.Errorf("value (adb command) is required for adb step")
+		}
+		step.ADB = &ADBParams{Command: value}
+
+	case "set_variable":
+		varName, _ := args["variable_name"].(string)
+		if varName == "" {
+			varName = step.Name
+		}
+		step.Variable = &VariableParams{Name: varName, Value: value}
 	}
 
 	// Execute the step
@@ -832,11 +930,26 @@ func (s *MCPServer) handleWorkflowExecuteStep(ctx context.Context, request mcp.C
 
 	result := fmt.Sprintf("Step executed successfully in %dms\n", duration.Milliseconds())
 	result += fmt.Sprintf("Type: %s\n", stepType)
-	if step.Selector != nil {
-		result += fmt.Sprintf("Selector: %s = %s\n", step.Selector.Type, step.Selector.Value)
+
+	// Show type-specific info
+	if step.Tap != nil {
+		result += fmt.Sprintf("Coordinates: (%d, %d)\n", step.Tap.X, step.Tap.Y)
 	}
-	if step.Value != "" {
-		result += fmt.Sprintf("Value: %s\n", step.Value)
+	if step.Swipe != nil {
+		if step.Swipe.Direction != "" {
+			result += fmt.Sprintf("Direction: %s, Distance: %dpx\n", step.Swipe.Direction, step.Swipe.Distance)
+		} else {
+			result += fmt.Sprintf("From: (%d,%d) To: (%d,%d)\n", step.Swipe.X, step.Swipe.Y, step.Swipe.X2, step.Swipe.Y2)
+		}
+	}
+	if step.Element != nil {
+		result += fmt.Sprintf("Selector: %s = %s\n", step.Element.Selector.Type, step.Element.Selector.Value)
+	}
+	if step.App != nil {
+		result += fmt.Sprintf("Package: %s\n", step.App.PackageName)
+	}
+	if step.ADB != nil {
+		result += fmt.Sprintf("Command: %s\n", step.ADB.Command)
 	}
 
 	return &mcp.CallToolResult{

@@ -1025,6 +1025,8 @@
     "converted_desc": "于 {{date}} 从录制转换",
     "branch_true": "成立",
     "branch_false": "不成立",
+    "success": "成功",
+    "error": "错误",
     "error_device_not_found": "未找到设备",
     "error_empty_steps": "运行中止：工作流没有步骤",
     "generated_step_name": {

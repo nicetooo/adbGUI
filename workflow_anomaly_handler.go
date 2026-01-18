@@ -102,11 +102,11 @@ func (h *WorkflowAnomalyHandler) analyzeWithRules(hierarchy string, expectedStep
 					{
 						Type: "click_element",
 						Name: "Click Allow",
-						Selector: &ElementSelector{
-							Type:  "text",
-							Value: "Allow",
+						Element: &ElementParams{
+							Selector: ElementSelector{Type: "text", Value: "Allow"},
+							Action:   "click",
 						},
-						Timeout: 5000,
+						Common: StepCommon{Timeout: 5000},
 					},
 				},
 			})
@@ -123,11 +123,11 @@ func (h *WorkflowAnomalyHandler) analyzeWithRules(hierarchy string, expectedStep
 					{
 						Type: "click_element",
 						Name: "Click Deny",
-						Selector: &ElementSelector{
-							Type:  "text",
-							Value: "Deny",
+						Element: &ElementParams{
+							Selector: ElementSelector{Type: "text", Value: "Deny"},
+							Action:   "click",
 						},
-						Timeout: 5000,
+						Common: StepCommon{Timeout: 5000},
 					},
 				},
 			})
@@ -153,11 +153,11 @@ func (h *WorkflowAnomalyHandler) analyzeWithRules(hierarchy string, expectedStep
 				{
 					Type: "click_element",
 					Name: "Click Wait",
-					Selector: &ElementSelector{
-						Type:  "text",
-						Value: "Wait",
+					Element: &ElementParams{
+						Selector: ElementSelector{Type: "text", Value: "Wait"},
+						Action:   "click",
 					},
-					Timeout: 5000,
+					Common: StepCommon{Timeout: 5000},
 				},
 			},
 		})
@@ -172,11 +172,11 @@ func (h *WorkflowAnomalyHandler) analyzeWithRules(hierarchy string, expectedStep
 				{
 					Type: "click_element",
 					Name: "Click Close",
-					Selector: &ElementSelector{
-						Type:  "text",
-						Value: "Close",
+					Element: &ElementParams{
+						Selector: ElementSelector{Type: "text", Value: "Close"},
+						Action:   "click",
 					},
-					Timeout: 5000,
+					Common: StepCommon{Timeout: 5000},
 				},
 			},
 		})
@@ -205,11 +205,11 @@ func (h *WorkflowAnomalyHandler) analyzeWithRules(hierarchy string, expectedStep
 						{
 							Type: "click_element",
 							Name: "Click " + btn,
-							Selector: &ElementSelector{
-								Type:  "text",
-								Value: btn,
+							Element: &ElementParams{
+								Selector: ElementSelector{Type: "text", Value: btn},
+								Action:   "click",
 							},
-							Timeout: 5000,
+							Common: StepCommon{Timeout: 5000},
 						},
 					},
 				})
@@ -245,9 +245,10 @@ func (h *WorkflowAnomalyHandler) analyzeWithRules(hierarchy string, expectedStep
 			AutoExecute: true,
 			Steps: []WorkflowStep{
 				{
-					Type:    "wait",
-					Name:    "Wait 2 seconds",
-					Timeout: 2000,
+					Type:   "wait",
+					Name:   "Wait 2 seconds",
+					Wait:   &WaitParams{DurationMs: 2000},
+					Common: StepCommon{Timeout: 2000},
 				},
 			},
 		})
@@ -356,11 +357,11 @@ func (h *WorkflowAnomalyHandler) enrichSuggestedActions(analysis *AnomalyAnalysi
 				{
 					Type: "click_element",
 					Name: "Click " + action.Label,
-					Selector: &ElementSelector{
-						Type:  "text",
-						Value: action.Label,
+					Element: &ElementParams{
+						Selector: ElementSelector{Type: "text", Value: action.Label},
+						Action:   "click",
 					},
-					Timeout: 5000,
+					Common: StepCommon{Timeout: 5000},
 				},
 			}
 		}
@@ -391,14 +392,17 @@ func (h *WorkflowAnomalyHandler) ExecuteSuggestedAction(ctx context.Context, dev
 func (h *WorkflowAnomalyHandler) executeStep(ctx context.Context, deviceID string, step *WorkflowStep) error {
 	switch step.Type {
 	case "click_element":
-		if step.Selector != nil {
+		if step.Element != nil {
 			cfg := DefaultElementActionConfig()
-			return h.app.ClickElement(ctx, deviceID, step.Selector, &cfg)
+			return h.app.ClickElement(ctx, deviceID, &step.Element.Selector, &cfg)
 		}
-		return fmt.Errorf("no selector specified for click_element")
+		return fmt.Errorf("no element specified for click_element")
 
 	case "wait":
-		timeout := step.Timeout
+		timeout := step.Common.Timeout
+		if step.Wait != nil && step.Wait.DurationMs > 0 {
+			timeout = step.Wait.DurationMs
+		}
 		if timeout <= 0 {
 			timeout = 1000
 		}

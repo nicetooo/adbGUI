@@ -133,11 +133,11 @@ export function GetDeviceResolution(arg1:string):Promise<string>;
 
 export function GetDevices(arg1:boolean):Promise<Array<main.Device>>;
 
-export function GetElementProperties(arg1:string,arg2:main.ElementSelector):Promise<{[key: string]: any}>;
+export function GetElementProperties(arg1:string,arg2:main.ElementSelector):Promise<Record<string, any>>;
 
-export function GetElementsWithText(arg1:string,arg2:string):Promise<Array<{[key: string]: any}>>;
+export function GetElementsWithText(arg1:string,arg2:string):Promise<Array<Record<string, any>>>;
 
-export function GetEventSystemStats():Promise<{[key: string]: any}>;
+export function GetEventSystemStats():Promise<Record<string, any>>;
 
 export function GetHistoryDevices():Promise<Array<main.HistoryDevice>>;
 
@@ -155,7 +155,7 @@ export function GetMockRules():Promise<Array<main.MockRule>>;
 
 export function GetProxyDevice():Promise<string>;
 
-export function GetProxySettings():Promise<{[key: string]: any}>;
+export function GetProxySettings():Promise<Record<string, any>>;
 
 export function GetProxyStatus():Promise<boolean>;
 
@@ -165,7 +165,7 @@ export function GetRecentSessionEvents(arg1:string,arg2:number):Promise<Array<ma
 
 export function GetRecordingEventCount(arg1:string):Promise<number>;
 
-export function GetRecordingStatus(arg1:string):Promise<{[key: string]: any}>;
+export function GetRecordingStatus(arg1:string):Promise<Record<string, any>>;
 
 export function GetRecordingsDir():Promise<string>;
 
@@ -183,13 +183,13 @@ export function GetSessionEventTypes(arg1:string):Promise<Array<string>>;
 
 export function GetSessionMetadata(arg1:string,arg2:string):Promise<any>;
 
-export function GetSessionStats(arg1:string):Promise<{[key: string]: any}>;
+export function GetSessionStats(arg1:string):Promise<Record<string, any>>;
 
 export function GetSessionTimeIndex(arg1:string):Promise<Array<main.TimeIndexEntry>>;
 
 export function GetSessionTimeline(arg1:string,arg2:main.SessionFilter):Promise<Array<main.SessionEvent>>;
 
-export function GetSessionVideoInfo(arg1:string):Promise<{[key: string]: any}>;
+export function GetSessionVideoInfo(arg1:string):Promise<Record<string, any>>;
 
 export function GetSessions(arg1:string,arg2:number):Promise<Array<main.Session>>;
 
@@ -219,6 +219,8 @@ export function GetWorkflow(arg1:string):Promise<main.Workflow>;
 
 export function Greet(arg1:string):Promise<string>;
 
+export function InitializeWithoutGUI():Promise<void>;
+
 export function InputNodeText(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function InputTextToElement(arg1:context.Context,arg2:string,arg3:main.ElementSelector,arg4:string,arg5:boolean,arg6:main.ElementActionConfig):Promise<void>;
@@ -228,6 +230,8 @@ export function InstallAPK(arg1:string,arg2:string):Promise<string>;
 export function InstallProxyCert(arg1:string):Promise<string>;
 
 export function IsAppRunning(arg1:string,arg2:string):Promise<boolean>;
+
+export function IsMCPMode():Promise<boolean>;
 
 export function IsPlayingTouch(arg1:string):Promise<boolean>;
 
@@ -249,7 +253,7 @@ export function ListLogFiles():Promise<Array<string>>;
 
 export function ListPackages(arg1:string,arg2:string):Promise<Array<main.AppPackage>>;
 
-export function ListRecordings():Promise<Array<{[key: string]: any}>>;
+export function ListRecordings():Promise<Array<Record<string, any>>>;
 
 export function ListStoredAssertionResults(arg1:string,arg2:number):Promise<Array<main.StoredAssertionResult>>;
 
@@ -262,6 +266,8 @@ export function LoadMockRules():Promise<void>;
 export function LoadScriptTasks():Promise<Array<main.ScriptTask>>;
 
 export function LoadTouchScripts():Promise<Array<main.TouchScript>>;
+
+export function LoadWorkflowByID(arg1:string):Promise<main.Workflow>;
 
 export function LoadWorkflows():Promise<Array<main.Workflow>>;
 
@@ -289,7 +295,7 @@ export function PauseTask(arg1:string):Promise<void>;
 
 export function PerformNodeAction(arg1:string,arg2:string,arg3:string):Promise<void>;
 
-export function PickPointOnScreen(arg1:string,arg2:number):Promise<{[key: string]: any}>;
+export function PickPointOnScreen(arg1:string,arg2:number):Promise<Record<string, any>>;
 
 export function PlayTouchScript(arg1:string,arg2:main.TouchScript):Promise<void>;
 
@@ -319,7 +325,7 @@ export function RenameStoredSession(arg1:string,arg2:string):Promise<void>;
 
 export function RenameTouchScript(arg1:string,arg2:string):Promise<void>;
 
-export function ResendRequest(arg1:string,arg2:string,arg3:{[key: string]: string},arg4:string):Promise<{[key: string]: any}>;
+export function ResendRequest(arg1:string,arg2:string,arg3:Record<string, string>,arg4:string):Promise<Record<string, any>>;
 
 export function RestartAdbServer():Promise<string>;
 
@@ -343,7 +349,7 @@ export function SearchElementsAdvanced(arg1:main.UINode,arg2:string):Promise<Arr
 
 export function SearchElementsXPath(arg1:main.UINode,arg2:string):Promise<Array<main.SearchResult>>;
 
-export function SearchUIElements(arg1:string,arg2:string):Promise<Array<{[key: string]: any}>>;
+export function SearchUIElements(arg1:string,arg2:string):Promise<Array<Record<string, any>>>;
 
 export function SelectAPKForBatch():Promise<string>;
 
@@ -374,6 +380,8 @@ export function SetSessionMetadata(arg1:string,arg2:string,arg3:any):Promise<voi
 export function SetupProxyForDevice(arg1:string,arg2:number):Promise<void>;
 
 export function Shutdown(arg1:context.Context):Promise<void>;
+
+export function ShutdownWithoutGUI():Promise<void>;
 
 export function StartActivity(arg1:string,arg2:string):Promise<string>;
 

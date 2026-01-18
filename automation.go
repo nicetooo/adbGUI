@@ -1208,10 +1208,8 @@ func (a *App) resolveSmartTapCoords(deviceId string, selector *ElementSelector, 
 		if err != nil {
 			fmt.Printf("[Automation] Smart Tap: UI Dump failed: %v\n", err)
 		} else {
-			var matches []*UINode
-
 			// Use the unified find helper
-			matches = a.findAllElementNodes(hierarchy.Root, selector.Type, selector.Value)
+			matches := a.FindAllElementsBySelector(hierarchy.Root, selector)
 
 			if len(matches) > 0 {
 				// Pick the match closest to original coordinates

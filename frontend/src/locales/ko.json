@@ -685,6 +685,8 @@
     "converted_desc": "{{date}}에 녹화에서 변환됨",
     "branch_true": "참 (True)",
     "branch_false": "거짓 (False)",
+    "success": "성공",
+    "error": "오류",
     "error_device_not_found": "장치를 찾을 수 없음",
     "error_empty_steps": "실행 중단: 워크플로에 단계가 없습니다",
     "node_deleted_reconnected": "노드가 삭제되고 워크플로가 자동으로 다시 연결되었습니다",

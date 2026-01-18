@@ -570,19 +570,36 @@ func SampleWorkflow(id, name string) Workflow {
 		ID:          id,
 		Name:        name,
 		Description: "Test workflow",
+		Version:     2,
 		CreatedAt:   "2024-01-01T00:00:00Z",
 		UpdatedAt:   "2024-01-01T00:00:00Z",
 		Steps: []WorkflowStep{
 			{
+				ID:   "start",
+				Type: "start",
+				Name: "Start",
+				Common: &StepCommon{
+					OnError: "stop",
+					Loop:    1,
+				},
+				Connections: &StepConnections{
+					SuccessStepId: "step_1",
+				},
+				Layout: &StepLayout{PosX: 20, PosY: 20},
+			},
+			{
 				ID:   "step_1",
 				Type: "tap",
 				Name: "Tap button",
-				Selector: &ElementSelector{
-					Type:  "resourceId",
-					Value: "com.example:id/button",
+				Tap:  &TapParams{X: 540, Y: 960},
+				Common: &StepCommon{
+					Timeout:   5000,
+					PostDelay: 500,
+					OnError:   "stop",
+					Loop:      1,
 				},
-				Timeout:   5000,
-				PostDelay: 500,
+				Connections: &StepConnections{},
+				Layout:      &StepLayout{PosX: 20, PosY: 180},
 			},
 		},
 	}

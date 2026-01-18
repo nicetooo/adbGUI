@@ -379,6 +379,8 @@ func (b *MCPBridge) IsWorkflowRunning(deviceId string) bool {
 }
 
 // Helper functions for workflow type conversion
+// Both packages now use the same nested structure format
+
 func (b *MCPBridge) convertWorkflowToMCP(wf *Workflow) *mcp.Workflow {
 	if wf == nil {
 		return nil
@@ -391,6 +393,7 @@ func (b *MCPBridge) convertWorkflowToMCP(wf *Workflow) *mcp.Workflow {
 		ID:          wf.ID,
 		Name:        wf.Name,
 		Description: wf.Description,
+		Version:     2,
 		Steps:       steps,
 		Variables:   wf.Variables,
 		CreatedAt:   wf.CreatedAt,
@@ -399,38 +402,96 @@ func (b *MCPBridge) convertWorkflowToMCP(wf *Workflow) *mcp.Workflow {
 }
 
 func (b *MCPBridge) convertStepToMCP(s WorkflowStep) mcp.WorkflowStep {
-	var selector *mcp.ElementSelector
-	if s.Selector != nil {
-		selector = &mcp.ElementSelector{
-			Type:  s.Selector.Type,
-			Value: s.Selector.Value,
-			Index: s.Selector.Index,
+	result := mcp.WorkflowStep{
+		ID:   s.ID,
+		Type: s.Type,
+		Name: s.Name,
+	}
+
+	// Convert Common (value to pointer)
+	result.Common = &mcp.StepCommon{
+		Timeout:   s.Common.Timeout,
+		OnError:   s.Common.OnError,
+		Loop:      s.Common.Loop,
+		PostDelay: s.Common.PostDelay,
+		PreWait:   s.Common.PreWait,
+	}
+
+	// Convert Connections (value to pointer)
+	result.Connections = &mcp.StepConnections{
+		SuccessStepId: s.Connections.SuccessStepId,
+		ErrorStepId:   s.Connections.ErrorStepId,
+		TrueStepId:    s.Connections.TrueStepId,
+		FalseStepId:   s.Connections.FalseStepId,
+	}
+
+	// Convert Layout (value to pointer)
+	result.Layout = &mcp.StepLayout{
+		PosX: s.Layout.PosX,
+		PosY: s.Layout.PosY,
+	}
+	if s.Layout.Handles != nil {
+		result.Layout.Handles = make(map[string]mcp.HandleInfo)
+		for k, v := range s.Layout.Handles {
+			result.Layout.Handles[k] = mcp.HandleInfo{
+				SourceHandle: v.SourceHandle,
+				TargetHandle: v.TargetHandle,
+			}
 		}
 	}
-	return mcp.WorkflowStep{
-		ID:            s.ID,
-		Type:          s.Type,
-		Name:          s.Name,
-		Selector:      selector,
-		Value:         s.Value,
-		Timeout:       s.Timeout,
-		OnError:       s.OnError,
-		Loop:          s.Loop,
-		PostDelay:     s.PostDelay,
-		PreWait:       s.PreWait,
-		SwipeDistance: s.SwipeDistance,
-		SwipeDuration: s.SwipeDuration,
-		X:             s.X,
-		Y:             s.Y,
-		X2:            s.X2,
-		Y2:            s.Y2,
-		ConditionType: s.ConditionType,
-		NextStepId:    s.NextStepId,
-		TrueStepId:    s.TrueStepId,
-		FalseStepId:   s.FalseStepId,
-		PosX:          s.PosX,
-		PosY:          s.PosY,
+
+	// Copy type-specific params (pointer to pointer)
+	if s.Tap != nil {
+		result.Tap = &mcp.TapParams{X: s.Tap.X, Y: s.Tap.Y}
 	}
+	if s.Swipe != nil {
+		result.Swipe = &mcp.SwipeParams{
+			X: s.Swipe.X, Y: s.Swipe.Y, X2: s.Swipe.X2, Y2: s.Swipe.Y2,
+			Direction: s.Swipe.Direction, Distance: s.Swipe.Distance, Duration: s.Swipe.Duration,
+		}
+	}
+	if s.Element != nil {
+		result.Element = &mcp.ElementParams{
+			Selector:      mcp.ElementSelector{Type: s.Element.Selector.Type, Value: s.Element.Selector.Value, Index: s.Element.Selector.Index},
+			Action:        s.Element.Action,
+			InputText:     s.Element.InputText,
+			SwipeDir:      s.Element.SwipeDir,
+			SwipeDistance: s.Element.SwipeDistance,
+			SwipeDuration: s.Element.SwipeDuration,
+		}
+	}
+	if s.App != nil {
+		result.App = &mcp.AppParams{PackageName: s.App.PackageName, Action: s.App.Action}
+	}
+	if s.Branch != nil {
+		result.Branch = &mcp.BranchParams{
+			Condition:     s.Branch.Condition,
+			ExpectedValue: s.Branch.ExpectedValue,
+			VariableName:  s.Branch.VariableName,
+		}
+		if s.Branch.Selector != nil {
+			result.Branch.Selector = &mcp.ElementSelector{
+				Type: s.Branch.Selector.Type, Value: s.Branch.Selector.Value, Index: s.Branch.Selector.Index,
+			}
+		}
+	}
+	if s.Wait != nil {
+		result.Wait = &mcp.WaitParams{DurationMs: s.Wait.DurationMs}
+	}
+	if s.Script != nil {
+		result.Script = &mcp.ScriptParams{ScriptName: s.Script.ScriptName}
+	}
+	if s.Variable != nil {
+		result.Variable = &mcp.VariableParams{Name: s.Variable.Name, Value: s.Variable.Value}
+	}
+	if s.ADB != nil {
+		result.ADB = &mcp.ADBParams{Command: s.ADB.Command}
+	}
+	if s.Workflow != nil {
+		result.Workflow = &mcp.SubWorkflowParams{WorkflowId: s.Workflow.WorkflowId}
+	}
+
+	return result
 }
 
 func (b *MCPBridge) convertWorkflowFromMCP(wf mcp.Workflow) Workflow {
@@ -450,38 +511,102 @@ func (b *MCPBridge) convertWorkflowFromMCP(wf mcp.Workflow) Workflow {
 }
 
 func (b *MCPBridge) convertStepFromMCP(s mcp.WorkflowStep) WorkflowStep {
-	var selector *ElementSelector
-	if s.Selector != nil {
-		selector = &ElementSelector{
-			Type:  s.Selector.Type,
-			Value: s.Selector.Value,
-			Index: s.Selector.Index,
+	result := WorkflowStep{
+		ID:   s.ID,
+		Type: s.Type,
+		Name: s.Name,
+	}
+
+	// Convert Common (pointer to value)
+	if s.Common != nil {
+		result.Common = StepCommon{
+			Timeout:   s.Common.Timeout,
+			OnError:   s.Common.OnError,
+			Loop:      s.Common.Loop,
+			PostDelay: s.Common.PostDelay,
+			PreWait:   s.Common.PreWait,
 		}
 	}
-	return WorkflowStep{
-		ID:            s.ID,
-		Type:          s.Type,
-		Name:          s.Name,
-		Selector:      selector,
-		Value:         s.Value,
-		Timeout:       s.Timeout,
-		OnError:       s.OnError,
-		Loop:          s.Loop,
-		PostDelay:     s.PostDelay,
-		PreWait:       s.PreWait,
-		SwipeDistance: s.SwipeDistance,
-		SwipeDuration: s.SwipeDuration,
-		X:             s.X,
-		Y:             s.Y,
-		X2:            s.X2,
-		Y2:            s.Y2,
-		ConditionType: s.ConditionType,
-		NextStepId:    s.NextStepId,
-		TrueStepId:    s.TrueStepId,
-		FalseStepId:   s.FalseStepId,
-		PosX:          s.PosX,
-		PosY:          s.PosY,
+
+	// Convert Connections (pointer to value)
+	if s.Connections != nil {
+		result.Connections = StepConnections{
+			SuccessStepId: s.Connections.SuccessStepId,
+			ErrorStepId:   s.Connections.ErrorStepId,
+			TrueStepId:    s.Connections.TrueStepId,
+			FalseStepId:   s.Connections.FalseStepId,
+		}
 	}
+
+	// Convert Layout (pointer to value)
+	if s.Layout != nil {
+		result.Layout = StepLayout{
+			PosX: s.Layout.PosX,
+			PosY: s.Layout.PosY,
+		}
+		if s.Layout.Handles != nil {
+			result.Layout.Handles = make(map[string]HandleInfo)
+			for k, v := range s.Layout.Handles {
+				result.Layout.Handles[k] = HandleInfo{
+					SourceHandle: v.SourceHandle,
+					TargetHandle: v.TargetHandle,
+				}
+			}
+		}
+	}
+
+	// Copy type-specific params (pointer to pointer)
+	if s.Tap != nil {
+		result.Tap = &TapParams{X: s.Tap.X, Y: s.Tap.Y}
+	}
+	if s.Swipe != nil {
+		result.Swipe = &SwipeParams{
+			X: s.Swipe.X, Y: s.Swipe.Y, X2: s.Swipe.X2, Y2: s.Swipe.Y2,
+			Direction: s.Swipe.Direction, Distance: s.Swipe.Distance, Duration: s.Swipe.Duration,
+		}
+	}
+	if s.Element != nil {
+		result.Element = &ElementParams{
+			Selector:      ElementSelector{Type: s.Element.Selector.Type, Value: s.Element.Selector.Value, Index: s.Element.Selector.Index},
+			Action:        s.Element.Action,
+			InputText:     s.Element.InputText,
+			SwipeDir:      s.Element.SwipeDir,
+			SwipeDistance: s.Element.SwipeDistance,
+			SwipeDuration: s.Element.SwipeDuration,
+		}
+	}
+	if s.App != nil {
+		result.App = &AppParams{PackageName: s.App.PackageName, Action: s.App.Action}
+	}
+	if s.Branch != nil {
+		result.Branch = &BranchParams{
+			Condition:     s.Branch.Condition,
+			ExpectedValue: s.Branch.ExpectedValue,
+			VariableName:  s.Branch.VariableName,
+		}
+		if s.Branch.Selector != nil {
+			result.Branch.Selector = &ElementSelector{
+				Type: s.Branch.Selector.Type, Value: s.Branch.Selector.Value, Index: s.Branch.Selector.Index,
+			}
+		}
+	}
+	if s.Wait != nil {
+		result.Wait = &WaitParams{DurationMs: s.Wait.DurationMs}
+	}
+	if s.Script != nil {
+		result.Script = &ScriptParams{ScriptName: s.Script.ScriptName}
+	}
+	if s.Variable != nil {
+		result.Variable = &VariableParams{Name: s.Variable.Name, Value: s.Variable.Value}
+	}
+	if s.ADB != nil {
+		result.ADB = &ADBParams{Command: s.ADB.Command}
+	}
+	if s.Workflow != nil {
+		result.Workflow = &SubWorkflowParams{WorkflowId: s.Workflow.WorkflowId}
+	}
+
+	return result
 }
 
 func (b *MCPBridge) StartProxy(port int) (string, error) {

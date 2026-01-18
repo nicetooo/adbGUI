@@ -685,6 +685,8 @@
     "converted_desc": "{{date}} に録画から変換されました",
     "branch_true": "True (真)",
     "branch_false": "False (偽)",
+    "success": "成功",
+    "error": "エラー",
     "error_device_not_found": "デバイスが見つかりません",
     "error_empty_steps": "実行中止: ワークフローにステップがありません",
     "node_deleted_reconnected": "ノードが削除され、ワークフローが自動再接続されました",

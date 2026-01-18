@@ -700,6 +700,8 @@
     "converted_desc": "於 {{date}} 從錄製轉換",
     "branch_true": "成立",
     "branch_false": "不成立",
+    "success": "成功",
+    "error": "錯誤",
     "error_device_not_found": "未找到裝置",
     "error_empty_steps": "運行中止：工作流沒有步驟",
     "node_deleted_reconnected": "節點已刪除，工作流已自動重連",

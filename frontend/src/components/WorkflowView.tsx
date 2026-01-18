@@ -81,7 +81,12 @@ import dagre from 'dagre';
 
 import DeviceSelector from "./DeviceSelector";
 import ElementPicker, { ElementSelector } from "./ElementPicker";
-import { useDeviceStore, useAutomationStore, useWorkflowStore, Workflow, WorkflowStep } from "../stores";
+import { useDeviceStore, useAutomationStore, useWorkflowStore } from "../stores";
+import type { WorkflowV2, WorkflowStepV2 } from "../types/workflow";
+
+// Type aliases for backward compatibility in this file
+type Workflow = WorkflowV2;
+type WorkflowStep = WorkflowStepV2;
 
 const { Text, Title } = Typography;
 
@@ -233,29 +238,53 @@ const WorkflowNode = React.memo(({ data, selected }: any) => {
           </div>
           <div style={{ flex: 1, overflow: 'hidden' }}>
             <Text strong ellipsis style={{ color: token.colorText }}>{data.label || step.type}</Text>
-            {step.selector && (
+            {/* Element selector display (V2: step.element?.selector) */}
+            {step.element?.selector && (
               <div style={{ fontSize: 11, color: token.colorTextSecondary, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Tag style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>{step.selector.type}</Tag>
-                <Text ellipsis style={{ fontSize: 11, maxWidth: 120, color: token.colorTextSecondary }}>{step.selector.value}</Text>
+                <Tag style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>{step.element.selector.type}</Tag>
+                <Text ellipsis style={{ fontSize: 11, maxWidth: 120, color: token.colorTextSecondary }}>{step.element.selector.value}</Text>
               </div>
             )}
-            {/* Coordinate display for tap/swipe */}
-            {(step.type === 'tap' || step.type === 'swipe') && (step.x !== undefined || step.y !== undefined) && (
+            {/* Coordinate display for tap (V2: step.tap) */}
+            {step.type === 'tap' && step.tap && (
               <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
-                {step.type === 'tap' ? (
-                  <Text style={{ fontSize: 11, color: token.colorTextSecondary }}>
-                    ({step.x}, {step.y})
-                  </Text>
-                ) : (
-                  <Text style={{ fontSize: 11, color: token.colorTextSecondary }}>
-                    ({step.x}, {step.y}) → ({step.x2}, {step.y2})
-                  </Text>
-                )}
+                <Text style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                  ({step.tap.x}, {step.tap.y})
+                </Text>
               </div>
             )}
-            {!isBranch && step.value && (
+            {/* Coordinate display for swipe (V2: step.swipe) */}
+            {step.type === 'swipe' && step.swipe && (
               <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
-                <Text ellipsis style={{ fontSize: 11, color: token.colorTextSecondary }}>{step.value}</Text>
+                <Text style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                  {step.swipe.direction ? 
+                    `${step.swipe.direction} ${step.swipe.distance || ''}px` :
+                    `(${step.swipe.x}, ${step.swipe.y}) → (${step.swipe.x2}, ${step.swipe.y2})`
+                  }
+                </Text>
+              </div>
+            )}
+            {/* App package display (V2: step.app) */}
+            {step.app?.packageName && (
+              <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                <Text ellipsis style={{ fontSize: 11, color: token.colorTextSecondary }}>{step.app.packageName}</Text>
+              </div>
+            )}
+            {/* Wait duration display (V2: step.wait) */}
+            {step.wait?.durationMs && (
+              <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                <Text style={{ fontSize: 11, color: token.colorTextSecondary }}>{step.wait.durationMs}ms</Text>
+              </div>
+            )}
+            {/* Script/ADB display (V2: step.script/step.adb) */}
+            {step.script?.scriptName && (
+              <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                <Text ellipsis style={{ fontSize: 11, color: token.colorTextSecondary }}>{step.script.scriptName}</Text>
+              </div>
+            )}
+            {step.adb?.command && (
+              <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                <Text ellipsis style={{ fontSize: 11, color: token.colorTextSecondary }}>{step.adb.command}</Text>
               </div>
             )}
           </div>
@@ -277,41 +306,68 @@ const WorkflowNode = React.memo(({ data, selected }: any) => {
 
       {isBranch ? (
         <>
-          <div style={{ position: 'absolute', bottom: -14, left: '25%', fontSize: 9, color: token.colorSuccess, fontWeight: 'bold' }}>{t('workflow.branch_true')}</div>
+          {/* Branch node: True/False/Error outputs */}
+          <div style={{ position: 'absolute', bottom: -14, left: '20%', fontSize: 9, color: token.colorSuccess, fontWeight: 'bold' }}>{t('workflow.branch_true')}</div>
           <Handle
             type="source"
             position={Position.Bottom}
             id="true"
-            style={{ left: '30%', background: token.colorSuccess }}
+            style={{ left: '25%', background: token.colorSuccess }}
           />
           <Handle
             type="source"
             position={Position.Left}
             id="true-left"
-            style={{ top: '70%', background: token.colorSuccess }}
+            style={{ top: '50%', background: token.colorSuccess }}
           />
 
-          <div style={{ position: 'absolute', bottom: -14, right: '25%', fontSize: 9, color: token.colorError, fontWeight: 'bold' }}>{t('workflow.branch_false')}</div>
+          <div style={{ position: 'absolute', bottom: -14, left: '45%', fontSize: 9, color: token.colorError, fontWeight: 'bold' }}>{t('workflow.branch_false')}</div>
           <Handle
             type="source"
             position={Position.Bottom}
             id="false"
-            style={{ left: '70%', background: token.colorError }}
+            style={{ left: '50%', background: token.colorError }}
+          />
+
+          <div style={{ position: 'absolute', bottom: -14, right: '20%', fontSize: 9, color: token.colorWarning, fontWeight: 'bold' }}>{t('workflow.error') || 'Error'}</div>
+          <Handle
+            type="source"
+            position={Position.Bottom}
+            id="error"
+            style={{ left: '75%', background: token.colorWarning }}
           />
           <Handle
             type="source"
             position={Position.Right}
-            id="false-right"
-            style={{ top: '70%', background: token.colorError }}
+            id="error-right"
+            style={{ top: '70%', background: token.colorWarning }}
           />
         </>
       ) : (
         <>
-          <Handle type="source" position={Position.Bottom} id="default" style={{ background: token.colorTextSecondary }} />
+          {/* Normal nodes: Success/Error outputs */}
           {!isStart && (
             <>
-              <Handle type="source" position={Position.Left} id="source-left" style={{ top: '70%', background: token.colorTextSecondary }} />
-              <Handle type="source" position={Position.Right} id="source-right" style={{ top: '70%', background: token.colorTextSecondary }} />
+              <div style={{ position: 'absolute', bottom: -14, left: '25%', fontSize: 9, color: token.colorSuccess, fontWeight: 'bold' }}>{t('workflow.success') || 'Success'}</div>
+              <div style={{ position: 'absolute', bottom: -14, right: '25%', fontSize: 9, color: token.colorWarning, fontWeight: 'bold' }}>{t('workflow.error') || 'Error'}</div>
+            </>
+          )}
+          <Handle 
+            type="source" 
+            position={Position.Bottom} 
+            id="success" 
+            style={{ left: isStart ? '50%' : '30%', background: isStart ? token.colorTextSecondary : token.colorSuccess }} 
+          />
+          {!isStart && (
+            <>
+              <Handle 
+                type="source" 
+                position={Position.Bottom} 
+                id="error" 
+                style={{ left: '70%', background: token.colorWarning }} 
+              />
+              <Handle type="source" position={Position.Left} id="success-left" style={{ top: '50%', background: token.colorSuccess }} />
+              <Handle type="source" position={Position.Right} id="error-right" style={{ top: '70%', background: token.colorWarning }} />
             </>
           )}
         </>
@@ -705,10 +761,14 @@ const WorkflowView: React.FC = () => {
         const isWaiting = stepState?.stepId === step.id && stepState?.isWaiting;
         const waitPhase = stepState?.waitPhase;
 
+        // V2: Read position from layout
+        const posX = step.layout?.posX ?? 0;
+        const posY = step.layout?.posY ?? 0;
+        
         return {
           id: step.id,
           type: 'workflowNode',
-          position: (step.posX !== undefined && step.posY !== undefined) ? { x: step.posX, y: step.posY } : { x: 0, y: 0 },
+          position: { x: posX, y: posY },
           data: {
             step,
             label: step.name || t(`workflow.step_type.${step.type}`),
@@ -722,76 +782,128 @@ const WorkflowView: React.FC = () => {
       });
 
       const newEdges: Edge[] = [];
-      const hasGraphData = selectedWorkflow.steps.some(s => s.nextStepId || s.trueStepId || s.falseStepId);
+      // V2: Check for connections structure
+      const hasGraphData = selectedWorkflow.steps.some(s => 
+        s.connections?.successStepId || s.connections?.errorStepId || 
+        s.connections?.trueStepId || s.connections?.falseStepId
+      );
 
       if (hasGraphData) {
         selectedWorkflow.steps.forEach(step => {
-          if (step.nextStepId) {
+          const conn = step.connections;
+          const handles = step.layout?.handles;
+          
+          // Success connection (for non-branch nodes)
+          if (conn?.successStepId && step.type !== 'branch') {
             const edge: any = {
-              id: `e-${step.id}-${step.nextStepId}`,
+              id: `e-${step.id}-${conn.successStepId}-success`,
               source: step.id,
-              target: step.nextStepId,
+              target: conn.successStepId,
               type: 'smoothstep',
-              sourceHandle: step.nextSource || 'default',
-              markerEnd: { type: MarkerType.ArrowClosed }
+              sourceHandle: handles?.success?.sourceHandle || 'success',
+              label: step.type === 'start' ? undefined : t('workflow.success'),
+              style: step.type === 'start' ? undefined : { stroke: token.colorSuccess },
+              labelStyle: step.type === 'start' ? undefined : { fill: token.colorSuccess, fontWeight: 700 },
+              markerEnd: { type: MarkerType.ArrowClosed, color: step.type === 'start' ? undefined : token.colorSuccess }
             };
-            // Only set targetHandle if it has a valid, non-empty value
-            if (isValidTargetHandle(step.nextTarget)) {
-              edge.targetHandle = step.nextTarget;
+            if (isValidTargetHandle(handles?.success?.targetHandle)) {
+              edge.targetHandle = handles?.success?.targetHandle;
             }
             newEdges.push(edge);
           }
-          if (step.trueStepId) {
+          
+          // Error connection (for non-branch nodes)
+          if (conn?.errorStepId && step.type !== 'branch') {
             const edge: any = {
-              id: `e-${step.id}-${step.trueStepId}-true`,
+              id: `e-${step.id}-${conn.errorStepId}-error`,
               source: step.id,
-              target: step.trueStepId,
+              target: conn.errorStepId,
               type: 'smoothstep',
-              sourceHandle: step.trueSource || 'true',
+              sourceHandle: handles?.error?.sourceHandle || 'error',
+              label: t('workflow.error') || 'Error',
+              style: { stroke: token.colorWarning },
+              labelStyle: { fill: token.colorWarning, fontWeight: 700 },
+              markerEnd: { type: MarkerType.ArrowClosed, color: token.colorWarning }
+            };
+            if (isValidTargetHandle(handles?.error?.targetHandle)) {
+              edge.targetHandle = handles?.error?.targetHandle;
+            }
+            newEdges.push(edge);
+          }
+          
+          // True connection (for branch nodes)
+          if (conn?.trueStepId) {
+            const edge: any = {
+              id: `e-${step.id}-${conn.trueStepId}-true`,
+              source: step.id,
+              target: conn.trueStepId,
+              type: 'smoothstep',
+              sourceHandle: handles?.true?.sourceHandle || 'true',
               label: t('workflow.branch_true'),
               style: { stroke: token.colorSuccess },
               labelStyle: { fill: token.colorSuccess, fontWeight: 700 },
               markerEnd: { type: MarkerType.ArrowClosed, color: token.colorSuccess }
             };
-            // Only set targetHandle if it has a valid, non-empty value
-            if (isValidTargetHandle(step.trueTarget)) {
-              edge.targetHandle = step.trueTarget;
+            if (isValidTargetHandle(handles?.true?.targetHandle)) {
+              edge.targetHandle = handles?.true?.targetHandle;
             }
             newEdges.push(edge);
           }
-          if (step.falseStepId) {
+          
+          // False connection (for branch nodes)
+          if (conn?.falseStepId) {
             const edge: any = {
-              id: `e-${step.id}-${step.falseStepId}-false`,
+              id: `e-${step.id}-${conn.falseStepId}-false`,
               source: step.id,
-              target: step.falseStepId,
+              target: conn.falseStepId,
               type: 'smoothstep',
-              sourceHandle: step.falseSource || 'false',
+              sourceHandle: handles?.false?.sourceHandle || 'false',
               label: t('workflow.branch_false'),
               style: { stroke: token.colorError },
               labelStyle: { fill: token.colorError, fontWeight: 700 },
               markerEnd: { type: MarkerType.ArrowClosed, color: token.colorError }
             };
-            // Only set targetHandle if it has a valid, non-empty value
-            if (isValidTargetHandle(step.falseTarget)) {
-              edge.targetHandle = step.falseTarget;
+            if (isValidTargetHandle(handles?.false?.targetHandle)) {
+              edge.targetHandle = handles?.false?.targetHandle;
+            }
+            newEdges.push(edge);
+          }
+          
+          // Error connection for branch nodes
+          if (conn?.errorStepId && step.type === 'branch') {
+            const edge: any = {
+              id: `e-${step.id}-${conn.errorStepId}-error`,
+              source: step.id,
+              target: conn.errorStepId,
+              type: 'smoothstep',
+              sourceHandle: handles?.error?.sourceHandle || 'error',
+              label: t('workflow.error') || 'Error',
+              style: { stroke: token.colorWarning },
+              labelStyle: { fill: token.colorWarning, fontWeight: 700 },
+              markerEnd: { type: MarkerType.ArrowClosed, color: token.colorWarning }
+            };
+            if (isValidTargetHandle(handles?.error?.targetHandle)) {
+              edge.targetHandle = handles?.error?.targetHandle;
             }
             newEdges.push(edge);
           }
         });
       } else {
+        // Fallback: linear workflow without explicit connections
         selectedWorkflow.steps.slice(0, -1).forEach((step, index) => {
           newEdges.push({
             id: `e-${step.id}-${selectedWorkflow.steps[index + 1].id}`,
             source: step.id,
             target: selectedWorkflow.steps[index + 1].id,
             type: 'smoothstep',
-            sourceHandle: 'default',
+            sourceHandle: 'success',
             markerEnd: { type: MarkerType.ArrowClosed },
           });
         });
       }
 
-      const hasPositions = selectedWorkflow.steps.some(s => s.posX !== undefined);
+      // V2: Check for layout positions
+      const hasPositions = selectedWorkflow.steps.some(s => s.layout?.posX !== undefined);
 
       // Clean up edges: remove invalid targetHandle values
       const cleanedEdges = newEdges.map(edge => {
@@ -921,12 +1033,41 @@ const WorkflowView: React.FC = () => {
     setEditingNodeId(node.id);
     const step = node.data.step as WorkflowStep;
     stepForm.resetFields();
+    
+    // V2: Extract form values from type-specific params
+    const selector = step.element?.selector || step.branch?.selector;
+    const conditionType = step.branch?.condition || 'exists';
+    
+    // Get value based on step type
+    let value: string | undefined;
+    if (step.app?.packageName) value = step.app.packageName;
+    else if (step.wait?.durationMs) value = String(step.wait.durationMs);
+    else if (step.script?.scriptName) value = step.script.scriptName;
+    else if (step.variable?.value) value = step.variable.value;
+    else if (step.adb?.command) value = step.adb.command;
+    else if (step.workflow?.workflowId) value = step.workflow.workflowId;
+    else if (step.element?.inputText) value = step.element.inputText;
+    else if (step.element?.swipeDir) value = step.element.swipeDir;
+    else if (step.branch?.expectedValue) value = step.branch.expectedValue;
+    
     stepForm.setFieldsValue({
-      ...step,
-      selectorType: step.selector?.type,
-      selectorValue: step.selector?.value,
       type: step.type,
-      conditionType: step.conditionType || 'exists', // Default to 'exists' for branch nodes
+      name: step.name,
+      selectorType: selector?.type,
+      selectorValue: selector?.value,
+      conditionType,
+      value,
+      timeout: step.common?.timeout,
+      onError: step.common?.onError,
+      loop: step.common?.loop,
+      preWait: step.common?.preWait,
+      postDelay: step.common?.postDelay,
+      swipeDistance: step.element?.swipeDistance || step.swipe?.distance,
+      swipeDuration: step.element?.swipeDuration || step.swipe?.duration,
+      x: step.tap?.x || step.swipe?.x,
+      y: step.tap?.y || step.swipe?.y,
+      x2: step.swipe?.x2,
+      y2: step.swipe?.y2,
     });
     setDrawerVisible(true);
   };
@@ -938,13 +1079,13 @@ const WorkflowView: React.FC = () => {
   };
 
   const handleCreateWorkflowSubmit = async (values: any) => {
-    // Auto-create a Start node
+    // V2: Auto-create a Start node with new structure
     const startStep: WorkflowStep = {
       id: `start_${Date.now()}`,
       type: 'start',
       name: 'Start',
-      posX: 250,
-      posY: 50,
+      connections: { successStepId: '' },
+      layout: { posX: 250, posY: 50 },
     };
 
     const newWorkflow: Workflow = {
@@ -994,58 +1135,79 @@ const WorkflowView: React.FC = () => {
       const originalStep = node.data.step as WorkflowStep;
       const outgoing = outEdgesMap.get(node.id) || [];
 
-      let nextStepId = "";
-      let nextSource = "";
-      let nextTarget = "";
-      let trueStepId = "";
-      let trueSource = "";
-      let trueTarget = "";
-      let falseStepId = "";
-      let falseSource = "";
-      let falseTarget = "";
+      // V2: Build connections and handles
+      let successStepId: string | undefined;
+      let errorStepId: string | undefined;
+      let trueStepId: string | undefined;
+      let falseStepId: string | undefined;
+      
+      const handles: Record<string, { sourceHandle?: string; targetHandle?: string }> = {};
 
       if (originalStep.type === 'branch') {
-        const t = outgoing.find(e => e.sourceHandle === 'true' || e.sourceHandle === 'true-left');
-        const f = outgoing.find(e => e.sourceHandle === 'false' || e.sourceHandle === 'false-right');
-        if (t) {
-          trueStepId = t.target;
-          trueSource = t.sourceHandle || 'true';
-          // Only save valid targetHandle values
-          const tHandle = t.targetHandle;
-          trueTarget = isValidTargetHandle(tHandle) ? String(tHandle) : '';
+        // Branch node: true/false/error outputs
+        const trueEdge = outgoing.find(e => e.sourceHandle === 'true' || e.sourceHandle === 'true-left');
+        const falseEdge = outgoing.find(e => e.sourceHandle === 'false');
+        const errorEdge = outgoing.find(e => e.sourceHandle === 'error' || e.sourceHandle === 'error-right');
+        
+        if (trueEdge) {
+          trueStepId = trueEdge.target;
+          handles['true'] = {
+            sourceHandle: trueEdge.sourceHandle || 'true',
+            targetHandle: isValidTargetHandle(trueEdge.targetHandle) ? String(trueEdge.targetHandle) : undefined,
+          };
         }
-        if (f) {
-          falseStepId = f.target;
-          falseSource = f.sourceHandle || 'false';
-          // Only save valid targetHandle values
-          const fHandle = f.targetHandle;
-          falseTarget = isValidTargetHandle(fHandle) ? String(fHandle) : '';
+        if (falseEdge) {
+          falseStepId = falseEdge.target;
+          handles['false'] = {
+            sourceHandle: falseEdge.sourceHandle || 'false',
+            targetHandle: isValidTargetHandle(falseEdge.targetHandle) ? String(falseEdge.targetHandle) : undefined,
+          };
+        }
+        if (errorEdge) {
+          errorStepId = errorEdge.target;
+          handles['error'] = {
+            sourceHandle: errorEdge.sourceHandle || 'error',
+            targetHandle: isValidTargetHandle(errorEdge.targetHandle) ? String(errorEdge.targetHandle) : undefined,
+          };
         }
       } else {
-        const next = outgoing.find(e => e.sourceHandle === 'default' || e.sourceHandle === 'source-left' || e.sourceHandle === 'source-right' || !e.sourceHandle);
-        if (next) {
-          nextStepId = next.target;
-          nextSource = next.sourceHandle || 'default';
-          // Only save valid targetHandle values
-          const nHandle = next.targetHandle;
-          nextTarget = isValidTargetHandle(nHandle) ? String(nHandle) : '';
+        // Normal node: success/error outputs
+        const successEdge = outgoing.find(e => 
+          e.sourceHandle === 'success' || e.sourceHandle === 'success-left' || 
+          e.sourceHandle === 'default' || !e.sourceHandle
+        );
+        const errorEdge = outgoing.find(e => e.sourceHandle === 'error' || e.sourceHandle === 'error-right');
+        
+        if (successEdge) {
+          successStepId = successEdge.target;
+          handles['success'] = {
+            sourceHandle: successEdge.sourceHandle || 'success',
+            targetHandle: isValidTargetHandle(successEdge.targetHandle) ? String(successEdge.targetHandle) : undefined,
+          };
+        }
+        if (errorEdge) {
+          errorStepId = errorEdge.target;
+          handles['error'] = {
+            sourceHandle: errorEdge.sourceHandle || 'error',
+            targetHandle: isValidTargetHandle(errorEdge.targetHandle) ? String(errorEdge.targetHandle) : undefined,
+          };
         }
       }
 
+      // V2: Build the step with new structure
       return {
         ...originalStep,
-        nextStepId,
-        nextSource,
-        nextTarget,
-        trueStepId,
-        trueSource,
-        trueTarget,
-        falseStepId,
-        falseSource,
-        falseTarget,
-        value: originalStep.value,
-        posX: node.position.x,
-        posY: node.position.y
+        connections: {
+          successStepId,
+          errorStepId,
+          trueStepId,
+          falseStepId,
+        },
+        layout: {
+          posX: node.position.x,
+          posY: node.position.y,
+          handles: Object.keys(handles).length > 0 ? handles : undefined,
+        },
       };
     });
 
@@ -1091,12 +1253,17 @@ const WorkflowView: React.FC = () => {
     }
 
     const id = `step_${Date.now()}`;
+    // V2: Create step with new structure
     const newStep: WorkflowStep = {
       id,
-      type,
-      loop: 1,
-      postDelay: 0,
-      onError: 'stop'
+      type: type as WorkflowStep['type'],
+      common: {
+        loop: 1,
+        postDelay: 0,
+        onError: 'stop',
+      },
+      connections: {},
+      layout: { posX: 250, posY: (nodes.length * 100) + 50 },
     };
 
     const newNode: Node = {
@@ -1118,12 +1285,13 @@ const WorkflowView: React.FC = () => {
         const lastNode = tails[0];
         const lastType = (lastNode.data.step as WorkflowStep).type;
         if (lastType !== 'branch') {
+          // V2: Use 'success' handle instead of 'default'
           const newEdge = {
             id: `e-${lastNode.id}-${id}`,
             source: lastNode.id,
             target: id,
             type: 'smoothstep',
-            sourceHandle: 'default',
+            sourceHandle: 'success',
             markerEnd: { type: MarkerType.ArrowClosed },
           };
           setEdges(eds => [...eds, newEdge]);
@@ -1154,38 +1322,124 @@ const WorkflowView: React.FC = () => {
 
     setNodes(nds => nds.map(node => {
       if (node.id === editingNodeId) {
+        const originalStep = node.data.step as WorkflowStep;
+        
+        // V2: Build type-specific params
+        let tap = originalStep.tap;
+        let swipe = originalStep.swipe;
+        let element = originalStep.element;
+        let app = originalStep.app;
+        let branch = originalStep.branch;
+        let wait = originalStep.wait;
+        let script = originalStep.script;
+        let variable = originalStep.variable;
+        let adb = originalStep.adb;
+        let workflow = originalStep.workflow;
+        
+        const stepType = values.type || originalStep.type;
+        
+        // Update type-specific params based on step type
+        if (stepType === 'tap') {
+          tap = {
+            x: values.x !== undefined ? Number(values.x) : (originalStep.tap?.x ?? 0),
+            y: values.y !== undefined ? Number(values.y) : (originalStep.tap?.y ?? 0),
+          };
+        } else if (stepType === 'swipe') {
+          swipe = {
+            x: values.x !== undefined ? Number(values.x) : originalStep.swipe?.x,
+            y: values.y !== undefined ? Number(values.y) : originalStep.swipe?.y,
+            x2: values.x2 !== undefined ? Number(values.x2) : originalStep.swipe?.x2,
+            y2: values.y2 !== undefined ? Number(values.y2) : originalStep.swipe?.y2,
+            distance: values.swipeDistance,
+            duration: values.swipeDuration,
+          };
+        } else if (['click_element', 'long_click_element', 'input_text', 'swipe_element', 'wait_element', 'wait_gone', 'assert_element'].includes(stepType)) {
+          element = {
+            selector: values.selectorValue ? {
+              type: values.selectorType || 'text',
+              value: values.selectorValue,
+            } : originalStep.element?.selector || { type: 'text', value: '' },
+            action: stepType === 'click_element' ? 'click' :
+                    stepType === 'long_click_element' ? 'long_click' :
+                    stepType === 'input_text' ? 'input' :
+                    stepType === 'swipe_element' ? 'swipe' :
+                    stepType === 'wait_element' ? 'wait' :
+                    stepType === 'wait_gone' ? 'wait_gone' : 'assert',
+            inputText: stepType === 'input_text' ? values.value : undefined,
+            swipeDir: stepType === 'swipe_element' ? values.value : undefined,
+            swipeDistance: values.swipeDistance,
+            swipeDuration: values.swipeDuration,
+          };
+        } else if (['launch_app', 'stop_app', 'clear_app', 'open_settings'].includes(stepType)) {
+          app = {
+            packageName: values.value || '',
+            action: stepType === 'launch_app' ? 'launch' :
+                    stepType === 'stop_app' ? 'stop' :
+                    stepType === 'clear_app' ? 'clear' : 'settings',
+          };
+        } else if (stepType === 'branch') {
+          branch = {
+            condition: (values.conditionType || 'exists') as any,
+            selector: values.selectorValue ? {
+              type: values.selectorType || 'text',
+              value: values.selectorValue,
+            } : originalStep.branch?.selector,
+            expectedValue: values.value,
+          };
+        } else if (stepType === 'wait') {
+          wait = {
+            durationMs: parseInt(values.value || '1000', 10) || 1000,
+          };
+        } else if (stepType === 'script') {
+          script = {
+            scriptName: values.value || '',
+          };
+        } else if (stepType === 'set_variable') {
+          variable = {
+            name: values.name || '',
+            value: values.value || '',
+          };
+        } else if (stepType === 'adb') {
+          adb = {
+            command: values.value || '',
+          };
+        } else if (stepType === 'run_workflow') {
+          workflow = {
+            workflowId: values.value || '',
+          };
+        }
+        
         const updatedStep: WorkflowStep = {
-          ...(node.data.step as WorkflowStep),
-          type: values.type,
+          ...originalStep,
+          type: stepType,
           name: values.name,
-          selector: values.selectorValue ? {
-            type: values.selectorType || 'text',
-            value: values.selectorValue,
-          } : undefined,
-          value: values.value !== undefined ? String(values.value) : undefined,
-          timeout: values.timeout,
-          onError: values.onError,
-          loop: values.loop,
-          preWait: Number(values.preWait || 0),
-          postDelay: Number(values.postDelay || 0),
-          swipeDistance: values.swipeDistance,
-          swipeDuration: values.swipeDuration,
-          conditionType: values.conditionType,
-          // Coordinate fields for tap/swipe
-          x: values.x !== undefined ? Number(values.x) : (node.data.step as WorkflowStep).x,
-          y: values.y !== undefined ? Number(values.y) : (node.data.step as WorkflowStep).y,
-          x2: values.x2 !== undefined ? Number(values.x2) : (node.data.step as WorkflowStep).x2,
-          y2: values.y2 !== undefined ? Number(values.y2) : (node.data.step as WorkflowStep).y2,
-          nextStepId: (node.data.step as WorkflowStep).nextStepId,
-          trueStepId: (node.data.step as WorkflowStep).trueStepId,
-          falseStepId: (node.data.step as WorkflowStep).falseStepId,
+          common: {
+            ...originalStep.common,
+            timeout: values.timeout,
+            onError: values.onError,
+            loop: values.loop,
+            preWait: Number(values.preWait || 0),
+            postDelay: Number(values.postDelay || 0),
+          },
+          // V2: Type-specific params
+          tap,
+          swipe,
+          element,
+          app,
+          branch,
+          wait,
+          script,
+          variable,
+          adb,
+          workflow,
         };
+        
         return {
           ...node,
           data: {
             ...node.data,
             step: updatedStep,
-            label: values.name || t(`workflow.step_type.${values.type}`)
+            label: values.name || t(`workflow.step_type.${stepType}`)
           }
         };
       }
@@ -1289,9 +1543,10 @@ const WorkflowView: React.FC = () => {
       return;
     }
 
+    // V2: Sanitize ADB commands - use adb.command instead of value
     const sanitizedSteps = workflowToRun.steps.map(s => {
-      if (s.type === 'adb' && s.value && s.value.trim().startsWith('input ')) {
-        return { ...s, value: `shell ${s.value}` };
+      if (s.type === 'adb' && s.adb?.command && s.adb.command.trim().startsWith('input ')) {
+        return { ...s, adb: { command: `shell ${s.adb.command}` } };
       }
       return s;
     });

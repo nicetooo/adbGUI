@@ -228,55 +228,9 @@ type ScriptTask struct {
 	CreatedAt string     `json:"createdAt"`
 }
 
-// --- New Workflow Types ---
-
+// ElementSelector for UI element selection
 type ElementSelector struct {
-	Type  string `json:"type"` // "text", "id", "xpath", "advanced"
+	Type  string `json:"type"` // "text", "id", "xpath", "contentDesc", "className", "advanced"
 	Value string `json:"value"`
 	Index int    `json:"index,omitempty"`
-}
-
-type WorkflowStep struct {
-	ID        string           `json:"id"`
-	Type      string           `json:"type"`
-	Name      string           `json:"name,omitempty"`
-	Selector  *ElementSelector `json:"selector,omitempty"`
-	Value     string           `json:"value,omitempty"`
-	Timeout   int              `json:"timeout,omitempty"`
-	OnError   string           `json:"onError,omitempty"` // "stop", "continue"
-	Loop      int              `json:"loop,omitempty"`
-	PostDelay int              `json:"postDelay,omitempty"`
-	PreWait   int              `json:"preWait,omitempty"`
-	// Swipe parameters
-	SwipeDistance int    `json:"swipeDistance,omitempty"`
-	SwipeDuration int    `json:"swipeDuration,omitempty"`
-	X             int    `json:"x,omitempty"`             // Start X coordinate
-	Y             int    `json:"y,omitempty"`             // Start Y coordinate
-	X2            int    `json:"x2,omitempty"`            // End X coordinate
-	Y2            int    `json:"y2,omitempty"`            // End Y coordinate
-	ConditionType string `json:"conditionType,omitempty"` // "exists", "not_exists", "text_equals", "text_contains", "variable_equals"
-	// Graph Flow Control
-	NextStepId  string `json:"nextStepId,omitempty"`  // Default next step
-	NextSource  string `json:"nextSource,omitempty"`  // Handle ID for next step
-	NextTarget  string `json:"nextTarget,omitempty"`  // Handle ID for next step target
-	TrueStepId  string `json:"trueStepId,omitempty"`  // Branch TRUE target
-	TrueSource  string `json:"trueSource,omitempty"`  // Handle ID for true step
-	TrueTarget  string `json:"trueTarget,omitempty"`  // Handle ID for true step target
-	FalseStepId string `json:"falseStepId,omitempty"` // Branch FALSE target
-	FalseSource string `json:"falseSource,omitempty"` // Handle ID for false step
-	FalseTarget string `json:"falseTarget,omitempty"` // Handle ID for false step target
-
-	// Visual Layout
-	PosX float64 `json:"posX,omitempty"`
-	PosY float64 `json:"posY,omitempty"`
-}
-
-type Workflow struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Description string            `json:"description,omitempty"`
-	Steps       []WorkflowStep    `json:"steps"`
-	Variables   map[string]string `json:"variables,omitempty"`
-	CreatedAt   string            `json:"createdAt"`
-	UpdatedAt   string            `json:"updatedAt"`
 }

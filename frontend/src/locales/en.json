@@ -1023,6 +1023,8 @@
     "converted_desc": "Converted from recording on {{date}}",
     "branch_true": "True",
     "branch_false": "False",
+    "success": "Success",
+    "error": "Error",
     "error_device_not_found": "Device not found",
     "error_empty_steps": "Run aborted: Workflow has 0 steps.",
     "generated_step_name": {

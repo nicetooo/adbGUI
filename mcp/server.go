@@ -169,10 +169,13 @@ type DeviceSession = struct {
 	VideoDuration int64  `json:"videoDuration,omitempty"`
 }
 
+// ============== Workflow V2 Types ==============
+
 type Workflow = struct {
 	ID          string            `json:"id"`
 	Name        string            `json:"name"`
 	Description string            `json:"description,omitempty"`
+	Version     int               `json:"version"` // V2: Schema version
 	Steps       []WorkflowStep    `json:"steps"`
 	Variables   map[string]string `json:"variables,omitempty"`
 	CreatedAt   string            `json:"createdAt,omitempty"`
@@ -185,29 +188,121 @@ type ElementSelector = struct {
 	Index int    `json:"index,omitempty"` // Index for multiple matches
 }
 
-type WorkflowStep = struct {
-	ID            string           `json:"id"`
-	Type          string           `json:"type"` // "tap", "swipe", "click_element", "swipe_element", "input_text", "wait", "launch_app", "key_back", "key_home", etc.
-	Name          string           `json:"name,omitempty"`
+// StepConnections defines flow connections (V2)
+type StepConnections = struct {
+	SuccessStepId string `json:"successStepId,omitempty"` // Next step on success
+	ErrorStepId   string `json:"errorStepId,omitempty"`   // Next step on error
+	TrueStepId    string `json:"trueStepId,omitempty"`    // Branch condition true
+	FalseStepId   string `json:"falseStepId,omitempty"`   // Branch condition false
+}
+
+// StepCommon defines common step configuration (V2)
+type StepCommon = struct {
+	Timeout   int    `json:"timeout,omitempty"`
+	OnError   string `json:"onError,omitempty"` // "stop", "continue"
+	Loop      int    `json:"loop,omitempty"`
+	PostDelay int    `json:"postDelay,omitempty"`
+	PreWait   int    `json:"preWait,omitempty"`
+}
+
+// HandleInfo stores handle connection info for UI
+type HandleInfo = struct {
+	SourceHandle string `json:"sourceHandle,omitempty"`
+	TargetHandle string `json:"targetHandle,omitempty"`
+}
+
+// StepLayout stores UI position and handle info (V2)
+type StepLayout = struct {
+	PosX    float64               `json:"posX,omitempty"`
+	PosY    float64               `json:"posY,omitempty"`
+	Handles map[string]HandleInfo `json:"handles,omitempty"`
+}
+
+// Type-specific parameter structs (V2)
+
+type TapParams = struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+}
+
+type SwipeParams = struct {
+	X         int    `json:"x,omitempty"`
+	Y         int    `json:"y,omitempty"`
+	X2        int    `json:"x2,omitempty"`
+	Y2        int    `json:"y2,omitempty"`
+	Direction string `json:"direction,omitempty"` // "up", "down", "left", "right"
+	Distance  int    `json:"distance,omitempty"`
+	Duration  int    `json:"duration,omitempty"`
+}
+
+type ElementParams = struct {
+	Selector      ElementSelector `json:"selector"`
+	Action        string          `json:"action"` // "click", "long_click", "input", "swipe", "wait", "wait_gone", "assert"
+	InputText     string          `json:"inputText,omitempty"`
+	SwipeDir      string          `json:"swipeDir,omitempty"`
+	SwipeDistance int             `json:"swipeDistance,omitempty"`
+	SwipeDuration int             `json:"swipeDuration,omitempty"`
+}
+
+type AppParams = struct {
+	PackageName string `json:"packageName"`
+	Action      string `json:"action"` // "launch", "stop", "clear", "settings"
+}
+
+type BranchParams = struct {
+	Condition     string           `json:"condition"` // "exists", "not_exists", "text_equals", "text_contains", "variable_equals"
 	Selector      *ElementSelector `json:"selector,omitempty"`
-	Value         string           `json:"value,omitempty"`
-	Timeout       int              `json:"timeout,omitempty"`
-	OnError       string           `json:"onError,omitempty"` // "stop", "continue"
-	Loop          int              `json:"loop,omitempty"`
-	PostDelay     int              `json:"postDelay,omitempty"`
-	PreWait       int              `json:"preWait,omitempty"`
-	SwipeDistance int              `json:"swipeDistance,omitempty"`
-	SwipeDuration int              `json:"swipeDuration,omitempty"`
-	X             int              `json:"x,omitempty"`             // Start X coordinate for tap/swipe
-	Y             int              `json:"y,omitempty"`             // Start Y coordinate for tap/swipe
-	X2            int              `json:"x2,omitempty"`            // End X coordinate for swipe
-	Y2            int              `json:"y2,omitempty"`            // End Y coordinate for swipe
-	ConditionType string           `json:"conditionType,omitempty"` // "exists", "not_exists", "text_equals", "text_contains"
-	NextStepId    string           `json:"nextStepId,omitempty"`
-	TrueStepId    string           `json:"trueStepId,omitempty"`
-	FalseStepId   string           `json:"falseStepId,omitempty"`
-	PosX          float64          `json:"posX,omitempty"`
-	PosY          float64          `json:"posY,omitempty"`
+	ExpectedValue string           `json:"expectedValue,omitempty"`
+	VariableName  string           `json:"variableName,omitempty"`
+}
+
+type WaitParams = struct {
+	DurationMs int `json:"durationMs"`
+}
+
+type ScriptParams = struct {
+	ScriptName string `json:"scriptName"`
+}
+
+type VariableParams = struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+type ADBParams = struct {
+	Command string `json:"command"`
+}
+
+type SubWorkflowParams = struct {
+	WorkflowId string `json:"workflowId"`
+}
+
+// WorkflowStep V2 with type-specific parameters
+type WorkflowStep = struct {
+	ID   string `json:"id"`
+	Type string `json:"type"` // Step type
+	Name string `json:"name,omitempty"`
+
+	// V2: Common configuration
+	Common *StepCommon `json:"common,omitempty"`
+
+	// V2: Flow connections
+	Connections *StepConnections `json:"connections,omitempty"`
+
+	// V2: Type-specific parameters (only one should be set based on type)
+	Tap      *TapParams         `json:"tap,omitempty"`
+	Swipe    *SwipeParams       `json:"swipe,omitempty"`
+	Element  *ElementParams     `json:"element,omitempty"`
+	App      *AppParams         `json:"app,omitempty"`
+	Branch   *BranchParams      `json:"branch,omitempty"`
+	Wait     *WaitParams        `json:"wait,omitempty"`
+	Script   *ScriptParams      `json:"script,omitempty"`
+	Variable *VariableParams    `json:"variable,omitempty"`
+	ADB      *ADBParams         `json:"adb,omitempty"`
+	Workflow *SubWorkflowParams `json:"workflow,omitempty"`
+
+	// V2: UI Layout
+	Layout *StepLayout `json:"layout,omitempty"`
 }
 
 type VideoMetadata = struct {

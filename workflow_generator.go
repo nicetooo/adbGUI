@@ -374,22 +374,25 @@ func (a *App) touchEventToStep(event *UnifiedEvent, index int, lastEventTime int
 		Name: stepName,
 	}
 
-	// Always store coordinates in Value field
-	step.Value = fmt.Sprintf("%.0f,%.0f", touchData.X, touchData.Y)
-
 	// Try to find matching UI element
 	element := a.findUIElementAtPoint(int(touchData.X), int(touchData.Y), event.Timestamp, uiEvents)
 	if element != nil {
 		selector := a.buildSelectorFromElement(element, config.SelectorPreference)
 		if selector != nil {
-			step.Selector = selector
-			// Update step name with selector info
+			// Use element-based step
+			step.Type = "click_element"
+			step.Element = &ElementParams{
+				Selector: *selector,
+				Action:   "click",
+			}
 			step.Name = fmt.Sprintf("Tap on %s", selector.Value)
+		} else {
+			// Fall back to tap with coordinates
+			step.Tap = &TapParams{X: int(touchData.X), Y: int(touchData.Y)}
 		}
-	}
-
-	// Add warning if no selector found
-	if step.Selector == nil {
+	} else {
+		// No UI element found, use coordinates
+		step.Tap = &TapParams{X: int(touchData.X), Y: int(touchData.Y)}
 		warnings = append(warnings, fmt.Sprintf("Step %d: No UI element found, using coordinates", index+1))
 	}
 
@@ -397,7 +400,7 @@ func (a *App) touchEventToStep(event *UnifiedEvent, index int, lastEventTime int
 	if lastEventTime > 0 {
 		gap := event.Timestamp - lastEventTime
 		if gap > 500 && gap < config.MaxImplicitWait {
-			step.PreWait = int(gap)
+			step.Common.PreWait = int(gap)
 		}
 	}
 
@@ -514,14 +517,17 @@ func (a *App) addAutoAssertions(workflow *GeneratedWorkflow, touchEvents []Unifi
 	for _, step := range workflow.Steps {
 		newSteps = append(newSteps, step)
 
-		// Add wait_element assertion after clicks that have a selector
-		if step.Type == "click" && step.Selector != nil {
+		// Add wait_element assertion after clicks that have an element selector
+		if step.Type == "click_element" && step.Element != nil {
 			assertStep := WorkflowStep{
-				ID:       fmt.Sprintf("%s_assert", step.ID),
-				Type:     "wait",
-				Name:     fmt.Sprintf("Verify %s", step.Name),
-				Selector: step.Selector,
-				Timeout:  5000,
+				ID:   fmt.Sprintf("%s_assert", step.ID),
+				Type: "wait_element",
+				Name: fmt.Sprintf("Verify %s", step.Name),
+				Element: &ElementParams{
+					Selector: step.Element.Selector,
+					Action:   "wait",
+				},
+				Common: StepCommon{Timeout: 5000},
 			}
 			newSteps = append(newSteps, assertStep)
 		}

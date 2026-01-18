@@ -430,6 +430,10 @@ export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
 }
 
+export function InitializeWithoutGUI() {
+  return window['go']['main']['App']['InitializeWithoutGUI']();
+}
+
 export function InputNodeText(arg1, arg2, arg3) {
   return window['go']['main']['App']['InputNodeText'](arg1, arg2, arg3);
 }
@@ -448,6 +452,10 @@ export function InstallProxyCert(arg1) {
 
 export function IsAppRunning(arg1, arg2) {
   return window['go']['main']['App']['IsAppRunning'](arg1, arg2);
+}
+
+export function IsMCPMode() {
+  return window['go']['main']['App']['IsMCPMode']();
 }
 
 export function IsPlayingTouch(arg1) {
@@ -516,6 +524,10 @@ export function LoadScriptTasks() {
 
 export function LoadTouchScripts() {
   return window['go']['main']['App']['LoadTouchScripts']();
+}
+
+export function LoadWorkflowByID(arg1) {
+  return window['go']['main']['App']['LoadWorkflowByID'](arg1);
 }
 
 export function LoadWorkflows() {
@@ -740,6 +752,10 @@ export function SetupProxyForDevice(arg1, arg2) {
 
 export function Shutdown(arg1) {
   return window['go']['main']['App']['Shutdown'](arg1);
+}
+
+export function ShutdownWithoutGUI() {
+  return window['go']['main']['App']['ShutdownWithoutGUI']();
 }
 
 export function StartActivity(arg1, arg2) {

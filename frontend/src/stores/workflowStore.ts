@@ -2,52 +2,24 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { Node, Edge } from '@xyflow/react';
 
-export interface WorkflowStep {
-  id: string;
-  type: string;
-  label?: string;
-  name?: string;
-  selector?: any;
-  value?: string;
-  loop?: number;
-  timeout?: number;
-  postDelay?: number;
-  preWait?: number;
-  swipeDistance?: number;
-  swipeDuration?: number;
-  conditionType?: string;
-  onError?: 'stop' | 'continue';
-  nextStepId?: string;
-  trueStepId?: string;
-  falseStepId?: string;
-  posX?: number;
-  posY?: number;
-  // Coordinate fields for tap/swipe
-  x?: number;
-  y?: number;
-  x2?: number;
-  y2?: number;
-  nextSource?: string;
-  trueSource?: string;
-  falseSource?: string;
-  nextTarget?: string;
-  trueTarget?: string;
-  falseTarget?: string;
-  children?: WorkflowStep[];
-  scriptId?: string;
-  workflowId?: string;
-  [key: string]: any;
-}
+// Import workflow types
+import {
+  Workflow,
+  WorkflowStep,
+  StepType,
+  StepConnections,
+  StepCommon,
+  getDefaultStepCommon,
+  getDefaultConnections,
+  createEmptyWorkflow,
+} from '../types/workflow';
 
-export interface Workflow {
-  id: string;
-  name: string;
-  description?: string;
-  steps: WorkflowStep[];
-  variables?: Record<string, string>;
-  createdAt?: string;
-  updatedAt?: string;
-}
+// Re-export types for external use
+export type { Workflow, WorkflowStep, StepType, StepConnections, StepCommon };
+
+// Legacy type aliases for backward compatibility
+export type WorkflowV2 = Workflow;
+export type WorkflowStepV2 = WorkflowStep;
 
 interface StepStatus {
   stepId: string;
@@ -56,13 +28,13 @@ interface StepStatus {
 }
 
 interface WorkflowState {
-  // 核心数据
+  // Core data
   workflows: Workflow[];
   selectedWorkflowId: string | null;
   nodes: Node[];
   edges: Edge[];
   
-  // 执行状态
+  // Execution state
   isRunning: boolean;
   runningWorkflowIds: string[];
   isPaused: boolean;
@@ -72,7 +44,7 @@ interface WorkflowState {
   executionLogs: string[];
   workflowStepMap: Record<string, StepStatus>;
   
-  // UI 状态
+  // UI state
   workflowModalVisible: boolean;
   drawerVisible: boolean;
   elementPickerVisible: boolean;
@@ -81,24 +53,36 @@ interface WorkflowState {
   editingWorkflowId: string | null;
   editingWorkflowName: string;
   
-  // 临时数据
+  // Temporary data
   tempVariables: { key: string; value: string }[];
   packages: any[];
   appsLoading: boolean;
   needsAutoSave: boolean;
   
-  // 操作方法
+  // Workflow operations
   setWorkflows: (workflows: Workflow[] | ((prev: Workflow[]) => Workflow[])) => void;
+  setWorkflowsWithMigration: (workflows: unknown[]) => void;
   addWorkflow: (workflow: Workflow) => void;
+  createWorkflow: (id: string, name: string) => Workflow;
   updateWorkflow: (id: string, updates: Partial<Workflow>) => void;
   deleteWorkflow: (id: string) => void;
   selectWorkflow: (id: string | null) => void;
   getSelectedWorkflow: () => Workflow | null;
+  getWorkflowById: (id: string) => Workflow | undefined;
   
+  // Step operations
+  addStep: (workflowId: string, step: WorkflowStep) => void;
+  updateStep: (workflowId: string, stepId: string, updates: Partial<WorkflowStep>) => void;
+  deleteStep: (workflowId: string, stepId: string) => void;
+  getStep: (workflowId: string, stepId: string) => WorkflowStep | undefined;
+  updateStepConnections: (workflowId: string, stepId: string, connections: Partial<StepConnections>) => void;
+  
+  // Graph operations
   setNodes: (nodes: Node[]) => void;
   setEdges: (edges: Edge[]) => void;
   updateGraph: (nodes: Node[], edges: Edge[]) => void;
   
+  // Execution state operations
   setIsRunning: (running: boolean) => void;
   setRunningWorkflowIds: (ids: string[] | ((prev: string[]) => string[])) => void;
   addRunningWorkflowId: (id: string) => void;
@@ -106,7 +90,7 @@ interface WorkflowState {
   setIsPaused: (paused: boolean) => void;
   setCurrentStepId: (stepId: string | null) => void;
   setWaitingStep: (stepId: string | null, phase: 'pre' | 'post' | null) => void;
-  // 兼容方法
+  // Legacy compatibility methods
   setWaitingStepId: (stepId: string | null) => void;
   setWaitingPhase: (phase: 'pre' | 'post' | null) => void;
   setExecutionLogs: (logs: string[] | ((prev: string[]) => string[])) => void;
@@ -116,28 +100,33 @@ interface WorkflowState {
   updateWorkflowStepStatus: (workflowId: string, status: StepStatus) => void;
   clearWorkflowStepStatus: (workflowId: string) => void;
   
+  // UI state operations
   setWorkflowModalVisible: (visible: boolean) => void;
   setDrawerVisible: (visible: boolean) => void;
   setElementPickerVisible: (visible: boolean) => void;
   setVariablesModalVisible: (visible: boolean) => void;
   setEditingNode: (nodeId: string | null) => void;
-  // 兼容方法
+  // Legacy compatibility methods
   setEditingNodeId: (nodeId: string | null) => void;
   setEditingWorkflow: (id: string | null, name: string) => void;
-  // 兼容方法
+  // Legacy compatibility methods
   setEditingWorkflowId: (id: string | null) => void;
   setEditingWorkflowName: (name: string) => void;
   setSelectedWorkflow: (workflow: Workflow | null) => void;
   
+  // Temporary data operations
   setTempVariables: (vars: { key: string; value: string }[] | ((prev: { key: string; value: string }[]) => { key: string; value: string }[])) => void;
   setPackages: (packages: any[]) => void;
   setAppsLoading: (loading: boolean) => void;
   setNeedsAutoSave: (needs: boolean) => void;
+  
+  // Export utilities
+  exportWorkflow: (id: string) => Workflow | undefined;
 }
 
 export const useWorkflowStore = create<WorkflowState>()(
   immer((set, get) => ({
-    // 初始状态
+    // Initial state
     workflows: [],
     selectedWorkflowId: null,
     nodes: [],
@@ -165,7 +154,7 @@ export const useWorkflowStore = create<WorkflowState>()(
     appsLoading: false,
     needsAutoSave: false,
     
-    // 操作方法
+    // Workflow operations
     setWorkflows: (workflows) => {
       if (typeof workflows === 'function') {
         set((state: WorkflowState) => {
@@ -176,14 +165,27 @@ export const useWorkflowStore = create<WorkflowState>()(
       }
     },
     
+    setWorkflowsWithMigration: (workflows) => {
+      // No migration needed - all workflows are now in the unified format
+      set({ workflows: workflows as Workflow[] });
+    },
+    
     addWorkflow: (workflow) => set((state: WorkflowState) => {
       state.workflows.push(workflow);
     }),
     
+    createWorkflow: (id, name) => {
+      const workflow = createEmptyWorkflow(id, name);
+      set((state: WorkflowState) => {
+        state.workflows.push(workflow);
+      });
+      return workflow;
+    },
+    
     updateWorkflow: (id, updates) => set((state: WorkflowState) => {
       const workflow = state.workflows.find(w => w.id === id);
       if (workflow) {
-        Object.assign(workflow, updates);
+        Object.assign(workflow, updates, { updatedAt: new Date().toISOString() });
       }
     }),
     
@@ -201,12 +203,90 @@ export const useWorkflowStore = create<WorkflowState>()(
       return state.workflows.find(w => w.id === state.selectedWorkflowId) || null;
     },
     
+    getWorkflowById: (id) => {
+      return get().workflows.find(w => w.id === id);
+    },
+    
+    // Step operations
+    addStep: (workflowId, step) => set((state: WorkflowState) => {
+      const workflow = state.workflows.find(w => w.id === workflowId);
+      if (workflow) {
+        // Ensure step has required fields
+        const fullStep: WorkflowStep = {
+          ...step,
+          common: step.common || getDefaultStepCommon(),
+          connections: step.connections || getDefaultConnections(),
+        };
+        workflow.steps.push(fullStep);
+        workflow.updatedAt = new Date().toISOString();
+      }
+    }),
+    
+    updateStep: (workflowId, stepId, updates) => set((state: WorkflowState) => {
+      const workflow = state.workflows.find(w => w.id === workflowId);
+      if (workflow) {
+        const stepIndex = workflow.steps.findIndex(s => s.id === stepId);
+        if (stepIndex !== -1) {
+          workflow.steps[stepIndex] = { ...workflow.steps[stepIndex], ...updates };
+          workflow.updatedAt = new Date().toISOString();
+        }
+      }
+    }),
+    
+    deleteStep: (workflowId, stepId) => set((state: WorkflowState) => {
+      const workflow = state.workflows.find(w => w.id === workflowId);
+      if (workflow) {
+        // Don't delete the start node
+        if (stepId === 'start') return;
+        
+        workflow.steps = workflow.steps.filter(s => s.id !== stepId);
+        
+        // Clean up connections pointing to deleted step
+        workflow.steps.forEach(step => {
+          if (step.connections) {
+            if (step.connections.successStepId === stepId) {
+              step.connections.successStepId = undefined;
+            }
+            if (step.connections.errorStepId === stepId) {
+              step.connections.errorStepId = undefined;
+            }
+            if (step.connections.trueStepId === stepId) {
+              step.connections.trueStepId = undefined;
+            }
+            if (step.connections.falseStepId === stepId) {
+              step.connections.falseStepId = undefined;
+            }
+          }
+        });
+        
+        workflow.updatedAt = new Date().toISOString();
+      }
+    }),
+    
+    getStep: (workflowId, stepId) => {
+      const workflow = get().workflows.find(w => w.id === workflowId);
+      return workflow?.steps.find(s => s.id === stepId);
+    },
+    
+    updateStepConnections: (workflowId, stepId, connections) => set((state: WorkflowState) => {
+      const workflow = state.workflows.find(w => w.id === workflowId);
+      if (workflow) {
+        const step = workflow.steps.find(s => s.id === stepId);
+        if (step) {
+          step.connections = { ...step.connections, ...connections };
+          workflow.updatedAt = new Date().toISOString();
+        }
+      }
+    }),
+    
+    // Graph operations
     setNodes: (nodes) => set({ nodes }),
     
     setEdges: (edges) => set({ edges }),
     
     updateGraph: (nodes, edges) => set({ nodes, edges }),
     
+    // Execution state operations
     setIsRunning: (running) => set({ isRunning: running }),
     
     setRunningWorkflowIds: (ids) => {
@@ -238,7 +318,7 @@ export const useWorkflowStore = create<WorkflowState>()(
       waitingPhase: phase 
     }),
     
-    // 兼容方法
+    // Legacy compatibility methods
     setWaitingStepId: (stepId) => set({ waitingStepId: stepId }),
     setWaitingPhase: (phase) => set({ waitingPhase: phase }),
     
@@ -276,6 +356,7 @@ export const useWorkflowStore = create<WorkflowState>()(
       delete state.workflowStepMap[workflowId];
     }),
     
+    // UI state operations
     setWorkflowModalVisible: (visible) => set({ workflowModalVisible: visible }),
     
     setDrawerVisible: (visible) => set({ drawerVisible: visible }),
@@ -286,7 +367,7 @@ export const useWorkflowStore = create<WorkflowState>()(
     
     setEditingNode: (nodeId) => set({ editingNodeId: nodeId }),
     
-    // 兼容方法
+    // Legacy compatibility methods
     setEditingNodeId: (nodeId) => set({ editingNodeId: nodeId }),
     
     setEditingWorkflow: (id, name) => set({ 
@@ -294,8 +375,8 @@ export const useWorkflowStore = create<WorkflowState>()(
       editingWorkflowName: name 
     }),
     
-    // 兼容方法
-    setEditingWorkflowId: (id) => set({ editingWorkflowId:id }),
+    // Legacy compatibility methods
+    setEditingWorkflowId: (id) => set({ editingWorkflowId: id }),
     setEditingWorkflowName: (name) => set((state: WorkflowState) => { 
       state.editingWorkflowName = name;
     }),
@@ -307,6 +388,7 @@ export const useWorkflowStore = create<WorkflowState>()(
       }
     },
     
+    // Temporary data operations
     setTempVariables: (vars) => {
       if (typeof vars === 'function') {
         set((state: WorkflowState) => {
@@ -322,5 +404,34 @@ export const useWorkflowStore = create<WorkflowState>()(
     setAppsLoading: (loading) => set({ appsLoading: loading }),
     
     setNeedsAutoSave: (needs) => set({ needsAutoSave: needs }),
+    
+    // Export utilities
+    exportWorkflow: (id) => {
+      return get().workflows.find(w => w.id === id);
+    },
   }))
 );
+
+// Helper functions for creating steps
+export function createStep(
+  id: string,
+  type: StepType,
+  name?: string,
+  overrides?: Partial<WorkflowStep>
+): WorkflowStep {
+  return {
+    id,
+    type,
+    name: name || type,
+    common: getDefaultStepCommon(),
+    connections: getDefaultConnections(),
+    layout: { posX: 0, posY: 0 },
+    ...overrides,
+  };
+}
+
+// Re-export utility functions
+export { createEmptyWorkflow, getDefaultStepCommon, getDefaultConnections };
+
+/** @deprecated Use createEmptyWorkflow instead */
+export const createEmptyWorkflowV2 = createEmptyWorkflow;
