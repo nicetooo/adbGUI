@@ -45,7 +45,7 @@ Step JSON format (V2):
   "type": "step_type",
   "name": "optional display name",
   "common": { "timeout": 5000, "onError": "stop", "loop": 1, "postDelay": 500 },
-  "connections": { "successStepId": "", "errorStepId": "" },
+  "connections": { "successStepId": "", "errorStepId": "", "trueStepId": "", "falseStepId": "" },
   // Type-specific params (only one based on type):
   "tap": { "x": 540, "y": 960 },
   "swipe": { "x": 540, "y": 1800, "x2": 540, "y2": 600 } or { "direction": "up", "distance": 500 },
@@ -59,6 +59,16 @@ Step JSON format (V2):
   "readToVariable": { "selector": {"type":"id","value":"com.app:id/text"}, "variableName": "myVar", "attribute": "text" },
   "workflow": { "workflowId": "sub_workflow_id" }
 }
+
+CONNECTIONS explained:
+- Most steps use: successStepId (on success), errorStepId (on execution error)
+- BRANCH step uses: trueStepId (condition true), falseStepId (condition false), errorStepId (execution error)
+  IMPORTANT: For branch nodes, DO NOT use successStepId/errorStepId for condition results!
+  - trueStepId: next step when condition evaluates to TRUE
+  - falseStepId: next step when condition evaluates to FALSE  
+  - errorStepId: next step when execution fails (e.g., UI dump error)
+
+Branch conditions: exists, not_exists, text_equals, text_contains, variable_equals
 
 Step types:
 - COORDINATE: tap, swipe
