@@ -82,6 +82,11 @@ CONTROL:
 - adb: {type:"adb", value:"shell pm list packages"} - run adb command
 - set_variable: {type:"set_variable", name:"myVar", value:"myValue"}
 
+CONDITIONAL:
+- branch: {type:"branch", selector:{type:"text",value:"Login"}, condition_type:"exists", trueStepId:"step_xxx", falseStepId:"step_yyy"}
+  condition_type options: exists, not_exists, text_equals, text_contains, variable_equals
+  For variable_equals: selector.value is variable name, value is expected value
+
 Optional fields for all steps:
 - name: step display name
 - timeout: timeout in ms (default 5000)
@@ -119,6 +124,28 @@ Optional fields for all steps:
 			),
 		),
 		s.handleWorkflowDelete,
+	)
+
+	// workflow_update - Update an existing workflow
+	s.server.AddTool(
+		mcp.NewTool("workflow_update",
+			mcp.WithDescription(`Update an existing workflow. Can update name, description, and/or steps.
+Only provided fields will be updated. Use workflow_get first to see current state.`),
+			mcp.WithString("workflow_id",
+				mcp.Required(),
+				mcp.Description("Workflow ID to update"),
+			),
+			mcp.WithString("name",
+				mcp.Description("New workflow name (optional)"),
+			),
+			mcp.WithString("description",
+				mcp.Description("New workflow description (optional)"),
+			),
+			mcp.WithString("steps_json",
+				mcp.Description("New steps JSON array (optional, replaces all existing steps). Same format as workflow_create."),
+			),
+		),
+		s.handleWorkflowUpdate,
 	)
 
 	// workflow_run - Run a workflow
@@ -411,6 +438,112 @@ func (s *MCPServer) handleWorkflowDelete(ctx context.Context, request mcp.CallTo
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
 			mcp.NewTextContent(fmt.Sprintf("Deleted workflow '%s' (ID: %s)", workflow.Name, workflowID)),
+		},
+	}, nil
+}
+
+func (s *MCPServer) handleWorkflowUpdate(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	workflowID, ok := args["workflow_id"].(string)
+	if !ok || workflowID == "" {
+		return nil, fmt.Errorf("workflow_id is required")
+	}
+
+	// Get existing workflow
+	workflow, err := s.app.GetWorkflow(workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("workflow not found: %w", err)
+	}
+
+	updated := false
+
+	// Update name if provided
+	if name, ok := args["name"].(string); ok && name != "" {
+		workflow.Name = name
+		updated = true
+	}
+
+	// Update description if provided
+	if description, ok := args["description"].(string); ok {
+		workflow.Description = description
+		updated = true
+	}
+
+	// Update steps if provided
+	if stepsJSON, ok := args["steps_json"].(string); ok && stepsJSON != "" {
+		var steps []WorkflowStep
+		if err := json.Unmarshal([]byte(stepsJSON), &steps); err != nil {
+			return nil, fmt.Errorf("invalid steps_json format: %w", err)
+		}
+
+		// Generate IDs for steps that don't have one
+		for i := range steps {
+			if steps[i].ID == "" {
+				steps[i].ID = fmt.Sprintf("step_%s", uuid.New().String()[:8])
+			}
+		}
+
+		// Auto-link steps sequentially (if not already linked)
+		for i := range steps {
+			if steps[i].NextStepId == "" && i < len(steps)-1 {
+				steps[i].NextStepId = steps[i+1].ID
+			}
+			// Set positions
+			steps[i].PosX = 20
+			steps[i].PosY = float64(180 + i*160)
+		}
+
+		// Check if start node exists, if not add it
+		hasStart := false
+		for _, s := range steps {
+			if s.Type == "start" {
+				hasStart = true
+				break
+			}
+		}
+
+		if !hasStart {
+			startStep := WorkflowStep{
+				ID:      fmt.Sprintf("step_%s", uuid.New().String()[:8]),
+				Type:    "start",
+				Name:    "Start",
+				OnError: "stop",
+				Loop:    1,
+				PosX:    20,
+				PosY:    20,
+			}
+			if len(steps) > 0 {
+				startStep.NextStepId = steps[0].ID
+			}
+			steps = append([]WorkflowStep{startStep}, steps...)
+		}
+
+		workflow.Steps = steps
+		updated = true
+	}
+
+	if !updated {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				mcp.NewTextContent("No fields provided to update"),
+			},
+		}, nil
+	}
+
+	// Update timestamp
+	workflow.UpdatedAt = time.Now().Format(time.RFC3339)
+
+	if err := s.app.SaveWorkflow(*workflow); err != nil {
+		return nil, fmt.Errorf("failed to save workflow: %w", err)
+	}
+
+	result := fmt.Sprintf("Updated workflow '%s'\n", workflow.Name)
+	result += fmt.Sprintf("ID: %s\n", workflow.ID)
+	result += fmt.Sprintf("Steps: %d\n", len(workflow.Steps))
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			mcp.NewTextContent(result),
 		},
 	}, nil
 }
