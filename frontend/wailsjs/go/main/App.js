@@ -762,10 +762,6 @@ export function StartApp(arg1, arg2) {
   return window['go']['main']['App']['StartApp'](arg1, arg2);
 }
 
-export function StartBatchSync() {
-  return window['go']['main']['App']['StartBatchSync']();
-}
-
 export function StartDeviceMonitor() {
   return window['go']['main']['App']['StartDeviceMonitor']();
 }
@@ -816,10 +812,6 @@ export function StopAllDeviceStateMonitors() {
 
 export function StopAllNetworkMonitors() {
   return window['go']['main']['App']['StopAllNetworkMonitors']();
-}
-
-export function StopBatchSync() {
-  return window['go']['main']['App']['StopBatchSync']();
 }
 
 export function StopDeviceMonitor() {

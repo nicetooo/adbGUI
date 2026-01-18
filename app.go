@@ -107,8 +107,7 @@ func (a *App) startup(ctx context.Context) {
 	a.setupBinaries()
 	a.initEventSystem() // Initialize new event system
 	a.StartDeviceMonitor()
-	a.StartBatchSync() // Start session event batch sync (legacy, for compatibility)
-	a.LoadMockRules()  // Load saved mock rules
+	a.LoadMockRules() // Load saved mock rules
 }
 
 // Shutdown is called when the application is closing
@@ -122,7 +121,6 @@ func (a *App) Shutdown(ctx context.Context) {
 		a.StopProxy()
 	}
 
-	a.StopBatchSync()       // Stop session event batch sync (legacy)
 	a.shutdownEventSystem() // Shutdown new event system
 	a.scrcpyMu.Lock()
 	for id, cmd := range a.scrcpyCmds {
@@ -158,7 +156,6 @@ func (a *App) InitializeWithoutGUI() {
 	a.setupBinaries()
 	a.initEventSystem()
 	a.StartDeviceMonitor()
-	a.StartBatchSync()
 	a.LoadMockRules()
 }
 
@@ -178,7 +175,6 @@ func (a *App) ShutdownWithoutGUI() {
 		a.StopProxy()
 	}
 
-	a.StopBatchSync()
 	a.shutdownEventSystem()
 
 	a.scrcpyMu.Lock()

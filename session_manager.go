@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"strings"
 	"sync"
 	"time"
 
@@ -61,15 +60,9 @@ type SessionFilter struct {
 
 // Session manager state
 var (
-	sessions            = make(map[string]*Session)
-	sessionEvents       = make(map[string][]SessionEvent) // sessionId -> events
-	activeSession       = make(map[string]string)         // deviceId -> active sessionId
-	sessionMu           sync.RWMutex
-	maxEventsPerSession = 50000 // Increased for complete data storage
-
-	// Legacy batch sync (deprecated - now using EventPipeline.frontendEmitter)
-	batchSyncTicker *time.Ticker
-	batchSyncStop   chan struct{}
+	sessions      = make(map[string]*Session)
+	activeSession = make(map[string]string) // deviceId -> active sessionId
+	sessionMu     sync.RWMutex
 )
 
 // ========================================
@@ -428,42 +421,6 @@ func (a *App) bridgeToNewPipeline(event SessionEvent) {
 	go a.eventPipeline.Emit(unifiedEvent)
 }
 
-// StartBatchSync starts the batch sync ticker (call on app startup)
-func (a *App) StartBatchSync() {
-	if batchSyncTicker != nil {
-		return // Already running
-	}
-
-	batchSyncTicker = time.NewTicker(1 * time.Second)
-	batchSyncStop = make(chan struct{})
-
-	go func() {
-		for {
-			select {
-			case <-batchSyncTicker.C:
-				a.flushEventBuffer()
-			case <-batchSyncStop:
-				return
-			}
-		}
-	}()
-}
-
-// StopBatchSync stops the batch sync ticker
-func (a *App) StopBatchSync() {
-	if batchSyncTicker != nil {
-		batchSyncTicker.Stop()
-		close(batchSyncStop)
-		batchSyncTicker = nil
-	}
-}
-
-// flushEventBuffer is deprecated - events now flow through EventPipeline.frontendEmitter
-// Kept for compatibility but does nothing
-func (a *App) flushEventBuffer() {
-	// No-op: EventPipeline handles frontend sync via "session-events-batch"
-}
-
 // ========================================
 // Event Querying
 // ========================================
@@ -604,7 +561,6 @@ func (a *App) CleanupOldSessions(maxAge time.Duration) int {
 	for id, session := range sessions {
 		if session.EndTime > 0 && session.EndTime < cutoff {
 			delete(sessions, id)
-			delete(sessionEvents, id)
 			removed++
 		}
 	}
@@ -623,7 +579,6 @@ func (a *App) ClearSession(sessionId string) {
 		}
 	}
 	delete(sessions, sessionId)
-	delete(sessionEvents, sessionId)
 }
 
 // ========================================
@@ -673,54 +628,4 @@ func convertUnifiedToSessionEvents(events []UnifiedEvent) []SessionEvent {
 		}
 	}
 	return result
-}
-
-func matchesFilter(event SessionEvent, filter *SessionFilter) bool {
-	if filter.SessionID != "" && event.SessionID != filter.SessionID {
-		return false
-	}
-	if filter.DeviceID != "" && event.DeviceID != filter.DeviceID {
-		return false
-	}
-	if filter.StepID != "" && event.StepID != filter.StepID {
-		return false
-	}
-	if filter.StartTime > 0 && event.Timestamp < filter.StartTime {
-		return false
-	}
-	if filter.EndTime > 0 && event.Timestamp > filter.EndTime {
-		return false
-	}
-	if len(filter.Categories) > 0 && !containsString(filter.Categories, event.Category) {
-		return false
-	}
-	if len(filter.Types) > 0 && !containsString(filter.Types, event.Type) {
-		return false
-	}
-	if len(filter.Levels) > 0 && !containsString(filter.Levels, event.Level) {
-		return false
-	}
-	if filter.SearchText != "" {
-		text := strings.ToLower(filter.SearchText)
-		if !strings.Contains(strings.ToLower(event.Title), text) {
-			// Check detail
-			detailBytes, err := json.Marshal(event.Detail)
-			if err != nil {
-				return false // 无法序列化，跳过搜索匹配
-			}
-			if !strings.Contains(strings.ToLower(string(detailBytes)), text) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func containsString(slice []string, s string) bool {
-	for _, v := range slice {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }

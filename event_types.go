@@ -64,9 +64,9 @@ type UnifiedEvent struct {
 	DeviceID  string `json:"deviceId"`  // 设备 ID
 
 	// === 时间字段 ===
-	Timestamp    int64 `json:"timestamp"`              // Unix 毫秒 (绝对时间)
-	RelativeTime int64 `json:"relativeTime"`           // 相对 Session 开始的毫秒偏移
-	Duration     int64 `json:"duration,omitempty"`     // 持续时间 (ms)
+	Timestamp    int64 `json:"timestamp"`          // Unix 毫秒 (绝对时间)
+	RelativeTime int64 `json:"relativeTime"`       // 相对 Session 开始的毫秒偏移
+	Duration     int64 `json:"duration,omitempty"` // 持续时间 (ms)
 
 	// === 分类字段 ===
 	Source   EventSource   `json:"source"`   // 事件来源
@@ -127,14 +127,14 @@ type MonitorConfig struct {
 }
 
 type DeviceSession struct {
-	ID        string         `json:"id"`
-	DeviceID  string         `json:"deviceId"`
-	Type      string         `json:"type"`      // "manual", "workflow", "recording", "debug", "auto"
-	Name      string         `json:"name"`
-	StartTime int64          `json:"startTime"` // Unix ms
-	EndTime   int64          `json:"endTime"`   // 0 = active
-	Status    string         `json:"status"`    // "active", "completed", "failed", "cancelled"
-	EventCount int           `json:"eventCount"`
+	ID         string `json:"id"`
+	DeviceID   string `json:"deviceId"`
+	Type       string `json:"type"` // "manual", "workflow", "recording", "debug", "auto"
+	Name       string `json:"name"`
+	StartTime  int64  `json:"startTime"` // Unix ms
+	EndTime    int64  `json:"endTime"`   // 0 = active
+	Status     string `json:"status"`    // "active", "completed", "failed", "cancelled"
+	EventCount int    `json:"eventCount"`
 
 	// Session config (启用的功能)
 	Config SessionConfig `json:"config"`
@@ -172,12 +172,12 @@ type LogcatAggregatedData struct {
 
 // NetworkRequestData 网络请求数据
 type NetworkRequestData struct {
-	RequestID string `json:"requestId"`
-	Method    string `json:"method"`
-	URL       string `json:"url"`
-	Host      string `json:"host,omitempty"`
-	Path      string `json:"path,omitempty"`
-	StatusCode int   `json:"statusCode"`
+	RequestID   string `json:"requestId"`
+	Method      string `json:"method"`
+	URL         string `json:"url"`
+	Host        string `json:"host,omitempty"`
+	Path        string `json:"path,omitempty"`
+	StatusCode  int    `json:"statusCode"`
 	ContentType string `json:"contentType,omitempty"`
 
 	// 请求
@@ -237,7 +237,7 @@ type AppLifecycleData struct {
 	PID          int    `json:"pid,omitempty"`
 
 	// Crash Info
-	CrashType    string `json:"crashType,omitempty"`    // java, native
+	CrashType    string `json:"crashType,omitempty"` // java, native
 	CrashMessage string `json:"crashMessage,omitempty"`
 	StackTrace   string `json:"stackTrace,omitempty"`
 }
@@ -298,10 +298,10 @@ type AssertionData struct {
 	AssertionType string `json:"assertionType"` // exists, not_exists, sequence, timing, condition
 	Expression    string `json:"expression"`    // 原始断言表达式
 
-	Passed        bool     `json:"passed"`
-	ActualValue   any      `json:"actualValue,omitempty"`
-	ExpectedValue any      `json:"expectedValue,omitempty"`
-	ErrorMessage  string   `json:"errorMessage,omitempty"`
+	Passed        bool   `json:"passed"`
+	ActualValue   any    `json:"actualValue,omitempty"`
+	ExpectedValue any    `json:"expectedValue,omitempty"`
+	ErrorMessage  string `json:"errorMessage,omitempty"`
 
 	// 关联的事件
 	MatchedEvents []string `json:"matchedEvents,omitempty"` // 匹配到的事件 ID 列表
@@ -467,24 +467,10 @@ var EventRegistry = map[string]EventTypeInfo{
 	},
 }
 
-// GetEventTypeInfo 获取事件类型信息
-func GetEventTypeInfo(eventType string) (EventTypeInfo, bool) {
-	info, ok := EventRegistry[eventType]
-	return info, ok
-}
-
 // GetCategoryForType 根据事件类型获取分类
 func GetCategoryForType(eventType string) EventCategory {
 	if info, ok := EventRegistry[eventType]; ok {
 		return info.Category
 	}
 	return CategoryDiagnostic
-}
-
-// GetSourceForType 根据事件类型获取来源
-func GetSourceForType(eventType string) EventSource {
-	if info, ok := EventRegistry[eventType]; ok {
-		return info.Source
-	}
-	return SourceSystem
 }
