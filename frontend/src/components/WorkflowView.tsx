@@ -1225,7 +1225,6 @@ const WorkflowView: React.FC = () => {
 
       // Update workflow in store
       updateWorkflow(selectedWorkflow.id, updatedWorkflow);
-      await (window as any).go.main.App.SaveWorkflow(updatedWorkflow);
       selectWorkflow(updatedWorkflow.id);
 
       if (!silent) {

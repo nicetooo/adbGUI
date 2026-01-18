@@ -161,6 +161,7 @@ type Workflow struct {
 	ID          string            `json:"id"`
 	Name        string            `json:"name"`
 	Description string            `json:"description,omitempty"`
+	Version     int               `json:"version,omitempty"` // Schema version (2 = current V2 format)
 	Steps       []WorkflowStep    `json:"steps"`
 	Variables   map[string]string `json:"variables,omitempty"`
 	CreatedAt   string            `json:"createdAt"`

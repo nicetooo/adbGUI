@@ -2135,6 +2135,7 @@ export namespace main {
 	    id: string;
 	    name: string;
 	    description?: string;
+	    version?: number;
 	    steps: WorkflowStep[];
 	    variables?: Record<string, string>;
 	    createdAt: string;
@@ -2149,6 +2150,7 @@ export namespace main {
 	        this.id = source["id"];
 	        this.name = source["name"];
 	        this.description = source["description"];
+	        this.version = source["version"];
 	        this.steps = this.convertValues(source["steps"], WorkflowStep);
 	        this.variables = source["variables"];
 	        this.createdAt = source["createdAt"];

@@ -173,6 +173,7 @@ export interface Workflow {
   id: string;
   name: string;
   description?: string;
+  version?: number;  // Schema version (2 = current V2 format)
   steps: WorkflowStep[];
   variables?: Record<string, string>;
   createdAt?: string;
