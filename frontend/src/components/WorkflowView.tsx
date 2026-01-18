@@ -1966,16 +1966,18 @@ const WorkflowView: React.FC = () => {
                           />
                         ) : (
                           <div
-                            style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}
+                            style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}
                             onDoubleClick={(e) => {
                               e.stopPropagation();
                               setEditingWorkflowId(workflow.id);
                               setEditingWorkflowName(workflow.name);
                             }}
                           >
-                            <Text strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {workflow.name}
-                            </Text>
+                            <Tooltip title={workflow.name} placement="topLeft" mouseEnterDelay={0.5}>
+                              <Text strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {workflow.name}
+                              </Text>
+                            </Tooltip>
                             {runningWorkflowIds.includes(workflow.id) && (
                               <LoadingOutlined style={{ color: token.colorPrimary, fontSize: 12 }} />
                             )}
