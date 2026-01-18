@@ -386,6 +386,23 @@ func (b *MCPBridge) IsWorkflowRunning(deviceId string) bool {
 	return b.app.IsPlayingTouch(deviceId)
 }
 
+func (b *MCPBridge) GetWorkflowExecutionResult(deviceId string) *mcp.WorkflowExecutionResult {
+	result := b.app.GetWorkflowExecutionResult(deviceId)
+	if result == nil {
+		return nil
+	}
+	return &mcp.WorkflowExecutionResult{
+		WorkflowID:   result.WorkflowID,
+		WorkflowName: result.WorkflowName,
+		Status:       result.Status,
+		Error:        result.Error,
+		StartTime:    result.StartTime.UnixMilli(),
+		EndTime:      result.EndTime.UnixMilli(),
+		Duration:     result.Duration,
+		StepsTotal:   result.StepsTotal,
+	}
+}
+
 // Helper functions for workflow type conversion
 // Both packages now use the same nested structure format
 

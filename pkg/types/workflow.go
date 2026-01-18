@@ -457,3 +457,17 @@ func ParseWorkflow(data []byte) (*Workflow, error) {
 	}
 	return &workflow, nil
 }
+
+// ============== Workflow Execution Result ==============
+
+// WorkflowExecutionResult stores the result of a workflow execution
+type WorkflowExecutionResult struct {
+	WorkflowID   string `json:"workflowId"`
+	WorkflowName string `json:"workflowName"`
+	Status       string `json:"status"` // "completed", "error", "cancelled"
+	Error        string `json:"error,omitempty"`
+	StartTime    int64  `json:"startTime"` // Unix timestamp ms
+	EndTime      int64  `json:"endTime"`   // Unix timestamp ms
+	Duration     int64  `json:"duration"`  // milliseconds
+	StepsTotal   int    `json:"stepsTotal"`
+}

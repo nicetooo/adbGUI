@@ -695,11 +695,34 @@ func (s *MCPServer) handleWorkflowRun(ctx context.Context, request mcp.CallToolR
 			return nil, ctx.Err()
 		case <-time.After(pollInterval):
 			if !s.app.IsWorkflowRunning(deviceID) {
-				// Workflow completed
+				// Workflow completed - get the execution result
+				result := s.app.GetWorkflowExecutionResult(deviceID)
 				duration := time.Since(startTime)
+
+				if result != nil && result.Status == "error" {
+					// Return error information to AI
+					return &mcp.CallToolResult{
+						Content: []mcp.Content{
+							mcp.NewTextContent(fmt.Sprintf("Workflow '%s' FAILED after %s\n\nDevice: %s\nStatus: %s\nError: %s\nSteps: %d",
+								workflow.Name, duration.Round(time.Millisecond), deviceID, result.Status, result.Error, len(workflow.Steps))),
+						},
+						IsError: true,
+					}, nil
+				}
+
+				if result != nil && result.Status == "cancelled" {
+					return &mcp.CallToolResult{
+						Content: []mcp.Content{
+							mcp.NewTextContent(fmt.Sprintf("Workflow '%s' was CANCELLED after %s\n\nDevice: %s\nSteps: %d",
+								workflow.Name, duration.Round(time.Millisecond), deviceID, len(workflow.Steps))),
+						},
+					}, nil
+				}
+
+				// Success
 				return &mcp.CallToolResult{
 					Content: []mcp.Content{
-						mcp.NewTextContent(fmt.Sprintf("Workflow '%s' completed in %s\n\nDevice: %s\nSteps: %d", workflow.Name, duration.Round(time.Millisecond), deviceID, len(workflow.Steps))),
+						mcp.NewTextContent(fmt.Sprintf("Workflow '%s' completed successfully in %s\n\nDevice: %s\nSteps: %d", workflow.Name, duration.Round(time.Millisecond), deviceID, len(workflow.Steps))),
 					},
 				}, nil
 			}
@@ -817,15 +840,28 @@ func (s *MCPServer) handleWorkflowStatus(ctx context.Context, request mcp.CallTo
 	}
 
 	isRunning := s.app.IsWorkflowRunning(deviceID)
+	result := s.app.GetWorkflowExecutionResult(deviceID)
 
-	status := "idle"
+	var statusText string
 	if isRunning {
-		status = "running"
+		statusText = fmt.Sprintf("Device %s: workflow is RUNNING", deviceID)
+		if result != nil {
+			statusText += fmt.Sprintf("\n\nCurrent workflow: %s", result.WorkflowName)
+		}
+	} else if result != nil {
+		// Show last execution result
+		statusText = fmt.Sprintf("Device %s: workflow is IDLE\n\nLast execution:\n- Workflow: %s\n- Status: %s\n- Duration: %dms",
+			deviceID, result.WorkflowName, result.Status, result.Duration)
+		if result.Error != "" {
+			statusText += fmt.Sprintf("\n- Error: %s", result.Error)
+		}
+	} else {
+		statusText = fmt.Sprintf("Device %s: workflow is IDLE (no previous execution)", deviceID)
 	}
 
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
-			mcp.NewTextContent(fmt.Sprintf("Device %s workflow status: %s", deviceID, status)),
+			mcp.NewTextContent(statusText),
 		},
 	}, nil
 }

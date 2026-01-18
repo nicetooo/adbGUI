@@ -216,6 +216,8 @@ export function GetVideoThumbnails(arg1:string,arg2:number,arg3:number):Promise<
 
 export function GetWorkflow(arg1:string):Promise<types.Workflow>;
 
+export function GetWorkflowExecutionResult(arg1:string):Promise<main.WorkflowExecutionResult>;
+
 export function Greet(arg1:string):Promise<string>;
 
 export function InitializeWithoutGUI():Promise<void>;

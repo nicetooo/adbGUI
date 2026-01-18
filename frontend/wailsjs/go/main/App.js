@@ -422,6 +422,10 @@ export function GetWorkflow(arg1) {
   return window['go']['main']['App']['GetWorkflow'](arg1);
 }
 
+export function GetWorkflowExecutionResult(arg1) {
+  return window['go']['main']['App']['GetWorkflowExecutionResult'](arg1);
+}
+
 export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
 }

@@ -29,23 +29,24 @@ type (
 	VideoMetadata     = types.VideoMetadata
 
 	// Workflow types
-	Workflow          = types.Workflow
-	WorkflowStep      = types.WorkflowStep
-	StepConnections   = types.StepConnections
-	StepCommon        = types.StepCommon
-	StepLayout        = types.StepLayout
-	HandleInfo        = types.HandleInfo
-	ElementSelector   = types.ElementSelector
-	TapParams         = types.TapParams
-	SwipeParams       = types.SwipeParams
-	ElementParams     = types.ElementParams
-	AppParams         = types.AppParams
-	BranchParams      = types.BranchParams
-	WaitParams        = types.WaitParams
-	ScriptParams      = types.ScriptParams
-	VariableParams    = types.VariableParams
-	ADBParams         = types.ADBParams
-	SubWorkflowParams = types.SubWorkflowParams
+	Workflow                = types.Workflow
+	WorkflowStep            = types.WorkflowStep
+	StepConnections         = types.StepConnections
+	StepCommon              = types.StepCommon
+	StepLayout              = types.StepLayout
+	HandleInfo              = types.HandleInfo
+	ElementSelector         = types.ElementSelector
+	TapParams               = types.TapParams
+	SwipeParams             = types.SwipeParams
+	ElementParams           = types.ElementParams
+	AppParams               = types.AppParams
+	BranchParams            = types.BranchParams
+	WaitParams              = types.WaitParams
+	ScriptParams            = types.ScriptParams
+	VariableParams          = types.VariableParams
+	ADBParams               = types.ADBParams
+	SubWorkflowParams       = types.SubWorkflowParams
+	WorkflowExecutionResult = types.WorkflowExecutionResult
 )
 
 // GazeApp interface defines the methods that MCP server needs from the main App
@@ -101,6 +102,7 @@ type GazeApp interface {
 	ResumeTask(deviceId string)
 	ExecuteSingleWorkflowStep(deviceId string, step WorkflowStep) error
 	IsWorkflowRunning(deviceId string) bool
+	GetWorkflowExecutionResult(deviceId string) *WorkflowExecutionResult
 
 	// Proxy
 	StartProxy(port int) (string, error)

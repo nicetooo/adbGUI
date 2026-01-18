@@ -24,6 +24,24 @@ type StepResult struct {
 	Error          error // Error if execution failed
 }
 
+// WorkflowExecutionResult stores the result of a workflow execution
+type WorkflowExecutionResult struct {
+	WorkflowID   string    `json:"workflowId"`
+	WorkflowName string    `json:"workflowName"`
+	Status       string    `json:"status"` // "completed", "error", "cancelled"
+	Error        string    `json:"error,omitempty"`
+	StartTime    time.Time `json:"startTime"`
+	EndTime      time.Time `json:"endTime"`
+	Duration     int64     `json:"duration"` // milliseconds
+	StepsTotal   int       `json:"stepsTotal"`
+}
+
+// workflowResults stores the last execution result for each device
+var (
+	workflowResults   = make(map[string]*WorkflowExecutionResult)
+	workflowResultsMu = &activeTaskMu // Reuse the existing mutex
+)
+
 // getWorkflowsPath returns the path to the workflows directory
 func (a *App) getWorkflowsPath() string {
 	configDir, err := os.UserConfigDir()
@@ -196,18 +214,36 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 
 		err := a.runWorkflowInternal(ctx, deviceId, workflow, nil)
 
-		duration := time.Since(startTime).Milliseconds()
+		endTime := time.Now()
+		duration := endTime.Sub(startTime).Milliseconds()
+
+		// Store execution result
+		result := &WorkflowExecutionResult{
+			WorkflowID:   workflow.ID,
+			WorkflowName: workflow.Name,
+			Status:       "completed",
+			StartTime:    startTime,
+			EndTime:      endTime,
+			Duration:     duration,
+			StepsTotal:   len(workflow.Steps),
+		}
 
 		activeTaskMu.Lock()
 		delete(activeTaskCancel, deviceId)
+		if err != nil {
+			sessionStatus = "error"
+			result.Status = "error"
+			result.Error = err.Error()
+			if err == context.Canceled {
+				sessionStatus = "cancelled"
+				result.Status = "cancelled"
+				result.Error = "workflow was cancelled"
+			}
+		}
+		workflowResults[deviceId] = result
 		activeTaskMu.Unlock()
 
 		if err != nil {
-			sessionStatus = "error"
-			if err == context.Canceled {
-				sessionStatus = "cancelled"
-			}
-
 			a.eventPipeline.EmitRaw(deviceId, SourceWorkflow, "workflow_error", LevelError,
 				fmt.Sprintf("Workflow error: %s", workflow.Name),
 				map[string]interface{}{
@@ -242,6 +278,13 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 	}()
 
 	return nil
+}
+
+// GetWorkflowExecutionResult returns the last execution result for a device
+func (a *App) GetWorkflowExecutionResult(deviceId string) *WorkflowExecutionResult {
+	activeTaskMu.Lock()
+	defer activeTaskMu.Unlock()
+	return workflowResults[deviceId]
 }
 
 // runWorkflowInternal is the core execution loop
