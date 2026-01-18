@@ -7,8 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -506,7 +508,8 @@ func (a *App) executeStep(ctx context.Context, deviceId string, step *WorkflowSt
 		if step.Variable == nil {
 			return StepResult{Success: false, Error: fmt.Errorf("variable params missing")}
 		}
-		processedValue := a.processWorkflowVariables(step.Variable.Value, vars)
+		// Use expression-aware processing for set_variable to support arithmetic
+		processedValue := a.processWorkflowVariablesWithExpr(step.Variable.Value, vars)
 		vars[step.Variable.Name] = processedValue
 		return StepResult{Success: true}
 
@@ -836,6 +839,228 @@ func (a *App) processWorkflowVariables(text string, vars map[string]string) stri
 		text = strings.ReplaceAll(text, placeholder, v)
 	}
 	return text
+}
+
+// processWorkflowVariablesWithExpr replaces variables and evaluates arithmetic expressions
+// Supports: +, -, *, /, % and parentheses
+// Example: "{{count}} + 1" with count=5 returns "6"
+func (a *App) processWorkflowVariablesWithExpr(text string, vars map[string]string) string {
+	// First, replace variables
+	result := a.processWorkflowVariables(text, vars)
+
+	// Try to evaluate as arithmetic expression
+	if evaluated, ok := evaluateArithmeticExpression(result); ok {
+		return evaluated
+	}
+
+	return result
+}
+
+// evaluateArithmeticExpression evaluates a simple arithmetic expression
+// Returns the result as string and true if successful, or original and false if not an expression
+func evaluateArithmeticExpression(expr string) (string, bool) {
+	expr = strings.TrimSpace(expr)
+	if expr == "" {
+		return expr, false
+	}
+
+	// Check if it looks like an arithmetic expression (contains operators)
+	if !strings.ContainsAny(expr, "+-*/%") {
+		return expr, false
+	}
+
+	// Tokenize and evaluate
+	result, err := evalExpr(expr)
+	if err != nil {
+		return expr, false
+	}
+
+	// Format result: use integer format if it's a whole number
+	if result == float64(int64(result)) {
+		return strconv.FormatInt(int64(result), 10), true
+	}
+	return strconv.FormatFloat(result, 'f', -1, 64), true
+}
+
+// evalExpr evaluates an arithmetic expression with +, -, *, /, %, and parentheses
+func evalExpr(expr string) (float64, error) {
+	p := &exprParser{input: expr, pos: 0}
+	result, err := p.parseExpression()
+	if err != nil {
+		return 0, err
+	}
+	p.skipWhitespace()
+	if p.pos < len(p.input) {
+		return 0, fmt.Errorf("unexpected character at position %d", p.pos)
+	}
+	return result, nil
+}
+
+type exprParser struct {
+	input string
+	pos   int
+}
+
+func (p *exprParser) skipWhitespace() {
+	for p.pos < len(p.input) && unicode.IsSpace(rune(p.input[p.pos])) {
+		p.pos++
+	}
+}
+
+func (p *exprParser) parseExpression() (float64, error) {
+	return p.parseAddSub()
+}
+
+func (p *exprParser) parseAddSub() (float64, error) {
+	left, err := p.parseMulDiv()
+	if err != nil {
+		return 0, err
+	}
+
+	for {
+		p.skipWhitespace()
+		if p.pos >= len(p.input) {
+			break
+		}
+
+		op := p.input[p.pos]
+		if op != '+' && op != '-' {
+			break
+		}
+		p.pos++
+
+		right, err := p.parseMulDiv()
+		if err != nil {
+			return 0, err
+		}
+
+		if op == '+' {
+			left += right
+		} else {
+			left -= right
+		}
+	}
+
+	return left, nil
+}
+
+func (p *exprParser) parseMulDiv() (float64, error) {
+	left, err := p.parseUnary()
+	if err != nil {
+		return 0, err
+	}
+
+	for {
+		p.skipWhitespace()
+		if p.pos >= len(p.input) {
+			break
+		}
+
+		op := p.input[p.pos]
+		if op != '*' && op != '/' && op != '%' {
+			break
+		}
+		p.pos++
+
+		right, err := p.parseUnary()
+		if err != nil {
+			return 0, err
+		}
+
+		switch op {
+		case '*':
+			left *= right
+		case '/':
+			if right == 0 {
+				return 0, fmt.Errorf("division by zero")
+			}
+			left /= right
+		case '%':
+			if right == 0 {
+				return 0, fmt.Errorf("modulo by zero")
+			}
+			left = float64(int64(left) % int64(right))
+		}
+	}
+
+	return left, nil
+}
+
+func (p *exprParser) parseUnary() (float64, error) {
+	p.skipWhitespace()
+
+	if p.pos < len(p.input) && p.input[p.pos] == '-' {
+		p.pos++
+		val, err := p.parseUnary()
+		if err != nil {
+			return 0, err
+		}
+		return -val, nil
+	}
+
+	if p.pos < len(p.input) && p.input[p.pos] == '+' {
+		p.pos++
+		return p.parseUnary()
+	}
+
+	return p.parsePrimary()
+}
+
+func (p *exprParser) parsePrimary() (float64, error) {
+	p.skipWhitespace()
+
+	if p.pos >= len(p.input) {
+		return 0, fmt.Errorf("unexpected end of expression")
+	}
+
+	// Parentheses
+	if p.input[p.pos] == '(' {
+		p.pos++
+		result, err := p.parseExpression()
+		if err != nil {
+			return 0, err
+		}
+		p.skipWhitespace()
+		if p.pos >= len(p.input) || p.input[p.pos] != ')' {
+			return 0, fmt.Errorf("missing closing parenthesis")
+		}
+		p.pos++
+		return result, nil
+	}
+
+	// Number
+	return p.parseNumber()
+}
+
+func (p *exprParser) parseNumber() (float64, error) {
+	p.skipWhitespace()
+
+	start := p.pos
+	hasDecimal := false
+
+	// Handle negative sign (should be handled by parseUnary, but just in case)
+	if p.pos < len(p.input) && p.input[p.pos] == '-' {
+		p.pos++
+	}
+
+	for p.pos < len(p.input) {
+		ch := p.input[p.pos]
+		if ch >= '0' && ch <= '9' {
+			p.pos++
+		} else if ch == '.' && !hasDecimal {
+			hasDecimal = true
+			p.pos++
+		} else {
+			break
+		}
+	}
+
+	if p.pos == start {
+		return 0, fmt.Errorf("expected number at position %d", p.pos)
+	}
+
+	numStr := p.input[start:p.pos]
+	return strconv.ParseFloat(numStr, 64)
 }
 
 // findElementInHierarchy finds an element in the UI hierarchy

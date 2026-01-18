@@ -961,7 +961,7 @@
     "default_value": "Default Value",
     "default_value_placeholder": "Value if not found",
     "variable_value": "Variable Value",
-    "variable_value_placeholder": "Value or {{other_var}}",
+    "variable_value_placeholder": "Value, {{var}}, or expression: {{a}} + 1",
     "global_variables": "Workflow Variables",
     "add_variable": "Add Variable",
     "var_key_placeholder": "Key (e.g. username)",

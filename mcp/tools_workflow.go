@@ -98,6 +98,13 @@ All element-based steps automatically wait for element to appear within timeout 
 read_to_variable also waits for element, then reads attribute value into variable.
 If element not found within timeout and defaultValue is set, uses defaultValue and succeeds; otherwise fails.
 
+VARIABLE EXPRESSIONS:
+set_variable supports arithmetic expressions after variable substitution:
+- Operators: +, -, *, /, % (modulo)
+- Parentheses supported for grouping
+- Examples: "{{count}} + 1", "{{a}} * {{b}}", "({{x}} + {{y}}) / 2"
+- If expression is invalid, the raw string is used as-is
+
 Element selector types: id, text, contentDesc, className, xpath
 Element actions: click, long_click, input, swipe, wait, wait_gone, assert`),
 			mcp.WithString("name",
@@ -251,7 +258,9 @@ Step types:
 ELEMENT WAIT BEHAVIOR: All element steps (click_element, long_click_element, input_text, swipe_element, 
 wait_element, assert_element) automatically wait for element within timeout before action.
 wait_gone waits for element to disappear. read_to_variable also waits, then reads attribute into variable.
-If element not found and default_value is set, uses default_value and succeeds.`),
+If element not found and default_value is set, uses default_value and succeeds.
+
+set_variable supports arithmetic expressions: {{count}} + 1, {{a}} * {{b}}, ({{x}} + {{y}}) / 2`),
 			mcp.WithString("device_id",
 				mcp.Required(),
 				mcp.Description("Device ID"),
