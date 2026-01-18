@@ -78,15 +78,16 @@ type MockGazeApp struct {
 	GetSessionStatsError     error
 
 	// Workflow
-	LoadWorkflowsResult     []Workflow
-	LoadWorkflowsError      error
-	GetWorkflowResult       *Workflow
-	GetWorkflowError        error
-	SaveWorkflowError       error
-	DeleteWorkflowError     error
-	RunWorkflowError        error
-	ExecuteSingleStepError  error
-	IsWorkflowRunningResult bool
+	LoadWorkflowsResult          []Workflow
+	LoadWorkflowsError           error
+	GetWorkflowResult            *Workflow
+	GetWorkflowError             error
+	SaveWorkflowError            error
+	DeleteWorkflowError          error
+	RunWorkflowError             error
+	ExecuteSingleStepError       error
+	IsWorkflowRunningResult      bool
+	WorkflowExecutionResultValue *WorkflowExecutionResult
 	// StopWorkflow has no return
 
 	// Proxy
@@ -391,6 +392,11 @@ func (m *MockGazeApp) ExecuteSingleWorkflowStep(deviceId string, step WorkflowSt
 func (m *MockGazeApp) IsWorkflowRunning(deviceId string) bool {
 	m.recordCall("IsWorkflowRunning", deviceId)
 	return m.IsWorkflowRunningResult
+}
+
+func (m *MockGazeApp) GetWorkflowExecutionResult(deviceId string) *WorkflowExecutionResult {
+	m.recordCall("GetWorkflowExecutionResult", deviceId)
+	return m.WorkflowExecutionResultValue
 }
 
 // === Proxy ===

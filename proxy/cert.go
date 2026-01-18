@@ -36,16 +36,16 @@ func (m *CertManager) EnsureCert() error {
 	keyStat, keyErr := os.Stat(m.KeyPath)
 
 	if os.IsNotExist(certErr) || os.IsNotExist(keyErr) {
-		fmt.Println("Certificate or Key missing, generating new CA...")
+		fmt.Fprintln(os.Stderr, "[Proxy] Certificate or Key missing, generating new CA...")
 		return m.GenerateCert()
 	}
 
 	if certStat.Size() == 0 || keyStat.Size() == 0 {
-		fmt.Println("Certificate or Key empty, regenerating CA...")
+		fmt.Fprintln(os.Stderr, "[Proxy] Certificate or Key empty, regenerating CA...")
 		return m.GenerateCert()
 	}
 
-	fmt.Println("Loading existing CA from:", m.CertPath)
+	fmt.Fprintln(os.Stderr, "[Proxy] Loading existing CA from:", m.CertPath)
 	return nil
 }
 
@@ -135,6 +135,6 @@ func (m *CertManager) GenerateCert() error {
 		return err
 	}
 
-	fmt.Printf("CA Certificate generated at: %s\n", m.CertPath)
+	fmt.Fprintf(os.Stderr, "[Proxy] CA Certificate generated at: %s\n", m.CertPath)
 	return nil
 }
