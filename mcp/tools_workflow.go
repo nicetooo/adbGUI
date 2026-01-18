@@ -88,6 +88,10 @@ Element actions: click, long_click, input, swipe, wait, wait_gone, assert`),
   {"type":"key_back"}
 ]`),
 			),
+			mcp.WithString("variables_json",
+				mcp.Description(`JSON object of workflow variables. Example: {"username":"test","password":"123"}
+Variables can be used in steps with {{varName}} syntax.`),
+			),
 		),
 		s.handleWorkflowCreate,
 	)
@@ -122,6 +126,9 @@ Only provided fields will be updated. Use workflow_get first to see current stat
 			mcp.WithString("steps_json",
 				mcp.Description("New steps JSON array (optional, replaces all existing steps). V2 format."),
 			),
+			mcp.WithString("variables_json",
+				mcp.Description(`New workflow variables JSON object (optional). Example: {"username":"test"}`),
+			),
 		),
 		s.handleWorkflowUpdate,
 	)
@@ -140,6 +147,10 @@ Only provided fields will be updated. Use workflow_get first to see current stat
 			),
 			mcp.WithBoolean("wait",
 				mcp.Description("Wait for workflow to complete before returning (default: false). If true, returns final status."),
+			),
+			mcp.WithString("variables_json",
+				mcp.Description(`Runtime variables JSON object to override workflow defaults. Example: {"username":"runtime_user"}
+These variables will be merged with workflow's default variables (runtime values take precedence).`),
 			),
 		),
 		s.handleWorkflowRun,
@@ -462,6 +473,14 @@ func (s *MCPServer) handleWorkflowCreate(ctx context.Context, request mcp.CallTo
 	}
 	steps = append([]WorkflowStep{startStep}, steps...)
 
+	// Parse variables if provided
+	var variables map[string]string
+	if varsJSON, ok := args["variables_json"].(string); ok && varsJSON != "" {
+		if err := json.Unmarshal([]byte(varsJSON), &variables); err != nil {
+			return nil, fmt.Errorf("invalid variables_json format: %w", err)
+		}
+	}
+
 	// Create workflow (V2)
 	now := time.Now().Format(time.RFC3339)
 	workflow := Workflow{
@@ -470,6 +489,7 @@ func (s *MCPServer) handleWorkflowCreate(ctx context.Context, request mcp.CallTo
 		Description: description,
 		Version:     2, // V2 schema
 		Steps:       steps,
+		Variables:   variables,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -481,6 +501,12 @@ func (s *MCPServer) handleWorkflowCreate(ctx context.Context, request mcp.CallTo
 	result := fmt.Sprintf("Created workflow '%s' (V2)\n", name)
 	result += fmt.Sprintf("ID: %s\n", workflow.ID)
 	result += fmt.Sprintf("Steps: %d\n", len(steps))
+	if len(variables) > 0 {
+		result += fmt.Sprintf("Variables: %d defined\n", len(variables))
+		for k := range variables {
+			result += fmt.Sprintf("  - %s\n", k)
+		}
+	}
 
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
@@ -596,6 +622,16 @@ func (s *MCPServer) handleWorkflowUpdate(ctx context.Context, request mcp.CallTo
 		updated = true
 	}
 
+	// Update variables if provided
+	if varsJSON, ok := args["variables_json"].(string); ok && varsJSON != "" {
+		var variables map[string]string
+		if err := json.Unmarshal([]byte(varsJSON), &variables); err != nil {
+			return nil, fmt.Errorf("invalid variables_json format: %w", err)
+		}
+		workflow.Variables = variables
+		updated = true
+	}
+
 	if !updated {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -614,6 +650,9 @@ func (s *MCPServer) handleWorkflowUpdate(ctx context.Context, request mcp.CallTo
 	result := fmt.Sprintf("Updated workflow '%s'\n", workflow.Name)
 	result += fmt.Sprintf("ID: %s\n", workflow.ID)
 	result += fmt.Sprintf("Steps: %d\n", len(workflow.Steps))
+	if len(workflow.Variables) > 0 {
+		result += fmt.Sprintf("Variables: %d defined\n", len(workflow.Variables))
+	}
 
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
@@ -647,6 +686,21 @@ func (s *MCPServer) handleWorkflowRun(ctx context.Context, request mcp.CallToolR
 	workflow, err := s.app.GetWorkflow(workflowID)
 	if err != nil {
 		return nil, fmt.Errorf("workflow not found: %w", err)
+	}
+
+	// Parse and merge runtime variables if provided
+	if varsJSON, ok := args["variables_json"].(string); ok && varsJSON != "" {
+		var runtimeVars map[string]string
+		if err := json.Unmarshal([]byte(varsJSON), &runtimeVars); err != nil {
+			return nil, fmt.Errorf("invalid variables_json format: %w", err)
+		}
+		// Merge runtime variables into workflow (runtime takes precedence)
+		if workflow.Variables == nil {
+			workflow.Variables = make(map[string]string)
+		}
+		for k, v := range runtimeVars {
+			workflow.Variables[k] = v
+		}
 	}
 
 	// Get device info to construct Device struct
