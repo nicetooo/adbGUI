@@ -763,7 +763,7 @@ func (a *App) UninstallApp(deviceId, packageName string) (string, error) {
 		return outStr, nil
 	}
 
-	fmt.Printf("Standard uninstall failed for %s (Output: %s), trying pm uninstall --user 0...\n", packageName, outStr)
+	LogDebug("apps").Str("package", packageName).Str("output", outStr).Msg("Standard uninstall failed, trying pm uninstall --user 0")
 	cmd2 := exec.Command(a.adbPath, "-s", deviceId, "shell", "pm", "uninstall", "-k", "--user", "0", packageName)
 	output2, err2 := cmd2.CombinedOutput()
 	outStr2 := string(output2)

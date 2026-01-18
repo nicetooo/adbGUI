@@ -21,12 +21,11 @@ func (a *App) AnalyzeElementSelectors(deviceId string, x, y int, touchTime time.
 	// If the dump started after the click, it likely contains the target screen (second page)
 	if exists && cached.result != nil && cached.DumpStartTime.Before(touchTime) {
 		result = cached.result
-		fmt.Printf("[Automation] Using valid PRE-TOUCH cache for analysis (Started: %v, Action: %v)\n",
-			cached.DumpStartTime.Format("15:04:05.000"), touchTime.Format("15:04:05.000"))
+		LogDebug("automation").Str("dumpStart", cached.DumpStartTime.Format("15:04:05.000")).Str("actionTime", touchTime.Format("15:04:05.000")).Msg("Using valid PRE-TOUCH cache for analysis")
 	} else {
 		// Fallback to fresh dump if no valid pre-touch cache exists
 		// This happens on the very first screen or if pre-capture failed
-		fmt.Printf("[Automation] No valid PRE-TOUCH cache (started after action or missing). Performing fresh dump...\n")
+		LogDebug("automation").Msg("No valid PRE-TOUCH cache (started after action or missing). Performing fresh dump")
 		var err error
 		result, err = a.GetUIHierarchy(deviceId)
 		if err != nil {
@@ -37,12 +36,11 @@ func (a *App) AnalyzeElementSelectors(deviceId string, x, y int, touchTime time.
 	// Find element at point
 	node := a.FindElementAtPoint(result.Root, x, y)
 	if node == nil {
-		fmt.Printf("[Automation] No element found at scaled coordinates (%d, %d). Display size: %s\n", x, y, a.getDisplaySize(result.Root))
+		LogDebug("automation").Int("x", x).Int("y", y).Str("displaySize", a.getDisplaySize(result.Root)).Msg("No element found at scaled coordinates")
 		return nil, nil, fmt.Errorf("no element found at coordinates (%d, %d)", x, y)
 	}
 
-	fmt.Printf("[Automation] Found element at (%d, %d): Class=%s, Text=%q, ID=%s, Bounds=%s\n",
-		x, y, node.Class, node.Text, node.ResourceID, node.Bounds)
+	LogDebug("automation").Int("x", x).Int("y", y).Str("class", node.Class).Str("text", node.Text).Str("resourceId", node.ResourceID).Str("bounds", node.Bounds).Msg("Found element")
 
 	// Try to find the "best" node for identification
 	// If the leaf node has no text/ID but is part of a clickable container,

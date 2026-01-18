@@ -125,7 +125,7 @@ func (a *App) GetTouchInputDevice(deviceId string) (string, error) {
 			score += 10
 		}
 
-		fmt.Printf("[Automation] Found candidate: %s (score=%d)\n", path, score)
+		LogDebug("automation").Str("path", path).Int("score", score).Msg("Found touch input candidate")
 		candidates = append(candidates, Candidate{Path: path, Score: score})
 	}
 
@@ -141,7 +141,7 @@ func (a *App) GetTouchInputDevice(deviceId string) (string, error) {
 	}
 
 	if bestPath != "" {
-		fmt.Printf("[Automation] Selected touch device: %s\n", bestPath)
+		LogDebug("automation").Str("device", bestPath).Msg("Selected touch device")
 		return bestPath, nil
 	}
 
@@ -185,11 +185,11 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 	if err != nil {
 		return fmt.Errorf("failed to find touch input device: %w", err)
 	}
-	fmt.Printf("[Automation] Starting recording on device %s, touch input: %s\n", deviceId, inputDevice)
+	LogDebug("automation").Str("deviceId", deviceId).Str("inputDevice", inputDevice).Msg("Starting recording")
 
 	// Get resolution for coordinate scaling later
 	resolution, _ := a.GetDeviceResolution(deviceId)
-	fmt.Printf("[Automation] Device resolution: %s\n", resolution)
+	LogDebug("automation").Str("resolution", resolution).Msg("Device resolution")
 
 	// Create context for cancellation (继承 app.ctx)
 	ctx, cancel := context.WithCancel(a.ctx)
@@ -217,13 +217,13 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 		return fmt.Errorf("failed to start getevent: %w", err)
 	}
 
-	fmt.Printf("[Automation] getevent process started, PID: %d, listening on %s\n", cmd.Process.Pid, inputDevice)
+	LogDebug("automation").Int("pid", cmd.Process.Pid).Str("inputDevice", inputDevice).Msg("getevent process started")
 
 	// Log stderr in background
 	go func() {
 		stderrScanner := bufio.NewScanner(stderr)
 		for stderrScanner.Scan() {
-			fmt.Printf("[Automation] stderr: %s\n", stderrScanner.Text())
+			LogDebug("automation").Str("stderr", stderrScanner.Text()).Msg("getevent stderr")
 		}
 	}()
 
@@ -253,7 +253,7 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 			}
 		}
 	}
-	fmt.Printf("[Automation] Touch device coords detected: X[%d, %d], Y[%d, %d]\n", minX, maxX, minY, maxY)
+	LogDebug("automation").Int("minX", minX).Int("maxX", maxX).Int("minY", minY).Int("maxY", maxY).Msg("Touch device coords detected")
 
 	// Store recording state
 	touchRecordCmd[deviceId] = cmd
@@ -281,7 +281,7 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 	// Pre-capture UI hierarchy in precise mode so the first action has a snapshot
 	if recordingMode == "precise" {
 		go func() {
-			fmt.Printf("[Automation] Pre-capturing UI hierarchy for precise recording...\n")
+			LogDebug("automation").Msg("Pre-capturing UI hierarchy for precise recording")
 			if !a.mcpMode {
 				wailsRuntime.EventsEmit(a.ctx, "recording-pre-capture-started", map[string]interface{}{
 					"deviceId": deviceId,
@@ -295,7 +295,7 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 					"deviceId": deviceId,
 				})
 			}
-			fmt.Printf("[Automation] Pre-capture finished, ready for interaction\n")
+			LogDebug("automation").Msg("Pre-capture finished, ready for interaction")
 		}()
 	}
 
@@ -316,7 +316,7 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 		var currentTouchX, currentTouchY int = -1, -1
 		var touchActive bool = false
 
-		fmt.Printf("[Automation] Listening for events from: %s\n", inputDevice)
+		LogDebug("automation").Str("inputDevice", inputDevice).Msg("Listening for events")
 
 		for scanner.Scan() {
 			line := scanner.Text()
@@ -326,7 +326,7 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 			// With specific device, output usually looks like:
 			// [ 1234.567890] EV_ABS       ABS_MT_POSITION_X    00000123
 			if lineCount <= 10 {
-				fmt.Printf("[Automation] Line %d: %s\n", lineCount, line)
+				LogDebug("automation").Int("line", lineCount).Str("content", line).Msg("Event line")
 			}
 
 			// Filter: ensure it contains EV_
@@ -393,8 +393,13 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 							scaledY = (currentTouchY - sess.MinY) * screenH / (sess.MaxY - sess.MinY + 1)
 						}
 
-						fmt.Printf("[Automation] Touch UP at Raw(%d, %d) -> Scaled(%d, %d) [RangeX: %d-%d, RangeY: %d-%d, Screen: %dx%d]\n",
-							currentTouchX, currentTouchY, scaledX, scaledY, sess.MinX, sess.MaxX, sess.MinY, sess.MaxY, screenW, screenH)
+						LogDebug("automation").
+							Int("rawX", currentTouchX).Int("rawY", currentTouchY).
+							Int("scaledX", scaledX).Int("scaledY", scaledY).
+							Int("rangeMinX", sess.MinX).Int("rangeMaxX", sess.MaxX).
+							Int("rangeMinY", sess.MinY).Int("rangeMaxY", sess.MaxY).
+							Int("screenW", screenW).Int("screenH", screenH).
+							Msg("Touch UP")
 
 						// Emit touch event to pipeline
 						a.emitTouchEvent(deviceId, scaledX, scaledY, "tap")
@@ -408,7 +413,7 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 								// are captured before we freeze the event stream
 								time.Sleep(100 * time.Millisecond)
 
-								fmt.Printf("[Automation] Precise mode: analyzing selectors at (%d,%d)\n", x, y)
+								LogDebug("automation").Int("x", x).Int("y", y).Msg("Precise mode: analyzing selectors")
 
 								// Emit analysis started event
 								if !a.mcpMode {
@@ -436,7 +441,7 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 								}
 
 								if err != nil {
-									fmt.Printf("[Automation] Failed to analyze selectors: %v. Falling back to coordinates.\n", err)
+									LogDebug("automation").Err(err).Msg("Failed to analyze selectors, falling back to coordinates")
 									// Provide coordinate suggestion as fallback so user isn't stuck
 									suggestions = []SelectorSuggestion{
 										{
@@ -468,12 +473,12 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 										"elementInfo": elemInfo,
 									})
 								}
-								fmt.Printf("[Automation] Recording paused for selector choice\n")
+								LogDebug("automation").Msg("Recording paused for selector choice")
 							}(scaledX, scaledY, len(sess.ElementInfos), time.Now())
 						} else {
 							// Fast mode: strictly coordinates only.
 							// Do NOT capture element info to ensure zero latency and pure coordinate playback.
-							fmt.Printf("[Automation] Fast mode: recording coordinate (%d,%d) only\n", scaledX, scaledY)
+							LogDebug("automation").Int("x", scaledX).Int("y", scaledY).Msg("Fast mode: recording coordinate only")
 						}
 					}
 
@@ -485,9 +490,9 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 				}
 			}
 		}
-		fmt.Printf("[Automation] Scanner finished: %d lines read, %d events captured\n", lineCount, capturedCount)
+		LogDebug("automation").Int("linesRead", lineCount).Int("eventsCaptured", capturedCount).Msg("Scanner finished")
 		if err := scanner.Err(); err != nil {
-			fmt.Printf("[Automation] Scanner error: %v\n", err)
+			LogDebug("automation").Err(err).Msg("Scanner error")
 		}
 	}()
 
@@ -537,7 +542,7 @@ func (a *App) StopTouchRecording(deviceId string) (*TouchScript, error) {
 		return nil, fmt.Errorf("no recording data found")
 	}
 
-	fmt.Printf("[Automation] StopRecording: got %d raw events\n", len(session.RawEvents))
+	LogDebug("automation").Int("rawEvents", len(session.RawEvents)).Msg("StopRecording")
 
 	// Parse raw events into TouchScript
 	script := a.parseRawEvents(session)
@@ -791,7 +796,7 @@ func (a *App) parseRawEvents(session *TouchRecordingSession) *TouchScript {
 		Events:     make([]TouchEvent, 0),
 	}
 
-	fmt.Printf("[Automation] Parsing %d raw events, %d element infos captured\n", len(session.RawEvents), len(session.ElementInfos))
+	LogDebug("automation").Int("rawEvents", len(session.RawEvents)).Int("elementInfos", len(session.ElementInfos)).Msg("Parsing events")
 
 	if len(session.RawEvents) == 0 {
 		return script
@@ -847,7 +852,7 @@ func (a *App) parseRawEvents(session *TouchRecordingSession) *TouchScript {
 		minY = 0
 	}
 
-	fmt.Printf("[Automation] Screen: %dx%d, Coord Range: X[%d-%d] Y[%d-%d]\n", screenW, screenH, minX, maxX, minY, maxY)
+	LogDebug("automation").Int("screenW", screenW).Int("screenH", screenH).Int("minX", minX).Int("maxX", maxX).Int("minY", minY).Int("maxY", maxY).Msg("Screen and coord range")
 
 	var firstTimestamp float64 = -1
 	var lastEventTimestamp float64 = -1
@@ -925,8 +930,7 @@ func (a *App) parseRawEvents(session *TouchRecordingSession) *TouchScript {
 
 					// Ensure we have valid coordinates before emitting
 					if touchStartX == -1 || touchStartY == -1 || currentX == -1 || currentY == -1 {
-						fmt.Printf("[Automation] Warning: Skipping event with invalid coords: Start(%d,%d) End(%d,%d)\n",
-							touchStartX, touchStartY, currentX, currentY)
+						LogDebug("automation").Int("startX", touchStartX).Int("startY", touchStartY).Int("endX", currentX).Int("endY", currentY).Msg("Skipping event with invalid coords")
 						continue
 					}
 
@@ -1124,8 +1128,7 @@ func (a *App) ExecuteSingleTouchEvent(deviceId string, event TouchEvent, sourceR
 	if event.Selector != nil {
 		selectorValue = event.Selector.Value
 	}
-	fmt.Printf("[Automation] Single Event Request: Type=%s, X=%d, Y=%d, Value=%q\n",
-		event.Type, event.X, event.Y, selectorValue)
+	LogDebug("automation").Str("type", event.Type).Int("x", event.X).Int("y", event.Y).Str("selectorValue", selectorValue).Msg("Single Event Request")
 
 	// Get target device resolution for scaling
 	targetResStr, err := a.GetDeviceResolution(deviceId)
@@ -1158,33 +1161,33 @@ func (a *App) ExecuteSingleTouchEvent(deviceId string, event TouchEvent, sourceR
 			}
 		}
 		cmd = fmt.Sprintf("shell input tap %d %d", tapX, tapY)
-		fmt.Printf("[Automation] Executing Single Tap at (%d, %d)\n", tapX, tapY)
+		LogDebug("automation").Int("x", tapX).Int("y", tapY).Msg("Executing Single Tap")
 	case "long_press", "long_click":
 		cmd = fmt.Sprintf("shell input swipe %d %d %d %d %d", finalX, finalY, finalX, finalY, 1000)
-		fmt.Printf("[Automation] Executing Single Long Press at (%d, %d)\n", finalX, finalY)
+		LogDebug("automation").Int("x", finalX).Int("y", finalY).Msg("Executing Single Long Press")
 	case "swipe":
 		finalX2 := int(float64(event.X2) * scaleX)
 		finalY2 := int(float64(event.Y2) * scaleY)
 		cmd = fmt.Sprintf("shell input swipe %d %d %d %d %d", finalX, finalY, finalX2, finalY2, 300)
-		fmt.Printf("[Automation] Executing Single Swipe: (%d, %d) -> (%d, %d)\n", finalX, finalY, finalX2, finalY2)
+		LogDebug("automation").Int("x1", finalX).Int("y1", finalY).Int("x2", finalX2).Int("y2", finalY2).Msg("Executing Single Swipe")
 	case "wait":
 		duration := event.Duration
 		if duration <= 0 {
 			duration = 500
 		}
-		fmt.Printf("[Automation] Single Event: Waiting %dms\n", duration)
+		LogDebug("automation").Int("duration", duration).Msg("Single Event: Waiting")
 		time.Sleep(time.Duration(duration) * time.Millisecond)
 		return nil
 	default:
-		fmt.Printf("[Automation] Warning: Unknown single event type: %q\n", event.Type)
+		LogDebug("automation").Str("type", event.Type).Msg("Unknown single event type")
 		return fmt.Errorf("unknown event type: %s", event.Type)
 	}
 
 	output, err := a.RunAdbCommand(deviceId, cmd)
 	if err != nil {
-		fmt.Printf("[Automation] Single event command failed: %v, output: %s\n", err, output)
+		LogDebug("automation").Err(err).Str("output", output).Msg("Single event command failed")
 	} else {
-		fmt.Printf("[Automation] Single event executed successfully\n")
+		LogDebug("automation").Msg("Single event executed successfully")
 	}
 	return err
 }
@@ -1196,7 +1199,7 @@ func (a *App) resolveSmartTapCoords(deviceId string, selector *ElementSelector, 
 		return 0, 0, false
 	}
 
-	fmt.Printf("[Automation] Resolving Smart Tap: Selector=%+v, Orig=(%d, %d)\n", selector, origX, origY)
+	LogDebug("automation").Interface("selector", selector).Int("origX", origX).Int("origY", origY).Msg("Resolving Smart Tap")
 
 	start := time.Now()
 	timeout := 5 * time.Second
@@ -1208,7 +1211,7 @@ func (a *App) resolveSmartTapCoords(deviceId string, selector *ElementSelector, 
 	for {
 		hierarchy, err := a.GetUIHierarchy(deviceId)
 		if err != nil {
-			fmt.Printf("[Automation] Smart Tap: UI Dump failed: %v\n", err)
+			LogDebug("automation").Err(err).Msg("Smart Tap: UI Dump failed")
 		} else {
 			// Use the unified find helper
 			matches := a.FindAllElementsBySelector(hierarchy.Root, selector)
@@ -1249,8 +1252,7 @@ func (a *App) resolveSmartTapCoords(deviceId string, selector *ElementSelector, 
 						y2, _ := strconv.Atoi(m[4])
 						centerX := (x1 + x2) / 2
 						centerY := (y1 + y2) / 2
-						fmt.Printf("[Automation] Smart Tap: Found best match (dist=%.0f) at ACTUAL(%d, %d)\n",
-							minDist, centerX, centerY)
+						LogDebug("automation").Float64("dist", minDist).Int("x", centerX).Int("y", centerY).Msg("Smart Tap: Found best match")
 						return centerX, centerY, true
 					}
 				}
@@ -1260,11 +1262,11 @@ func (a *App) resolveSmartTapCoords(deviceId string, selector *ElementSelector, 
 		if time.Since(start) > timeout {
 			break
 		}
-		fmt.Printf("[Automation] Smart Tap: Element not found, retrying in %v...\n", retryInterval)
+		LogDebug("automation").Dur("retryInterval", retryInterval).Msg("Smart Tap: Element not found, retrying")
 		time.Sleep(retryInterval)
 	}
 
-	fmt.Printf("[Automation] Smart Tap: No match found after %v\n", timeout)
+	LogDebug("automation").Dur("timeout", timeout).Msg("Smart Tap: No match found after timeout")
 	return 0, 0, false
 }
 
@@ -1341,13 +1343,12 @@ func (a *App) playTouchScriptSync(ctx context.Context, deviceId string, script T
 		if ok1 && ok2 && sourceW > 0 && sourceH > 0 {
 			scaleX = float64(targetW) / float64(sourceW)
 			scaleY = float64(targetH) / float64(sourceH)
-			fmt.Printf("Auto-scaling enabled: Source=%dx%d, Target=%dx%d, ScaleX=%.2f, ScaleY=%.2f\n",
-				sourceW, sourceH, targetW, targetH, scaleX, scaleY)
+			LogDebug("automation").Int("sourceW", sourceW).Int("sourceH", sourceH).Int("targetW", targetW).Int("targetH", targetH).Float64("scaleX", scaleX).Float64("scaleY", scaleY).Msg("Auto-scaling enabled")
 		}
 	}
 
 	for i, event := range script.Events {
-		fmt.Printf("[Automation] Executing event %d/%d: %s at (%d, %d)\n", i+1, total, event.Type, event.X, event.Y)
+		LogDebug("automation").Int("current", i+1).Int("total", total).Str("type", event.Type).Int("x", event.X).Int("y", event.Y).Msg("Executing event")
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -1394,13 +1395,13 @@ func (a *App) playTouchScriptSync(ctx context.Context, deviceId string, script T
 			}
 			// Simulate long press using swipe on same coordinates
 			cmd = fmt.Sprintf("shell input swipe %d %d %d %d %d", tapX, tapY, tapX, tapY, duration)
-			fmt.Printf("[Automation] Executing LONG_PRESS: (%d, %d) for %dms\n", tapX, tapY, duration)
+			LogDebug("automation").Int("x", tapX).Int("y", tapY).Int("duration", duration).Msg("Executing LONG_PRESS")
 		case "swipe":
 			finalX2 := int(float64(event.X2) * scaleX)
 			finalY2 := int(float64(event.Y2) * scaleY)
 			cmd = fmt.Sprintf("shell input swipe %d %d %d %d %d",
 				finalX, finalY, finalX2, finalY2, event.Duration)
-			fmt.Printf("[Automation] Executing SWIPE: (%d, %d) -> (%d, %d)\n", finalX, finalY, finalX2, finalY2)
+			LogDebug("automation").Int("x1", finalX).Int("y1", finalY).Int("x2", finalX2).Int("y2", finalY2).Msg("Executing SWIPE")
 		case "wait":
 			time.Sleep(time.Duration(event.Duration) * time.Millisecond)
 			continue
@@ -1410,7 +1411,7 @@ func (a *App) playTouchScriptSync(ctx context.Context, deviceId string, script T
 
 		_, err = a.RunAdbCommand(deviceId, cmd)
 		if err != nil {
-			fmt.Printf("[Automation] Action command failed: %v\n", err)
+			LogDebug("automation").Err(err).Msg("Action command failed")
 		}
 
 		if progressCb != nil {
@@ -1840,7 +1841,7 @@ func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
 				} else if step.Type == "script" {
 					script, ok := scriptMap[step.Value]
 					if !ok {
-						fmt.Printf("[Automation] Script not found: %s\n", step.Value)
+						LogDebug("automation").Str("script", step.Value).Msg("Script not found")
 						continue
 					}
 
@@ -1861,7 +1862,7 @@ func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
 					cmd := step.Value
 					_, err := a.RunAdbCommand(deviceId, cmd)
 					if err != nil {
-						fmt.Printf("[Automation] ADB command failed: %s, error: %v\n", cmd, err)
+						LogDebug("automation").Str("cmd", cmd).Err(err).Msg("ADB command failed")
 						// Decide if we should stop the task. For now, continue but log error.
 					}
 				} else if step.Type == "check" {
@@ -1876,7 +1877,7 @@ func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
 						checkType = "text"
 					}
 
-					fmt.Printf("[Automation] Checking for element: %s=%s (timeout: %dms)\n", checkType, step.CheckValue, timeout)
+					LogDebug("automation").Str("checkType", checkType).Str("checkValue", step.CheckValue).Int("timeout", timeout).Msg("Checking for element")
 
 					startCheck := time.Now()
 					found := false
@@ -1911,7 +1912,7 @@ func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
 					}
 
 					if !found {
-						fmt.Printf("[Automation] Element not found: %s=%s\n", checkType, step.CheckValue)
+						LogDebug("automation").Str("checkType", checkType).Str("checkValue", step.CheckValue).Msg("Element not found")
 						if step.OnFailure == "stop" {
 							if !a.mcpMode {
 								wailsRuntime.EventsEmit(a.ctx, "task-error", map[string]interface{}{
@@ -1922,7 +1923,7 @@ func (a *App) RunScriptTask(deviceId string, task ScriptTask) error {
 							return
 						}
 					} else {
-						fmt.Printf("[Automation] Element found: %s=%s\n", checkType, step.CheckValue)
+						LogDebug("automation").Str("checkType", checkType).Str("checkValue", step.CheckValue).Msg("Element found")
 					}
 				}
 			}
@@ -2014,7 +2015,7 @@ func (a *App) GetUIHierarchy(deviceId string) (*UIHierarchyResult, error) {
 				break
 			}
 		}
-		fmt.Printf("[Automation] UI dump retry %d/%d (error: %v)\n", i+1, maxRetries, err)
+		LogDebug("automation").Int("retry", i+1).Int("maxRetries", maxRetries).Err(err).Msg("UI dump retry")
 		time.Sleep(500 * time.Millisecond)
 	}
 

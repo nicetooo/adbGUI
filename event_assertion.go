@@ -74,9 +74,9 @@ type AssertionExpected struct {
 	Exists bool `json:"exists,omitempty"`
 
 	// For count
-	Count    *int   `json:"count,omitempty"`
-	MinCount *int   `json:"minCount,omitempty"`
-	MaxCount *int   `json:"maxCount,omitempty"`
+	Count    *int `json:"count,omitempty"`
+	MinCount *int `json:"minCount,omitempty"`
+	MaxCount *int `json:"maxCount,omitempty"`
 
 	// For sequence
 	Sequence []EventCriteria `json:"sequence,omitempty"`
@@ -111,9 +111,9 @@ type AssertionResult struct {
 // ========================================
 
 type AssertionEngine struct {
-	app       *App
-	store     *EventStore
-	pipeline  *EventPipeline
+	app      *App
+	store    *EventStore
+	pipeline *EventPipeline
 
 	// 实时断言监控
 	liveAssertions map[string]*LiveAssertion
@@ -242,7 +242,7 @@ func (e *AssertionEngine) persistResult(result *AssertionResult) {
 	}
 
 	if err := e.store.SaveAssertionResult(storedResult); err != nil {
-		fmt.Printf("Failed to persist assertion result: %v\n", err)
+		LogDebug("assertion").Err(err).Msg("Failed to persist assertion result")
 	}
 }
 

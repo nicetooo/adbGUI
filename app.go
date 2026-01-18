@@ -296,7 +296,7 @@ func (a *App) setupBinaries() {
 		if err != nil || info.Size() != int64(len(data)) {
 			err = os.WriteFile(path, data, 0755)
 			if err != nil {
-				fmt.Printf("Error extracting %s: %v\n", name, err)
+				LogDebug("app").Str("name", name).Err(err).Msg("Error extracting embedded binary")
 			}
 		}
 

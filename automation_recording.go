@@ -58,7 +58,7 @@ func (a *App) SubmitSelectorChoice(deviceId string, selectorType string, selecto
 	}
 
 	sess.ElementInfos = append(sess.ElementInfos, *elemInfo)
-	fmt.Printf("[Automation] User selected selector: %+v\n", elemInfo.Selector)
+	LogDebug("automation").Interface("selector", elemInfo.Selector).Msg("User selected selector")
 
 	// Clear pending request and resume
 	sess.IsPaused = false
@@ -88,7 +88,7 @@ func (a *App) SubmitSelectorChoice(deviceId string, selectorType string, selecto
 				})
 			}
 
-			fmt.Printf("[Automation] Pre-capturing UI for NEXT action (Cache cleared)\n")
+			LogDebug("automation").Msg("Pre-capturing UI for NEXT action (Cache cleared)")
 			a.captureElementInfoAtPoint(deviceId, -1, -1)
 
 			if !a.mcpMode {
@@ -99,7 +99,7 @@ func (a *App) SubmitSelectorChoice(deviceId string, selectorType string, selecto
 		}()
 	}
 
-	fmt.Printf("[Automation] Recording resumed\n")
+	LogDebug("automation").Msg("Recording resumed")
 	return nil
 }
 
