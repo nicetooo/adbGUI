@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -110,6 +111,17 @@ func (a *App) LoadWorkflows() ([]Workflow, error) {
 
 		workflows = append(workflows, *workflow)
 	}
+
+	// Sort by CreatedAt descending (newest first)
+	sort.Slice(workflows, func(i, j int) bool {
+		// Parse RFC3339 timestamps, fallback to string comparison if parsing fails
+		ti, erri := time.Parse(time.RFC3339, workflows[i].CreatedAt)
+		tj, errj := time.Parse(time.RFC3339, workflows[j].CreatedAt)
+		if erri != nil || errj != nil {
+			return workflows[i].CreatedAt > workflows[j].CreatedAt
+		}
+		return ti.After(tj)
+	})
 
 	return workflows, nil
 }
