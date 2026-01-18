@@ -56,7 +56,7 @@ Step JSON format (V2):
   "adb": { "command": "shell input keyevent 4" },
   "script": { "scriptName": "my_script" },
   "variable": { "name": "myVar", "value": "myValue" },
-  "readToVariable": { "selector": {"type":"id","value":"com.app:id/text"}, "variableName": "myVar", "attribute": "text" },
+  "readToVariable": { "selector": {"type":"id","value":"com.app:id/text"}, "variableName": "myVar", "attribute": "text", "defaultValue": "" },
   "workflow": { "workflowId": "sub_workflow_id" }
 }
 
@@ -77,6 +77,19 @@ Step types:
 - KEYS: key_back, key_home, key_recent, key_power, key_volume_up, key_volume_down
 - SCREEN: screen_on, screen_off
 - CONTROL: wait, adb, set_variable, read_to_variable, branch, run_workflow, script
+
+ELEMENT WAIT BEHAVIOR:
+All element-based steps automatically wait for element to appear within timeout before performing action:
+- click_element: waits for element, then clicks
+- long_click_element: waits for element, then long clicks
+- input_text: waits for element, then taps and inputs text
+- swipe_element: waits for element, then swipes from its center
+- wait_element: waits for element to appear
+- wait_gone: waits for element to disappear
+- assert_element: waits for element (same as wait_element)
+
+read_to_variable also waits for element, then reads attribute value into variable.
+If element not found within timeout and defaultValue is set, uses defaultValue and succeeds; otherwise fails.
 
 Element selector types: id, text, contentDesc, className, xpath
 Element actions: click, long_click, input, swipe, wait, wait_gone, assert`),
@@ -226,7 +239,12 @@ Step types:
 - App: launch_app, stop_app, clear_app, open_settings
 - Keys: key_back, key_home, key_recent, key_power, key_volume_up, key_volume_down
 - Screen: screen_on, screen_off
-- Control: wait, adb, set_variable, read_to_variable`),
+- Control: wait, adb, set_variable, read_to_variable
+
+ELEMENT WAIT BEHAVIOR: All element steps (click_element, long_click_element, input_text, swipe_element, 
+wait_element, assert_element) automatically wait for element within timeout before action.
+wait_gone waits for element to disappear. read_to_variable also waits, then reads attribute into variable.
+If element not found and default_value is set, uses default_value and succeeds.`),
 			mcp.WithString("device_id",
 				mcp.Required(),
 				mcp.Description("Device ID"),
@@ -251,7 +269,7 @@ Step types:
 				mcp.Description("Attribute to read for read_to_variable: text (default), contentDesc, resourceId, className, bounds"),
 			),
 			mcp.WithString("default_value",
-				mcp.Description("Default value if element not found or attribute is empty (for read_to_variable)"),
+				mcp.Description("Default value for read_to_variable if element not found within timeout (step succeeds with this value)"),
 			),
 			mcp.WithString("regex",
 				mcp.Description("Optional regex to extract part of the value (for read_to_variable). Use capture group to extract."),
