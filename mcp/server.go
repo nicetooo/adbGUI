@@ -115,6 +115,9 @@ type GazeApp interface {
 	GetVideoMetadata(videoPath string) (*VideoMetadata, error)
 	GetSessionVideoInfo(sessionID string) (map[string]interface{}, error)
 
+	// ADB
+	RunAdbCommand(deviceId string, command string) (string, error)
+
 	// Utility
 	GetAppVersion() string
 }

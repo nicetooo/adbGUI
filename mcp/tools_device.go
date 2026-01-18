@@ -93,6 +93,25 @@ func (s *MCPServer) registerDeviceTools() {
 		),
 		s.handleDeviceIP,
 	)
+
+	// adb_execute - Execute arbitrary ADB command
+	s.server.AddTool(
+		mcp.NewTool("adb_execute",
+			mcp.WithDescription("Execute an arbitrary ADB command on a device. Supports shell commands (e.g., 'shell pm list packages'), file operations (e.g., 'push local remote'), and other ADB commands."),
+			mcp.WithString("device_id",
+				mcp.Required(),
+				mcp.Description("Device ID to execute the command on"),
+			),
+			mcp.WithString("command",
+				mcp.Required(),
+				mcp.Description("ADB command to execute (e.g., 'shell ls /sdcard', 'shell pm list packages', 'shell getprop ro.build.version.sdk')"),
+			),
+			mcp.WithNumber("timeout",
+				mcp.Description("Command timeout in seconds (default: 30, max: 300)"),
+			),
+		),
+		s.handleAdbExecute,
+	)
 }
 
 // Tool handlers
@@ -260,6 +279,44 @@ func (s *MCPServer) handleDeviceIP(ctx context.Context, request mcp.CallToolRequ
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
 			mcp.NewTextContent(fmt.Sprintf("Device %s IP address: %s", deviceID, ip)),
+		},
+	}, nil
+}
+
+func (s *MCPServer) handleAdbExecute(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	deviceID, ok := args["device_id"].(string)
+	if !ok || deviceID == "" {
+		return nil, fmt.Errorf("device_id is required")
+	}
+
+	command, ok := args["command"].(string)
+	if !ok || command == "" {
+		return nil, fmt.Errorf("command is required")
+	}
+
+	// Execute the ADB command
+	output, err := s.app.RunAdbCommand(deviceID, command)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				mcp.NewTextContent(fmt.Sprintf("Command failed: %v\n\nOutput:\n%s", err, output)),
+			},
+			IsError: true,
+		}, nil
+	}
+
+	// Format result
+	result := fmt.Sprintf("Command: adb -s %s %s\n\n", deviceID, command)
+	if output == "" {
+		result += "Command executed successfully (no output)"
+	} else {
+		result += fmt.Sprintf("Output:\n%s", output)
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			mcp.NewTextContent(result),
 		},
 	}, nil
 }

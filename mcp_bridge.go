@@ -688,6 +688,11 @@ func (b *MCPBridge) GetSessionVideoInfo(sessionID string) (map[string]interface{
 	return b.app.GetSessionVideoInfo(sessionID)
 }
 
+// RunAdbCommand executes an arbitrary ADB command on a device
+func (b *MCPBridge) RunAdbCommand(deviceId string, command string) (string, error) {
+	return b.app.RunAdbCommand(deviceId, command)
+}
+
 // StartMCPServer starts the MCP server with the given app
 func StartMCPServer(app *App) {
 	bridge := NewMCPBridge(app)
