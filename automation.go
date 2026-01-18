@@ -1995,28 +1995,23 @@ func (a *App) GetUIHierarchy(deviceId string) (*UIHierarchyResult, error) {
 	var xmlContent string
 	var err error
 	maxRetries := 3
+	dumpFile := "/data/local/tmp/view.xml"
 
 	for i := 0; i < maxRetries; i++ {
-		// Cleanup: kill any existing uiautomator processes to prevent conflicts/OOM
-		a.RunAdbCommand(deviceId, "shell pkill uiautomator")
 		if i > 0 {
-			time.Sleep(1000 * time.Millisecond) // Wait longer on retry
+			// Cleanup on retry: kill any existing uiautomator processes
+			a.RunAdbCommand(deviceId, "shell pkill uiautomator")
+			time.Sleep(500 * time.Millisecond)
 		}
 
-		// Dump to a temporary file on device
-		dumpFile := "/data/local/tmp/view.xml"
-		dumpCmd := fmt.Sprintf("shell uiautomator dump %s", dumpFile)
-		_, err = a.RunAdbCommand(deviceId, dumpCmd)
-		if err == nil {
-			// Read the file content
-			catCmd := fmt.Sprintf("shell cat %s", dumpFile)
-			xmlContent, err = a.RunAdbCommand(deviceId, catCmd)
-			if err == nil && strings.Contains(xmlContent, "<?xml") {
-				break
-			}
+		// Dump and read in single command to reduce adb overhead
+		// Using && ensures cat only runs if dump succeeds
+		combinedCmd := fmt.Sprintf("shell uiautomator dump %s && cat %s", dumpFile, dumpFile)
+		xmlContent, err = a.RunAdbCommand(deviceId, combinedCmd)
+		if err == nil && strings.Contains(xmlContent, "<?xml") {
+			break
 		}
 		LogDebug("automation").Int("retry", i+1).Int("maxRetries", maxRetries).Err(err).Msg("UI dump retry")
-		time.Sleep(500 * time.Millisecond)
 	}
 
 	if err != nil || xmlContent == "" {
