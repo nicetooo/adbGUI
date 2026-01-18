@@ -2,6 +2,8 @@ package mcp
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,13 +17,18 @@ func (s *MCPServer) registerScreenTools() {
 	// screen_screenshot - Take a screenshot
 	s.server.AddTool(
 		mcp.NewTool("screen_screenshot",
-			mcp.WithDescription("Take a screenshot of the device screen"),
+			mcp.WithDescription(`Take a screenshot of the device screen and return as base64 image.
+Optionally includes UI hierarchy XML for element analysis.
+Returns: base64 PNG image + optional UI hierarchy JSON`),
 			mcp.WithString("device_id",
 				mcp.Required(),
 				mcp.Description("Device ID"),
 			),
+			mcp.WithBoolean("include_ui",
+				mcp.Description("Include UI hierarchy in response (default: false)"),
+			),
 			mcp.WithString("save_path",
-				mcp.Description("Path to save the screenshot (optional, auto-generated if not provided)"),
+				mcp.Description("Also save screenshot to this path (optional)"),
 			),
 		),
 		s.handleScreenshot,
@@ -79,32 +86,71 @@ func (s *MCPServer) handleScreenshot(ctx context.Context, request mcp.CallToolRe
 		return nil, fmt.Errorf("device_id is required")
 	}
 
-	savePath := ""
-	if p, ok := args["save_path"].(string); ok && p != "" {
-		savePath = p
-	} else {
-		// Auto-generate save path in Downloads folder
-		home, err := os.UserHomeDir()
-		if err != nil {
-			home = os.TempDir()
-		}
-		downloadsDir := filepath.Join(home, "Downloads")
-		if _, err := os.Stat(downloadsDir); os.IsNotExist(err) {
-			downloadsDir = home
-		}
-		filename := fmt.Sprintf("screenshot_%s_%s.png", deviceID, time.Now().Format("20060102_150405"))
-		savePath = filepath.Join(downloadsDir, filename)
+	includeUI := false
+	if v, ok := args["include_ui"].(bool); ok {
+		includeUI = v
 	}
 
-	path, err := s.app.TakeScreenshot(deviceID, savePath)
+	// Generate temp path for screenshot
+	tempDir := os.TempDir()
+	filename := fmt.Sprintf("screenshot_%s_%s.png", deviceID, time.Now().Format("20060102_150405"))
+	tempPath := filepath.Join(tempDir, filename)
+
+	// Take screenshot
+	path, err := s.app.TakeScreenshot(deviceID, tempPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to take screenshot: %w", err)
 	}
 
+	// Read screenshot file and convert to base64
+	imageData, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read screenshot: %w", err)
+	}
+	base64Image := base64.StdEncoding.EncodeToString(imageData)
+
+	// Also save to user-specified path if provided
+	savedPath := ""
+	if savePath, ok := args["save_path"].(string); ok && savePath != "" {
+		if err := os.WriteFile(savePath, imageData, 0644); err == nil {
+			savedPath = savePath
+		}
+	}
+
+	// Build response content
+	contents := []mcp.Content{}
+
+	// Add image content
+	contents = append(contents, mcp.NewImageContent(base64Image, "image/png"))
+
+	// Build text description
+	textInfo := fmt.Sprintf("Screenshot captured for device %s", deviceID)
+	if savedPath != "" {
+		textInfo += fmt.Sprintf("\nSaved to: %s", savedPath)
+	}
+
+	// Include UI hierarchy if requested
+	if includeUI {
+		hierarchy, err := s.app.GetUIHierarchy(deviceID)
+		if err == nil {
+			jsonData, err := json.Marshal(hierarchy)
+			if err == nil {
+				textInfo += fmt.Sprintf("\n\nUI Hierarchy:\n```json\n%s\n```", string(jsonData))
+			}
+		} else {
+			textInfo += fmt.Sprintf("\n\nUI Hierarchy: failed to get (%v)", err)
+		}
+	}
+
+	contents = append(contents, mcp.NewTextContent(textInfo))
+
+	// Clean up temp file if it's different from saved path
+	if savedPath == "" || savedPath != path {
+		os.Remove(path)
+	}
+
 	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			mcp.NewTextContent(fmt.Sprintf("Screenshot saved to: %s", path)),
-		},
+		Content: contents,
 	}, nil
 }
 
