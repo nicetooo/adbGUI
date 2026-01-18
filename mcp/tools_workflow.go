@@ -68,6 +68,13 @@ CONNECTIONS explained:
   - falseStepId: next step when condition evaluates to FALSE  
   - errorStepId: next step when execution fails (e.g., UI dump error)
 
+CONNECTION LIMITS:
+- Incoming: Each node can receive multiple incoming connections (from different nodes)
+- Outgoing: Each output handle (success/error/true/false) connects to exactly ONE target node
+- Start node: No incoming, only one success output
+- Branch node: Multiple incoming, three outputs (true/false/error)
+- Normal nodes: Multiple incoming, two outputs (success/error)
+
 Branch conditions: exists, not_exists, text_equals, text_contains, variable_equals
 
 Step types:
