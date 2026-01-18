@@ -56,6 +56,7 @@ Step JSON format (V2):
   "adb": { "command": "shell input keyevent 4" },
   "script": { "scriptName": "my_script" },
   "variable": { "name": "myVar", "value": "myValue" },
+  "readToVariable": { "selector": {"type":"id","value":"com.app:id/text"}, "variableName": "myVar", "attribute": "text" },
   "workflow": { "workflowId": "sub_workflow_id" }
 }
 
@@ -65,7 +66,7 @@ Step types:
 - APP: launch_app, stop_app, clear_app, open_settings
 - KEYS: key_back, key_home, key_recent, key_power, key_volume_up, key_volume_down
 - SCREEN: screen_on, screen_off
-- CONTROL: wait, adb, set_variable, branch, run_workflow, script
+- CONTROL: wait, adb, set_variable, read_to_variable, branch, run_workflow, script
 
 Element selector types: id, text, contentDesc, className, xpath
 Element actions: click, long_click, input, swipe, wait, wait_gone, assert`),
@@ -215,7 +216,7 @@ Step types:
 - App: launch_app, stop_app, clear_app, open_settings
 - Keys: key_back, key_home, key_recent, key_power, key_volume_up, key_volume_down
 - Screen: screen_on, screen_off
-- Control: wait, adb, set_variable`),
+- Control: wait, adb, set_variable, read_to_variable`),
 			mcp.WithString("device_id",
 				mcp.Required(),
 				mcp.Description("Device ID"),
@@ -234,7 +235,16 @@ Step types:
 				mcp.Description("Value: text for input, package for app ops, duration(ms) for wait, command for adb"),
 			),
 			mcp.WithString("variable_name",
-				mcp.Description("Variable name for set_variable step"),
+				mcp.Description("Variable name for set_variable or read_to_variable step"),
+			),
+			mcp.WithString("attribute",
+				mcp.Description("Attribute to read for read_to_variable: text (default), contentDesc, resourceId, className, bounds"),
+			),
+			mcp.WithString("default_value",
+				mcp.Description("Default value if element not found or attribute is empty (for read_to_variable)"),
+			),
+			mcp.WithString("regex",
+				mcp.Description("Optional regex to extract part of the value (for read_to_variable). Use capture group to extract."),
 			),
 			mcp.WithNumber("timeout",
 				mcp.Description("Timeout in milliseconds (default: 5000)"),
@@ -366,6 +376,11 @@ func (s *MCPServer) handleWorkflowGet(ctx context.Context, request mcp.CallToolR
 		}
 		if step.Variable != nil {
 			result += fmt.Sprintf("   Variable: %s = %s\n", step.Variable.Name, step.Variable.Value)
+		}
+		if step.ReadToVariable != nil {
+			result += fmt.Sprintf("   ReadToVariable: %s=%s -> %s (attr: %s)\n",
+				step.ReadToVariable.Selector.Type, step.ReadToVariable.Selector.Value,
+				step.ReadToVariable.VariableName, step.ReadToVariable.Attribute)
 		}
 		if step.Workflow != nil {
 			result += fmt.Sprintf("   SubWorkflow: %s\n", step.Workflow.WorkflowId)
@@ -947,7 +962,7 @@ func (s *MCPServer) handleWorkflowExecuteStep(ctx context.Context, request mcp.C
 		// Screen control
 		"screen_on": true, "screen_off": true,
 		// Control flow
-		"wait": true, "adb": true, "set_variable": true,
+		"wait": true, "adb": true, "set_variable": true, "read_to_variable": true,
 	}
 	if !validTypes[stepType] {
 		return nil, fmt.Errorf("invalid step_type '%s'", stepType)
@@ -1105,6 +1120,30 @@ func (s *MCPServer) handleWorkflowExecuteStep(ctx context.Context, request mcp.C
 			varName = step.Name
 		}
 		step.Variable = &VariableParams{Name: varName, Value: value}
+
+	case "read_to_variable":
+		selectorType, _ := args["selector_type"].(string)
+		selectorValue, _ := args["selector_value"].(string)
+		if selectorType == "" || selectorValue == "" {
+			return nil, fmt.Errorf("selector_type and selector_value are required for read_to_variable")
+		}
+		varName, _ := args["variable_name"].(string)
+		if varName == "" {
+			return nil, fmt.Errorf("variable_name is required for read_to_variable")
+		}
+		attribute, _ := args["attribute"].(string)
+		if attribute == "" {
+			attribute = "text"
+		}
+		defaultValue, _ := args["default_value"].(string)
+		regexPattern, _ := args["regex"].(string)
+		step.ReadToVariable = &ReadToVariableParams{
+			Selector:     ElementSelector{Type: selectorType, Value: selectorValue},
+			VariableName: varName,
+			Attribute:    attribute,
+			DefaultValue: defaultValue,
+			Regex:        regexPattern,
+		}
 	}
 
 	// Execute the step

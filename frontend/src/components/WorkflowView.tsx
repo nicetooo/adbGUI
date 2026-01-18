@@ -109,6 +109,7 @@ const STEP_TYPES = {
     { key: 'scroll_to', icon: <ReloadOutlined />, color: 'magenta' },
     { key: 'assert_element', icon: <CheckCircleOutlined />, color: 'lime' },
     { key: 'set_variable', icon: <IdcardOutlined />, color: 'orange' },
+    { key: 'read_to_variable', icon: <FormOutlined />, color: 'cyan' },
   ],
   SCRIPT_ACTIONS: [
     { key: 'script', icon: <PlayCircleOutlined />, color: 'geekblue' },
@@ -281,6 +282,14 @@ const WorkflowNode = React.memo(({ data, selected }: any) => {
             {step.adb?.command && (
               <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
                 <Text ellipsis style={{ fontSize: 11, color: token.colorTextSecondary }}>{step.adb.command}</Text>
+              </div>
+            )}
+            {/* ReadToVariable display */}
+            {step.readToVariable && (
+              <div style={{ fontSize: 11, color: token.colorTextSecondary, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Tag style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>{step.readToVariable.selector?.type}</Tag>
+                <Text ellipsis style={{ fontSize: 11, maxWidth: 80, color: token.colorTextSecondary }}>{step.readToVariable.selector?.value}</Text>
+                <span style={{ color: token.colorPrimary }}>→ {step.readToVariable.variableName}</span>
               </div>
             )}
           </div>
@@ -1031,7 +1040,7 @@ const WorkflowView: React.FC = () => {
     stepForm.resetFields();
     
     // V2: Extract form values from type-specific params
-    const selector = step.element?.selector || step.branch?.selector;
+    const selector = step.element?.selector || step.branch?.selector || step.readToVariable?.selector;
     const conditionType = step.branch?.condition || 'exists';
     
     // Get value based on step type
@@ -1045,6 +1054,7 @@ const WorkflowView: React.FC = () => {
     else if (step.element?.inputText) value = step.element.inputText;
     else if (step.element?.swipeDir) value = step.element.swipeDir;
     else if (step.branch?.expectedValue) value = step.branch.expectedValue;
+    else if (step.readToVariable?.defaultValue) value = step.readToVariable.defaultValue;
     
     stepForm.setFieldsValue({
       type: step.type,
@@ -1064,6 +1074,11 @@ const WorkflowView: React.FC = () => {
       y: step.tap?.y || step.swipe?.y,
       x2: step.swipe?.x2,
       y2: step.swipe?.y2,
+      // read_to_variable fields
+      variableName: step.readToVariable?.variableName || step.variable?.name,
+      attribute: step.readToVariable?.attribute || 'text',
+      regex: step.readToVariable?.regex,
+      defaultValue: step.readToVariable?.defaultValue,
     });
     setDrawerVisible(true);
   };
@@ -1391,9 +1406,11 @@ const WorkflowView: React.FC = () => {
           };
         } else if (stepType === 'set_variable') {
           variable = {
-            name: values.name || '',
+            name: values.variableName || values.name || '',
             value: values.value || '',
           };
+        } else if (stepType === 'read_to_variable') {
+          // read_to_variable is handled separately below
         } else if (stepType === 'adb') {
           adb = {
             command: values.value || '',
@@ -1404,6 +1421,18 @@ const WorkflowView: React.FC = () => {
           };
         }
         
+        // Build readToVariable params if applicable
+        const readToVariable = stepType === 'read_to_variable' ? {
+          selector: values.selectorValue ? {
+            type: values.selectorType || 'text',
+            value: values.selectorValue,
+          } : originalStep.readToVariable?.selector || { type: 'text', value: '' },
+          variableName: values.variableName || '',
+          attribute: values.attribute || 'text',
+          regex: values.regex || undefined,
+          defaultValue: values.defaultValue || undefined,
+        } : originalStep.readToVariable;
+
         const updatedStep: WorkflowStep = {
           ...originalStep,
           type: stepType,
@@ -1427,6 +1456,7 @@ const WorkflowView: React.FC = () => {
           variable,
           adb,
           workflow,
+          readToVariable,
         };
         
         return {
@@ -2258,8 +2288,9 @@ const WorkflowView: React.FC = () => {
                       {({ getFieldValue }) => {
                         const type = getFieldValue('type');
                         const isBranch = type === 'branch';
+                        const isReadToVariable = type === 'read_to_variable';
                         const conditionType = getFieldValue('conditionType') || 'exists';
-                        const needsSelector = ['click_element', 'long_click_element', 'input_text', 'swipe_element', 'wait_element', 'wait_gone', 'assert_element', 'branch'].includes(type);
+                        const needsSelector = ['click_element', 'long_click_element', 'input_text', 'swipe_element', 'wait_element', 'wait_gone', 'assert_element', 'branch', 'read_to_variable'].includes(type);
                         const isAppAction = ['launch_app', 'stop_app', 'clear_app', 'open_settings'].includes(type);
                         const needsValue = ['set_variable', 'input_text', 'swipe_element', 'wait', 'adb', 'script', 'run_workflow'].includes(type) || isAppAction;
                         const isWorkflow = type === 'run_workflow';
@@ -2470,6 +2501,33 @@ const WorkflowView: React.FC = () => {
                                     <InputNumber addonAfter="ms" min={100} step={100} style={{ width: '100%' }} placeholder="300" />
                                   </Form.Item>
                                 </div>
+                              </>
+                            )}
+
+                            {/* Read to Variable specific fields */}
+                            {isReadToVariable && (
+                              <>
+                                <Form.Item name="variableName" label={t("workflow.variable_name")} rules={[{ required: true }]}>
+                                  <Input placeholder={t("workflow.variable_name_placeholder") || "myVariable"} />
+                                </Form.Item>
+                                <Form.Item name="attribute" label={t("workflow.attribute") || "Attribute"}>
+                                  <Select
+                                    defaultValue="text"
+                                    options={[
+                                      { label: 'Text', value: 'text' },
+                                      { label: 'Content Description', value: 'contentDesc' },
+                                      { label: 'Resource ID', value: 'resourceId' },
+                                      { label: 'Class Name', value: 'className' },
+                                      { label: 'Bounds', value: 'bounds' },
+                                    ]}
+                                  />
+                                </Form.Item>
+                                <Form.Item name="regex" label={t("workflow.regex") || "Regex (optional)"}>
+                                  <Input placeholder={t("workflow.regex_placeholder") || "\\d+"} />
+                                </Form.Item>
+                                <Form.Item name="defaultValue" label={t("workflow.default_value") || "Default Value"}>
+                                  <Input placeholder={t("workflow.default_value_placeholder") || "Value if not found"} />
+                                </Form.Item>
                               </>
                             )}
                           </>

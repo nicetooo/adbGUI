@@ -106,6 +106,14 @@ export interface SubWorkflowParams {
   workflowId: string;
 }
 
+export interface ReadToVariableParams {
+  selector: ElementSelector;
+  variableName: string;
+  attribute?: 'text' | 'contentDesc' | 'resourceId' | 'className' | 'bounds';
+  regex?: string;
+  defaultValue?: string;
+}
+
 // ============== Step Types ==============
 
 export type StepType =
@@ -127,6 +135,7 @@ export type StepType =
   | 'wait'
   | 'script'
   | 'set_variable'
+  | 'read_to_variable'
   | 'adb'
   | 'run_workflow'
   | 'key_back'
@@ -162,6 +171,7 @@ export interface WorkflowStep {
   variable?: VariableParams;
   adb?: ADBParams;
   workflow?: SubWorkflowParams;
+  readToVariable?: ReadToVariableParams;
 
   // UI Layout
   layout?: StepLayout;
@@ -257,7 +267,7 @@ export const STEP_CATEGORIES = {
   COORDINATE_ACTIONS: ['tap', 'swipe'] as StepType[],
   ELEMENT_ACTIONS: ['click_element', 'long_click_element', 'input_text', 'swipe_element'] as StepType[],
   WAIT_CONDITIONS: ['wait_element', 'wait_gone', 'wait'] as StepType[],
-  FLOW_CONTROL: ['start', 'branch', 'set_variable'] as StepType[],
+  FLOW_CONTROL: ['start', 'branch', 'set_variable', 'read_to_variable'] as StepType[],
   SCRIPT_ACTIONS: ['script', 'adb'] as StepType[],
   SYSTEM_ACTIONS: ['key_back', 'key_home', 'key_recent', 'key_power', 'key_volume_up', 'key_volume_down', 'screen_on', 'screen_off'] as StepType[],
   APP_ACTIONS: ['launch_app', 'stop_app', 'clear_app', 'open_settings'] as StepType[],

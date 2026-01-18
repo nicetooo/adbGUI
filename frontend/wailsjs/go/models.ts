@@ -2081,6 +2081,44 @@ export namespace types {
 	        this.targetHandle = source["targetHandle"];
 	    }
 	}
+	export class ReadToVariableParams {
+	    selector: ElementSelector;
+	    variableName: string;
+	    attribute?: string;
+	    regex?: string;
+	    defaultValue?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ReadToVariableParams(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.selector = this.convertValues(source["selector"], ElementSelector);
+	        this.variableName = source["variableName"];
+	        this.attribute = source["attribute"];
+	        this.regex = source["regex"];
+	        this.defaultValue = source["defaultValue"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class ScriptParams {
 	    scriptName: string;
 	
@@ -2257,6 +2295,7 @@ export namespace types {
 	    variable?: VariableParams;
 	    adb?: ADBParams;
 	    workflow?: SubWorkflowParams;
+	    readToVariable?: ReadToVariableParams;
 	    layout?: StepLayout;
 	
 	    static createFrom(source: any = {}) {
@@ -2280,6 +2319,7 @@ export namespace types {
 	        this.variable = this.convertValues(source["variable"], VariableParams);
 	        this.adb = this.convertValues(source["adb"], ADBParams);
 	        this.workflow = this.convertValues(source["workflow"], SubWorkflowParams);
+	        this.readToVariable = this.convertValues(source["readToVariable"], ReadToVariableParams);
 	        this.layout = this.convertValues(source["layout"], StepLayout);
 	    }
 	

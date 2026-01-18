@@ -131,6 +131,15 @@ type ADBParams struct {
 	Command string `json:"command"`
 }
 
+// ReadToVariableParams for reading element text to variable
+type ReadToVariableParams struct {
+	Selector     ElementSelector `json:"selector"`               // Element selector
+	VariableName string          `json:"variableName"`           // Variable name to store the value
+	Attribute    string          `json:"attribute,omitempty"`    // Attribute to read: text (default), contentDesc, resourceId, className
+	Regex        string          `json:"regex,omitempty"`        // Optional regex to extract part of the value
+	DefaultValue string          `json:"defaultValue,omitempty"` // Default value if element not found or attribute is empty
+}
+
 // SubWorkflowParams for running sub-workflows
 type SubWorkflowParams struct {
 	WorkflowId string `json:"workflowId"`
@@ -151,16 +160,17 @@ type WorkflowStep struct {
 	Connections StepConnections `json:"connections,omitempty"`
 
 	// Type-specific parameters (only one should be set based on Type)
-	Tap      *TapParams         `json:"tap,omitempty"`
-	Swipe    *SwipeParams       `json:"swipe,omitempty"`
-	Element  *ElementParams     `json:"element,omitempty"`
-	App      *AppParams         `json:"app,omitempty"`
-	Branch   *BranchParams      `json:"branch,omitempty"`
-	Wait     *WaitParams        `json:"wait,omitempty"`
-	Script   *ScriptParams      `json:"script,omitempty"`
-	Variable *VariableParams    `json:"variable,omitempty"`
-	ADB      *ADBParams         `json:"adb,omitempty"`
-	Workflow *SubWorkflowParams `json:"workflow,omitempty"`
+	Tap            *TapParams            `json:"tap,omitempty"`
+	Swipe          *SwipeParams          `json:"swipe,omitempty"`
+	Element        *ElementParams        `json:"element,omitempty"`
+	App            *AppParams            `json:"app,omitempty"`
+	Branch         *BranchParams         `json:"branch,omitempty"`
+	Wait           *WaitParams           `json:"wait,omitempty"`
+	Script         *ScriptParams         `json:"script,omitempty"`
+	Variable       *VariableParams       `json:"variable,omitempty"`
+	ADB            *ADBParams            `json:"adb,omitempty"`
+	Workflow       *SubWorkflowParams    `json:"workflow,omitempty"`
+	ReadToVariable *ReadToVariableParams `json:"readToVariable,omitempty"`
 
 	// UI Layout (separated from business logic)
 	Layout StepLayout `json:"layout,omitempty"`
@@ -295,6 +305,17 @@ func (s *WorkflowStep) Validate() error {
 		}
 		if s.Workflow.WorkflowId == "" {
 			return ValidationError{StepID: s.ID, Field: "workflow.workflowId", Message: "workflowId is required"}
+		}
+
+	case "read_to_variable":
+		if s.ReadToVariable == nil {
+			return ValidationError{StepID: s.ID, Field: "readToVariable", Message: "readToVariable params required for read_to_variable step"}
+		}
+		if s.ReadToVariable.Selector.Type == "" || s.ReadToVariable.Selector.Value == "" {
+			return ValidationError{StepID: s.ID, Field: "readToVariable.selector", Message: "selector type and value are required"}
+		}
+		if s.ReadToVariable.VariableName == "" {
+			return ValidationError{StepID: s.ID, Field: "readToVariable.variableName", Message: "variableName is required"}
 		}
 
 	case "key_back", "key_home", "key_recent", "key_power", "key_volume_up", "key_volume_down", "screen_on", "screen_off":

@@ -510,6 +510,9 @@ func (a *App) executeStep(ctx context.Context, deviceId string, step *WorkflowSt
 		vars[step.Variable.Name] = processedValue
 		return StepResult{Success: true}
 
+	case "read_to_variable":
+		return a.executeReadToVariableStep(ctx, deviceId, step, vars)
+
 	case "adb":
 		if step.ADB == nil {
 			return StepResult{Success: false, Error: fmt.Errorf("adb params missing")}
@@ -704,6 +707,86 @@ func (a *App) executeBranchStep(deviceId string, step *WorkflowStep, vars map[st
 	}
 
 	return StepResult{Success: conditionResult, IsBranchResult: true}
+}
+
+// executeReadToVariableStep reads element text and stores it in a variable
+func (a *App) executeReadToVariableStep(ctx context.Context, deviceId string, step *WorkflowStep, vars map[string]string) StepResult {
+	if step.ReadToVariable == nil {
+		return StepResult{Success: false, Error: fmt.Errorf("readToVariable params missing")}
+	}
+
+	params := step.ReadToVariable
+	timeout := step.Common.Timeout
+	if timeout <= 0 {
+		timeout = 5000
+	}
+
+	// Process selector value with variables
+	selector := &ElementSelector{
+		Type:  params.Selector.Type,
+		Value: a.processWorkflowVariables(params.Selector.Value, vars),
+		Index: params.Selector.Index,
+	}
+
+	// Wait for element
+	node, err := a.waitForElement(ctx, deviceId, selector, timeout, 1000)
+	if err != nil {
+		// Element not found, use default value if provided
+		if params.DefaultValue != "" {
+			vars[params.VariableName] = a.processWorkflowVariables(params.DefaultValue, vars)
+			return StepResult{Success: true}
+		}
+		return StepResult{Success: false, Error: fmt.Errorf("element not found: %w", err)}
+	}
+
+	// Get the attribute value
+	var value string
+	attribute := params.Attribute
+	if attribute == "" {
+		attribute = "text"
+	}
+
+	switch attribute {
+	case "text":
+		value = node.Text
+	case "contentDesc":
+		value = node.ContentDesc
+	case "resourceId":
+		value = node.ResourceID
+	case "className":
+		value = node.Class
+	case "bounds":
+		value = node.Bounds
+	default:
+		// Default to text
+		value = node.Text
+	}
+
+	// Apply regex if provided
+	if params.Regex != "" {
+		re, err := regexp.Compile(params.Regex)
+		if err != nil {
+			return StepResult{Success: false, Error: fmt.Errorf("invalid regex: %w", err)}
+		}
+		matches := re.FindStringSubmatch(value)
+		if len(matches) > 1 {
+			// Use first capture group
+			value = matches[1]
+		} else if len(matches) == 1 {
+			// Use full match
+			value = matches[0]
+		}
+	}
+
+	// If value is empty, use default value
+	if value == "" && params.DefaultValue != "" {
+		value = a.processWorkflowVariables(params.DefaultValue, vars)
+	}
+
+	// Store the value in variables
+	vars[params.VariableName] = value
+
+	return StepResult{Success: true}
 }
 
 // executeSubWorkflow runs a sub-workflow

@@ -515,6 +515,15 @@ func (b *MCPBridge) convertStepToMCP(s WorkflowStep) mcp.WorkflowStep {
 	if s.Workflow != nil {
 		result.Workflow = &mcp.SubWorkflowParams{WorkflowId: s.Workflow.WorkflowId}
 	}
+	if s.ReadToVariable != nil {
+		result.ReadToVariable = &mcp.ReadToVariableParams{
+			Selector:     mcp.ElementSelector{Type: s.ReadToVariable.Selector.Type, Value: s.ReadToVariable.Selector.Value, Index: s.ReadToVariable.Selector.Index},
+			VariableName: s.ReadToVariable.VariableName,
+			Attribute:    s.ReadToVariable.Attribute,
+			Regex:        s.ReadToVariable.Regex,
+			DefaultValue: s.ReadToVariable.DefaultValue,
+		}
+	}
 
 	return result
 }
@@ -623,6 +632,15 @@ func (b *MCPBridge) convertStepFromMCP(s mcp.WorkflowStep) WorkflowStep {
 	}
 	if s.Workflow != nil {
 		result.Workflow = &SubWorkflowParams{WorkflowId: s.Workflow.WorkflowId}
+	}
+	if s.ReadToVariable != nil {
+		result.ReadToVariable = &ReadToVariableParams{
+			Selector:     ElementSelector{Type: s.ReadToVariable.Selector.Type, Value: s.ReadToVariable.Selector.Value, Index: s.ReadToVariable.Selector.Index},
+			VariableName: s.ReadToVariable.VariableName,
+			Attribute:    s.ReadToVariable.Attribute,
+			Regex:        s.ReadToVariable.Regex,
+			DefaultValue: s.ReadToVariable.DefaultValue,
+		}
 	}
 
 	return result

@@ -947,8 +947,15 @@
       "stop_app": "强行停止",
       "clear_app": "清除数据",
       "open_settings": "应用设置",
-      "set_variable": "定义变量"
+      "set_variable": "定义变量",
+      "read_to_variable": "读取到变量"
     },
+    "variable_name_placeholder": "myVariable",
+    "attribute": "属性",
+    "regex": "正则表达式（可选）",
+    "regex_placeholder": "\\d+",
+    "default_value": "默认值",
+    "default_value_placeholder": "未找到时的默认值",
     "add_step": "添加步骤",
     "selector_type": "选择器类型",
     "selector_value": "选择器值",

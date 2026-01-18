@@ -25,6 +25,7 @@ type ScriptParams = types.ScriptParams
 type VariableParams = types.VariableParams
 type ADBParams = types.ADBParams
 type SubWorkflowParams = types.SubWorkflowParams
+type ReadToVariableParams = types.ReadToVariableParams
 type WorkflowStep = types.WorkflowStep
 type Workflow = types.Workflow
 type ValidationError = types.ValidationError

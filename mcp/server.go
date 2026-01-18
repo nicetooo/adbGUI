@@ -46,6 +46,7 @@ type (
 	VariableParams          = types.VariableParams
 	ADBParams               = types.ADBParams
 	SubWorkflowParams       = types.SubWorkflowParams
+	ReadToVariableParams    = types.ReadToVariableParams
 	WorkflowExecutionResult = types.WorkflowExecutionResult
 )
 
