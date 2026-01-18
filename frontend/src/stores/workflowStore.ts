@@ -260,11 +260,11 @@ export const useWorkflowStore = create<WorkflowState>()(
     
     setWorkflowStepMap: (map) => {
       if (typeof map === 'function') {
-        set((state: WorkflowState) => {
-          state.workflowStepMap = map(state.workflowStepMap);
-        });
+        const currentMap = get().workflowStepMap;
+        const newMap = map(currentMap);
+        set({ workflowStepMap: { ...newMap } });
       } else {
-        set({ workflowStepMap: map });
+        set({ workflowStepMap: { ...map } });
       }
     },
     

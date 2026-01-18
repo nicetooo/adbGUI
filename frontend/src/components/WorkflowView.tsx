@@ -1,5 +1,6 @@
 import React, { useEffect, useCallback, useMemo, useRef } from "react";
 import { useShallow } from 'zustand/react/shallow';
+import { EventsOn, EventsOff } from "../../wailsjs/runtime/runtime";
 import {
   Button,
   Space,
@@ -416,9 +417,6 @@ const WorkflowView: React.FC = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
-  // Ref for throttling updates
-  const rafRef = useRef<number>();
-
   // Flag to trigger auto-save after reconnection
   const reconnectionEdgesRef = useRef<Edge[]>([]);
 
@@ -653,15 +651,51 @@ const WorkflowView: React.FC = () => {
     }
   }, [isRunning]);
 
+  // Global event listener for workflow step updates
+  useEffect(() => {
+    const onStepRunning = (data: any) => {
+      if (data.workflowId && data.stepId) {
+        setWorkflowStepMap(prev => ({
+          ...prev,
+          [data.workflowId]: {
+            stepId: data.stepId,
+            isWaiting: false
+          }
+        }));
+        setCurrentStepId(data.stepId);
+      }
+    };
+
+    const onStepWaiting = (data: any) => {
+      if (data.workflowId && data.stepId) {
+        setWorkflowStepMap(prev => ({
+          ...prev,
+          [data.workflowId]: {
+            stepId: data.stepId,
+            isWaiting: true,
+            waitPhase: data.phase
+          }
+        }));
+        setWaitingStepId(data.stepId);
+        setWaitingPhase(data.phase);
+      }
+    };
+
+    const unsubStep = EventsOn("workflow-step-running", onStepRunning);
+    const unsubWait = EventsOn("workflow-step-waiting", onStepWaiting);
+
+    return () => {
+      unsubStep();
+      unsubWait();
+    };
+  }, [setWorkflowStepMap, setCurrentStepId, setWaitingStepId, setWaitingPhase]);
+
   useEffect(() => {
     // Skip re-rendering nodes if we just saved (nodes are already up-to-date)
     if (skipNextRenderRef.current) {
-      console.log('[Workflow Render] Skipping render because skipNextRenderRef is true');
       skipNextRenderRef.current = false;
       return;
     }
-
-    console.log('[Workflow Render] Rendering workflow:', selectedWorkflow?.name);
 
     if (selectedWorkflow) {
       const newNodes: Node[] = selectedWorkflow.steps.map((step, index) => {
@@ -786,50 +820,32 @@ const WorkflowView: React.FC = () => {
   useEffect(() => {
     if (!selectedWorkflow) return;
 
-    // Transient subscription for high-frequency updates
+    // 订阅 workflowStepMap 变化，实时更新节点高亮状态
     const unsub = useWorkflowStore.subscribe((state, prevState) => {
-      // Check if workflowStepMap has changed
       if (state.workflowStepMap === prevState?.workflowStepMap) {
         return;
       }
 
-      // If already scheduled, skip this update (throttle)
-      if (rafRef.current) {
-        return;
-      }
-
       const map = state.workflowStepMap;
+      const stepState = map[selectedWorkflow.id];
 
-      rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = undefined; // Reset flag
+      // 直接同步更新节点状态
+      setNodes((nds) => nds.map((node) => {
+        const isCurrent = stepState?.stepId === node.id && !stepState?.isWaiting;
+        const isWaiting = stepState?.stepId === node.id && stepState?.isWaiting;
+        const phase = stepState?.stepId === node.id ? stepState?.waitPhase : null;
 
-        // This callback runs outside of React render cycle
-        setNodes((nds) =>
-          nds.map((node) => {
-            // Get the step state for the current workflow
-            const stepState = map[selectedWorkflow.id];
-            const isCurrent = stepState?.stepId === node.id && !stepState?.isWaiting;
-            const isWaiting = stepState?.stepId === node.id && stepState?.isWaiting;
-            const phase = stepState?.stepId === node.id ? stepState?.waitPhase : null;
-
-            if (node.data.isCurrent !== isCurrent || node.data.isWaiting !== isWaiting || node.data.waitingPhase !== phase) {
-              return {
-                ...node,
-                data: { ...(node.data as object), isCurrent, isWaiting, isRunning, waitingPhase: phase }
-              };
-            }
-            return node;
-          })
-        );
-      });
+        if (node.data.isCurrent !== isCurrent || node.data.isWaiting !== isWaiting || node.data.waitingPhase !== phase) {
+          return {
+            ...node,
+            data: { ...(node.data as object), isCurrent, isWaiting, isRunning, waitingPhase: phase }
+          };
+        }
+        return node;
+      }));
     });
 
-    return () => {
-      unsub();
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-      }
-    };
+    return () => unsub();
   }, [selectedWorkflow, isRunning, setNodes]);
 
   const onConnect = useCallback(
@@ -1290,20 +1306,14 @@ const WorkflowView: React.FC = () => {
     ]);
 
     const executionPromise = new Promise<void>((resolve, reject) => {
-      const runtime = (window as any).runtime;
-      if (!runtime) {
-        setTimeout(resolve, 1000);
-        return;
-      }
-
       const cleanUp = () => {
-        runtime.EventsOff("workflow-started", onSubStarted);
-        runtime.EventsOff("workflow-completed", onComplete);
-        runtime.EventsOff("workflow-error", onError);
-        runtime.EventsOff("workflow-step-running", onStep);
-        runtime.EventsOff("workflow-step-waiting", onWait);
-        runtime.EventsOff("task-paused", onPaused);
-        runtime.EventsOff("task-resumed", onResumed);
+        EventsOff("workflow-started");
+        EventsOff("workflow-completed");
+        EventsOff("workflow-error");
+        EventsOff("workflow-step-running");
+        EventsOff("workflow-step-waiting");
+        EventsOff("task-paused");
+        EventsOff("task-resumed");
         // Clear the ref after cleanup
         cleanupEventsRef.current = null;
       };
@@ -1355,6 +1365,10 @@ const WorkflowView: React.FC = () => {
       };
 
       const onStep = (data: any) => {
+        console.log("[Workflow] onStep received:", data);
+        // Temporarily show message for debugging
+        message.info(`Step: ${data.stepId?.slice(-8) || 'unknown'}`, 0.5);
+        
         if (data.deviceId === deviceObj.id && data.workflowId) {
           console.log("[Workflow] Step running:", data.stepId, "in workflow:", data.workflowId);
 
@@ -1410,13 +1424,13 @@ const WorkflowView: React.FC = () => {
         }
       };
 
-      runtime.EventsOn("workflow-started", onSubStarted);
-      runtime.EventsOn("workflow-completed", onComplete);
-      runtime.EventsOn("workflow-error", onError);
-      runtime.EventsOn("workflow-step-running", onStep);
-      runtime.EventsOn("workflow-step-waiting", onWait);
-      runtime.EventsOn("task-paused", onPaused);
-      runtime.EventsOn("task-resumed", onResumed);
+      EventsOn("workflow-started", onSubStarted);
+      EventsOn("workflow-completed", onComplete);
+      EventsOn("workflow-error", onError);
+      EventsOn("workflow-step-running", onStep);
+      EventsOn("workflow-step-waiting", onWait);
+      EventsOn("task-paused", onPaused);
+      EventsOn("task-resumed", onResumed);
     });
 
     try {
