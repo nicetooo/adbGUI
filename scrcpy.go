@@ -456,12 +456,16 @@ func (a *App) TakeScreenshot(deviceId, savePath string) (string, error) {
 	if !a.mcpMode {
 		wailsRuntime.EventsEmit(a.ctx, "screenshot-progress", "screenshot_capturing")
 	}
-	remotePath := "/sdcard/screenshot_tmp.png"
+	// Use unique remote path to avoid race conditions with concurrent/rapid calls
+	remotePath := fmt.Sprintf("/sdcard/screenshot_%d.png", time.Now().UnixNano())
 	capCmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "screencap", "-p", remotePath)
 	if out, err := capCmd.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("failed to capture screenshot on device: %w, output: %s", err, string(out))
 	}
 	defer exec.Command(a.adbPath, "-s", deviceId, "shell", "rm", remotePath).Run()
+
+	// Force filesystem sync to ensure screenshot is fully written before pulling
+	exec.Command(a.adbPath, "-s", deviceId, "shell", "sync").Run()
 
 	if !a.mcpMode {
 		wailsRuntime.EventsEmit(a.ctx, "screenshot-progress", "screenshot_pulling")

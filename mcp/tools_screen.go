@@ -102,6 +102,9 @@ func (s *MCPServer) handleScreenshot(ctx context.Context, request mcp.CallToolRe
 		return nil, fmt.Errorf("failed to take screenshot: %w", err)
 	}
 
+	// Ensure temp file is always cleaned up immediately after we're done
+	defer os.Remove(path)
+
 	// Read screenshot file and convert to base64
 	imageData, err := os.ReadFile(path)
 	if err != nil {
@@ -143,11 +146,6 @@ func (s *MCPServer) handleScreenshot(ctx context.Context, request mcp.CallToolRe
 	}
 
 	contents = append(contents, mcp.NewTextContent(textInfo))
-
-	// Clean up temp file if it's different from saved path
-	if savedPath == "" || savedPath != path {
-		os.Remove(path)
-	}
 
 	return &mcp.CallToolResult{
 		Content: contents,
