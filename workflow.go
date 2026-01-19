@@ -359,6 +359,7 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 				"stepId":     step.ID,
 				"stepType":   step.Type,
 				"stepName":   step.Name,
+				"deviceId":   deviceId,
 			})
 		}
 
