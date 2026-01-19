@@ -1095,3 +1095,105 @@ func (a *App) runDeviceMonitor(ctx context.Context) {
 		time.Sleep(1 * time.Second)
 	}
 }
+
+// RunAaptCommand executes an aapt command with the given arguments
+func (a *App) RunAaptCommand(command string, timeoutSec int) (string, error) {
+	if a.aaptPath == "" {
+		return "", fmt.Errorf("aapt not available (binary not embedded)")
+	}
+	if info, err := os.Stat(a.aaptPath); err != nil || info.Size() == 0 {
+		return "", fmt.Errorf("aapt not available (file missing or empty)")
+	}
+
+	if timeoutSec <= 0 {
+		timeoutSec = 30
+	}
+	if timeoutSec > 300 {
+		timeoutSec = 300
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
+	defer cancel()
+
+	command = strings.TrimSpace(command)
+	if command == "" {
+		return "", fmt.Errorf("command is required")
+	}
+
+	args := strings.Fields(command)
+	cmd := exec.CommandContext(ctx, a.aaptPath, args...)
+	output, err := cmd.CombinedOutput()
+	res := string(output)
+	if err != nil {
+		return res, fmt.Errorf("aapt command failed: %w, output: %s", err, res)
+	}
+	return strings.TrimSpace(res), nil
+}
+
+// RunFfmpegCommand executes an ffmpeg command with the given arguments
+func (a *App) RunFfmpegCommand(command string, timeoutSec int) (string, error) {
+	if a.ffmpegPath == "" {
+		return "", fmt.Errorf("ffmpeg not available (binary not embedded)")
+	}
+	if info, err := os.Stat(a.ffmpegPath); err != nil || info.Size() == 0 {
+		return "", fmt.Errorf("ffmpeg not available (file missing or empty)")
+	}
+
+	if timeoutSec <= 0 {
+		timeoutSec = 60
+	}
+	if timeoutSec > 600 {
+		timeoutSec = 600
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
+	defer cancel()
+
+	command = strings.TrimSpace(command)
+	if command == "" {
+		return "", fmt.Errorf("command is required")
+	}
+
+	args := strings.Fields(command)
+	cmd := exec.CommandContext(ctx, a.ffmpegPath, args...)
+	output, err := cmd.CombinedOutput()
+	res := string(output)
+	if err != nil {
+		return res, fmt.Errorf("ffmpeg command failed: %w, output: %s", err, res)
+	}
+	return strings.TrimSpace(res), nil
+}
+
+// RunFfprobeCommand executes an ffprobe command with the given arguments
+func (a *App) RunFfprobeCommand(command string, timeoutSec int) (string, error) {
+	if a.ffprobePath == "" {
+		return "", fmt.Errorf("ffprobe not available (binary not embedded)")
+	}
+	if info, err := os.Stat(a.ffprobePath); err != nil || info.Size() == 0 {
+		return "", fmt.Errorf("ffprobe not available (file missing or empty)")
+	}
+
+	if timeoutSec <= 0 {
+		timeoutSec = 30
+	}
+	if timeoutSec > 300 {
+		timeoutSec = 300
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
+	defer cancel()
+
+	command = strings.TrimSpace(command)
+	if command == "" {
+		return "", fmt.Errorf("command is required")
+	}
+
+	args := strings.Fields(command)
+	cmd := exec.CommandContext(ctx, a.ffprobePath, args...)
+	output, err := cmd.CombinedOutput()
+	res := string(output)
+	if err != nil {
+		return res, fmt.Errorf("ffprobe command failed: %w, output: %s", err, res)
+	}
+	return strings.TrimSpace(res), nil
+}

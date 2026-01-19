@@ -118,6 +118,11 @@ type GazeApp interface {
 	// ADB
 	RunAdbCommand(deviceId string, command string) (string, error)
 
+	// CLI Tools
+	RunAaptCommand(command string, timeoutSec int) (string, error)
+	RunFfmpegCommand(command string, timeoutSec int) (string, error)
+	RunFfprobeCommand(command string, timeoutSec int) (string, error)
+
 	// Utility
 	GetAppVersion() string
 }

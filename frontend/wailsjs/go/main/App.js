@@ -658,12 +658,24 @@ export function ResumeTask(arg1) {
   return window['go']['main']['App']['ResumeTask'](arg1);
 }
 
+export function RunAaptCommand(arg1, arg2) {
+  return window['go']['main']['App']['RunAaptCommand'](arg1, arg2);
+}
+
 export function RunAdbCommand(arg1, arg2) {
   return window['go']['main']['App']['RunAdbCommand'](arg1, arg2);
 }
 
 export function RunAdbCommandWithContext(arg1, arg2, arg3) {
   return window['go']['main']['App']['RunAdbCommandWithContext'](arg1, arg2, arg3);
+}
+
+export function RunFfmpegCommand(arg1, arg2) {
+  return window['go']['main']['App']['RunFfmpegCommand'](arg1, arg2);
+}
+
+export function RunFfprobeCommand(arg1, arg2) {
+  return window['go']['main']['App']['RunFfprobeCommand'](arg1, arg2);
 }
 
 export function RunScriptTask(arg1, arg2) {

@@ -693,6 +693,21 @@ func (b *MCPBridge) RunAdbCommand(deviceId string, command string) (string, erro
 	return b.app.RunAdbCommand(deviceId, command)
 }
 
+// RunAaptCommand executes an aapt command
+func (b *MCPBridge) RunAaptCommand(command string, timeoutSec int) (string, error) {
+	return b.app.RunAaptCommand(command, timeoutSec)
+}
+
+// RunFfmpegCommand executes an ffmpeg command
+func (b *MCPBridge) RunFfmpegCommand(command string, timeoutSec int) (string, error) {
+	return b.app.RunFfmpegCommand(command, timeoutSec)
+}
+
+// RunFfprobeCommand executes an ffprobe command
+func (b *MCPBridge) RunFfprobeCommand(command string, timeoutSec int) (string, error) {
+	return b.app.RunFfprobeCommand(command, timeoutSec)
+}
+
 // StartMCPServer starts the MCP server with the given app
 func StartMCPServer(app *App) {
 	bridge := NewMCPBridge(app)

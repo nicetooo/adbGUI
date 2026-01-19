@@ -334,9 +334,15 @@ export function RestartAdbServer():Promise<string>;
 
 export function ResumeTask(arg1:string):Promise<void>;
 
+export function RunAaptCommand(arg1:string,arg2:number):Promise<string>;
+
 export function RunAdbCommand(arg1:string,arg2:string):Promise<string>;
 
 export function RunAdbCommandWithContext(arg1:context.Context,arg2:string,arg3:string):Promise<string>;
+
+export function RunFfmpegCommand(arg1:string,arg2:number):Promise<string>;
+
+export function RunFfprobeCommand(arg1:string,arg2:number):Promise<string>;
 
 export function RunScriptTask(arg1:string,arg2:main.ScriptTask):Promise<void>;
 
