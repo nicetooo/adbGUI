@@ -149,7 +149,20 @@ adbGUI/
 │   ├── device_monitor.go    # 设备状态监控
 │   ├── automation.go        # 自动化引擎
 │   ├── proxy_bridge.go      # 代理事件桥接
-│   └── workflow.go          # 工作流执行
+│   ├── workflow.go          # 工作流执行
+│   └── mcp_bridge.go        # MCP 桥接层
+│
+├── mcp/                     # ⭐ MCP 服务器模块
+│   ├── server.go            # MCP 服务器入口和 GazeApp 接口
+│   ├── tools_device.go      # 设备管理工具 (adb_execute, aapt_execute, ffmpeg_execute, ffprobe_execute)
+│   ├── tools_apps.go        # 应用管理工具
+│   ├── tools_automation.go  # UI 自动化工具
+│   ├── tools_screen.go      # 屏幕控制工具
+│   ├── tools_session.go     # 会话管理工具
+│   ├── tools_workflow.go    # 工作流工具
+│   ├── tools_proxy.go       # 代理工具
+│   ├── tools_video.go       # 视频处理工具
+│   └── resources.go         # MCP 资源定义
 │
 ├── frontend/src/
 │   ├── stores/
@@ -314,3 +327,113 @@ window.runtime.EventsOn("events-batch", (events) => {
 - 前端同步使用批量推送 (500ms)
 - 时间索引使用内存缓存 + 定期持久化 (5s)
 - 大数据 (请求/响应体) 分离存储，列表查询不加载
+
+## MCP (Model Context Protocol) 模块
+
+### MCP 工具文档位置
+
+**重要**: MCP 工具的接口文档直接写在 Go 代码的 `mcp.WithDescription()` 中，这些描述会通过 MCP 协议传递给 AI 客户端。
+
+```
+mcp/
+├── tools_device.go      # adb_execute, aapt_execute, ffmpeg_execute, ffprobe_execute
+├── tools_apps.go        # app_list, app_info, app_start, app_stop, app_install...
+├── tools_automation.go  # ui_hierarchy, ui_tap, ui_swipe, ui_input, ui_search...
+├── tools_screen.go      # screen_screenshot, screen_record_start/stop...
+├── tools_session.go     # session_create, session_end, session_events...
+├── tools_workflow.go    # workflow_create, workflow_run, workflow_execute_step...
+├── tools_proxy.go       # proxy_start, proxy_stop, proxy_status
+└── tools_video.go       # video_frame, video_metadata, session_video_frame...
+```
+
+### 内置 CLI 工具
+
+项目内嵌了以下命令行工具，全部通过 MCP 暴露：
+
+| 工具 | MCP 工具名 | 用途 |
+|------|-----------|------|
+| adb | `adb_execute` | Android 调试桥，设备交互 |
+| aapt | `aapt_execute` | APK 分析 (包信息、权限、资源) |
+| ffmpeg | `ffmpeg_execute` | 视频/音频处理 |
+| ffprobe | `ffprobe_execute` | 媒体文件分析 |
+| scrcpy | 内部使用 | 屏幕镜像和录制 |
+
+### 添加新 MCP 工具的步骤
+
+1. **在 `mcp/server.go` 的 `GazeApp` 接口中添加方法签名**:
+   ```go
+   type GazeApp interface {
+       // ...existing methods...
+       MyNewMethod(param string) (string, error)
+   }
+   ```
+
+2. **在主应用中实现方法** (如 `device.go`, `app.go` 等):
+   ```go
+   func (a *App) MyNewMethod(param string) (string, error) {
+       // 实现逻辑
+   }
+   ```
+
+3. **在 `mcp_bridge.go` 中添加桥接方法**:
+   ```go
+   func (b *MCPBridge) MyNewMethod(param string) (string, error) {
+       return b.app.MyNewMethod(param)
+   }
+   ```
+
+4. **在对应的 `mcp/tools_*.go` 中注册工具**:
+   ```go
+   s.server.AddTool(
+       mcp.NewTool("my_new_tool",
+           mcp.WithDescription(`详细的工具描述，包括：
+   
+   用途说明...
+   
+   常用命令/参数:
+   - 命令1: 说明
+   - 命令2: 说明
+   
+   示例:
+     example1
+     example2
+   
+   注意事项...`),
+           mcp.WithString("param",
+               mcp.Required(),
+               mcp.Description("参数说明"),
+           ),
+       ),
+       s.handleMyNewTool,
+   )
+   ```
+
+5. **实现 handler 函数**:
+   ```go
+   func (s *MCPServer) handleMyNewTool(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+       args := request.GetArguments()
+       param, _ := args["param"].(string)
+       
+       result, err := s.app.MyNewMethod(param)
+       if err != nil {
+           return &mcp.CallToolResult{
+               Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error: %v", err))},
+               IsError: true,
+           }, nil
+       }
+       
+       return &mcp.CallToolResult{
+           Content: []mcp.Content{mcp.NewTextContent(result)},
+       }, nil
+   }
+   ```
+
+### MCP 工具描述规范
+
+工具描述应该详细且结构化，参考 `tools_workflow.go` 和 `tools_device.go` 的风格：
+
+- 简短的功能概述
+- 分类列出常用命令/操作
+- 提供具体的使用示例
+- 说明参数格式和限制
+- 添加必要的注意事项
