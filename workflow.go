@@ -27,17 +27,8 @@ type StepResult struct {
 	Error          error // Error if execution failed
 }
 
-// WorkflowExecutionResult stores the result of a workflow execution
-type WorkflowExecutionResult struct {
-	WorkflowID   string    `json:"workflowId"`
-	WorkflowName string    `json:"workflowName"`
-	Status       string    `json:"status"` // "completed", "error", "cancelled"
-	Error        string    `json:"error,omitempty"`
-	StartTime    time.Time `json:"startTime"`
-	EndTime      time.Time `json:"endTime"`
-	Duration     int64     `json:"duration"` // milliseconds
-	StepsTotal   int       `json:"stepsTotal"`
-}
+// WorkflowExecutionResult is defined in pkg/types/workflow.go
+// Using the types package version for consistency
 
 // workflowResults stores the last execution result for each device
 var (
@@ -238,8 +229,8 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 			WorkflowID:   workflow.ID,
 			WorkflowName: workflow.Name,
 			Status:       "completed",
-			StartTime:    startTime,
-			EndTime:      endTime,
+			StartTime:    startTime.UnixMilli(),
+			EndTime:      endTime.UnixMilli(),
 			Duration:     duration,
 			StepsTotal:   len(workflow.Steps),
 		}

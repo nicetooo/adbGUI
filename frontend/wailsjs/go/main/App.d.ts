@@ -108,8 +108,6 @@ export function ForceStopApp(arg1:string,arg2:string):Promise<string>;
 
 export function GenerateSelectorSuggestions(arg1:main.UINode,arg2:main.UINode):Promise<Array<main.SelectorSuggestion>>;
 
-export function GenerateWorkflowFromSession(arg1:string,arg2:main.WorkflowGeneratorConfig):Promise<main.GeneratedWorkflow>;
-
 export function GetActiveSession(arg1:string):Promise<string>;
 
 export function GetAppInfo(arg1:string,arg2:string,arg3:boolean):Promise<main.AppPackage>;
@@ -218,7 +216,7 @@ export function GetVideoThumbnails(arg1:string,arg2:number,arg3:number):Promise<
 
 export function GetWorkflow(arg1:string):Promise<types.Workflow>;
 
-export function GetWorkflowExecutionResult(arg1:string):Promise<main.WorkflowExecutionResult>;
+export function GetWorkflowExecutionResult(arg1:string):Promise<types.WorkflowExecutionResult>;
 
 export function Greet(arg1:string):Promise<string>;
 

@@ -396,8 +396,8 @@ func (b *MCPBridge) GetWorkflowExecutionResult(deviceId string) *mcp.WorkflowExe
 		WorkflowName: result.WorkflowName,
 		Status:       result.Status,
 		Error:        result.Error,
-		StartTime:    result.StartTime.UnixMilli(),
-		EndTime:      result.EndTime.UnixMilli(),
+		StartTime:    result.StartTime,
+		EndTime:      result.EndTime,
 		Duration:     result.Duration,
 		StepsTotal:   result.StepsTotal,
 	}

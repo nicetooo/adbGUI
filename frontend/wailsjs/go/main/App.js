@@ -206,10 +206,6 @@ export function GenerateSelectorSuggestions(arg1, arg2) {
   return window['go']['main']['App']['GenerateSelectorSuggestions'](arg1, arg2);
 }
 
-export function GenerateWorkflowFromSession(arg1, arg2) {
-  return window['go']['main']['App']['GenerateWorkflowFromSession'](arg1, arg2);
-}
-
 export function GetActiveSession(arg1) {
   return window['go']['main']['App']['GetActiveSession'](arg1);
 }

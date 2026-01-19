@@ -29,6 +29,7 @@ type ReadToVariableParams = types.ReadToVariableParams
 type WorkflowStep = types.WorkflowStep
 type Workflow = types.Workflow
 type ValidationError = types.ValidationError
+type WorkflowExecutionResult = types.WorkflowExecutionResult
 
 // ============== Function Aliases ==============
 

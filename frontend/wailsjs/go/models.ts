@@ -893,68 +893,6 @@ export namespace main {
 	        this.path = source["path"];
 	    }
 	}
-	export class LoopPattern {
-	    startIndex: number;
-	    endIndex: number;
-	    iterations: number;
-	    confidence: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new LoopPattern(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.startIndex = source["startIndex"];
-	        this.endIndex = source["endIndex"];
-	        this.iterations = source["iterations"];
-	        this.confidence = source["confidence"];
-	    }
-	}
-	export class GeneratedWorkflow {
-	    name: string;
-	    description: string;
-	    steps: types.WorkflowStep[];
-	    metadata?: Record<string, any>;
-	    suggestions?: string[];
-	    confidence?: number;
-	    loops?: LoopPattern[];
-	    branches?: any[];
-	
-	    static createFrom(source: any = {}) {
-	        return new GeneratedWorkflow(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.description = source["description"];
-	        this.steps = this.convertValues(source["steps"], types.WorkflowStep);
-	        this.metadata = source["metadata"];
-	        this.suggestions = source["suggestions"];
-	        this.confidence = source["confidence"];
-	        this.loops = this.convertValues(source["loops"], LoopPattern);
-	        this.branches = source["branches"];
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
 	export class HistoryDevice {
 	    id: string;
 	    serial: string;
@@ -979,7 +917,6 @@ export namespace main {
 	        this.lastSeen = source["lastSeen"];
 	    }
 	}
-	
 	
 	export class MockRule {
 	    id: string;
@@ -1638,76 +1575,6 @@ export namespace main {
 	        this.base64 = source["base64"];
 	        this.width = source["width"];
 	        this.height = source["height"];
-	    }
-	}
-	export class WorkflowExecutionResult {
-	    workflowId: string;
-	    workflowName: string;
-	    status: string;
-	    error?: string;
-	    startTime: time.Time;
-	    endTime: time.Time;
-	    duration: number;
-	    stepsTotal: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new WorkflowExecutionResult(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.workflowId = source["workflowId"];
-	        this.workflowName = source["workflowName"];
-	        this.status = source["status"];
-	        this.error = source["error"];
-	        this.startTime = this.convertValues(source["startTime"], time.Time);
-	        this.endTime = this.convertValues(source["endTime"], time.Time);
-	        this.duration = source["duration"];
-	        this.stepsTotal = source["stepsTotal"];
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	export class WorkflowGeneratorConfig {
-	    MinTouchDuration: number;
-	    MaxImplicitWait: number;
-	    SelectorPreference: string;
-	    IncludeAssertions: boolean;
-	    DetectLoops: boolean;
-	    SimplifyCoordinates: boolean;
-	    UseVideoAnalysis: boolean;
-	    VideoAnalysisWidth: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new WorkflowGeneratorConfig(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.MinTouchDuration = source["MinTouchDuration"];
-	        this.MaxImplicitWait = source["MaxImplicitWait"];
-	        this.SelectorPreference = source["SelectorPreference"];
-	        this.IncludeAssertions = source["IncludeAssertions"];
-	        this.DetectLoops = source["DetectLoops"];
-	        this.SimplifyCoordinates = source["SimplifyCoordinates"];
-	        this.UseVideoAnalysis = source["UseVideoAnalysis"];
-	        this.VideoAnalysisWidth = source["VideoAnalysisWidth"];
 	    }
 	}
 
@@ -2384,6 +2251,32 @@ export namespace types {
 		    }
 		    return a;
 		}
+	}
+	export class WorkflowExecutionResult {
+	    workflowId: string;
+	    workflowName: string;
+	    status: string;
+	    error?: string;
+	    startTime: number;
+	    endTime: number;
+	    duration: number;
+	    stepsTotal: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new WorkflowExecutionResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.workflowId = source["workflowId"];
+	        this.workflowName = source["workflowName"];
+	        this.status = source["status"];
+	        this.error = source["error"];
+	        this.startTime = source["startTime"];
+	        this.endTime = source["endTime"];
+	        this.duration = source["duration"];
+	        this.stepsTotal = source["stepsTotal"];
+	    }
 	}
 
 }
