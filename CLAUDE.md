@@ -207,7 +207,6 @@ frontend/src/stores/
 ├── workflowStore.ts    # 工作流编辑和执行状态
 ├── automationStore.ts  # 触摸录制和任务状态
 ├── proxyStore.ts       # 代理和网络请求状态
-├── aiStore.ts          # AI 服务配置和调用状态
 ├── uiStore.ts          # 全局 UI 状态（导航、模态框）
 └── ...                 # 其他领域状态
 ```
@@ -329,6 +328,24 @@ window.runtime.EventsOn("events-batch", (events) => {
 - 大数据 (请求/响应体) 分离存储，列表查询不加载
 
 ## MCP (Model Context Protocol) 模块
+
+### AI 架构原则
+
+**重要**: 应用内不包含任何 AI 功能实现。所有 AI 能力必须通过 MCP 协议由外部 AI 客户端（如 Claude Desktop）提供。
+
+```
+正确的架构:
+用户 → MCP 工具 → 外部 AI (Claude Desktop) → MCP 工具 → 设备操作
+
+错误的架构 (已移除):
+用户 → 应用内 AI → 设备操作  ❌
+```
+
+这意味着：
+- **禁止** 在应用中集成 OpenAI/Anthropic 等 AI SDK
+- **禁止** 创建 AI 相关的 Store（如 aiStore）
+- **禁止** 实现 AI 驱动的自动化功能（如 AI 生成工作流、AI 崩溃分析）
+- **允许** 通过 MCP 工具暴露数据和操作，让外部 AI 客户端调用
 
 ### MCP 工具文档位置
 

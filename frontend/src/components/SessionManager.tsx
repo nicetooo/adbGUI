@@ -115,8 +115,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
     renameModalOpen,
     renameSession,
     newName,
-    workflowGeneratorOpen,
-    workflowSession,
     setSessions,
     setLoading,
     setSelectedRowKeys,
@@ -127,8 +125,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
     openRenameModal,
     closeRenameModal,
     setNewName,
-    openWorkflowGenerator,
-    closeWorkflowGenerator,
   } = useSessionManagerStore();
 
   // Load sessions
@@ -230,15 +226,6 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
       message.error(t('session_manager.load_failed'));
     }
   }, [loadSession, setSelectedKey, t]);
-
-  // Generate workflow from session
-  const handleGenerateWorkflow = useCallback((session: DeviceSession) => {
-    if (!session.eventCount || session.eventCount === 0) {
-      message.warning(t('session_manager.no_events_for_workflow', 'This session has no events'));
-      return;
-    }
-    openWorkflowGenerator(session);
-  }, [t, openWorkflowGenerator]);
 
   // Filter sessions
   const filteredSessions = useMemo(() => {

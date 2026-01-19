@@ -27,10 +27,6 @@ interface SessionManagerState {
   renameSession: DeviceSession | null;
   newName: string;
 
-  // 工作流生成弹窗
-  workflowGeneratorOpen: boolean;
-  workflowSession: DeviceSession | null;
-
   // Actions
   setSessions: (sessions: DeviceSession[]) => void;
   setLoading: (loading: boolean) => void;
@@ -47,10 +43,6 @@ interface SessionManagerState {
   openRenameModal: (session: DeviceSession) => void;
   closeRenameModal: () => void;
   setNewName: (name: string) => void;
-
-  // 工作流生成弹窗
-  openWorkflowGenerator: (session: DeviceSession) => void;
-  closeWorkflowGenerator: () => void;
 
   // 重置
   reset: () => void;
@@ -69,9 +61,6 @@ export const useSessionManagerStore = create<SessionManagerState>()(
     renameModalOpen: false,
     renameSession: null,
     newName: '',
-    workflowGeneratorOpen: false,
-    workflowSession: null,
-
     // Actions
     setSessions: (sessions) => set((state) => {
       state.sessions = sessions;
@@ -124,17 +113,6 @@ export const useSessionManagerStore = create<SessionManagerState>()(
       state.newName = name;
     }),
 
-    // 工作流生成弹窗
-    openWorkflowGenerator: (session) => set((state) => {
-      state.workflowSession = session;
-      state.workflowGeneratorOpen = true;
-    }),
-
-    closeWorkflowGenerator: () => set((state) => {
-      state.workflowGeneratorOpen = false;
-      state.workflowSession = null;
-    }),
-
     // 重置
     reset: () => set((state) => {
       state.sessions = [];
@@ -147,8 +125,6 @@ export const useSessionManagerStore = create<SessionManagerState>()(
       state.renameModalOpen = false;
       state.renameSession = null;
       state.newName = '';
-      state.workflowGeneratorOpen = false;
-      state.workflowSession = null;
     }),
   }))
 );

@@ -45,7 +45,6 @@ import {
   PushpinOutlined,
 } from '@ant-design/icons';
 import AssertionsPanel from './AssertionsPanel';
-import SmartSearchInput, { NLQueryResult } from './SmartSearchInput';
 import { useTranslation } from 'react-i18next';
 import {
   useEventStore,
@@ -988,101 +987,6 @@ const EventTimeline = () => {
     return end - currentSession.startTime;
   }, [currentSession]);
 
-  // Handle AI parsed query result
-  const handleParsedQuery = useCallback((result: NLQueryResult | null) => {
-    if (!result || !result.query) {
-      // Clear AI filters when no result
-      return;
-    }
-
-    const { query } = result;
-
-    // Note: Source filtering uses AND logic, so we only set it when there's exactly ONE source
-    // Multiple sources would filter to events that have ALL those sources (impossible)
-    // For multiple sources, we add them to keywords for text search instead
-    const validSourceNames = ['logcat', 'network', 'device', 'app', 'ui', 'touch', 'workflow', 'perf', 'system', 'assertion'];
-    const collectedSources: Set<string> = new Set();
-
-    // Collect sources from query.sources
-    if (query.sources?.length) {
-      query.sources.forEach((s: string) => {
-        if (validSourceNames.includes(s)) {
-          collectedSources.add(s);
-        }
-      });
-    }
-
-    // Also check types for source-like values
-    if (query.types?.length) {
-      const typeToSource: Record<string, string> = {
-        'touch': 'touch',
-        'gesture': 'touch',
-        'tap': 'touch',
-        'swipe': 'touch',
-        'device': 'device',
-        'ui': 'ui',
-        'network': 'network',
-        'http': 'network',
-        'api': 'network',
-        'logcat': 'logcat',
-        'log': 'logcat',
-        'app': 'app',
-        'crash': 'app',
-        'anr': 'app',
-        'workflow': 'workflow',
-        'perf': 'perf',
-        'performance': 'perf',
-        'system': 'system',
-        'assertion': 'assertion',
-      };
-
-      query.types.forEach((t: string) => {
-        const mappedSource = typeToSource[t.toLowerCase()];
-        if (mappedSource) {
-          collectedSources.add(mappedSource);
-        } else if (validSourceNames.includes(t)) {
-          collectedSources.add(t);
-        }
-      });
-    }
-
-    // Only set source filter if exactly one source is specified
-    // Multiple sources with AND logic would return nothing
-    if (collectedSources.size === 1) {
-      setFilterSources(Array.from(collectedSources) as EventSource[]);
-    }
-
-    // Apply levels from AI query - levels use OR logic, safe to set multiple
-    if (query.levels?.length) {
-      const validLevels = query.levels.filter((l: string) =>
-        ['verbose', 'debug', 'info', 'warn', 'error', 'fatal'].includes(l)
-      ) as EventLevel[];
-      if (validLevels.length > 0) {
-        setFilterLevels(validLevels);
-      }
-    }
-
-    // Apply time range from AI query
-    if (query.timeRange?.last && currentSession) {
-      // Parse time like "5m", "1h", "30s"
-      const match = query.timeRange.last.match(/^(\d+)(s|m|h|d)$/);
-      if (match) {
-        const value = parseInt(match[1]);
-        const unit = match[2];
-        const msMultiplier = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
-        const duration = value * (msMultiplier[unit as keyof typeof msMultiplier] || 60000);
-        const startTime = Math.max(0, sessionDuration - duration);
-        setTimeRange({ start: startTime, end: sessionDuration });
-      }
-    }
-
-    // Apply keywords as search text
-    if (query.keywords?.length) {
-      const searchPattern = query.keywords.join('|');
-      setSearchText(searchPattern);
-    }
-  }, [currentSession, sessionDuration, setSearchText]);
-
   // Get time index for current session (returns array)
   const sessionTimeIndex = useMemo((): TimeIndexEntry[] => {
     if (!activeSessionId) return [];
@@ -1397,12 +1301,12 @@ const EventTimeline = () => {
 
         {/* Filters */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <SmartSearchInput
+          <Input
+            prefix={<SearchOutlined />}
+            placeholder={t('timeline.search_placeholder', 'Search events...')}
             value={searchText}
-            onChange={setSearchText}
-            onParsedQuery={handleParsedQuery}
-            sessionId={activeSessionId || undefined}
-            searchContext="events"
+            onChange={(e) => setSearchText(e.target.value)}
+            allowClear
             style={{ width: 280 }}
           />
 
