@@ -216,6 +216,8 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 	}
 
 	go func() {
+		defer cleanupTaskPause(deviceId)
+
 		startTime := time.Now()
 		sessionStatus := "completed"
 
@@ -334,11 +336,15 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 	stepCount := 0
 
 	for currentStepId != "" && stepCount < maxSteps {
+		// Check for cancellation
 		select {
 		case <-ctx.Done():
 			return context.Canceled
 		default:
 		}
+
+		// Check for pause (blocks if paused)
+		a.checkPause(deviceId)
 
 		step, exists := stepMap[currentStepId]
 		if !exists {
