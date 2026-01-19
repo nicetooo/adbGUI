@@ -6,3 +6,4 @@ frontend/dist
 .log/
 Gaze
 wails_dev.log
+*.test

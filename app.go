@@ -21,6 +21,7 @@ import (
 // App struct
 type App struct {
 	ctx          context.Context
+	ctxCancel    context.CancelFunc // For MCP mode cleanup
 	adbPath      string
 	scrcpyPath   string
 	serverPath   string
@@ -150,8 +151,11 @@ func (a *App) GetAppVersion() string {
 
 // InitializeWithoutGUI initializes the app for non-GUI mode (MCP server)
 func (a *App) InitializeWithoutGUI() {
-	// Create a background context for MCP mode
-	a.ctx = context.Background()
+	// Create a cancellable context for MCP mode
+	// This allows proper cleanup when the MCP server shuts down
+	ctx, cancel := context.WithCancel(context.Background())
+	a.ctx = ctx
+	a.ctxCancel = cancel
 	a.mcpMode = true // No Wails GUI, skip EventsEmit calls
 	a.setupBinaries()
 	a.initEventSystem()
@@ -169,6 +173,11 @@ func (a *App) ShutdownWithoutGUI() {
 	LogAppState(StateShuttingDown, map[string]interface{}{
 		"reason": "mcp_server_shutdown",
 	})
+
+	// Cancel the context first to signal all goroutines to stop
+	if a.ctxCancel != nil {
+		a.ctxCancel()
+	}
 
 	// Stop proxy
 	if a.GetProxyStatus() {
