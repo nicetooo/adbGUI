@@ -104,6 +104,7 @@ type GazeApp interface {
 	ExecuteSingleWorkflowStep(deviceId string, step WorkflowStep) error
 	IsWorkflowRunning(deviceId string) bool
 	GetWorkflowExecutionResult(deviceId string) *WorkflowExecutionResult
+	StepNextWorkflow(deviceId string) (*WorkflowExecutionResult, error)
 
 	// Proxy
 	StartProxy(port int) (string, error)

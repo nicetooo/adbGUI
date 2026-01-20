@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -190,5 +191,203 @@ func TestMustValidateDeviceID(t *testing.T) {
 	// Empty device ID should return false
 	if MustValidateDeviceID("") {
 		t.Error("Expected empty device ID to return false")
+	}
+}
+
+// ========================================
+// Pause/Resume/Stop Integration Tests
+// ========================================
+
+func TestPauseResumeFlow(t *testing.T) {
+	deviceId := "test-pause-resume"
+
+	// Clean up any existing state
+	cleanupTaskPause(deviceId)
+
+	// Simulate a running task with context
+	_, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	activeTaskMu.Lock()
+	activeTaskCancel[deviceId] = cancel
+	activeTaskMu.Unlock()
+	defer func() {
+		activeTaskMu.Lock()
+		delete(activeTaskCancel, deviceId)
+		activeTaskMu.Unlock()
+	}()
+
+	// Create a mock App
+	app := &App{mcpMode: true} // mcpMode=true to skip Wails events
+
+	// Test 1: Pause
+	app.PauseTask(deviceId)
+
+	taskPauseMu.Lock()
+	isPaused := taskIsPaused[deviceId]
+	_, hasSignal := taskPauseSignal[deviceId]
+	taskPauseMu.Unlock()
+
+	if !isPaused {
+		t.Error("Expected task to be paused")
+	}
+	if !hasSignal {
+		t.Error("Expected pause signal channel to exist")
+	}
+
+	// Test 2: Resume
+	app.ResumeTask(deviceId)
+
+	taskPauseMu.Lock()
+	isPaused = taskIsPaused[deviceId]
+	_, hasSignal = taskPauseSignal[deviceId]
+	taskPauseMu.Unlock()
+
+	if isPaused {
+		t.Error("Expected task to be resumed (not paused)")
+	}
+	if hasSignal {
+		t.Error("Expected pause signal channel to be deleted")
+	}
+}
+
+func TestStopWhilePaused(t *testing.T) {
+	deviceId := "test-stop-while-paused"
+
+	// Clean up any existing state
+	cleanupTaskPause(deviceId)
+
+	// Simulate a running task with context
+	ctx, cancel := context.WithCancel(context.Background())
+
+	activeTaskMu.Lock()
+	activeTaskCancel[deviceId] = cancel
+	activeTaskMu.Unlock()
+
+	// Create a mock App
+	app := &App{mcpMode: true}
+
+	// Pause the task
+	app.PauseTask(deviceId)
+
+	// Verify paused
+	taskPauseMu.Lock()
+	isPaused := taskIsPaused[deviceId]
+	taskPauseMu.Unlock()
+	if !isPaused {
+		t.Fatal("Expected task to be paused")
+	}
+
+	// Start a goroutine that simulates checkPauseWithContext
+	checkResult := make(chan bool, 1)
+	go func() {
+		result := app.checkPauseWithContext(ctx, deviceId)
+		checkResult <- result
+	}()
+
+	// Give the goroutine time to start waiting
+	time.Sleep(50 * time.Millisecond)
+
+	// Stop the task (should cancel context and resume)
+	app.StopTask(deviceId)
+
+	// Wait for checkPauseWithContext to return
+	select {
+	case result := <-checkResult:
+		if !result {
+			t.Error("Expected checkPauseWithContext to return true (cancelled), got false")
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("checkPauseWithContext did not return within timeout")
+	}
+
+	// Verify context is cancelled
+	select {
+	case <-ctx.Done():
+		// Good, context was cancelled
+	default:
+		t.Error("Expected context to be cancelled")
+	}
+}
+
+func TestCheckPauseWithContextCancellation(t *testing.T) {
+	deviceId := "test-check-pause-cancel"
+
+	// Clean up any existing state
+	cleanupTaskPause(deviceId)
+
+	// Create a context that will be cancelled
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Create a mock App
+	app := &App{mcpMode: true}
+
+	// Pause the task
+	app.PauseTask(deviceId)
+	defer cleanupTaskPause(deviceId)
+
+	// Start checkPauseWithContext in a goroutine
+	checkResult := make(chan bool, 1)
+	go func() {
+		result := app.checkPauseWithContext(ctx, deviceId)
+		checkResult <- result
+	}()
+
+	// Give the goroutine time to start waiting
+	time.Sleep(50 * time.Millisecond)
+
+	// Cancel the context (simulating StopTouchPlayback)
+	cancel()
+
+	// checkPauseWithContext should detect cancellation and return true
+	select {
+	case result := <-checkResult:
+		if !result {
+			t.Error("Expected checkPauseWithContext to return true when context is cancelled")
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("checkPauseWithContext did not respond to context cancellation")
+	}
+}
+
+func TestCheckPauseWithContextResumeAndCancel(t *testing.T) {
+	deviceId := "test-resume-and-cancel"
+
+	// Clean up any existing state
+	cleanupTaskPause(deviceId)
+
+	// Create a context
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Create a mock App
+	app := &App{mcpMode: true}
+
+	// Pause the task
+	app.PauseTask(deviceId)
+	defer cleanupTaskPause(deviceId)
+
+	// Start checkPauseWithContext in a goroutine
+	checkResult := make(chan bool, 1)
+	go func() {
+		result := app.checkPauseWithContext(ctx, deviceId)
+		checkResult <- result
+	}()
+
+	// Give the goroutine time to start waiting
+	time.Sleep(50 * time.Millisecond)
+
+	// Cancel context first, then resume (this is what StopTask does)
+	cancel()
+	time.Sleep(10 * time.Millisecond) // Small delay to ensure cancel is processed
+	app.ResumeTask(deviceId)
+
+	// checkPauseWithContext should return true (cancelled)
+	select {
+	case result := <-checkResult:
+		if !result {
+			t.Error("Expected checkPauseWithContext to return true when context cancelled before resume")
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("checkPauseWithContext did not return within timeout")
 	}
 }

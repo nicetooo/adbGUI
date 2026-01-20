@@ -567,6 +567,13 @@
     "save": "保存",
     "run": "実行",
     "stop": "停止",
+    "pause": "一時停止",
+    "resume": "再開",
+    "step_next": "ステップ",
+    "runtime_context": "実行コンテキスト",
+    "progress": "進行状況",
+    "current_step": "現在のステップ",
+    "paused": "一時停止中",
     "delete": "削除",
     "step_type": {
       "start": "開始",

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1457,45 +1458,82 @@ func (a *App) IsPlayingTouch(deviceId string) bool {
 	return exists
 }
 
-// PauseTask pauses the running task (or script)
-func (a *App) PauseTask(deviceId string) {
+// debugPauseState logs the current pause state for debugging
+func debugPauseState(msg string) {
 	taskPauseMu.Lock()
 	defer taskPauseMu.Unlock()
+	log.Printf("[PauseState] %s - taskIsPaused: %v, taskPauseSignal keys: %v", msg, taskIsPaused, func() []string {
+		keys := make([]string, 0, len(taskPauseSignal))
+		for k := range taskPauseSignal {
+			keys = append(keys, k)
+		}
+		return keys
+	}())
+}
+
+// PauseTask pauses the running task (or script)
+func (a *App) PauseTask(deviceId string) {
+	log.Printf("[PauseTask] Called for device: %s", deviceId)
+	debugPauseState("Before PauseTask")
+	taskPauseMu.Lock()
 
 	if _, paused := taskIsPaused[deviceId]; !paused {
 		// Create a blocking channel
 		taskPauseSignal[deviceId] = make(chan struct{})
 		taskIsPaused[deviceId] = true
+		taskPauseMu.Unlock() // Release lock before emitting event
+		log.Printf("[PauseTask] Device %s paused, emitting event (mcpMode=%v)", deviceId, a.mcpMode)
 		if !a.mcpMode {
 			wailsRuntime.EventsEmit(a.ctx, "task-paused", map[string]interface{}{"deviceId": deviceId})
+			// Also emit runtime update with paused state
+			a.emitWorkflowRuntimeUpdate(deviceId)
 		}
+	} else {
+		taskPauseMu.Unlock() // Release lock
+		log.Printf("[PauseTask] Device %s already paused, skipping", deviceId)
 	}
 }
 
 // ResumeTask resumes the paused task
 func (a *App) ResumeTask(deviceId string) {
+	log.Printf("[ResumeTask] Called for device: %s", deviceId)
+	debugPauseState("Before ResumeTask")
 	taskPauseMu.Lock()
-	defer taskPauseMu.Unlock()
 
 	if ch, paused := taskPauseSignal[deviceId]; paused {
+		log.Printf("[ResumeTask] Device %s found in paused state, resuming", deviceId)
 		close(ch) // Unblock waiting goroutines
 		delete(taskPauseSignal, deviceId)
 		delete(taskIsPaused, deviceId)
+		taskPauseMu.Unlock() // Release lock before emitting event
+		log.Printf("[ResumeTask] Device %s resumed, emitting event (mcpMode=%v)", deviceId, a.mcpMode)
 		if !a.mcpMode {
 			wailsRuntime.EventsEmit(a.ctx, "task-resumed", map[string]interface{}{"deviceId": deviceId})
+			// Also emit runtime update with resumed state
+			a.emitWorkflowRuntimeUpdate(deviceId)
 		}
+	} else {
+		taskPauseMu.Unlock() // Release lock
+		log.Printf("[ResumeTask] Device %s NOT found in paused state, nothing to resume", deviceId)
 	}
+	debugPauseState("After ResumeTask")
 }
 
 // StopTask stops the task (alias for StopTouchPlayback for now, but explicit for API)
 func (a *App) StopTask(deviceId string) {
-	// Resume first if paused to allow exit
-	a.ResumeTask(deviceId)
+	log.Printf("[Task] StopTask called for device: %s", deviceId)
+	// IMPORTANT: Cancel context FIRST, then resume
+	// This ensures checkPauseWithContext sees the cancellation
 	a.StopTouchPlayback(deviceId)
+	log.Printf("[Task] StopTouchPlayback done, now resuming for device: %s", deviceId)
+	// Then resume to unblock any waiting goroutine
+	a.ResumeTask(deviceId)
+	log.Printf("[Task] StopTask completed for device: %s", deviceId)
 }
 
 // checkPause blocks if the device is paused
-func (a *App) checkPause(deviceId string) {
+// Returns true if the pause was interrupted by context cancellation
+func (a *App) checkPause(deviceId string) bool {
 	taskPauseMu.Lock()
 	ch, paused := taskPauseSignal[deviceId]
 	taskPauseMu.Unlock()
@@ -1503,20 +1541,72 @@ func (a *App) checkPause(deviceId string) {
 	if paused && ch != nil {
 		<-ch // Wait until channel is closed (resumed)
 	}
+	return false
+}
+
+// checkPauseWithContext blocks if the device is paused, but also responds to context cancellation
+// Returns true if interrupted by context cancellation
+func (a *App) checkPauseWithContext(ctx context.Context, deviceId string) bool {
+	// Check context first before blocking
+	select {
+	case <-ctx.Done():
+		log.Printf("[checkPauseWithContext] Device %s: context already cancelled", deviceId)
+		return true
+	default:
+	}
+
+	taskPauseMu.Lock()
+	ch, paused := taskPauseSignal[deviceId]
+	taskPauseMu.Unlock()
+
+	if paused && ch != nil {
+		log.Printf("[checkPauseWithContext] Device %s: PAUSED, waiting for resume or cancel", deviceId)
+		select {
+		case <-ch: // Resumed
+			log.Printf("[checkPauseWithContext] Device %s: RESUMED from channel close", deviceId)
+			// CRITICAL: Check context again after resuming
+			// This handles the case where Stop was called (context cancelled + resumed)
+			select {
+			case <-ctx.Done():
+				log.Printf("[checkPauseWithContext] Device %s: context cancelled after resume", deviceId)
+				return true
+			default:
+				log.Printf("[checkPauseWithContext] Device %s: continuing execution after resume", deviceId)
+				return false
+			}
+		case <-ctx.Done(): // Cancelled
+			log.Printf("[checkPauseWithContext] Device %s: context cancelled while paused", deviceId)
+			return true
+		}
+	}
+	return false
 }
 
 // cleanupTaskPause cleans up pause state for a device when task ends
 // This should be called in defer when a task goroutine exits (normal or abnormal)
 func cleanupTaskPause(deviceId string) {
+	log.Printf("[cleanupTaskPause] Called for device: %s", deviceId)
+	debugPauseState("Before cleanupTaskPause")
 	taskPauseMu.Lock()
-	defer taskPauseMu.Unlock()
 
 	if ch, exists := taskPauseSignal[deviceId]; exists {
+		log.Printf("[cleanupTaskPause] Device %s found in pause state, cleaning up", deviceId)
 		// Close channel to unblock any waiting goroutines
 		close(ch)
 		delete(taskPauseSignal, deviceId)
 	}
 	delete(taskIsPaused, deviceId)
+	taskPauseMu.Unlock() // Release lock before logging
+	log.Printf("[cleanupTaskPause] Device %s cleanup completed", deviceId)
+}
+
+// IsTaskPaused returns whether a task is paused for a device (for debugging)
+func (a *App) IsTaskPaused(deviceId string) bool {
+	taskPauseMu.Lock()
+	defer taskPauseMu.Unlock()
+	paused := taskIsPaused[deviceId]
+	log.Printf("[IsTaskPaused] Device %s paused: %v", deviceId, paused)
+	return paused
 }
 
 // getScriptsPath returns the path to the scripts directory

@@ -567,6 +567,13 @@
     "save": "저장",
     "run": "실행",
     "stop": "중지",
+    "pause": "일시정지",
+    "resume": "재개",
+    "step_next": "단계",
+    "runtime_context": "실행 컨텍스트",
+    "progress": "진행 상황",
+    "current_step": "현재 단계",
+    "paused": "일시정지됨",
     "delete": "삭제",
     "step_type": {
       "start": "시작",

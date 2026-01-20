@@ -28,6 +28,21 @@ interface StepStatus {
   waitPhase?: 'pre' | 'post';
 }
 
+// Runtime context for workflow execution observation
+export interface WorkflowRuntimeContext {
+  deviceId: string;
+  workflowId: string;
+  workflowName: string;
+  status: string;
+  currentStepId: string;
+  currentStepName: string;
+  currentStepType: string;
+  stepsExecuted: number;
+  stepsTotal: number;
+  isPaused: boolean;
+  variables: Record<string, string>;
+}
+
 interface WorkflowState {
   // Core data
   workflows: Workflow[];
@@ -44,6 +59,7 @@ interface WorkflowState {
   waitingPhase: 'pre' | 'post' | null;
   executionLogs: string[];
   workflowStepMap: Record<string, StepStatus>;
+  runtimeContext: WorkflowRuntimeContext | null;
   
   // UI state
   workflowModalVisible: boolean;
@@ -100,6 +116,8 @@ interface WorkflowState {
   setWorkflowStepMap: (map: Record<string, StepStatus> | ((prev: Record<string, StepStatus>) => Record<string, StepStatus>)) => void;
   updateWorkflowStepStatus: (workflowId: string, status: StepStatus) => void;
   clearWorkflowStepStatus: (workflowId: string) => void;
+  setRuntimeContext: (context: WorkflowRuntimeContext | null) => void;
+  clearRuntimeContext: () => void;
   
   // UI state operations
   setWorkflowModalVisible: (visible: boolean) => void;
@@ -141,6 +159,7 @@ export const useWorkflowStore = create<WorkflowState>()(
     waitingPhase: null,
     executionLogs: [],
     workflowStepMap: {},
+    runtimeContext: null,
     
     workflowModalVisible: false,
     drawerVisible: false,
@@ -356,6 +375,10 @@ export const useWorkflowStore = create<WorkflowState>()(
     clearWorkflowStepStatus: (workflowId) => set((state: WorkflowState) => {
       delete state.workflowStepMap[workflowId];
     }),
+    
+    setRuntimeContext: (context) => set({ runtimeContext: context }),
+    
+    clearRuntimeContext: () => set({ runtimeContext: null }),
     
     // UI state operations
     setWorkflowModalVisible: (visible) => set({ workflowModalVisible: visible }),

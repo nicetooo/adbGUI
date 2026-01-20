@@ -230,6 +230,32 @@ These variables will be merged with workflow's default variables (runtime values
 		s.handleWorkflowResume,
 	)
 
+	// workflow_step_next - Execute next step then pause (step-by-step debugging)
+	s.server.AddTool(
+		mcp.NewTool("workflow_step_next",
+			mcp.WithDescription(`Execute the next step of a paused workflow, then automatically pause again.
+This enables step-by-step debugging of workflows.
+
+USAGE:
+1. Start workflow: workflow_run device_id="xxx" workflow_id="yyy"
+2. Pause it: workflow_pause device_id="xxx"
+3. Step through: workflow_step_next device_id="xxx" (repeat for each step)
+4. Check state: workflow_status device_id="xxx" (see current step and variables)
+5. Resume normal: workflow_resume device_id="xxx"
+
+RETURNS:
+- Workflow status and progress
+- Current/next step information (ID, name, type)
+- Current variables state
+- Whether workflow is paused`),
+			mcp.WithString("device_id",
+				mcp.Required(),
+				mcp.Description("Device ID"),
+			),
+		),
+		s.handleWorkflowStepNext,
+	)
+
 	// workflow_status - Get workflow running status
 	s.server.AddTool(
 		mcp.NewTool("workflow_status",
@@ -964,6 +990,60 @@ func (s *MCPServer) handleWorkflowResume(ctx context.Context, request mcp.CallTo
 	}, nil
 }
 
+func (s *MCPServer) handleWorkflowStepNext(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	deviceID, ok := args["device_id"].(string)
+	if !ok || deviceID == "" {
+		return nil, fmt.Errorf("device_id is required")
+	}
+
+	result, err := s.app.StepNextWorkflow(deviceID)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				mcp.NewTextContent(fmt.Sprintf("Error: %v", err)),
+			},
+			IsError: true,
+		}, nil
+	}
+
+	// Format output
+	output := fmt.Sprintf("Step executed on device %s\n\n", deviceID)
+	if result != nil {
+		output += fmt.Sprintf("Workflow: %s\n", result.WorkflowName)
+		output += fmt.Sprintf("Status: %s (paused: %v)\n", result.Status, result.IsPaused)
+		output += fmt.Sprintf("Progress: %d / %d steps\n", result.StepsExecuted, result.StepsTotal)
+
+		if result.CurrentStepID != "" {
+			output += fmt.Sprintf("\nNext step:\n")
+			output += fmt.Sprintf("  ID: %s\n", result.CurrentStepID)
+			if result.CurrentStepName != "" {
+				output += fmt.Sprintf("  Name: %s\n", result.CurrentStepName)
+			}
+			if result.CurrentStepType != "" {
+				output += fmt.Sprintf("  Type: %s\n", result.CurrentStepType)
+			}
+		} else {
+			output += "\nNext step: (workflow completed)\n"
+		}
+
+		if len(result.Variables) > 0 {
+			output += "\nVariables:\n"
+			for k, v := range result.Variables {
+				output += fmt.Sprintf("  %s = %s\n", k, v)
+			}
+		} else {
+			output += "\nVariables: (none)\n"
+		}
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			mcp.NewTextContent(output),
+		},
+	}, nil
+}
+
 func (s *MCPServer) handleWorkflowStatus(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := request.GetArguments()
 	deviceID, ok := args["device_id"].(string)
@@ -978,7 +1058,30 @@ func (s *MCPServer) handleWorkflowStatus(ctx context.Context, request mcp.CallTo
 	if isRunning {
 		statusText = fmt.Sprintf("Device %s: workflow is RUNNING", deviceID)
 		if result != nil {
-			statusText += fmt.Sprintf("\n\nCurrent workflow: %s", result.WorkflowName)
+			statusText += fmt.Sprintf(" (paused: %v)", result.IsPaused)
+			statusText += fmt.Sprintf("\n\nWorkflow: %s", result.WorkflowName)
+			statusText += fmt.Sprintf("\nStatus: %s", result.Status)
+			statusText += fmt.Sprintf("\nProgress: %d / %d steps", result.StepsExecuted, result.StepsTotal)
+
+			// Show current/next step info
+			if result.CurrentStepID != "" {
+				statusText += fmt.Sprintf("\n\nCurrent/Next step:")
+				statusText += fmt.Sprintf("\n  ID: %s", result.CurrentStepID)
+				if result.CurrentStepName != "" {
+					statusText += fmt.Sprintf("\n  Name: %s", result.CurrentStepName)
+				}
+				if result.CurrentStepType != "" {
+					statusText += fmt.Sprintf("\n  Type: %s", result.CurrentStepType)
+				}
+			}
+
+			// Show variables
+			if len(result.Variables) > 0 {
+				statusText += "\n\nVariables:"
+				for k, v := range result.Variables {
+					statusText += fmt.Sprintf("\n  %s = %s", k, v)
+				}
+			}
 		}
 	} else if result != nil {
 		// Show last execution result
@@ -986,6 +1089,15 @@ func (s *MCPServer) handleWorkflowStatus(ctx context.Context, request mcp.CallTo
 			deviceID, result.WorkflowName, result.Status, result.Duration)
 		if result.Error != "" {
 			statusText += fmt.Sprintf("\n- Error: %s", result.Error)
+		}
+		statusText += fmt.Sprintf("\n- Steps executed: %d / %d", result.StepsExecuted, result.StepsTotal)
+
+		// Show final variables
+		if len(result.Variables) > 0 {
+			statusText += "\n\nFinal variables:"
+			for k, v := range result.Variables {
+				statusText += fmt.Sprintf("\n  %s = %s", k, v)
+			}
 		}
 	} else {
 		statusText = fmt.Sprintf("Device %s: workflow is IDLE (no previous execution)", deviceID)

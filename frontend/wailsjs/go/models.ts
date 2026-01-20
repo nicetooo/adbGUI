@@ -2261,6 +2261,12 @@ export namespace types {
 	    endTime: number;
 	    duration: number;
 	    stepsTotal: number;
+	    currentStepId?: string;
+	    currentStepName?: string;
+	    currentStepType?: string;
+	    variables?: Record<string, string>;
+	    stepsExecuted: number;
+	    isPaused: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new WorkflowExecutionResult(source);
@@ -2276,6 +2282,12 @@ export namespace types {
 	        this.endTime = source["endTime"];
 	        this.duration = source["duration"];
 	        this.stepsTotal = source["stepsTotal"];
+	        this.currentStepId = source["currentStepId"];
+	        this.currentStepName = source["currentStepName"];
+	        this.currentStepType = source["currentStepType"];
+	        this.variables = source["variables"];
+	        this.stepsExecuted = source["stepsExecuted"];
+	        this.isPaused = source["isPaused"];
 	    }
 	}
 

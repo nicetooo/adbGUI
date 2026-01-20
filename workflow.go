@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -34,6 +35,12 @@ type StepResult struct {
 var (
 	workflowResults   = make(map[string]*WorkflowExecutionResult)
 	workflowResultsMu = &activeTaskMu // Reuse the existing mutex
+)
+
+// stepModeEnabled stores step-by-step execution mode flag for each device
+var (
+	stepModeEnabled = make(map[string]bool)
+	stepModeMu      = &activeTaskMu // Reuse the existing mutex
 )
 
 // getWorkflowsPath returns the path to the workflows directory
@@ -158,7 +165,9 @@ func (a *App) DeleteWorkflow(id string) error {
 
 // StopWorkflow stops the currently running workflow on the device
 func (a *App) StopWorkflow(device Device) {
+	log.Printf("[Workflow] StopWorkflow called for device: %s", device.ID)
 	a.StopTask(device.ID)
+	log.Printf("[Workflow] StopWorkflow completed for device: %s", device.ID)
 }
 
 // ExecuteSingleWorkflowStep executes a single workflow step on the device
@@ -217,28 +226,35 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 
 	go func() {
 		defer cleanupTaskPause(deviceId)
+		defer a.clearStepMode(deviceId)
 
 		startTime := time.Now()
 		sessionStatus := "completed"
 
-		err := a.runWorkflowInternal(ctx, deviceId, workflow, nil)
+		// Initialize runtime result early so it can be observed during execution
+		result := &WorkflowExecutionResult{
+			WorkflowID:   workflow.ID,
+			WorkflowName: workflow.Name,
+			Status:       "running",
+			StartTime:    startTime.UnixMilli(),
+			StepsTotal:   len(workflow.Steps),
+			Variables:    make(map[string]string),
+		}
+
+		activeTaskMu.Lock()
+		workflowResults[deviceId] = result
+		activeTaskMu.Unlock()
+
+		err := a.runWorkflowInternal(ctx, deviceId, workflow, nil, result)
 
 		endTime := time.Now()
 		duration := endTime.Sub(startTime).Milliseconds()
 
-		// Store execution result
-		result := &WorkflowExecutionResult{
-			WorkflowID:   workflow.ID,
-			WorkflowName: workflow.Name,
-			Status:       "completed",
-			StartTime:    startTime.UnixMilli(),
-			EndTime:      endTime.UnixMilli(),
-			Duration:     duration,
-			StepsTotal:   len(workflow.Steps),
-		}
-
 		activeTaskMu.Lock()
 		delete(activeTaskCancel, deviceId)
+		result.EndTime = endTime.UnixMilli()
+		result.Duration = duration
+		result.Status = "completed"
 		if err != nil {
 			sessionStatus = "error"
 			result.Status = "error"
@@ -249,7 +265,6 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 				result.Error = "workflow was cancelled"
 			}
 		}
-		workflowResults[deviceId] = result
 		activeTaskMu.Unlock()
 
 		if err != nil {
@@ -300,8 +315,139 @@ func (a *App) GetWorkflowExecutionResult(deviceId string) *WorkflowExecutionResu
 	return workflowResults[deviceId]
 }
 
+// setStepMode enables step-by-step execution mode for a device
+func (a *App) setStepMode(deviceId string, enabled bool) {
+	activeTaskMu.Lock()
+	defer activeTaskMu.Unlock()
+	stepModeEnabled[deviceId] = enabled
+}
+
+// isStepMode checks if step-by-step execution mode is enabled
+func (a *App) isStepMode(deviceId string) bool {
+	activeTaskMu.Lock()
+	defer activeTaskMu.Unlock()
+	return stepModeEnabled[deviceId]
+}
+
+// clearStepMode clears the step-by-step execution mode flag
+func (a *App) clearStepMode(deviceId string) {
+	activeTaskMu.Lock()
+	defer activeTaskMu.Unlock()
+	delete(stepModeEnabled, deviceId)
+}
+
+// updateWorkflowRuntimeState updates the runtime state during workflow execution
+func (a *App) updateWorkflowRuntimeState(deviceId string, result *WorkflowExecutionResult, stepId, stepName, stepType string, vars map[string]string, stepsExecuted int) {
+	if result == nil {
+		return
+	}
+	activeTaskMu.Lock()
+	defer activeTaskMu.Unlock()
+
+	result.CurrentStepID = stepId
+	result.CurrentStepName = stepName
+	result.CurrentStepType = stepType
+	result.StepsExecuted = stepsExecuted
+	result.IsPaused = a.isTaskPausedLocked(deviceId)
+
+	// Copy variables state
+	if vars != nil {
+		result.Variables = make(map[string]string)
+		for k, v := range vars {
+			result.Variables[k] = v
+		}
+	}
+
+	// Emit runtime update event to frontend
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "workflow-runtime-update", map[string]interface{}{
+			"deviceId":        deviceId,
+			"workflowId":      result.WorkflowID,
+			"workflowName":    result.WorkflowName,
+			"status":          result.Status,
+			"currentStepId":   result.CurrentStepID,
+			"currentStepName": result.CurrentStepName,
+			"currentStepType": result.CurrentStepType,
+			"stepsExecuted":   result.StepsExecuted,
+			"stepsTotal":      result.StepsTotal,
+			"isPaused":        result.IsPaused,
+			"variables":       result.Variables,
+		})
+	}
+}
+
+// isTaskPausedLocked checks if the task is paused (must be called with lock held)
+func (a *App) isTaskPausedLocked(deviceId string) bool {
+	taskPauseMu.Lock()
+	defer taskPauseMu.Unlock()
+	return taskIsPaused[deviceId]
+}
+
+// emitWorkflowRuntimeUpdate sends the current workflow runtime state to frontend
+func (a *App) emitWorkflowRuntimeUpdate(deviceId string) {
+	if a.mcpMode {
+		return
+	}
+	activeTaskMu.Lock()
+	result := workflowResults[deviceId]
+	activeTaskMu.Unlock()
+
+	if result == nil {
+		return
+	}
+
+	// Update isPaused state
+	taskPauseMu.Lock()
+	isPaused := taskIsPaused[deviceId]
+	taskPauseMu.Unlock()
+
+	wailsRuntime.EventsEmit(a.ctx, "workflow-runtime-update", map[string]interface{}{
+		"deviceId":        deviceId,
+		"workflowId":      result.WorkflowID,
+		"workflowName":    result.WorkflowName,
+		"status":          result.Status,
+		"currentStepId":   result.CurrentStepID,
+		"currentStepName": result.CurrentStepName,
+		"currentStepType": result.CurrentStepType,
+		"stepsExecuted":   result.StepsExecuted,
+		"stepsTotal":      result.StepsTotal,
+		"isPaused":        isPaused,
+		"variables":       result.Variables,
+	})
+}
+
+// IsWorkflowRunning checks if a workflow is running on the device
+func (a *App) IsWorkflowRunning(deviceId string) bool {
+	return a.IsPlayingTouch(deviceId)
+}
+
+// StepNextWorkflow executes the next step and then pauses automatically
+func (a *App) StepNextWorkflow(deviceId string) (*WorkflowExecutionResult, error) {
+	if !a.IsWorkflowRunning(deviceId) {
+		return nil, fmt.Errorf("no workflow running on device %s", deviceId)
+	}
+
+	// Check if already paused
+	if !a.isTaskPausedLocked(deviceId) {
+		return nil, fmt.Errorf("workflow is not paused, use workflow_pause first or wait for it to pause")
+	}
+
+	a.setStepMode(deviceId, true) // Mark step mode: will pause after next step
+	a.ResumeTask(deviceId)        // Resume execution
+
+	// Wait for the step to complete (workflow will pause again after one step)
+	for i := 0; i < 600; i++ { // Max wait 60 seconds
+		time.Sleep(100 * time.Millisecond)
+		if a.isTaskPausedLocked(deviceId) || !a.IsWorkflowRunning(deviceId) {
+			break
+		}
+	}
+
+	return a.GetWorkflowExecutionResult(deviceId), nil
+}
+
 // runWorkflowInternal is the core execution loop
-func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow Workflow, parentVars map[string]string) error {
+func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow Workflow, parentVars map[string]string, runtimeResult *WorkflowExecutionResult) error {
 	stepMap := make(map[string]*WorkflowStep)
 	for i := range workflow.Steps {
 		stepMap[workflow.Steps[i].ID] = &workflow.Steps[i]
@@ -343,8 +489,10 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 		default:
 		}
 
-		// Check for pause (blocks if paused)
-		a.checkPause(deviceId)
+		// Check for pause (blocks if paused, but also responds to context cancellation)
+		if a.checkPauseWithContext(ctx, deviceId) {
+			return context.Canceled
+		}
 
 		step, exists := stepMap[currentStepId]
 		if !exists {
@@ -352,6 +500,9 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 		}
 
 		stepCount++
+
+		// Update runtime state before executing step
+		a.updateWorkflowRuntimeState(deviceId, runtimeResult, step.ID, step.Name, step.Type, vars, stepCount-1)
 
 		if !a.mcpMode {
 			wailsRuntime.EventsEmit(a.ctx, "workflow-step-running", map[string]interface{}{
@@ -407,6 +558,15 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 				"success":    result.Success,
 				"nextStepId": nextStepId,
 			})
+
+		// Update runtime state after executing step
+		a.updateWorkflowRuntimeState(deviceId, runtimeResult, nextStepId, "", "", vars, stepCount)
+
+		// Check step mode: pause after each step if enabled
+		if a.isStepMode(deviceId) {
+			a.clearStepMode(deviceId)
+			a.PauseTask(deviceId)
+		}
 
 		if result.Error != nil && nextStepId == "" && step.ShouldStopOnError() {
 			return fmt.Errorf("step %s failed: %w", step.ID, result.Error)
@@ -813,7 +973,8 @@ func (a *App) executeSubWorkflow(ctx context.Context, deviceId string, workflowI
 		return fmt.Errorf("failed to load sub-workflow: %w", err)
 	}
 
-	return a.runWorkflowInternal(ctx, deviceId, *workflow, vars)
+	// Sub-workflows don't track their own runtime state (share parent's)
+	return a.runWorkflowInternal(ctx, deviceId, *workflow, vars, nil)
 }
 
 // executeScriptStep runs a recorded touch script

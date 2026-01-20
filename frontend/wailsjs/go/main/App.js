@@ -470,6 +470,14 @@ export function IsRecordingTouch(arg1) {
   return window['go']['main']['App']['IsRecordingTouch'](arg1);
 }
 
+export function IsTaskPaused(arg1) {
+  return window['go']['main']['App']['IsTaskPaused'](arg1);
+}
+
+export function IsWorkflowRunning(arg1) {
+  return window['go']['main']['App']['IsWorkflowRunning'](arg1);
+}
+
 export function ListAssertionResults(arg1, arg2) {
   return window['go']['main']['App']['ListAssertionResults'](arg1, arg2);
 }
@@ -824,6 +832,10 @@ export function StartTouchRecording(arg1, arg2) {
 
 export function StartWirelessServer() {
   return window['go']['main']['App']['StartWirelessServer']();
+}
+
+export function StepNextWorkflow(arg1) {
+  return window['go']['main']['App']['StepNextWorkflow'](arg1);
 }
 
 export function StopAllDeviceStateMonitors() {

@@ -399,6 +399,11 @@ func (m *MockGazeApp) GetWorkflowExecutionResult(deviceId string) *WorkflowExecu
 	return m.WorkflowExecutionResultValue
 }
 
+func (m *MockGazeApp) StepNextWorkflow(deviceId string) (*WorkflowExecutionResult, error) {
+	m.recordCall("StepNextWorkflow", deviceId)
+	return m.WorkflowExecutionResultValue, nil
+}
+
 // === Proxy ===
 
 func (m *MockGazeApp) StartProxy(port int) (string, error) {
@@ -431,6 +436,30 @@ func (m *MockGazeApp) GetVideoMetadata(videoPath string) (*VideoMetadata, error)
 func (m *MockGazeApp) GetSessionVideoInfo(sessionID string) (map[string]interface{}, error) {
 	m.recordCall("GetSessionVideoInfo", sessionID)
 	return m.GetSessionVideoInfoResult, m.GetSessionVideoInfoError
+}
+
+// === ADB ===
+
+func (m *MockGazeApp) RunAdbCommand(deviceId string, command string) (string, error) {
+	m.recordCall("RunAdbCommand", deviceId, command)
+	return "", nil
+}
+
+// === CLI Tools ===
+
+func (m *MockGazeApp) RunAaptCommand(command string, timeoutSec int) (string, error) {
+	m.recordCall("RunAaptCommand", command, timeoutSec)
+	return "", nil
+}
+
+func (m *MockGazeApp) RunFfmpegCommand(command string, timeoutSec int) (string, error) {
+	m.recordCall("RunFfmpegCommand", command, timeoutSec)
+	return "", nil
+}
+
+func (m *MockGazeApp) RunFfprobeCommand(command string, timeoutSec int) (string, error) {
+	m.recordCall("RunFfprobeCommand", command, timeoutSec)
+	return "", nil
 }
 
 // === Utility ===

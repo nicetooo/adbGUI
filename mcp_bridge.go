@@ -392,15 +392,47 @@ func (b *MCPBridge) GetWorkflowExecutionResult(deviceId string) *mcp.WorkflowExe
 		return nil
 	}
 	return &mcp.WorkflowExecutionResult{
-		WorkflowID:   result.WorkflowID,
-		WorkflowName: result.WorkflowName,
-		Status:       result.Status,
-		Error:        result.Error,
-		StartTime:    result.StartTime,
-		EndTime:      result.EndTime,
-		Duration:     result.Duration,
-		StepsTotal:   result.StepsTotal,
+		WorkflowID:      result.WorkflowID,
+		WorkflowName:    result.WorkflowName,
+		Status:          result.Status,
+		Error:           result.Error,
+		StartTime:       result.StartTime,
+		EndTime:         result.EndTime,
+		Duration:        result.Duration,
+		StepsTotal:      result.StepsTotal,
+		CurrentStepID:   result.CurrentStepID,
+		CurrentStepName: result.CurrentStepName,
+		CurrentStepType: result.CurrentStepType,
+		Variables:       result.Variables,
+		StepsExecuted:   result.StepsExecuted,
+		IsPaused:        result.IsPaused,
 	}
+}
+
+func (b *MCPBridge) StepNextWorkflow(deviceId string) (*mcp.WorkflowExecutionResult, error) {
+	result, err := b.app.StepNextWorkflow(deviceId)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, nil
+	}
+	return &mcp.WorkflowExecutionResult{
+		WorkflowID:      result.WorkflowID,
+		WorkflowName:    result.WorkflowName,
+		Status:          result.Status,
+		Error:           result.Error,
+		StartTime:       result.StartTime,
+		EndTime:         result.EndTime,
+		Duration:        result.Duration,
+		StepsTotal:      result.StepsTotal,
+		CurrentStepID:   result.CurrentStepID,
+		CurrentStepName: result.CurrentStepName,
+		CurrentStepType: result.CurrentStepType,
+		Variables:       result.Variables,
+		StepsExecuted:   result.StepsExecuted,
+		IsPaused:        result.IsPaused,
+	}, nil
 }
 
 // Helper functions for workflow type conversion

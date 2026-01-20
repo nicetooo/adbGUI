@@ -485,10 +485,18 @@ func ParseWorkflow(data []byte) (*Workflow, error) {
 type WorkflowExecutionResult struct {
 	WorkflowID   string `json:"workflowId"`
 	WorkflowName string `json:"workflowName"`
-	Status       string `json:"status"` // "completed", "error", "cancelled"
+	Status       string `json:"status"` // "running", "completed", "error", "cancelled"
 	Error        string `json:"error,omitempty"`
 	StartTime    int64  `json:"startTime"` // Unix timestamp ms
 	EndTime      int64  `json:"endTime"`   // Unix timestamp ms
 	Duration     int64  `json:"duration"`  // milliseconds
 	StepsTotal   int    `json:"stepsTotal"`
+
+	// Runtime state for step-by-step debugging
+	CurrentStepID   string            `json:"currentStepId,omitempty"`   // Current/next step ID
+	CurrentStepName string            `json:"currentStepName,omitempty"` // Current/next step name
+	CurrentStepType string            `json:"currentStepType,omitempty"` // Current/next step type
+	Variables       map[string]string `json:"variables,omitempty"`       // Current variables state
+	StepsExecuted   int               `json:"stepsExecuted"`             // Number of steps executed
+	IsPaused        bool              `json:"isPaused"`                  // Whether workflow is paused
 }

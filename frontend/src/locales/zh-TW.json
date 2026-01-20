@@ -582,6 +582,13 @@
     "save": "儲存",
     "run": "執行",
     "stop": "停止",
+    "pause": "暫停",
+    "resume": "恢復",
+    "step_next": "單步",
+    "runtime_context": "運行時上下文",
+    "progress": "進度",
+    "current_step": "當前步驟",
+    "paused": "已暫停",
     "delete": "刪換",
     "step_type": {
       "start": "開始",

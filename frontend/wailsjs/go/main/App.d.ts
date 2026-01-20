@@ -240,6 +240,10 @@ export function IsRecording(arg1:string):Promise<boolean>;
 
 export function IsRecordingTouch(arg1:string):Promise<boolean>;
 
+export function IsTaskPaused(arg1:string):Promise<boolean>;
+
+export function IsWorkflowRunning(arg1:string):Promise<boolean>;
+
 export function ListAssertionResults(arg1:string,arg2:number):Promise<Array<main.AssertionResult>>;
 
 export function ListAssertionTemplates(arg1:number):Promise<Array<main.StoredAssertion>>;
@@ -417,6 +421,8 @@ export function StartSessionWithConfig(arg1:string,arg2:string,arg3:main.Session
 export function StartTouchRecording(arg1:string,arg2:string):Promise<void>;
 
 export function StartWirelessServer():Promise<string>;
+
+export function StepNextWorkflow(arg1:string):Promise<types.WorkflowExecutionResult>;
 
 export function StopAllDeviceStateMonitors():Promise<void>;
 

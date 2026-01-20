@@ -20,7 +20,8 @@ import {
   Divider,
   Drawer,
   Typography,
-  AutoComplete
+  AutoComplete,
+  Progress
 } from "antd";
 import { useTranslation } from "react-i18next";
 import {
@@ -57,6 +58,7 @@ import {
   SettingOutlined,
   IdcardOutlined,
   ThunderboltOutlined,
+  StepForwardOutlined,
 } from "@ant-design/icons";
 import {
   ReactFlow,
@@ -422,6 +424,7 @@ const WorkflowView: React.FC = () => {
     currentStepId,
     waitingStepId,
     waitingPhase,
+    runtimeContext,
     // executionLogs, // Excluded to prevent re-renders
     variablesModalVisible,
     tempVariables,
@@ -447,6 +450,8 @@ const WorkflowView: React.FC = () => {
     setWorkflowStepMap,
     updateWorkflowStepStatus,
     clearWorkflowStepStatus,
+    setRuntimeContext,
+    clearRuntimeContext,
     setDrawerVisible,
     setElementPickerVisible,
     setEditingNode,
@@ -483,6 +488,8 @@ const WorkflowView: React.FC = () => {
 
   // Store cleanup function for workflow event listeners
   const cleanupEventsRef = useRef<(() => void) | null>(null);
+  // Store the device ID that started the workflow (for stop/pause/resume)
+  const runningDeviceIdRef = useRef<string | null>(null);
 
   // Wrapper for onNodesChange to protect Start node from deletion and auto-reconnect
   const onNodesChangeWithProtection = useCallback(
@@ -1577,6 +1584,9 @@ const WorkflowView: React.FC = () => {
     });
     const sanitizedWorkflow = { ...workflowToRun, steps: sanitizedSteps };
 
+    // Save the device ID for stop/pause/resume operations
+    runningDeviceIdRef.current = deviceObj.id;
+    
     setIsRunning(true);
     setRunningWorkflowIds([selectedWorkflow.id]);
     setCurrentStepId(null);
@@ -1594,6 +1604,7 @@ const WorkflowView: React.FC = () => {
         EventsOff("workflow-step-waiting");
         EventsOff("task-paused");
         EventsOff("task-resumed");
+        EventsOff("workflow-runtime-update");
         // Clear the ref after cleanup
         cleanupEventsRef.current = null;
       };
@@ -1693,14 +1704,36 @@ const WorkflowView: React.FC = () => {
       };
 
       const onPaused = (data: any) => {
+        console.log('[Workflow] onPaused event received:', data, 'expected deviceId:', deviceObj.id);
         if (data.deviceId === deviceObj.id) {
+          console.log('[Workflow] Setting isPaused = true');
           setIsPaused(true);
         }
       };
 
       const onResumed = (data: any) => {
+        console.log('[Workflow] onResumed event received:', data, 'expected deviceId:', deviceObj.id);
         if (data.deviceId === deviceObj.id) {
+          console.log('[Workflow] Setting isPaused = false');
           setIsPaused(false);
+        }
+      };
+
+      const onRuntimeUpdate = (data: any) => {
+        if (data.deviceId === deviceObj.id) {
+          setRuntimeContext({
+            deviceId: data.deviceId,
+            workflowId: data.workflowId,
+            workflowName: data.workflowName,
+            status: data.status,
+            currentStepId: data.currentStepId || '',
+            currentStepName: data.currentStepName || '',
+            currentStepType: data.currentStepType || '',
+            stepsExecuted: data.stepsExecuted || 0,
+            stepsTotal: data.stepsTotal || 0,
+            isPaused: data.isPaused || false,
+            variables: data.variables || {},
+          });
         }
       };
 
@@ -1711,6 +1744,7 @@ const WorkflowView: React.FC = () => {
       EventsOn("workflow-step-waiting", onWait);
       EventsOn("task-paused", onPaused);
       EventsOn("task-resumed", onResumed);
+      EventsOn("workflow-runtime-update", onRuntimeUpdate);
     });
 
     try {
@@ -1729,6 +1763,8 @@ const WorkflowView: React.FC = () => {
       setRunningWorkflowIds([]);
       setCurrentStepId(null);
       setWorkflowStepMap({}); // Clear all workflow step tracking
+      clearRuntimeContext(); // Clear runtime context when workflow ends
+      runningDeviceIdRef.current = null; // Clear running device reference
     }
   };
 
@@ -1780,7 +1816,9 @@ const WorkflowView: React.FC = () => {
   };
 
   const handleStopWorkflow = async () => {
-    const deviceObj = useDeviceStore.getState().devices.find(d => d.id === selectedDevice);
+    // Use the device that started the workflow, not the currently selected one
+    const deviceId = runningDeviceIdRef.current || selectedDevice;
+    const deviceObj = useDeviceStore.getState().devices.find(d => d.id === deviceId);
     if (!deviceObj) {
       message.error(t("workflow.error_device_not_found"));
       return;
@@ -1799,6 +1837,8 @@ const WorkflowView: React.FC = () => {
       setCurrentStepId(null);
       setRunningWorkflowIds([]);
       setWorkflowStepMap({});
+      clearRuntimeContext();
+      runningDeviceIdRef.current = null;
       setExecutionLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${t("workflow.stopped")}`]);
     } catch (err) {
       message.error(String(err));
@@ -1861,13 +1901,54 @@ const WorkflowView: React.FC = () => {
   };
 
   const handlePauseWorkflow = async () => {
-    if (!selectedDevice) return;
-    await (window as any).go.main.App.PauseTask(selectedDevice);
+    const deviceId = runningDeviceIdRef.current || selectedDevice;
+    console.log('[Workflow] Pause - deviceId:', deviceId, 'ref:', runningDeviceIdRef.current, 'selected:', selectedDevice);
+    if (!deviceId) {
+      message.error('No device ID available');
+      return;
+    }
+    try {
+      await (window as any).go.main.App.PauseTask(deviceId);
+    } catch (err) {
+      console.error('[Workflow] Pause error:', err);
+      message.error(`Pause failed: ${err}`);
+    }
   };
 
   const handleResumeWorkflow = async () => {
-    if (!selectedDevice) return;
-    await (window as any).go.main.App.ResumeTask(selectedDevice);
+    console.log('[Workflow] handleResumeWorkflow CALLED');
+    const deviceId = runningDeviceIdRef.current || selectedDevice;
+    console.log('[Workflow] Resume - deviceId:', deviceId, 'ref:', runningDeviceIdRef.current, 'selected:', selectedDevice);
+    if (!deviceId) {
+      message.error('No device ID available');
+      return;
+    }
+    try {
+      console.log('[Workflow] Calling ResumeTask with deviceId:', deviceId);
+      await (window as any).go.main.App.ResumeTask(deviceId);
+      console.log('[Workflow] ResumeTask completed successfully');
+    } catch (err) {
+      console.error('[Workflow] Resume error:', err);
+      message.error(`Resume failed: ${err}`);
+    }
+  };
+
+  const handleStepNextWorkflow = async () => {
+    console.log('[Workflow] handleStepNextWorkflow CALLED');
+    const deviceId = runningDeviceIdRef.current || selectedDevice;
+    console.log('[Workflow] StepNext - deviceId:', deviceId, 'ref:', runningDeviceIdRef.current, 'selected:', selectedDevice);
+    if (!deviceId) {
+      message.error('No device ID available');
+      return;
+    }
+    try {
+      console.log('[Workflow] Calling StepNextWorkflow with deviceId:', deviceId);
+      await (window as any).go.main.App.StepNextWorkflow(deviceId);
+      console.log('[Workflow] StepNextWorkflow completed successfully');
+    } catch (err) {
+      console.error('[Workflow] StepNext error:', err);
+      message.error(`Step failed: ${err}`);
+    }
   };
 
   return (
@@ -1896,9 +1977,14 @@ const WorkflowView: React.FC = () => {
               {isRunning ? (
                 <Space>
                   {isPaused ? (
-                    <Button icon={<PlayCircleOutlined />} onClick={handleResumeWorkflow}>
-                      {t("workflow.resume")}
-                    </Button>
+                    <>
+                      <Button icon={<PlayCircleOutlined />} onClick={handleResumeWorkflow}>
+                        {t("workflow.resume")}
+                      </Button>
+                      <Button icon={<StepForwardOutlined />} onClick={handleStepNextWorkflow}>
+                        {t("workflow.step_next")}
+                      </Button>
+                    </>
                   ) : (
                     <Button icon={<PauseCircleOutlined />} onClick={handlePauseWorkflow}>
                       {t("workflow.pause")}
@@ -2214,6 +2300,75 @@ const WorkflowView: React.FC = () => {
                   />
                 </div>
               </Panel>
+
+              {/* Runtime Context Panel - shows when workflow is running */}
+              {isRunning && runtimeContext && (
+                <Panel position="top-right" style={{ margin: 12 }}>
+                  <div style={{
+                    width: 280,
+                    background: token.colorBgContainer,
+                    borderRadius: 8,
+                    padding: 12,
+                    boxShadow: token.boxShadowSecondary,
+                    border: `1px solid ${token.colorBorderSecondary}`
+                  }}>
+                    <div style={{ marginBottom: 8 }}>
+                      <Text strong style={{ fontSize: 14 }}>{t("workflow.runtime_context")}</Text>
+                      {runtimeContext.isPaused && (
+                        <Tag color="orange" style={{ marginLeft: 8 }}>{t("workflow.paused")}</Tag>
+                      )}
+                    </div>
+                    
+                    <div style={{ marginBottom: 12 }}>
+                      <Progress 
+                        percent={runtimeContext.stepsTotal > 0 ? Math.round((runtimeContext.stepsExecuted / runtimeContext.stepsTotal) * 100) : 0}
+                        size="small"
+                        status={runtimeContext.isPaused ? "exception" : "active"}
+                      />
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {t("workflow.progress")}: {runtimeContext.stepsExecuted} / {runtimeContext.stepsTotal}
+                      </Text>
+                    </div>
+
+                    <div style={{ marginBottom: 8 }}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>{t("workflow.current_step")}:</Text>
+                      <div style={{ 
+                        background: token.colorFillTertiary, 
+                        padding: '4px 8px', 
+                        borderRadius: 4,
+                        marginTop: 4
+                      }}>
+                        <Text style={{ fontSize: 13 }}>
+                          {runtimeContext.currentStepName || runtimeContext.currentStepId || '-'}
+                        </Text>
+                        {runtimeContext.currentStepType && (
+                          <Tag style={{ marginLeft: 8 }}>{runtimeContext.currentStepType}</Tag>
+                        )}
+                      </div>
+                    </div>
+
+                    {Object.keys(runtimeContext.variables || {}).length > 0 && (
+                      <div>
+                        <Text type="secondary" style={{ fontSize: 12 }}>{t("workflow.variables")}:</Text>
+                        <div style={{ 
+                          background: token.colorFillTertiary, 
+                          padding: '4px 8px', 
+                          borderRadius: 4,
+                          marginTop: 4,
+                          maxHeight: 120,
+                          overflowY: 'auto'
+                        }}>
+                          {Object.entries(runtimeContext.variables).map(([key, value]) => (
+                            <div key={key} style={{ fontSize: 12, fontFamily: 'monospace' }}>
+                              <Text type="secondary">{key}:</Text> <Text>{value}</Text>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </Panel>
+              )}
             </ReactFlow>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: token.colorTextSecondary }}>
