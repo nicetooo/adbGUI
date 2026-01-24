@@ -2138,11 +2138,11 @@ const WorkflowView: React.FC = () => {
             <Text strong>{t("workflow.workflows")}</Text>
             <Button type="primary" size="small" icon={<PlusOutlined />} onClick={handleCreateWorkflow} />
           </div>
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
             {workflows.length === 0 ? (
               <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("workflow.no_workflows")} />
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', paddingBottom: 60 }}>
                 {workflows.map(workflow => (
                   <div
                     key={workflow.id}
