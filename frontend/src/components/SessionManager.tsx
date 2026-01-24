@@ -31,7 +31,7 @@ import {
   FilterOutlined,
   EditOutlined,
   EyeOutlined,
-
+  PauseCircleOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
@@ -101,7 +101,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
   const { t } = useTranslation();
   const { selectedDevice } = useDeviceStore();
   const { setSelectedKey } = useUIStore();
-  const { loadSession } = useEventStore();
+  const { loadSession, endSession } = useEventStore();
 
   // Session Manager Store
   const {
@@ -227,6 +227,18 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
     }
   }, [loadSession, setSelectedKey, t]);
 
+  // End active session
+  const handleEndSession = useCallback(async (sessionId: string) => {
+    try {
+      await endSession(sessionId, 'completed');
+      message.success(t('session_manager.end_success'));
+      loadSessions();
+    } catch (err) {
+      console.error('Failed to end session:', err);
+      message.error(t('session_manager.end_failed'));
+    }
+  }, [endSession, loadSessions, t]);
+
   // Filter sessions
   const filteredSessions = useMemo(() => {
     return sessions.filter(session => {
@@ -330,10 +342,27 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
     {
       title: t('session_manager.col_actions'),
       key: 'actions',
-      width: 250,
+      width: 280,
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
+          {record.status === 'active' && (
+            <Popconfirm
+              title={t('session_manager.end_confirm')}
+              onConfirm={() => handleEndSession(record.id)}
+              okText={t('common.ok')}
+              cancelText={t('common.cancel')}
+            >
+              <Tooltip title={t('session_manager.end_session')}>
+                <Button
+                  type="text"
+                  size="small"
+                  danger
+                  icon={<PauseCircleOutlined />}
+                />
+              </Tooltip>
+            </Popconfirm>
+          )}
           <Tooltip title={t('session_manager.view_events')}>
             <Button
               type="text"
