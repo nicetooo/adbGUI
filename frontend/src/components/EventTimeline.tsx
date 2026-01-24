@@ -1220,21 +1220,42 @@ const EventTimeline = () => {
     [devices]
   );
 
+  // Handle ending a session from the dropdown
+  const handleEndSessionById = useCallback(async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    await endSession(sessionId, 'completed');
+  }, [endSession]);
+
   // Session options
   const sessionOptions = useMemo(() =>
     sessionList.map(s => ({
       label: (
-        <Space>
-          {s.status === 'active' ? <PlayCircleOutlined /> : <HistoryOutlined />}
-          <span>{s.name}</span>
-          <Text type="secondary" style={{ fontSize: 10 }}>
-            {new Date(s.startTime).toLocaleTimeString()}
-          </Text>
-        </Space>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <Space>
+            {s.status === 'active' ? <PlayCircleOutlined style={{ color: '#52c41a' }} /> : <HistoryOutlined />}
+            <span>{s.name}</span>
+            <Text type="secondary" style={{ fontSize: 10 }}>
+              {new Date(s.startTime).toLocaleTimeString()}
+            </Text>
+          </Space>
+          {s.status === 'active' && (
+            <Tooltip title={t('timeline.end_session')}>
+              <Button
+                type="text"
+                size="small"
+                danger
+                icon={<PauseCircleOutlined />}
+                onClick={(e) => handleEndSessionById(s.id, e)}
+                style={{ marginLeft: 8 }}
+              />
+            </Tooltip>
+          )}
+        </div>
       ),
       value: s.id,
     })),
-    [sessionList]
+    [sessionList, handleEndSessionById, t]
   );
 
   // Get active filter count
