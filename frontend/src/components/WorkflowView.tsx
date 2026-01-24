@@ -2506,11 +2506,21 @@ const WorkflowView: React.FC = () => {
                     >
                       {({ getFieldValue }) => {
                         const type = getFieldValue('type');
-                        const label = type === 'set_variable' ? t("workflow.variable_name") : t("workflow.name");
+                        const isSetVariable = type === 'set_variable';
+                        const label = isSetVariable ? t("workflow.variable_name") : t("workflow.name");
                         return (
-                          <Form.Item name="name" label={label}>
-                            <Input placeholder={label} />
-                          </Form.Item>
+                          <>
+                            {/* 变量名字段（仅 set_variable 使用） */}
+                            {isSetVariable && (
+                              <Form.Item name="variableName" label={t("workflow.variable_name")} rules={[{ required: true, message: t("workflow.variable_name_required") || "Variable name is required" }]}>
+                                <Input placeholder={t("workflow.variable_name_placeholder") || "myVariable"} />
+                              </Form.Item>
+                            )}
+                            {/* 步骤名称字段（所有类型都有，但 set_variable 是可选的） */}
+                            <Form.Item name="name" label={isSetVariable ? t("workflow.step_name") : label}>
+                              <Input placeholder={isSetVariable ? t("workflow.step_name_optional") || "Optional step name" : label} />
+                            </Form.Item>
+                          </>
                         );
                       }}
                     </Form.Item>

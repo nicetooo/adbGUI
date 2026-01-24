@@ -721,6 +721,13 @@
     "if_false": "条件不成立 (False)",
     "step_type_label": "ステップタイプ",
     "name": "名前",
+    "variable_name": "変数名",
+    "variable_name_placeholder": "myVariable",
+    "variable_name_required": "変数名は必須です",
+    "step_name": "ステップ名",
+    "step_name_optional": "オプションのステップ名",
+    "variable_value": "変数値",
+    "variable_value_placeholder": "値、{{変数}}、または式: {{a}} + 1",
     "category": {
       "element_actions": "要素アクション",
       "wait_conditions": "待機条件",

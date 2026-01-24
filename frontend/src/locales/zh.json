@@ -941,6 +941,10 @@
     "step_type_label": "步骤类型",
     "name": "步骤名称",
     "variable_name": "变量名称",
+    "variable_name_placeholder": "myVariable",
+    "variable_name_required": "变量名称不能为空",
+    "step_name": "步骤名称",
+    "step_name_optional": "可选的步骤名称",
     "variable_value": "变量值",
     "variable_value_placeholder": "值、{{变量}} 或表达式: {{a}} + 1",
     "variable_description_tip": "在此定义工作流的初始变量。您可以在任何输入框中使用 {{变量名}} 来引用这些变量。",
@@ -995,7 +999,6 @@
       "start_session": "开始会话",
       "end_session": "结束会话"
     },
-    "variable_name_placeholder": "myVariable",
     "attribute": "属性",
     "regex": "正则表达式（可选）",
     "regex_placeholder": "\\d+",

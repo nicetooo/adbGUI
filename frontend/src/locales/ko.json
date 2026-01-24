@@ -721,6 +721,13 @@
     "if_false": "조건 미성립 (False)",
     "step_type_label": "단계 유형",
     "name": "이름",
+    "variable_name": "변수 이름",
+    "variable_name_placeholder": "myVariable",
+    "variable_name_required": "변수 이름은 필수입니다",
+    "step_name": "단계 이름",
+    "step_name_optional": "선택적 단계 이름",
+    "variable_value": "변수 값",
+    "variable_value_placeholder": "값, {{변수}}, 또는 식: {{a}} + 1",
     "category": {
       "element_actions": "요소 작업",
       "wait_conditions": "대기 조건",

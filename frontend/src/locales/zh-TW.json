@@ -732,6 +732,13 @@
     "if_false": "條件不成立 (False)",
     "step_type_label": "步驟類型",
     "name": "名稱",
+    "variable_name": "變數名稱",
+    "variable_name_placeholder": "myVariable",
+    "variable_name_required": "變數名稱不能為空",
+    "step_name": "步驟名稱",
+    "step_name_optional": "可選的步驟名稱",
+    "variable_value": "變數值",
+    "variable_value_placeholder": "值、{{變數}} 或表達式: {{a}} + 1",
     "category": {
       "element_actions": "元素操作",
       "wait_conditions": "等待條件",
