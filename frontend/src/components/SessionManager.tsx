@@ -420,9 +420,9 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
   ];
 
   return (
-    <div style={{ padding: 16, height: '100%', overflow: 'auto', ...style }}>
+    <div style={{ padding: 16, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', ...style }}>
       {/* Statistics Cards */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
+      <Row gutter={16} style={{ marginBottom: 16, flexShrink: 0 }}>
         <Col span={6}>
           <Card size="small">
             <Statistic title={t('session_manager.stat_total')} value={stats.total} prefix={<FileTextOutlined />} />
@@ -457,6 +457,8 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
 
       {/* Main Table Card */}
       <Card
+        style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        styles={{ body: { flex: 1, minHeight: 0, overflow: 'auto' } }}
         title={t('session_manager.title')}
         extra={
           <Space>
