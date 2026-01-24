@@ -75,8 +75,11 @@ import {
   ConnectionLineType,
   SelectionMode,
   Panel,
+  getSmoothStepPath,
+  BaseEdge,
+  EdgeLabelRenderer,
 } from '@xyflow/react';
-import type { Connection, Edge, Node, NodeChange } from '@xyflow/react';
+import type { Connection, Edge, Node, NodeChange, EdgeProps } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
 
@@ -662,7 +665,68 @@ const WorkflowView: React.FC = () => {
   // Track if we should skip the next node re-render (after saving)
   const skipNextRenderRef = useRef(false);
 
+  // Custom edge component with selection state
+  const CustomEdge = useCallback(({
+    id,
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+    style = {},
+    markerEnd,
+    label,
+    labelStyle,
+    selected,
+  }: EdgeProps) => {
+    const [edgePath, labelX, labelY] = getSmoothStepPath({
+      sourceX,
+      sourceY,
+      sourcePosition,
+      targetX,
+      targetY,
+      targetPosition,
+    });
+
+    // Enhance style when selected
+    const enhancedStyle = {
+      ...style,
+      strokeWidth: selected ? 3 : 1.5,
+      filter: selected ? 'drop-shadow(0 0 4px currentColor)' : undefined,
+    };
+
+    return (
+      <>
+        <BaseEdge id={id} path={edgePath} markerEnd={markerEnd} style={enhancedStyle} />
+        {label && (
+          <EdgeLabelRenderer>
+            <div
+              style={{
+                position: 'absolute',
+                transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+                fontSize: 10,
+                fontWeight: selected ? 800 : 700,
+                pointerEvents: 'all',
+                background: token.colorBgContainer,
+                padding: '2px 6px',
+                borderRadius: 4,
+                border: selected ? `2px solid currentColor` : `1px solid ${token.colorBorder}`,
+                boxShadow: selected ? `0 0 6px currentColor` : undefined,
+                ...labelStyle,
+              }}
+              className="nodrag nopan"
+            >
+              {label}
+            </div>
+          </EdgeLabelRenderer>
+        )}
+      </>
+    );
+  }, [token]);
+
   const nodeTypes = useMemo(() => ({ workflowNode: WorkflowNode }), []);
+  const edgeTypes = useMemo(() => ({ smoothstep: CustomEdge }), [CustomEdge]);
 
   const loadWorkflows = async () => {
     try {
@@ -2213,6 +2277,7 @@ const WorkflowView: React.FC = () => {
               onConnect={onConnect}
               onNodeClick={handleNodeClick}
               nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
               fitView
               attributionPosition="bottom-right"
               snapToGrid={true}
