@@ -10,7 +10,7 @@ import {
   DeleteOutlined,
   StopOutlined,
 } from "@ant-design/icons";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import VirtualList, { VirtualListHandle } from "./VirtualList";
 import DeviceSelector from "./DeviceSelector";
 import LogDetailPanel from "./LogDetailPanel";
 import { useDeviceStore, useLogcatStore, FilterPreset, ParsedLog } from "../stores";
@@ -34,8 +34,7 @@ const levelColors: Record<string, { text: string; bg: string; border: string }> 
 export default function LogcatView() {
   const { t } = useTranslation();
   const { token } = theme.useToken();
-  const parentRef = useRef<HTMLDivElement>(null);
-  const scrollingRef = useRef(false);
+  const listRef = useRef<VirtualListHandle>(null);
 
   const { selectedDevice } = useDeviceStore();
   const {
@@ -297,50 +296,9 @@ export default function LogcatView() {
     matchWholeWord,
   ]);
 
-  const virtualizer = useVirtualizer({
-    count: filteredLogs.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 28,
-    overscan: 10,
-  });
-
-  // 自动滚动逻辑
-  useEffect(() => {
-    if (autoScroll && filteredLogs.length > 0) {
-      scrollingRef.current = true;
-      virtualizer.scrollToIndex(filteredLogs.length - 1, {
-        align: "end",
-      });
-      const timer = setTimeout(() => {
-        scrollingRef.current = false;
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [filteredLogs.length, autoScroll, virtualizer]);
-
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    if (scrollingRef.current) return;
-    const target = e.currentTarget;
-    const { scrollTop, scrollHeight, clientHeight } = target;
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
-    if (!isAtBottom && autoScroll) {
-      setAutoScroll(false);
-    }
-    else if (isAtBottom && !autoScroll) {
-      setAutoScroll(true);
-    }
-  };
-
   const scrollToBottom = () => {
-    scrollingRef.current = true;
     setAutoScroll(true);
-    virtualizer.scrollToIndex(filteredLogs.length - 1, {
-      align: "end",
-      behavior: "smooth",
-    });
-    setTimeout(() => {
-      scrollingRef.current = false;
-    }, 1000);
+    listRef.current?.scrollToBottom();
   };
 
   // 获取日志级别颜色（用于 Checkbox）
@@ -732,67 +690,48 @@ export default function LogcatView() {
             overflow: "hidden",
           }}
         >
-          <div
-            ref={parentRef}
-            onScroll={handleScroll}
+          <VirtualList
+            ref={listRef}
+            dataSource={filteredLogs}
+            rowKey="id"
+            rowHeight={28}
+            autoScroll={autoScroll}
+            onAutoScrollChange={setAutoScroll}
+            selectedKey={selectedLogId}
+            onItemClick={handleLogClick}
+            showBorder={false}
             className="selectable"
-            style={{ height: "100%", overflow: "auto", userSelect: "text" }}
-          >
-            <div style={{ height: `${virtualizer.getTotalSize()}px`, width: "100%", position: "relative" }}>
-              {virtualizer.getVirtualItems().map((virtualItem) => {
-                const log = filteredLogs[virtualItem.index];
-                if (!log) return null;
-                
-                const isSelected = log.id === selectedLogId;
-                const colors = levelColors[log.level] || levelColors['V'];
-                const isErrorOrWarn = log.level === 'E' || log.level === 'F' || log.level === 'W';
-                
-                return (
-                  <div
-                    key={virtualItem.key}
-                    data-index={virtualItem.index}
-                    onClick={() => handleLogClick(log)}
-                    style={{
-                      position: "absolute", 
-                      top: 0, 
-                      left: 0, 
-                      width: "100%",
-                      height: 28,
-                      transform: `translateY(${virtualItem.start}px)`, 
-                      padding: "4px 12px 4px 8px",
-                      borderBottom: "1px solid #2d2d2d", 
-                      borderLeft: `3px solid ${colors.border}`,
-                      color: "#d4d4d4",
-                      fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                      fontSize: "12px", 
-                      lineHeight: "20px",
-                      cursor: "pointer",
-                      backgroundColor: isSelected 
-                        ? '#1677ff' 
-                        : isErrorOrWarn 
-                          ? colors.bg 
-                          : 'transparent',
-                      transition: "background-color 0.15s",
-                      boxSizing: "border-box",
-                      overflow: "hidden",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isSelected) {
-                        e.currentTarget.style.backgroundColor = isErrorOrWarn ? colors.bg : 'rgba(255,255,255,0.05)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isSelected) {
-                        e.currentTarget.style.backgroundColor = isErrorOrWarn ? colors.bg : 'transparent';
-                      }
-                    }}
-                  >
-                    {renderLogLine(log, isSelected)}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+            style={{ height: "100%", userSelect: "text", backgroundColor: "#1e1e1e" }}
+            emptyText={t("logcat.no_logs")}
+            renderItem={(log, index, isSelected) => {
+              const colors = levelColors[log.level] || levelColors['V'];
+              const isErrorOrWarn = log.level === 'E' || log.level === 'F' || log.level === 'W';
+              
+              return (
+                <div
+                  style={{
+                    height: "100%",
+                    padding: "4px 12px 4px 8px",
+                    borderBottom: "1px solid #2d2d2d",
+                    borderLeft: `3px solid ${colors.border}`,
+                    color: "#d4d4d4",
+                    fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                    fontSize: "12px",
+                    lineHeight: "20px",
+                    backgroundColor: isSelected 
+                      ? '#1677ff' 
+                      : isErrorOrWarn 
+                        ? colors.bg 
+                        : 'transparent',
+                    boxSizing: "border-box",
+                    overflow: "hidden",
+                  }}
+                >
+                  {renderLogLine(log, isSelected)}
+                </div>
+              );
+            }}
+          />
 
           {!autoScroll && filteredLogs.length > 0 && (
             <Button

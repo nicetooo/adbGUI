@@ -18,6 +18,7 @@ import {
   Alert,
   Badge,
 } from "antd";
+import VirtualList from "./VirtualList";
 import { useTranslation } from "react-i18next";
 import {
   PlayCircleOutlined,
@@ -762,110 +763,111 @@ const RecordingView: React.FC = () => {
                 </div>
               }
               size="small"
-              styles={{ body: { padding: 0, overflowY: "auto", maxHeight: "calc(100vh - 200px)" } }}
+              styles={{ body: { padding: 0 } }}
             >
-              {scripts.length === 0 ? (
-                <Empty description={t("recording.no_scripts")} image={Empty.PRESENTED_IMAGE_SIMPLE} />
-              ) : (
-                <List
-                  size="small"
-                  dataSource={scripts}
-                  renderItem={(script) => (
-                    <List.Item
-                      style={{
-                        cursor: "pointer",
-                        padding: "8px 16px",
-                        backgroundColor:
-                          selectedScript?.name === script.name ? token.colorPrimaryBg : undefined,
-                      }}
-                      onClick={() => {
-                        setSelectedScript(script);
-                        setCurrentScript(null);
-                      }}
-                      actions={[
-                        <Tooltip title={t("recording.play")} key="play">
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<CaretRightOutlined />}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handlePlayScript(script);
-                            }}
-                            disabled={isRecording || isPlaying || !selectedDevice}
-                          />
-                        </Tooltip>,
-                        <Tooltip title={t("common.rename")} key="rename">
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<EditOutlined />}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openRenameModal(script.name);
-                            }}
-                            disabled={isRecording || isPlaying}
-                          />
-                        </Tooltip>,
-                        <Tooltip title={t("automation.convert_to_workflow")} key="convert">
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<BranchesOutlined />}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleConvertToWorkflow(script);
-                            }}
-                            disabled={isRecording || isPlaying}
-                          />
-                        </Tooltip>,
-                        <Popconfirm
-                          key="delete"
-                          title={t("recording.delete_confirm", { name: script.name })}
-                          onConfirm={() => handleDeleteScript(script.name)}
-                          okText={t("common.ok")}
-                          cancelText={t("common.cancel")}
-                        >
-                          <Tooltip title={t("recording.delete")}>
-                            <Button
-                              type="text"
-                              size="small"
-                              danger
-                              icon={<DeleteOutlined />}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          </Tooltip>
-                        </Popconfirm>,
-                      ]}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                        <Checkbox
-                          checked={selectedScriptNames.includes(script.name)}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            const name = script.name;
-                            if (e.target.checked) {
-                              setSelectedScriptNames([...selectedScriptNames, name]);
-                            } else {
-                              setSelectedScriptNames(selectedScriptNames.filter(n => n !== name));
-                            }
-                          }}
-                          style={{ marginRight: 12 }}
-                        />
-                        <List.Item.Meta
-                          title={<span style={{ wordBreak: 'break-all' }}>{script.name}</span>}
-                          description={
-                            <span style={{ fontSize: 11, color: token.colorTextSecondary }}>
-                              {script.events?.length || 0} {t("recording.events")} · {script.resolution}
-                              {(script as any).deviceModel ? ` · ${(script as any).deviceModel}` : null}
-                            </span>
+              <VirtualList<TouchScript>
+                dataSource={scripts}
+                rowKey="name"
+                height="calc(100vh - 200px)"
+                rowHeight={60}
+                emptyText={t("recording.no_scripts")}
+                selectedKey={selectedScript?.name}
+                onItemClick={(script) => {
+                  setSelectedScript(script);
+                  setCurrentScript(null);
+                }}
+                showBorder={true}
+                renderItem={(script, _index, isSelected) => (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 16px',
+                      height: '100%',
+                      backgroundColor: isSelected ? token.colorPrimaryBg : undefined,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                      <Checkbox
+                        checked={selectedScriptNames.includes(script.name)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          const name = script.name;
+                          if (e.target.checked) {
+                            setSelectedScriptNames([...selectedScriptNames, name]);
+                          } else {
+                            setSelectedScriptNames(selectedScriptNames.filter(n => n !== name));
                           }
-                        />
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ marginRight: 12 }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ wordBreak: 'break-all', fontWeight: 500 }}>{script.name}</div>
+                        <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                          {script.events?.length || 0} {t("recording.events")} · {script.resolution}
+                          {(script as any).deviceModel ? ` · ${(script as any).deviceModel}` : null}
+                        </div>
                       </div>
-                    </List.Item>
-                  )}
-                />
-              )}
+                    </div>
+                    <Space size={4}>
+                      <Tooltip title={t("recording.play")}>
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<CaretRightOutlined />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePlayScript(script);
+                          }}
+                          disabled={isRecording || isPlaying || !selectedDevice}
+                        />
+                      </Tooltip>
+                      <Tooltip title={t("common.rename")}>
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<EditOutlined />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openRenameModal(script.name);
+                          }}
+                          disabled={isRecording || isPlaying}
+                        />
+                      </Tooltip>
+                      <Tooltip title={t("automation.convert_to_workflow")}>
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<BranchesOutlined />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleConvertToWorkflow(script);
+                          }}
+                          disabled={isRecording || isPlaying}
+                        />
+                      </Tooltip>
+                      <Popconfirm
+                        title={t("recording.delete_confirm", { name: script.name })}
+                        onConfirm={() => handleDeleteScript(script.name)}
+                        okText={t("common.ok")}
+                        cancelText={t("common.cancel")}
+                      >
+                        <Tooltip title={t("recording.delete")}>
+                          <Button
+                            type="text"
+                            size="small"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </Tooltip>
+                      </Popconfirm>
+                    </Space>
+                  </div>
+                )}
+              />
             </Card>
           </div>
         </div>

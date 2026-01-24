@@ -9,7 +9,6 @@ import {
   Space,
   Typography,
   Tag,
-  List,
   Input,
   Select,
   Form,
@@ -25,6 +24,7 @@ import {
   InputNumber,
   Alert,
 } from 'antd';
+import VirtualList from './VirtualList';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -632,46 +632,46 @@ const AssertionsPanel: React.FC<AssertionsPanelProps> = ({ sessionId, deviceId }
           )}
         </div>
 
-        {results.length === 0 ? (
-          <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={t('assertions.no_results')}
-            style={{ marginTop: 24 }}
-          />
-        ) : (
-          <List
-            size="small"
-            dataSource={results}
-            renderItem={item => (
-              <List.Item style={{ padding: '8px 0' }}>
-                <div style={{ width: '100%' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {item.passed ? (
-                      <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                    ) : (
-                      <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
-                    )}
-                    <Text strong style={{ flex: 1, fontSize: 13 }}>
-                      {item.name}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      {new Date(item.executedAt).toLocaleTimeString()} | {item.duration}ms | {item.matchedCount} {t('assertions.matched')}
-                    </Text>
-                    <Tooltip title={t('common.delete')}>
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={<DeleteOutlined />}
-                        onClick={() => removeResult(item.id)}
-                        style={{ color: '#ff4d4f' }}
-                      />
-                    </Tooltip>
-                  </div>
-                </div>
-              </List.Item>
-            )}
-          />
-        )}
+        <VirtualList
+          dataSource={results}
+          rowKey="id"
+          height={300}
+          rowHeight={40}
+          emptyText={t('assertions.no_results')}
+          showBorder={true}
+          renderItem={(item) => (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 0',
+                height: '100%',
+              }}
+            >
+              {item.passed ? (
+                <CheckCircleOutlined style={{ color: '#52c41a' }} />
+              ) : (
+                <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
+              )}
+              <Text strong style={{ flex: 1, fontSize: 13 }}>
+                {item.name}
+              </Text>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                {new Date(item.executedAt).toLocaleTimeString()} | {item.duration}ms | {item.matchedCount} {t('assertions.matched')}
+              </Text>
+              <Tooltip title={t('common.delete')}>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<DeleteOutlined />}
+                  onClick={() => removeResult(item.id)}
+                  style={{ color: '#ff4d4f' }}
+                />
+              </Tooltip>
+            </div>
+          )}
+        />
       </div>
 
       {/* Custom Assertion Modal */}

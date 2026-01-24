@@ -4,7 +4,6 @@ import {
   Space,
   Tag,
   Card,
-  List,
   Modal,
   Input,
   message,
@@ -16,6 +15,7 @@ import {
   Checkbox,
   Dropdown,
 } from "antd";
+import VirtualList from "./VirtualList";
 import { useTranslation } from "react-i18next";
 import {
   PlayCircleOutlined,
@@ -871,107 +871,108 @@ const AutomationView: React.FC = () => {
                         </div>
                       }
                       size="small"
-                      styles={{ body: { padding: 0, overflowY: "auto", maxHeight: "calc(100vh - 200px)" } }}
+                      styles={{ body: { padding: 0 } }}
                     >
-                      {scripts.length === 0 ? (
-                        <Empty description={t("automation.no_scripts")} image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                      ) : (
-                        <List
-                          size="small"
-                          dataSource={scripts}
-                          renderItem={(script) => (
-                            <List.Item
-                              style={{
-                                cursor: "pointer",
-                                padding: "8px 16px",
-                                backgroundColor:
-                                  selectedScript?.name === script.name ? token.colorPrimaryBg : undefined,
-                              }}
-                              onClick={() => {
-                                setSelectedScript(script);
-                                setCurrentScript(null);
-                              }}
-                              actions={[
-                                <Tooltip title={t("automation.play")} key="play">
-                                  <Button
-                                    type="text"
-                                    size="small"
-                                    icon={<CaretRightOutlined />}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handlePlayScript(script);
-                                    }}
-                                    disabled={isRecording || isPlaying || !selectedDevice}
-                                  />
-                                </Tooltip>,
-                                <Tooltip title={t("common.rename")} key="rename">
-                                  <Button
-                                    type="text"
-                                    size="small"
-                                    icon={<EditOutlined />}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditingScriptName(script.name);
-                                      setNewScriptName(script.name);
-                                      setRenameModalVisible(true);
-                                    }}
-                                    disabled={isRecording || isPlaying}
-                                  />
-                                </Tooltip>,
-                                <Tooltip title={t("workflow.convert")} key="convert">
-                                  <Button
-                                    type="text"
-                                    size="small"
-                                    icon={<BranchesOutlined />}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleConvertToWorkflow(script);
-                                    }}
-                                    disabled={isRecording || isPlaying}
-                                  />
-                                </Tooltip>,
-                                <Popconfirm
-                                  key="delete"
-                                  title={t("automation.delete_confirm", { name: script.name })}
-                                  onConfirm={() => handleDeleteScript(script.name)}
-                                  okText={t("common.ok")}
-                                  cancelText={t("common.cancel")}
-                                >
-                                  <Tooltip title={t("automation.delete")}>
-                                    <Button
-                                      type="text"
-                                      size="small"
-                                      danger
-                                      icon={<DeleteOutlined />}
-                                      onClick={(e) => e.stopPropagation()}
-                                    />
-                                  </Tooltip>
-                                </Popconfirm>,
-                              ]}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                                <Checkbox
-                                  checked={selectedScriptNames.includes(script.name)}
-                                  onChange={(e) => {
-                                    e.stopPropagation();
-                                    toggleSelectedScriptName(script.name, e.target.checked);
-                                  }}
-                                  style={{ marginRight: 12 }}
-                                />
-                                <List.Item.Meta
-                                  title={<span style={{ wordBreak: 'break-all' }}>{script.name}</span>}
-                                  description={
-                                    <span style={{ fontSize: 11, color: token.colorTextSecondary }}>
-                                      {script.events?.length || 0} {t("automation.events")} · {script.resolution}
-                                      {(script as any).deviceModel ? ` · ${(script as any).deviceModel}` : null}
-                                    </span>
-                                  }
-                                />
+                      <VirtualList<TouchScript>
+                        dataSource={scripts}
+                        rowKey="name"
+                        height="calc(100vh - 200px)"
+                        rowHeight={60}
+                        emptyText={t("automation.no_scripts")}
+                        selectedKey={selectedScript?.name}
+                        onItemClick={(script) => {
+                          setSelectedScript(script);
+                          setCurrentScript(null);
+                        }}
+                        showBorder={true}
+                        renderItem={(script, _index, isSelected) => (
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '8px 16px',
+                              height: '100%',
+                              backgroundColor: isSelected ? token.colorPrimaryBg : undefined,
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                              <Checkbox
+                                checked={selectedScriptNames.includes(script.name)}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  toggleSelectedScriptName(script.name, e.target.checked);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ marginRight: 12 }}
+                              />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ wordBreak: 'break-all', fontWeight: 500 }}>{script.name}</div>
+                                <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                                  {script.events?.length || 0} {t("automation.events")} · {script.resolution}
+                                  {(script as any).deviceModel ? ` · ${(script as any).deviceModel}` : null}
+                                </div>
                               </div>
-                            </List.Item>
-                          )}
-                        />
-                      )}
+                            </div>
+                            <Space size={4}>
+                              <Tooltip title={t("automation.play")}>
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  icon={<CaretRightOutlined />}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handlePlayScript(script);
+                                  }}
+                                  disabled={isRecording || isPlaying || !selectedDevice}
+                                />
+                              </Tooltip>
+                              <Tooltip title={t("common.rename")}>
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  icon={<EditOutlined />}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingScriptName(script.name);
+                                    setNewScriptName(script.name);
+                                    setRenameModalVisible(true);
+                                  }}
+                                  disabled={isRecording || isPlaying}
+                                />
+                              </Tooltip>
+                              <Tooltip title={t("workflow.convert")}>
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  icon={<BranchesOutlined />}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleConvertToWorkflow(script);
+                                  }}
+                                  disabled={isRecording || isPlaying}
+                                />
+                              </Tooltip>
+                              <Popconfirm
+                                title={t("automation.delete_confirm", { name: script.name })}
+                                onConfirm={() => handleDeleteScript(script.name)}
+                                okText={t("common.ok")}
+                                cancelText={t("common.cancel")}
+                              >
+                                <Tooltip title={t("automation.delete")}>
+                                  <Button
+                                    type="text"
+                                    size="small"
+                                    danger
+                                    icon={<DeleteOutlined />}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </Tooltip>
+                              </Popconfirm>
+                            </Space>
+                          </div>
+                        )}
+                      />
                     </Card>
                   ),
                 },
@@ -1021,75 +1022,79 @@ const AutomationView: React.FC = () => {
                         </div>
                       }
                       size="small"
-                      styles={{ body: { padding: 0, overflowY: "auto", maxHeight: "calc(100vh - 200px)" } }}
+                      styles={{ body: { padding: 0 } }}
                     >
-                      {tasks.length === 0 ? (
-                        <Empty description={t("automation.no_tasks")} image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                      ) : (
-                        <List
-                          size="small"
-                          dataSource={tasks}
-                          renderItem={(task) => (
-                            <List.Item
-                              style={{ padding: "8px 16px" }}
-                              actions={[
-                                <Tooltip title={t("automation.run_task")} key="run">
-                                  <Button
-                                    type="text"
-                                    size="small"
-                                    icon={<CaretRightOutlined />}
-                                    onClick={() => handleRunTask(task)}
-                                    loading={isTaskRunning && runningTaskName === task.name}
-                                    disabled={isTaskRunning || isRecording || isPlaying}
-                                  />
-                                </Tooltip>,
-                                <Tooltip title={t("automation.edit_task")} key="edit">
-                                  <Button
-                                    type="text"
-                                    size="small"
-                                    icon={<EditOutlined />}
-                                    onClick={() => handleEditTask(task)}
-                                    disabled={isTaskRunning}
-                                  />
-                                </Tooltip>,
-                                <Popconfirm
-                                  key="delete"
-                                  title={t("automation.delete_task_confirm", { name: task.name })}
-                                  onConfirm={() => handleDeleteTask(task.name)}
-                                  okText={t("common.ok")}
-                                  cancelText={t("common.cancel")}
-                                >
-                                  <Button
-                                    type="text"
-                                    size="small"
-                                    danger
-                                    icon={<DeleteOutlined />}
-                                  />
-                                </Popconfirm>,
-                              ]}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                                <Checkbox
-                                  checked={selectedTaskNames.includes(task.name)}
-                                  onChange={(e) => {
-                                    e.stopPropagation();
-                                    toggleSelectedTaskName(task.name, e.target.checked);
-                                  }}
-                                  style={{ marginRight: 12 }}
-                                />
-                                <List.Item.Meta
-                                  title={task.name}
-                                  description={
-                                    <span style={{ fontSize: 11, color: token.colorTextSecondary }}>
-                                      {task.steps?.length || 0} {t("automation.steps_count")}
-                                    </span>
-                                  }
-                                />
+                      <VirtualList<ScriptTask>
+                        dataSource={tasks}
+                        rowKey="name"
+                        height="calc(100vh - 200px)"
+                        rowHeight={60}
+                        emptyText={t("automation.no_tasks")}
+                        showBorder={true}
+                        renderItem={(task) => (
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '8px 16px',
+                              height: '100%',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                              <Checkbox
+                                checked={selectedTaskNames.includes(task.name)}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  toggleSelectedTaskName(task.name, e.target.checked);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ marginRight: 12 }}
+                              />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: 500 }}>{task.name}</div>
+                                <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
+                                  {task.steps?.length || 0} {t("automation.steps_count")}
+                                </div>
                               </div>
-                            </List.Item>
-                          )}
-                        />
-                      )}
+                            </div>
+                            <Space size={4}>
+                              <Tooltip title={t("automation.run_task")}>
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  icon={<CaretRightOutlined />}
+                                  onClick={() => handleRunTask(task)}
+                                  loading={isTaskRunning && runningTaskName === task.name}
+                                  disabled={isTaskRunning || isRecording || isPlaying}
+                                />
+                              </Tooltip>
+                              <Tooltip title={t("automation.edit_task")}>
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  icon={<EditOutlined />}
+                                  onClick={() => handleEditTask(task)}
+                                  disabled={isTaskRunning}
+                                />
+                              </Tooltip>
+                              <Popconfirm
+                                title={t("automation.delete_task_confirm", { name: task.name })}
+                                onConfirm={() => handleDeleteTask(task.name)}
+                                okText={t("common.ok")}
+                                cancelText={t("common.cancel")}
+                              >
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  danger
+                                  icon={<DeleteOutlined />}
+                                />
+                              </Popconfirm>
+                            </Space>
+                          </div>
+                        )}
+                      />
                     </Card>
                   ),
                 },

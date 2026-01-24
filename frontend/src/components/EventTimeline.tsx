@@ -25,7 +25,7 @@ import {
   Modal,
   List,
 } from 'antd';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import VirtualList, { VirtualListHandle } from './VirtualList';
 import {
   ReloadOutlined,
   FilterOutlined,
@@ -915,7 +915,7 @@ FilterPopover.displayName = 'FilterPopover';
 const EventTimeline = () => {
   const { t } = useTranslation();
   const { token } = theme.useToken();
-  const listRef = useRef<HTMLDivElement>(null);
+  const virtualListRef = useRef<VirtualListHandle>(null);
 
   // Device store
   const { devices, selectedDevice, setSelectedDevice } = useDeviceStore();
@@ -1076,28 +1076,7 @@ const EventTimeline = () => {
       }));
   }, [visibleEvents]);
 
-  // Virtual list
-  const rowVirtualizer = useVirtualizer({
-    count: visibleEvents.length,
-    getScrollElement: () => listRef.current,
-    estimateSize: () => 36,
-    overscan: 10,
-  });
-
-  // Auto-scroll - debounced to prevent jumping
-  const lastScrollRef = useRef<number>(0);
-  useEffect(() => {
-    if (autoScroll && listRef.current && visibleEvents.length > 0) {
-      const now = Date.now();
-      // Only scroll if 200ms has passed since last scroll
-      if (now - lastScrollRef.current > 200) {
-        lastScrollRef.current = now;
-        requestAnimationFrame(() => {
-          rowVirtualizer.scrollToIndex(visibleEvents.length - 1, { align: 'end', behavior: 'auto' });
-        });
-      }
-    }
-  }, [visibleEvents.length, autoScroll, rowVirtualizer]);
+  // Note: Auto-scroll is now handled by VirtualList component
 
 
   // Update current time based on scroll position - only when auto-scroll is enabled
@@ -1129,18 +1108,18 @@ const EventTimeline = () => {
       const selectedIndex = visibleEvents.findIndex(e => e.id === selectedEventId);
       if (selectedIndex >= 0) {
         // Event is in the filtered list, scroll to it
-        rowVirtualizer.scrollToIndex(selectedIndex, { align: 'center', behavior: 'auto' });
+        virtualListRef.current?.scrollToIndex(selectedIndex, { align: 'center' });
       }
     }
-  }, [visibleEvents, selectedEventId, rowVirtualizer]);
+  }, [visibleEvents, selectedEventId]);
 
   // Scroll to first event when time range is selected
   useEffect(() => {
     if (timeRange && visibleEvents.length > 0 && !selectedEventId) {
       // Scroll to the first event in the filtered list
-      rowVirtualizer.scrollToIndex(0, { align: 'start', behavior: 'auto' });
+      virtualListRef.current?.scrollToIndex(0, { align: 'start' });
     }
-  }, [timeRange, visibleEvents.length, selectedEventId, rowVirtualizer]);
+  }, [timeRange, visibleEvents.length, selectedEventId]);
 
   // Handle time range change - scroll to start of range
   const handleTimeRangeChange = useCallback((range: { start: number; end: number } | null) => {
@@ -1222,7 +1201,7 @@ const EventTimeline = () => {
       if (foundEvent) {
         setCurrentTime(foundEvent.relativeTime);
       }
-      rowVirtualizer.scrollToIndex(closestIndex, { align: 'center', behavior: 'smooth' });
+      virtualListRef.current?.scrollToIndex(closestIndex, { align: 'center', behavior: 'smooth' });
     };
 
     // 检查是否需要重新加载
@@ -1243,7 +1222,7 @@ const EventTimeline = () => {
       // 直接用当前事件滚动
       scrollToTime(currentEvents);
     }
-  }, [setAutoScroll, rowVirtualizer, loadSession]);
+  }, [setAutoScroll, loadSession]);
 
   const handleOpenBookmarkModal = useCallback(() => {
     if (activeSessionId && typeof currentTime === 'number') {
@@ -1537,7 +1516,7 @@ const EventTimeline = () => {
             icon={<VerticalAlignBottomOutlined />}
             onClick={() => {
               if (visibleEvents.length > 0) {
-                rowVirtualizer.scrollToIndex(visibleEvents.length - 1, { align: 'end' });
+                virtualListRef.current?.scrollToIndex(visibleEvents.length - 1, { align: 'end' });
               }
             }}
           >
@@ -1631,54 +1610,27 @@ const EventTimeline = () => {
           style={{ flex: 1, overflow: 'hidden', minWidth: 0, minHeight: 0 }}
           bodyStyle={{ padding: 0, height: '100%', minHeight: 0 }}
         >
-          {isLoading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-              <Spin />
-            </div>
-          ) : visibleEvents.length === 0 ? (
-            <Empty
-              description={t('timeline.no_events')}
-              style={{ marginTop: 60 }}
-            />
-          ) : (
-            <div
-              ref={listRef}
-              style={{
-                height: '100%',
-                overflow: 'auto',
-              }}
-            >
-              <div
-                style={{
-                  height: rowVirtualizer.getTotalSize() + 60,
-                  width: '100%',
-                  position: 'relative',
-                }}
-              >
-                {rowVirtualizer.getVirtualItems().map(virtualRow => {
-                  const event = visibleEvents[virtualRow.index];
-                  if (!event) return null;
-
-                  return (
-                    <EventRow
-                      key={event.id}
-                      event={event}
-                      isSelected={event.id === selectedEventId}
-                      onClick={() => handleEventClick(event)}
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: virtualRow.size,
-                        transform: `translateY(${virtualRow.start}px)`,
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          <VirtualList
+            ref={virtualListRef}
+            dataSource={visibleEvents}
+            rowKey="id"
+            rowHeight={36}
+            loading={isLoading}
+            emptyText={t('timeline.no_events')}
+            autoScroll={autoScroll}
+            onAutoScrollChange={setAutoScroll}
+            selectedKey={selectedEventId}
+            onItemClick={handleEventClick}
+            style={{ height: '100%' }}
+            renderItem={(event, index, isSelected) => (
+              <EventRow
+                event={event}
+                isSelected={isSelected}
+                onClick={() => {}}
+                style={{ height: '100%' }}
+              />
+            )}
+          />
         </Card>
 
         {/* Event Detail Panel */}

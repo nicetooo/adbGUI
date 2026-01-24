@@ -1,13 +1,13 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { Card, Button, InputNumber, Space, Typography, Tag, message, Modal, Divider, Switch, Tooltip, Radio, Input, Tabs, theme, Form, Table, Popconfirm, Popover, Spin } from 'antd';
 import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, BlockOutlined, SendOutlined, CloseOutlined, PlusOutlined, EditOutlined } from '@ant-design/icons';
+import VirtualList from './VirtualList';
 import DeviceSelector from './DeviceSelector';
 import { useDeviceStore, useProxyStore, RequestLog as StoreRequestLog } from '../stores';
 // @ts-ignore
 import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, RemoveMockRule, GetMockRules, ToggleMockRule, CheckCertTrust, SetupProxyForDevice, CleanupProxyForDevice } from '../../wailsjs/go/main/App';
 // @ts-ignore
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
-import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTranslation } from 'react-i18next';
 
 const { Title, Text } = Typography;
@@ -84,8 +84,6 @@ const ProxyView: React.FC = () => {
         removeBypassPattern,
     } = useProxyStore();
 
-    const logsEndRef = useRef<HTMLDivElement>(null);
-    const parentRef = useRef<HTMLDivElement>(null);
     const [resendForm] = Form.useForm();
     const [mockForm] = Form.useForm();
 
@@ -681,13 +679,6 @@ const ProxyView: React.FC = () => {
         return true;
     });
 
-    const rowVirtualizer = useVirtualizer({
-        count: filteredLogs.length,
-        getScrollElement: () => parentRef.current,
-        estimateSize: () => 35, // Compact row height
-        overscan: 20,
-    });
-
     return (
         <div style={{ padding: '16px', height: '100%', display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'hidden' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
@@ -895,68 +886,55 @@ const ProxyView: React.FC = () => {
                     <div>{t('proxy.col_size')}</div>
                 </div>
 
-                <div
-                    ref={parentRef}
-                    style={{ flex: 1, overflow: 'auto', position: 'relative' }}
-                >
-                    <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
-                        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                            const record = filteredLogs[virtualRow.index];
-
-                            return (
-                                <div
-                                    key={virtualRow.key}
-                                    data-index={virtualRow.index}
-                                    ref={rowVirtualizer.measureElement}
-                                    style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        width: '100%',
-                                        transform: `translateY(${virtualRow.start}px)`,
-                                        background: virtualRow.index % 2 === 0 ? token.colorBgContainer : token.colorFillAlter,
-                                        borderBottom: `1px solid ${token.colorBorderSecondary}`,
-                                    }}
-                                >
-                                    {/* Main Row Content */}
-                                    <div
-                                        onClick={() => selectLog(record)}
-                                        style={{
-                                            display: 'grid',
-                                            gridTemplateColumns: '80px 70px 80px 1fr 80px 80px',
-                                            padding: '6px 12px',
-                                            fontSize: '12px',
-                                            cursor: 'pointer',
-                                            alignItems: 'center',
-                                            background: selectedLog?.id === record.id ? token.colorPrimaryBg : 'transparent',
-                                        }}
-                                    >
-                                        <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#888' }}>{record.time}</div>
-                                        <div>
-                                            {record.method === 'CONNECT' ? (
-                                                <Tag color="purple" style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>TUNNEL</Tag>
-                                            ) : record.isWs ? (
-                                                <Tag color="cyan" style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>WS</Tag>
-                                            ) : (
-                                                <Tag color={record.statusCode && record.statusCode >= 400 ? 'red' : record.method === 'GET' ? 'green' : record.method === 'POST' ? 'blue' : 'default'} style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>{record.method}</Tag>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <Tag color={record.statusCode && record.statusCode >= 400 ? 'red' : record.statusCode && record.statusCode >= 300 ? 'orange' : 'success'} style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>{record.statusCode || '-'}</Tag>
-                                            {record.mocked && <Tag color="magenta" style={{ marginLeft: 2, transform: 'scale(0.7)', transformOrigin: 'left center' }}>M</Tag>}
-                                        </div>
-                                        <div title={record.url} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: token.colorLink }}>
-                                            {record.url}
-                                            {record.isHttps && <LockOutlined style={{ fontSize: '10px', marginLeft: 4, color: '#52c41a' }} />}
-                                        </div>
-                                        <div style={{ color: '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{record.contentType?.split(';')[0].split('/')[1] || '-'}</div>
-                                        <div style={{ fontFamily: 'monospace', color: '#666' }}>{formatBytes(record.bodySize || 0)}</div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
+                <VirtualList
+                    dataSource={filteredLogs}
+                    rowKey="id"
+                    rowHeight={35}
+                    overscan={20}
+                    selectedKey={selectedLog?.id}
+                    onItemClick={selectLog}
+                    showBorder={false}
+                    style={{ flex: 1 }}
+                    renderItem={(record, index, isSelected) => (
+                        <div
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: '80px 70px 80px 1fr 80px 80px',
+                                padding: '6px 12px',
+                                fontSize: '12px',
+                                alignItems: 'center',
+                                height: '100%',
+                                background: isSelected 
+                                    ? token.colorPrimaryBg 
+                                    : index % 2 === 0 
+                                        ? token.colorBgContainer 
+                                        : token.colorFillAlter,
+                                borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                            }}
+                        >
+                            <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#888' }}>{record.time}</div>
+                            <div>
+                                {record.method === 'CONNECT' ? (
+                                    <Tag color="purple" style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>TUNNEL</Tag>
+                                ) : record.isWs ? (
+                                    <Tag color="cyan" style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>WS</Tag>
+                                ) : (
+                                    <Tag color={record.statusCode && record.statusCode >= 400 ? 'red' : record.method === 'GET' ? 'green' : record.method === 'POST' ? 'blue' : 'default'} style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>{record.method}</Tag>
+                                )}
+                            </div>
+                            <div>
+                                <Tag color={record.statusCode && record.statusCode >= 400 ? 'red' : record.statusCode && record.statusCode >= 300 ? 'orange' : 'success'} style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>{record.statusCode || '-'}</Tag>
+                                {record.mocked && <Tag color="magenta" style={{ marginLeft: 2, transform: 'scale(0.7)', transformOrigin: 'left center' }}>M</Tag>}
+                            </div>
+                            <div title={record.url} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: token.colorLink }}>
+                                {record.url}
+                                {record.isHttps && <LockOutlined style={{ fontSize: '10px', marginLeft: 4, color: '#52c41a' }} />}
+                            </div>
+                            <div style={{ color: '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{record.contentType?.split(';')[0].split('/')[1] || '-'}</div>
+                            <div style={{ fontFamily: 'monospace', color: '#666' }}>{formatBytes(record.bodySize || 0)}</div>
+                        </div>
+                    )}
+                />
             </Card>
 
                 {/* Detail Panel */}

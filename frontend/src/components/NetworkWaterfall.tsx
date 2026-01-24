@@ -2,10 +2,10 @@
  * NetworkWaterfall - 网络请求瀑布图组件 (虚拟列表优化版)
  * 类似 Chrome DevTools 的网络时序图
  */
-import React, { useMemo, useCallback, useRef, useState } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import { Card, Typography, Empty, theme } from 'antd';
-import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTranslation } from 'react-i18next';
+import VirtualList from './VirtualList';
 import type { UnifiedEvent } from '../stores/eventTypes';
 
 const { Text } = Typography;
@@ -80,7 +80,6 @@ const NetworkWaterfall: React.FC<NetworkWaterfallProps> = ({
 }) => {
   const { t } = useTranslation();
   const { token } = theme.useToken();
-  const parentRef = useRef<HTMLDivElement>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   // 提取网络请求数据
@@ -129,14 +128,6 @@ const NetworkWaterfall: React.FC<NetworkWaterfallProps> = ({
 
   const timeWidth = timeRange.end - timeRange.start || 1; // 避免除零
 
-  // 虚拟列表
-  const rowVirtualizer = useVirtualizer({
-    count: requests.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT,
-    overscan: 10,
-  });
-
   // 点击处理
   const handleClick = useCallback((req: NetworkRequest) => {
     onEventClick?.(req.event);
@@ -184,114 +175,99 @@ const NetworkWaterfall: React.FC<NetworkWaterfallProps> = ({
       </div>
 
       {/* 虚拟列表容器 */}
-      <div 
-        ref={parentRef}
-        style={{ height: maxHeight, overflow: 'auto', contain: 'strict' }}
-      >
-        <div
-          style={{
-            height: `${rowVirtualizer.getTotalSize()}px`,
-            width: '100%',
-            position: 'relative',
-          }}
-        >
-          {rowVirtualizer.getVirtualItems().map(virtualRow => {
-            const req = requests[virtualRow.index];
-            const barLeft = ((req.startTime - timeRange.start) / timeWidth) * 100;
-            // 宽度基于实际时长占时间轴的比例，最小3px，最大50%
-            const rawWidth = (req.duration / timeWidth) * 100;
-            const barWidth = Math.max(0.5, Math.min(50, rawWidth));
-            const statusColor = getStatusColor(req.statusCode, token);
-            const isHovered = hoveredIndex === virtualRow.index;
+      <VirtualList
+        dataSource={requests}
+        rowKey="id"
+        rowHeight={ROW_HEIGHT}
+        height={maxHeight}
+        showBorder={false}
+        onItemClick={(req) => handleClick(req)}
+        renderItem={(req, index) => {
+          const barLeft = ((req.startTime - timeRange.start) / timeWidth) * 100;
+          // 宽度基于实际时长占时间轴的比例，最小3px，最大50%
+          const rawWidth = (req.duration / timeWidth) * 100;
+          const barWidth = Math.max(0.5, Math.min(50, rawWidth));
+          const statusColor = getStatusColor(req.statusCode, token);
+          const isHovered = hoveredIndex === index;
 
-            return (
-              <div
-                key={req.id}
-                ref={rowVirtualizer.measureElement}
-                data-index={virtualRow.index}
-                onClick={() => handleClick(req)}
-                onMouseEnter={() => setHoveredIndex(virtualRow.index)}
-                onMouseLeave={() => setHoveredIndex(null)}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  transform: `translateY(${virtualRow.start}px)`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '0 8px',
-                  borderBottom: `1px solid ${token.colorSplit}`,
-                  cursor: 'pointer',
-                  background: isHovered 
-                    ? token.colorPrimaryBg 
-                    : virtualRow.index % 2 === 0 
-                      ? 'transparent' 
-                      : token.colorFillQuaternary,
-                }}
+          return (
+            <div
+              onMouseEnter={() => setHoveredIndex(index)}
+              onMouseLeave={() => setHoveredIndex(null)}
+              style={{
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 8px',
+                borderBottom: `1px solid ${token.colorSplit}`,
+                background: isHovered 
+                  ? token.colorPrimaryBg 
+                  : index % 2 === 0 
+                    ? 'transparent' 
+                    : token.colorFillQuaternary,
+              }}
+            >
+              {/* 请求信息: METHOD /path */}
+              <div 
+                style={{ width: 220, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10 }}
+                title={`${req.method} ${req.url}`}
               >
-                {/* 请求信息: METHOD /path */}
-                <div 
-                  style={{ width: 220, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10 }}
-                  title={`${req.method} ${req.url}`}
-                >
-                  <span style={{ color: getMethodTagColor(req.method, token), fontWeight: 500 }}>{req.method}</span>
-                  <span style={{ color: token.colorText }}> {req.url ? extractPath(req.url) : '-'}</span>
-                </div>
+                <span style={{ color: getMethodTagColor(req.method, token), fontWeight: 500 }}>{req.method}</span>
+                <span style={{ color: token.colorText }}> {req.url ? extractPath(req.url) : '-'}</span>
+              </div>
 
-                {/* 瀑布条 */}
-                <div style={{ flex: 1, height: 12, position: 'relative', flexShrink: 0 }}>
-                  {/* 背景网格 */}
+              {/* 瀑布条 */}
+              <div style={{ flex: 1, height: 12, position: 'relative', flexShrink: 0 }}>
+                {/* 背景网格 */}
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  borderLeft: `1px dashed ${token.colorBorderSecondary}`,
+                  borderRight: `1px dashed ${token.colorBorderSecondary}`,
+                }}>
                   <div style={{
                     position: 'absolute',
-                    inset: 0,
+                    left: '50%',
+                    top: 0,
+                    bottom: 0,
                     borderLeft: `1px dashed ${token.colorBorderSecondary}`,
-                    borderRight: `1px dashed ${token.colorBorderSecondary}`,
-                  }}>
-                    <div style={{
-                      position: 'absolute',
-                      left: '50%',
-                      top: 0,
-                      bottom: 0,
-                      borderLeft: `1px dashed ${token.colorBorderSecondary}`,
-                    }} />
-                  </div>
-
-                  {/* 请求条 */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: `${barLeft}%`,
-                      width: `${barWidth}%`,
-                      minWidth: 3,
-                      top: 3,
-                      height: 6,
-                      background: statusColor,
-                      borderRadius: 1,
-                    }}
-                  />
+                  }} />
                 </div>
 
-                {/* 状态和耗时 */}
-                <div style={{ width: 65, textAlign: 'right', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
-                  <span 
-                    style={{ 
-                      fontSize: 9, 
-                      color: statusColor,
-                      fontWeight: 500,
-                    }}
-                  >
-                    {req.statusCode || '?'}
-                  </span>
-                  <span style={{ fontSize: 9, color: token.colorTextSecondary }}>
-                    {req.duration}ms
-                  </span>
-                </div>
+                {/* 请求条 */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: `${barLeft}%`,
+                    width: `${barWidth}%`,
+                    minWidth: 3,
+                    top: 3,
+                    height: 6,
+                    background: statusColor,
+                    borderRadius: 1,
+                  }}
+                />
               </div>
-            );
-          })}
-        </div>
-      </div>
+
+              {/* 状态和耗时 */}
+              <div style={{ width: 65, textAlign: 'right', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
+                <span 
+                  style={{ 
+                    fontSize: 9, 
+                    color: statusColor,
+                    fontWeight: 500,
+                  }}
+                >
+                  {req.statusCode || '?'}
+                </span>
+                <span style={{ fontSize: 9, color: token.colorTextSecondary }}>
+                  {req.duration}ms
+                </span>
+              </div>
+            </div>
+          );
+        }}
+      />
 
       {/* Hover 详情 */}
       {hoveredIndex !== null && requests[hoveredIndex] && (
