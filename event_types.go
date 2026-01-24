@@ -79,7 +79,8 @@ type UnifiedEvent struct {
 	Summary string `json:"summary,omitempty"` // 摘要 (可搜索)
 
 	// === 扩展数据 (JSON) ===
-	Data json.RawMessage `json:"data,omitempty"` // 类型特定的详细数据
+	Data   json.RawMessage `json:"data,omitempty"`   // 类型特定的详细数据
+	Detail json.RawMessage `json:"detail,omitempty"` // 别名，向后兼容
 
 	// === 关联字段 ===
 	ParentID string `json:"parentId,omitempty"` // 父事件 ID

@@ -413,6 +413,7 @@ func (a *App) bridgeToNewPipeline(event SessionEvent) {
 		Level:     level,
 		Title:     event.Title,
 		Data:      data,
+		Detail:    data, // 别名，向后兼容前端老代码
 		StepID:    event.StepID,
 		Duration:  event.Duration,
 	}

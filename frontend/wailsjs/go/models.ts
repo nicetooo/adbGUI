@@ -803,6 +803,7 @@ export namespace main {
 	    title: string;
 	    summary?: string;
 	    data?: number[];
+	    detail?: number[];
 	    parentId?: string;
 	    stepId?: string;
 	    traceId?: string;
@@ -829,6 +830,7 @@ export namespace main {
 	        this.title = source["title"];
 	        this.summary = source["summary"];
 	        this.data = source["data"];
+	        this.detail = source["detail"];
 	        this.parentId = source["parentId"];
 	        this.stepId = source["stepId"];
 	        this.traceId = source["traceId"];

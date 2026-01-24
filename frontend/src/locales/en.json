@@ -521,7 +521,15 @@
     "exclude_filter_info": "Matching logs will be dropped",
     "filter_pattern": "Pattern",
     "filter_name_placeholder": "Filter Name",
-    "filter_removed": "Filter rule removed"
+    "filter_removed": "Filter rule removed",
+    "detail": {
+      "time": "Time",
+      "level": "Level",
+      "tag": "Tag",
+      "package": "Package",
+      "message": "Message",
+      "raw": "Raw Text"
+    }
   },
   "mirror": {
     "title": "Mirror Screen",

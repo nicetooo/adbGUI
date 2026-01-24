@@ -1,5 +1,5 @@
 import { useRef, useEffect, useMemo, useCallback } from "react";
-import { Button, Input, Select, Space, Checkbox, message, Modal, Tooltip, Tag, theme, Spin, Popover } from "antd";
+import { Button, Input, Select, Space, Checkbox, message, Modal, Tooltip, Tag, theme } from "antd";
 import { useTranslation } from "react-i18next";
 import {
   PauseOutlined,
@@ -12,13 +12,24 @@ import {
 } from "@ant-design/icons";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import DeviceSelector from "./DeviceSelector";
-import { useDeviceStore, useLogcatStore, FilterPreset } from "../stores";
+import LogDetailPanel from "./LogDetailPanel";
+import { useDeviceStore, useLogcatStore, FilterPreset, ParsedLog } from "../stores";
 // @ts-ignore
 import { main } from "../types/wails-models";
 // @ts-ignore
 import { ListPackages, StartApp, ForceStopApp, IsAppRunning } from "../../wailsjs/go/main/App";
 
 const { Option } = Select;
+
+// 日志级别颜色配置
+const levelColors: Record<string, { text: string; bg: string; border: string }> = {
+  'E': { text: '#ff4d4f', bg: 'rgba(255, 77, 79, 0.08)', border: '#ff4d4f' },
+  'F': { text: '#cf1322', bg: 'rgba(207, 19, 34, 0.08)', border: '#cf1322' },
+  'W': { text: '#faad14', bg: 'rgba(250, 173, 20, 0.08)', border: '#faad14' },
+  'I': { text: '#1890ff', bg: 'transparent', border: '#1890ff' },
+  'D': { text: '#52c41a', bg: 'transparent', border: '#52c41a' },
+  'V': { text: '#8c8c8c', bg: 'transparent', border: '#8c8c8c' },
+};
 
 export default function LogcatView() {
   const { t } = useTranslation();
@@ -37,7 +48,6 @@ export default function LogcatView() {
     preUseRegex,
     excludeFilter,
     excludeUseRegex,
-    setLogs,
     clearLogs,
     setSelectedPackage,
     setLogFilter,
@@ -47,6 +57,12 @@ export default function LogcatView() {
     setExcludeFilter,
     setExcludeUseRegex,
     toggleLogcat,
+
+    // Selection state
+    selectedLogId,
+    detailPanelOpen,
+    selectLog,
+    closeDetail,
 
     // UI State & Actions
     packages, setPackages,
@@ -114,14 +130,16 @@ export default function LogcatView() {
     }
   };
 
-  const getLogLevel = (text: string) => {
-    if (text.includes(" E/") || text.includes(" F/") || text.startsWith("E/"))
-      return "E";
-    if (text.includes(" W/") || text.startsWith("W/")) return "W";
-    if (text.includes(" I/") || text.startsWith("I/")) return "I";
-    if (text.includes(" D/") || text.startsWith("D/")) return "D";
-    return "V";
-  };
+  // 获取选中的日志对象
+  const selectedLog = useMemo(() => {
+    if (!selectedLogId) return null;
+    return logs.find(log => log.id === selectedLogId) || null;
+  }, [logs, selectedLogId]);
+
+  // 处理日志行点击
+  const handleLogClick = useCallback((log: ParsedLog) => {
+    selectLog(log.id);
+  }, [selectLog]);
 
   // 1. 深度编译过滤信息
   const filterInfo = useMemo(() => {
@@ -237,7 +255,7 @@ export default function LogcatView() {
     setIsSaveModalOpen(false);
   };
 
-  // 2. 强力过滤引擎
+  // 2. 强力过滤引擎 - 现在使用 ParsedLog 结构
   const filteredLogs = useMemo(() => {
     if (!logFilter && levelFilter.length === 0) return logs;
 
@@ -248,26 +266,19 @@ export default function LogcatView() {
     // This ensures 'Match Case' and 'Whole Word' are respected.
     const useRegexEngine = !invalid && !!regex;
 
-    return logs.filter((log) => {
-      // A. Level Filtering
+    return logs.filter((log: ParsedLog) => {
+      // A. Level Filtering - 直接使用结构化的 level 字段
       if (hasLevelFilter) {
-        const level = getLogLevel(log);
-        if (!levelFilter.includes(level)) return false;
+        if (!levelFilter.includes(log.level)) return false;
       }
 
-      // B. Text/Regex Filtering
+      // B. Text/Regex Filtering - 搜索 raw 文本
       if (logFilter && !invalid) {
-        const line = String(log).replace(/\u001b\[[0-9;]*m/g, "");
+        const line = log.raw.replace(/\u001b\[[0-9;]*m/g, "");
 
         if (useRegexEngine) {
           // Use the unified regex engine (handles Case and Whole Word correctly)
           if (regex!.test(line)) return true;
-
-          // Support for legacy |-separated segments if user explicitly typed | in regex mode
-          if (useRegex && logFilter.includes("|")) {
-            // Already handled by the combined regex usually, but keeping for robustness
-            // Actually, the main regex already contains the | if user typed it.
-          }
           return false;
         } else {
           // Fallback to simple include (should rarely be hit if filterInfo is working)
@@ -289,7 +300,7 @@ export default function LogcatView() {
   const virtualizer = useVirtualizer({
     count: filteredLogs.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 24,
+    estimateSize: () => 28,
     overscan: 10,
   });
 
@@ -332,94 +343,77 @@ export default function LogcatView() {
     }, 1000);
   };
 
+  // 获取日志级别颜色（用于 Checkbox）
   const getLogColor = (level: string) => {
-    switch (level) {
-      case "E": return "#f14c4c";
-      case "W": return "#cca700";
-      case "I": return "#3794ff";
-      case "D": return "#4ec9b0";
-      default: return "#d4d4d4";
-    }
+    return levelColors[level]?.text || '#d4d4d4';
   };
 
-  const renderLogLine = (text: string) => {
-    if (!text) return null;
-    const level = getLogLevel(text);
-    const color = getLogColor(level);
+  // 搜索高亮渲染
+  const renderHighlight = useCallback((content: string) => {
     const { highlighter, invalid } = filterInfo;
+    if (!logFilter || invalid || !highlighter) return content;
 
-    // Parse logcat -v time format: "01-04 12:34:56.789 D/Tag( 1234): message"
-    // Regex to capture: Time, Level, Tag, Message
-    // Adjusted simplified parsing for performance
-    const match = text.match(/^(\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s+([VDIWEF])\/(.*?)\(\s*\d+\):\s*(.*)$/);
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let m;
+    const activeHighlighter = new RegExp(highlighter.source, highlighter.flags);
+    activeHighlighter.lastIndex = 0;
 
-    let time = "";
-    let levelTag = "";
-    let message = text;
-
-    if (match) {
-      time = match[1].substring(6); // Remove Date, keep Time (HH:mm:ss.ms)
-      levelTag = `${match[2]}/${match[3].trim()}`;
-      message = match[4];
-    } else {
-      // Fallback for non-standard lines
-      levelTag = level;
+    while ((m = activeHighlighter.exec(content)) !== null) {
+      if (m.index > lastIndex) {
+        parts.push(content.substring(lastIndex, m.index));
+      }
+      parts.push(
+        <mark key={m.index} style={{ backgroundColor: "#ffcc00", color: "#000", borderRadius: "2px", padding: "0 1px" }}>
+          {m[0]}
+        </mark>
+      );
+      lastIndex = activeHighlighter.lastIndex;
+      if (m[0].length === 0) activeHighlighter.lastIndex++;
     }
+    if (lastIndex < content.length) {
+      parts.push(content.substring(lastIndex));
+    }
+    return parts.length > 0 ? parts : content;
+  }, [filterInfo, logFilter]);
 
-    const renderHighlight = (content: string) => {
-      if (!logFilter || invalid || !highlighter) return content;
-
-      const parts: React.ReactNode[] = [];
-      let lastIndex = 0;
-      let m;
-      const activeHighlighter = highlighter;
-      activeHighlighter.lastIndex = 0;
-
-      while ((m = activeHighlighter.exec(content)) !== null) {
-        if (m.index > lastIndex) {
-          parts.push(content.substring(lastIndex, m.index));
-        }
-        parts.push(
-          <mark key={m.index} style={{ backgroundColor: "#ffcc00", color: "#000", borderRadius: "2px", padding: "0 1px" }}>
-            {m[0]}
-          </mark>
-        );
-        lastIndex = activeHighlighter.lastIndex;
-        if (m[0].length === 0) activeHighlighter.lastIndex++;
-      }
-      if (lastIndex < content.length) {
-        parts.push(content.substring(lastIndex));
-      }
-      return parts.length > 0 ? parts : content;
-    };
+  // 渲染单条日志行 - 使用 ParsedLog 结构化数据
+  const renderLogLine = useCallback((log: ParsedLog, isSelected: boolean) => {
+    if (!log) return null;
+    
+    const colors = levelColors[log.level] || levelColors['V'];
+    const levelTag = `${log.level}/${log.tag || 'Unknown'}`;
+    const messageText = log.message || log.raw;
 
     return (
-      <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-        {time && (
-          <span style={{
-            flexBasis: 90, flexShrink: 0, color: '#666',
-            fontFamily: 'Menlo, Monaco, Consolas, monospace', fontSize: 11
-          }}>
-            {time}
-          </span>
-        )}
+      <div style={{ display: 'flex', gap: 8, width: '100%', alignItems: 'center', height: 20 }}>
+        {/* 时间 */}
         <span style={{
-          flexBasis: 140, flexShrink: 0, color: color, fontWeight: 500,
-          fontFamily: 'Menlo, Monaco, Consolas, monospace', fontSize: 11,
+          width: 90, flexShrink: 0, color: '#888',
+          fontFamily: '"JetBrains Mono", Menlo, Monaco, Consolas, monospace', fontSize: 11,
+          whiteSpace: 'nowrap',
+        }}>
+          {log.timestamp || '--:--:--.---'}
+        </span>
+        {/* Level/Tag */}
+        <span style={{
+          width: 150, flexShrink: 0, color: colors.text, fontWeight: 500,
+          fontFamily: '"JetBrains Mono", Menlo, Monaco, Consolas, monospace', fontSize: 11,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
         }}>
           {renderHighlight(levelTag)}
         </span>
+        {/* 消息 - 单行截断 */}
         <span style={{
-          flex: 1, color: token.colorText,
-          fontFamily: 'Menlo, Monaco, Consolas, monospace', fontSize: 11,
-          wordBreak: 'break-all'
+          flex: 1, color: isSelected ? '#fff' : '#d4d4d4',
+          fontFamily: '"JetBrains Mono", Menlo, Monaco, Consolas, monospace', fontSize: 11,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
-          {renderHighlight(message)}
+          {renderHighlight(messageText)}
         </span>
       </div>
     );
-  };
+  }, [renderHighlight]);
 
   const handleRemovePreset = (id: string) => {
     setSavedFilters(prev => prev.filter(p => p.id !== id));
@@ -717,50 +711,109 @@ export default function LogcatView() {
         </div>
       </div>
 
+      {/* 日志列表 + 详情面板容器 */}
       <div
         style={{
-          flex: 1, position: "relative", minHeight: 0, backgroundColor: "#1e1e1e",
-          borderRadius: "4px", overflow: "hidden", marginTop: 12,
+          flex: 1,
+          display: "flex",
+          gap: 12,
+          minHeight: 0,
+          marginTop: 12,
         }}
       >
+        {/* 日志列表 */}
         <div
-          ref={parentRef}
-          onScroll={handleScroll}
-          className="selectable"
-          style={{ height: "100%", overflow: "auto", userSelect: "text" }}
+          style={{
+            flex: 1,
+            position: "relative",
+            minHeight: 0,
+            backgroundColor: "#1e1e1e",
+            borderRadius: "4px",
+            overflow: "hidden",
+          }}
         >
-          <div style={{ height: `${virtualizer.getTotalSize()}px`, width: "100%", position: "relative" }}>
-            {virtualizer.getVirtualItems().map((virtualItem) => (
-              <div
-                key={virtualItem.index}
-                ref={virtualizer.measureElement}
-                data-index={virtualItem.index}
-                style={{
-                  position: "absolute", top: 0, left: 0, width: "100%",
-                  transform: `translateY(${virtualItem.start}px)`, padding: "2px 12px",
-                  borderBottom: "1px solid #2d2d2d", color: "#d4d4d4",
-                  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                  fontSize: "12px", lineHeight: "1.5", whiteSpace: "pre-wrap", wordBreak: "break-all",
-                }}
-              >
-                {renderLogLine(filteredLogs[virtualItem.index])}
-              </div>
-            ))}
+          <div
+            ref={parentRef}
+            onScroll={handleScroll}
+            className="selectable"
+            style={{ height: "100%", overflow: "auto", userSelect: "text" }}
+          >
+            <div style={{ height: `${virtualizer.getTotalSize()}px`, width: "100%", position: "relative" }}>
+              {virtualizer.getVirtualItems().map((virtualItem) => {
+                const log = filteredLogs[virtualItem.index];
+                if (!log) return null;
+                
+                const isSelected = log.id === selectedLogId;
+                const colors = levelColors[log.level] || levelColors['V'];
+                const isErrorOrWarn = log.level === 'E' || log.level === 'F' || log.level === 'W';
+                
+                return (
+                  <div
+                    key={virtualItem.key}
+                    data-index={virtualItem.index}
+                    onClick={() => handleLogClick(log)}
+                    style={{
+                      position: "absolute", 
+                      top: 0, 
+                      left: 0, 
+                      width: "100%",
+                      height: 28,
+                      transform: `translateY(${virtualItem.start}px)`, 
+                      padding: "4px 12px 4px 8px",
+                      borderBottom: "1px solid #2d2d2d", 
+                      borderLeft: `3px solid ${colors.border}`,
+                      color: "#d4d4d4",
+                      fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                      fontSize: "12px", 
+                      lineHeight: "20px",
+                      cursor: "pointer",
+                      backgroundColor: isSelected 
+                        ? '#1677ff' 
+                        : isErrorOrWarn 
+                          ? colors.bg 
+                          : 'transparent',
+                      transition: "background-color 0.15s",
+                      boxSizing: "border-box",
+                      overflow: "hidden",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.backgroundColor = isErrorOrWarn ? colors.bg : 'rgba(255,255,255,0.05)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.backgroundColor = isErrorOrWarn ? colors.bg : 'transparent';
+                      }
+                    }}
+                  >
+                    {renderLogLine(log, isSelected)}
+                  </div>
+                );
+              })}
+            </div>
           </div>
+
+          {!autoScroll && filteredLogs.length > 0 && (
+            <Button
+              type="primary"
+              shape="circle"
+              icon={<DownOutlined />}
+              size="large"
+              onClick={scrollToBottom}
+              style={{
+                position: "absolute", bottom: 24, right: 24,
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.4)", zIndex: 100,
+              }}
+            />
+          )}
         </div>
 
-        {!autoScroll && filteredLogs.length > 0 && (
-          <Button
-            type="primary"
-            shape="circle"
-            icon={<DownOutlined />}
-            size="large"
-            onClick={scrollToBottom}
-            style={{
-              position: "absolute", bottom: 24, right: 24,
-              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.4)", zIndex: 100,
-            }}
-          />
+        {/* 详情面板 */}
+        {detailPanelOpen && selectedLog && (
+          <div style={{ width: 400, flexShrink: 0 }}>
+            <LogDetailPanel log={selectedLog} onClose={closeDetail} />
+          </div>
         )}
       </div>
 

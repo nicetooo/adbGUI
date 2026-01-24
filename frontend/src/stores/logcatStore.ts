@@ -11,6 +11,45 @@ export interface FilterPreset {
   isRegex: boolean;
 }
 
+// 结构化日志数据
+export interface ParsedLog {
+  id: string;           // 唯一标识
+  raw: string;          // 原始文本
+  timestamp: string;    // "12:34:56.789"
+  date: string;         // "01-04"
+  level: 'V' | 'D' | 'I' | 'W' | 'E' | 'F';
+  tag: string;          // Tag 名称
+  message: string;      // 消息内容
+  pid?: number;         // 进程 ID
+  packageName?: string; // 包名
+}
+
+// 从原始日志行解析时间部分
+function extractTimeFromRaw(raw: string): { date: string; timestamp: string } {
+  // 格式: "01-04 12:34:56.789 ..."
+  const match = raw.match(/^(\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2}\.\d{3})/);
+  if (match) {
+    return { date: match[1], timestamp: match[2] };
+  }
+  return { date: '', timestamp: '' };
+}
+
+// 从原始日志行解析 PID
+function extractPidFromRaw(raw: string): number | undefined {
+  // 格式: "... D/Tag( 1234): ..." 或 "... D/Tag(1234): ..."
+  const match = raw.match(/\(\s*(\d+)\s*\):/);
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+  return undefined;
+}
+
+// 生成唯一 ID
+let logIdCounter = 0;
+function generateLogId(): string {
+  return `log-${Date.now()}-${logIdCounter++}`;
+}
+
 // @ts-ignore
 const EventsOn = (window as any).runtime.EventsOn;
 // @ts-ignore
@@ -18,9 +57,14 @@ const EventsOff = (window as any).runtime.EventsOff;
 
 interface LogcatState {
   // State
-  logs: string[];
+  logs: ParsedLog[];
   isLogging: boolean;
   selectedPackage: string;
+
+  // Selection state for detail panel
+  selectedLogId: string | null;
+  detailPanelOpen: boolean;
+  activeDetailTab: 'message' | 'raw';  // Tab state for detail panel
 
   // Filter states
   logFilter: string;
@@ -53,8 +97,15 @@ interface LogcatState {
   aiPopoverOpen: boolean;
 
   // Actions
-  setLogs: (logs: string[] | ((prev: string[]) => string[])) => void;
+  setLogs: (logs: ParsedLog[] | ((prev: ParsedLog[]) => ParsedLog[])) => void;
   clearLogs: () => void;
+  
+  // Selection actions
+  setSelectedLogId: (id: string | null) => void;
+  setDetailPanelOpen: (open: boolean) => void;
+  setActiveDetailTab: (tab: 'message' | 'raw') => void;
+  selectLog: (id: string) => void;  // 选中日志并打开详情
+  closeDetail: () => void;          // 关闭详情面板
   setSelectedPackage: (pkg: string) => void;
   setLogFilter: (filter: string) => void;
   setUseRegex: (useRegex: boolean) => void;
@@ -94,7 +145,7 @@ interface LogcatState {
 }
 
 // Local buffer to throttle updates (prevents 1000s of state updates per second)
-let logBuffer: string[] = [];
+let logBuffer: ParsedLog[] = [];
 let flushTimerId: number | null = null;
 
 const MAX_LOGS = 50000; // Reduced from 200k to 50k for performance
@@ -105,6 +156,11 @@ export const useLogcatStore = create<LogcatState>()(
     logs: [],
     isLogging: false,
     selectedPackage: '',
+
+    // Selection state
+    selectedLogId: null,
+    detailPanelOpen: false,
+    activeDetailTab: 'message' as const,
 
     logFilter: '',
     useRegex: false,
@@ -156,7 +212,14 @@ export const useLogcatStore = create<LogcatState>()(
       });
     },
 
-    clearLogs: () => set({ logs: [] }),
+    clearLogs: () => set({ logs: [], selectedLogId: null, detailPanelOpen: false }),
+
+    // Selection actions
+    setSelectedLogId: (id) => set({ selectedLogId: id }),
+    setDetailPanelOpen: (open) => set({ detailPanelOpen: open }),
+    setActiveDetailTab: (tab) => set({ activeDetailTab: tab }),
+    selectLog: (id) => set({ selectedLogId: id, detailPanelOpen: true }),
+    closeDetail: () => set({ selectedLogId: null, detailPanelOpen: false, activeDetailTab: 'message' }),
 
     setSelectedPackage: (pkg) => set({ selectedPackage: pkg }),
 
@@ -248,24 +311,38 @@ export const useLogcatStore = create<LogcatState>()(
           // Access current filter state using get()
           const { preFilter, preUseRegex, excludeFilter, excludeUseRegex } = get();
 
-          const filteredLines: string[] = [];
+          const filteredLogs: ParsedLog[] = [];
 
           for (const event of logEvents) {
-            let linesToProcess: string[] = [];
+            // 后端同时发送 data 和 detail，优先使用 detail（向后兼容），否则用 data
+            let eventData: any = event.detail || event.data;
             
-            if (Array.isArray(event.detail)) {
+            // 如果是 JSON 字符串则解析
+            if (typeof eventData === 'string') {
+              try {
+                eventData = JSON.parse(eventData);
+              } catch {
+                eventData = null;
+              }
+            }
+            
+            // 处理聚合事件或单个事件
+            let detailItems: any[] = [];
+            
+            if (Array.isArray(eventData)) {
                 // Aggregated event from backend
-                linesToProcess = event.detail.map((d: any) => d.raw).filter(Boolean);
-            } else if (event.detail && event.detail.raw) {
-                // Single event (legacy)
-                linesToProcess = [event.detail.raw];
+                detailItems = eventData;
+            } else if (eventData) {
+                // Single event
+                detailItems = [eventData];
             } else {
-                // Fallback for title-only events
-                linesToProcess = [event.title];
+                // Fallback: use title as raw log
+                detailItems = [{ raw: event.title, tag: '', message: event.title, level: 'I' }];
             }
 
-            for (const line of linesToProcess) {
-                if (!line) continue;
+            for (const item of detailItems) {
+                const raw = item.raw || event.title || '';
+                if (!raw) continue;
 
                 let shouldKeep = true;
 
@@ -274,12 +351,12 @@ export const useLogcatStore = create<LogcatState>()(
                   try {
                     if (preUseRegex) {
                       const regex = new RegExp(preFilter, 'i');
-                      if (!regex.test(line)) shouldKeep = false;
+                      if (!regex.test(raw)) shouldKeep = false;
                     } else {
-                      if (!line.toLowerCase().includes(preFilter.toLowerCase())) shouldKeep = false;
+                      if (!raw.toLowerCase().includes(preFilter.toLowerCase())) shouldKeep = false;
                     }
                   } catch {
-                    if (!line.toLowerCase().includes(preFilter.toLowerCase())) shouldKeep = false;
+                    if (!raw.toLowerCase().includes(preFilter.toLowerCase())) shouldKeep = false;
                   }
                 }
 
@@ -288,24 +365,37 @@ export const useLogcatStore = create<LogcatState>()(
                   try {
                     if (excludeUseRegex) {
                       const regex = new RegExp(excludeFilter, 'i');
-                      if (regex.test(line)) shouldKeep = false;
+                      if (regex.test(raw)) shouldKeep = false;
                     } else {
-                      if (line.toLowerCase().includes(excludeFilter.toLowerCase())) shouldKeep = false;
+                      if (raw.toLowerCase().includes(excludeFilter.toLowerCase())) shouldKeep = false;
                     }
                   } catch {
-                    if (line.toLowerCase().includes(excludeFilter.toLowerCase())) shouldKeep = false;
+                    if (raw.toLowerCase().includes(excludeFilter.toLowerCase())) shouldKeep = false;
                   }
                 }
 
                 if (shouldKeep) {
-                  filteredLines.push(line);
+                  // 构建结构化日志对象
+                  const { date, timestamp } = extractTimeFromRaw(raw);
+                  const parsed: ParsedLog = {
+                    id: generateLogId(),
+                    raw: raw,
+                    timestamp: timestamp,
+                    date: date,
+                    level: (item.level as ParsedLog['level']) || 'V',
+                    tag: item.tag || '',
+                    message: item.message || '',
+                    pid: item.pid || extractPidFromRaw(raw),
+                    packageName: item.packageName,
+                  };
+                  filteredLogs.push(parsed);
                 }
             }
           }
 
-          if (filteredLines.length > 0) {
+          if (filteredLogs.length > 0) {
              // Push to local buffer, NO state update here
-             logBuffer.push(...filteredLines);
+             logBuffer.push(...filteredLogs);
           }
         });
 
@@ -341,6 +431,8 @@ export const useLogcatStore = create<LogcatState>()(
       }
       set({
         logs: [],
+        selectedLogId: null,
+        detailPanelOpen: false,
         selectedPackage: '',
         logFilter: '',
         useRegex: false,

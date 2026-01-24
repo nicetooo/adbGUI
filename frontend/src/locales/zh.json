@@ -522,7 +522,15 @@
     "exclude_filter_info": "匹配的日志将被直接丢弃",
     "filter_pattern": "模式",
     "filter_name_placeholder": "规则名称",
-    "filter_removed": "过滤规则已移除"
+    "filter_removed": "过滤规则已移除",
+    "detail": {
+      "time": "时间",
+      "level": "级别",
+      "tag": "标签",
+      "package": "包名",
+      "message": "消息内容",
+      "raw": "原始文本"
+    }
   },
   "mirror": {
     "title": "屏幕投屏",

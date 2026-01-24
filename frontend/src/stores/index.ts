@@ -3,7 +3,7 @@ export * from './types';
 export { useDeviceStore } from './deviceStore';
 export { useMirrorStore, openRecordPath } from './mirrorStore';
 export { useLogcatStore } from './logcatStore';
-export type { FilterPreset } from './logcatStore';
+export type { FilterPreset, ParsedLog } from './logcatStore';
 export { useUIStore } from './uiStore';
 export { useAutomationStore } from './automationStore';
 export type { TouchEvent, TouchScript, ScriptTask, TaskStep } from './automationStore';

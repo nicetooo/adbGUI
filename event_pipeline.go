@@ -469,6 +469,11 @@ func (p *EventPipeline) loadActiveSessions() {
 
 // Emit 发送事件 (主入口)
 func (p *EventPipeline) Emit(event UnifiedEvent) {
+	// 自动同步 Data 到 Detail (向后兼容前端老代码)
+	if len(event.Data) > 0 && len(event.Detail) == 0 {
+		event.Detail = event.Data
+	}
+
 	// 背压检查
 	if !p.backpressure.ShouldProcess(event) {
 		return
