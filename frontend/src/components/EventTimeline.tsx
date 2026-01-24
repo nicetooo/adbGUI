@@ -1355,7 +1355,7 @@ const EventTimeline = () => {
   return (
     <div style={{ height: '100%', display: 'flex', padding: 16, gap: 16 }}>
       {/* Main Timeline Area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
         {/* Header */}
         <div style={{ marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -1624,12 +1624,12 @@ const EventTimeline = () => {
       </div>
 
       {/* Event List and Detail Panel */}
-      <div style={{ flex: 1, display: 'flex', gap: 12, overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', gap: 12, overflow: 'hidden', minHeight: 0 }}>
         {/* Event List */}
         <Card
           size="small"
-          style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}
-          bodyStyle={{ padding: 0, height: '100%' }}
+          style={{ flex: 1, overflow: 'hidden', minWidth: 0, minHeight: 0 }}
+          bodyStyle={{ padding: 0, height: '100%', minHeight: 0 }}
         >
           {isLoading ? (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
@@ -1650,7 +1650,7 @@ const EventTimeline = () => {
             >
               <div
                 style={{
-                  height: rowVirtualizer.getTotalSize(),
+                  height: rowVirtualizer.getTotalSize() + 60,
                   width: '100%',
                   position: 'relative',
                 }}
