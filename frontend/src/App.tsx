@@ -59,6 +59,8 @@ import { OpenPath, SetProxyDevice } from "../wailsjs/go/main/App";
 const BrowserOpenURL = (window as any).runtime.BrowserOpenURL;
 // @ts-ignore
 const EventsOn = (window as any).runtime.EventsOn;
+// @ts-ignore
+const WindowToggleMaximise = (window as any).runtime.WindowToggleMaximise;
 
 const { Content, Sider } = Layout;
 
@@ -234,7 +236,7 @@ function App() {
         }}
       >
         <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-          <div className="drag-handle" style={{ height: 38, width: "100%", flexShrink: 0 }} />
+          <div className="drag-handle" style={{ height: 38, width: "100%", flexShrink: 0 }} onDoubleClick={WindowToggleMaximise} />
           <div style={{ flex: 1, overflowY: "auto", padding: "0 8px" }}>
             <Menu
               theme={isDark ? "dark" : "light"}
@@ -319,7 +321,7 @@ function App() {
       </Sider>
       <Layout className="site-layout" style={{ marginLeft: 220 }}>
         <Content style={{ margin: "0", height: "100vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-          <div className="drag-handle" style={{ height: 38, width: "100%", flexShrink: 0 }} />
+          <div className="drag-handle" style={{ height: 38, width: "100%", flexShrink: 0 }} onDoubleClick={WindowToggleMaximise} />
 
           {/* Conditional Rendering - Only render active view */}
           {selectedKey === VIEW_KEYS.DEVICES && <DevicesView onShowWirelessConnect={showWirelessConnect} />}
