@@ -602,7 +602,11 @@
       "launch_app": "앱 시작",
       "stop_app": "강제 중지",
       "clear_app": "데이터 삭제",
-      "open_settings": "앱 설정"
+      "open_settings": "앱 설정",
+      "set_variable": "변수 설정",
+      "read_to_variable": "변수로 읽기",
+      "start_session": "세션 시작",
+      "end_session": "세션 종료"
     },
     "convert": "변환",
     "step_updated": "단계가 업데이트되었습니다",

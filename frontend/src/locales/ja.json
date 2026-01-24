@@ -602,7 +602,11 @@
       "launch_app": "アプリ起動",
       "stop_app": "強制停止",
       "clear_app": "データ消去",
-      "open_settings": "アプリ設定"
+      "open_settings": "アプリ設定",
+      "set_variable": "変数を設定",
+      "read_to_variable": "変数に読み込み",
+      "start_session": "セッション開始",
+      "end_session": "セッション終了"
     },
     "convert": "変換",
     "step_updated": "ステップを更新しました",

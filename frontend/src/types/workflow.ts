@@ -114,6 +114,32 @@ export interface ReadToVariableParams {
   defaultValue?: string;
 }
 
+export interface SessionParams {
+  // Session name (for start_session)
+  sessionName?: string;
+
+  // Logcat config
+  logcatEnabled?: boolean;
+  logcatPackageName?: string;
+  logcatPreFilter?: string;
+  logcatExcludeFilter?: string;
+
+  // Recording config
+  recordingEnabled?: boolean;
+  recordingQuality?: 'low' | 'medium' | 'high';
+
+  // Proxy config
+  proxyEnabled?: boolean;
+  proxyPort?: number;
+  proxyMitmEnabled?: boolean;
+
+  // Monitor config
+  monitorEnabled?: boolean;
+
+  // For end_session: session end status
+  status?: 'completed' | 'error' | 'cancelled';
+}
+
 // ============== Step Types ==============
 
 export type StepType =
@@ -145,7 +171,9 @@ export type StepType =
   | 'key_volume_up'
   | 'key_volume_down'
   | 'screen_on'
-  | 'screen_off';
+  | 'screen_off'
+  | 'start_session'
+  | 'end_session';
 
 // ============== WorkflowStep ==============
 
@@ -172,6 +200,7 @@ export interface WorkflowStep {
   adb?: ADBParams;
   workflow?: SubWorkflowParams;
   readToVariable?: ReadToVariableParams;
+  session?: SessionParams;
 
   // UI Layout
   layout?: StepLayout;
@@ -268,6 +297,7 @@ export const STEP_CATEGORIES = {
   ELEMENT_ACTIONS: ['click_element', 'long_click_element', 'input_text', 'swipe_element'] as StepType[],
   WAIT_CONDITIONS: ['wait_element', 'wait_gone', 'wait'] as StepType[],
   FLOW_CONTROL: ['start', 'branch', 'set_variable', 'read_to_variable'] as StepType[],
+  SESSION_CONTROL: ['start_session', 'end_session'] as StepType[],
   SCRIPT_ACTIONS: ['script', 'adb'] as StepType[],
   SYSTEM_ACTIONS: ['key_back', 'key_home', 'key_recent', 'key_power', 'key_volume_up', 'key_volume_down', 'screen_on', 'screen_off'] as StepType[],
   APP_ACTIONS: ['launch_app', 'stop_app', 'clear_app', 'open_settings'] as StepType[],

@@ -460,6 +460,9 @@ func (a *App) runWorkflowInternal(ctx context.Context, deviceId string, workflow
 	for k, v := range parentVars {
 		vars[k] = v
 	}
+	// Store workflow metadata for use by session nodes
+	vars["_workflowId"] = workflow.ID
+	vars["_workflowName"] = workflow.Name
 
 	var startStep *WorkflowStep
 	for i := range workflow.Steps {
@@ -732,6 +735,46 @@ func (a *App) executeStep(ctx context.Context, deviceId string, step *WorkflowSt
 	case "screen_off":
 		_, err := a.RunAdbCommand(deviceId, "shell input keyevent 223")
 		return StepResult{Success: err == nil, Error: err}
+
+	case "start_session":
+		sessionName := ""
+		if step.Session != nil && step.Session.SessionName != "" {
+			sessionName = a.processWorkflowVariables(step.Session.SessionName, vars)
+		}
+		// Generate default session name if not provided
+		if sessionName == "" {
+			workflowName := vars["_workflowName"]
+			if workflowName != "" {
+				sessionName = fmt.Sprintf("Workflow: %s", workflowName)
+			} else {
+				sessionName = fmt.Sprintf("Workflow Session %s", time.Now().Format("15:04:05"))
+			}
+		}
+		config := a.sessionParamsToConfig(step.Session)
+		sessionID := a.StartSessionWithConfig(deviceId, sessionName, config)
+		if sessionID == "" {
+			return StepResult{Success: false, Error: fmt.Errorf("failed to create session")}
+		}
+		vars["_sessionId"] = sessionID
+		return StepResult{Success: true}
+
+	case "end_session":
+		status := "completed"
+		if step.Session != nil && step.Session.Status != "" {
+			status = step.Session.Status
+		}
+		sessionID := vars["_sessionId"]
+		if sessionID == "" {
+			// Try to get active session for device
+			if session := a.GetDeviceActiveSession(deviceId); session != nil {
+				sessionID = session.ID
+			}
+		}
+		if sessionID != "" {
+			a.EndActiveSession(sessionID, status)
+		}
+		delete(vars, "_sessionId")
+		return StepResult{Success: true}
 
 	default:
 		return StepResult{Success: false, Error: fmt.Errorf("unknown step type: %s", step.Type)}
@@ -1250,4 +1293,31 @@ func (a *App) findElementInHierarchy(hierarchy *UIHierarchyResult, selectorType,
 
 	selector := &ElementSelector{Type: selectorType, Value: selectorValue, Index: 0}
 	return a.FindElementBySelector(hierarchy.Root, selector)
+}
+
+// sessionParamsToConfig converts workflow SessionParams to SessionConfig
+func (a *App) sessionParamsToConfig(params *SessionParams) SessionConfig {
+	if params == nil {
+		return SessionConfig{}
+	}
+	return SessionConfig{
+		Logcat: LogcatConfig{
+			Enabled:       params.LogcatEnabled,
+			PackageName:   params.LogcatPackageName,
+			PreFilter:     params.LogcatPreFilter,
+			ExcludeFilter: params.LogcatExcludeFilter,
+		},
+		Recording: RecordingConfig{
+			Enabled: params.RecordingEnabled,
+			Quality: params.RecordingQuality,
+		},
+		Proxy: ProxyConfig{
+			Enabled:     params.ProxyEnabled,
+			Port:        params.ProxyPort,
+			MitmEnabled: params.ProxyMitmEnabled,
+		},
+		Monitor: MonitorConfig{
+			Enabled: params.MonitorEnabled,
+		},
+	}
 }

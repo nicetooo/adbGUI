@@ -1998,6 +1998,40 @@ export namespace types {
 	        this.scriptName = source["scriptName"];
 	    }
 	}
+	export class SessionParams {
+	    sessionName?: string;
+	    logcatEnabled?: boolean;
+	    logcatPackageName?: string;
+	    logcatPreFilter?: string;
+	    logcatExcludeFilter?: string;
+	    recordingEnabled?: boolean;
+	    recordingQuality?: string;
+	    proxyEnabled?: boolean;
+	    proxyPort?: number;
+	    proxyMitmEnabled?: boolean;
+	    monitorEnabled?: boolean;
+	    status?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SessionParams(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sessionName = source["sessionName"];
+	        this.logcatEnabled = source["logcatEnabled"];
+	        this.logcatPackageName = source["logcatPackageName"];
+	        this.logcatPreFilter = source["logcatPreFilter"];
+	        this.logcatExcludeFilter = source["logcatExcludeFilter"];
+	        this.recordingEnabled = source["recordingEnabled"];
+	        this.recordingQuality = source["recordingQuality"];
+	        this.proxyEnabled = source["proxyEnabled"];
+	        this.proxyPort = source["proxyPort"];
+	        this.proxyMitmEnabled = source["proxyMitmEnabled"];
+	        this.monitorEnabled = source["monitorEnabled"];
+	        this.status = source["status"];
+	    }
+	}
 	export class StepCommon {
 	    timeout?: number;
 	    onError?: string;
@@ -2163,6 +2197,7 @@ export namespace types {
 	    adb?: ADBParams;
 	    workflow?: SubWorkflowParams;
 	    readToVariable?: ReadToVariableParams;
+	    session?: SessionParams;
 	    layout?: StepLayout;
 	
 	    static createFrom(source: any = {}) {
@@ -2187,6 +2222,7 @@ export namespace types {
 	        this.adb = this.convertValues(source["adb"], ADBParams);
 	        this.workflow = this.convertValues(source["workflow"], SubWorkflowParams);
 	        this.readToVariable = this.convertValues(source["readToVariable"], ReadToVariableParams);
+	        this.session = this.convertValues(source["session"], SessionParams);
 	        this.layout = this.convertValues(source["layout"], StepLayout);
 	    }
 	

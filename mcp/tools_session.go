@@ -24,10 +24,26 @@ func splitAndTrim(s string) []string {
 
 // registerSessionTools registers session management tools
 func (s *MCPServer) registerSessionTools() {
-	// session_create - Create a new session
+	// session_create - Create a new session with optional configuration
 	s.server.AddTool(
 		mcp.NewTool("session_create",
-			mcp.WithDescription("Create a new tracking session for a device"),
+			mcp.WithDescription(`Create a new tracking session for a device with optional configuration.
+
+Configuration options:
+- logcat: Capture device logs (can filter by package)
+- recording: Record device screen
+- proxy: Enable HTTP/HTTPS proxy for network inspection
+- monitor: Monitor device state (battery, network, screen, app lifecycle)
+
+Examples:
+  Basic session:
+    {"device_id": "abc123"}
+  
+  Session with logcat:
+    {"device_id": "abc123", "name": "Debug", "logcat_enabled": true, "logcat_package": "com.example.app"}
+  
+  Full featured session:
+    {"device_id": "abc123", "logcat_enabled": true, "recording_enabled": true, "proxy_enabled": true}`),
 			mcp.WithString("device_id",
 				mcp.Required(),
 				mcp.Description("Device ID"),
@@ -37,6 +53,40 @@ func (s *MCPServer) registerSessionTools() {
 			),
 			mcp.WithString("type",
 				mcp.Description("Session type: manual, recording, workflow (default: manual)"),
+			),
+			// Logcat config
+			mcp.WithBoolean("logcat_enabled",
+				mcp.Description("Enable logcat capture"),
+			),
+			mcp.WithString("logcat_package",
+				mcp.Description("Package name to filter logcat"),
+			),
+			mcp.WithString("logcat_pre_filter",
+				mcp.Description("Pre-filter for logcat (grep pattern)"),
+			),
+			mcp.WithString("logcat_exclude_filter",
+				mcp.Description("Exclude filter for logcat"),
+			),
+			// Recording config
+			mcp.WithBoolean("recording_enabled",
+				mcp.Description("Enable screen recording"),
+			),
+			mcp.WithString("recording_quality",
+				mcp.Description("Recording quality: low, medium, high (default: medium)"),
+			),
+			// Proxy config
+			mcp.WithBoolean("proxy_enabled",
+				mcp.Description("Enable HTTP/HTTPS proxy"),
+			),
+			mcp.WithNumber("proxy_port",
+				mcp.Description("Proxy port (default: 8080)"),
+			),
+			mcp.WithBoolean("proxy_mitm",
+				mcp.Description("Enable MITM for HTTPS inspection"),
+			),
+			// Monitor config
+			mcp.WithBoolean("monitor_enabled",
+				mcp.Description("Enable device state monitoring (battery, network, screen, app lifecycle)"),
 			),
 		),
 		s.handleSessionCreate,
@@ -137,19 +187,93 @@ func (s *MCPServer) handleSessionCreate(ctx context.Context, request mcp.CallToo
 		name = n
 	}
 
-	sessionType := "manual"
-	if t, ok := args["type"].(string); ok && t != "" {
-		sessionType = t
+	// Check if any config is provided
+	hasConfig := false
+	config := MCPSessionConfig{}
+
+	// Logcat config
+	if enabled, ok := args["logcat_enabled"].(bool); ok && enabled {
+		hasConfig = true
+		config.LogcatEnabled = true
+		if pkg, ok := args["logcat_package"].(string); ok {
+			config.LogcatPackageName = pkg
+		}
+		if filter, ok := args["logcat_pre_filter"].(string); ok {
+			config.LogcatPreFilter = filter
+		}
+		if exclude, ok := args["logcat_exclude_filter"].(string); ok {
+			config.LogcatExcludeFilter = exclude
+		}
 	}
 
-	sessionID := s.app.CreateSession(deviceID, sessionType, name)
+	// Recording config
+	if enabled, ok := args["recording_enabled"].(bool); ok && enabled {
+		hasConfig = true
+		config.RecordingEnabled = true
+		if quality, ok := args["recording_quality"].(string); ok {
+			config.RecordingQuality = quality
+		}
+	}
+
+	// Proxy config
+	if enabled, ok := args["proxy_enabled"].(bool); ok && enabled {
+		hasConfig = true
+		config.ProxyEnabled = true
+		if port, ok := args["proxy_port"].(float64); ok {
+			config.ProxyPort = int(port)
+		}
+		if mitm, ok := args["proxy_mitm"].(bool); ok {
+			config.ProxyMitmEnabled = mitm
+		}
+	}
+
+	// Monitor config
+	if enabled, ok := args["monitor_enabled"].(bool); ok && enabled {
+		hasConfig = true
+		config.MonitorEnabled = true
+	}
+
+	var sessionID string
+	if hasConfig {
+		sessionID = s.app.StartSessionWithConfig(deviceID, name, config)
+	} else {
+		sessionType := "manual"
+		if t, ok := args["type"].(string); ok && t != "" {
+			sessionType = t
+		}
+		sessionID = s.app.CreateSession(deviceID, sessionType, name)
+	}
+
 	if sessionID == "" {
 		return nil, fmt.Errorf("failed to create session")
 	}
 
+	// Build response with enabled features
+	features := []string{}
+	if config.LogcatEnabled {
+		features = append(features, "logcat")
+	}
+	if config.RecordingEnabled {
+		features = append(features, "recording")
+	}
+	if config.ProxyEnabled {
+		features = append(features, "proxy")
+	}
+	if config.MonitorEnabled {
+		features = append(features, "monitor")
+	}
+
+	response := fmt.Sprintf("Created session: %s\nDevice: %s", sessionID, deviceID)
+	if name != "" {
+		response += fmt.Sprintf("\nName: %s", name)
+	}
+	if len(features) > 0 {
+		response += fmt.Sprintf("\nEnabled: %s", strings.Join(features, ", "))
+	}
+
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
-			mcp.NewTextContent(fmt.Sprintf("Created session: %s\nDevice: %s\nType: %s", sessionID, deviceID, sessionType)),
+			mcp.NewTextContent(response),
 		},
 	}, nil
 }

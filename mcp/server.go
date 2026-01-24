@@ -47,8 +47,31 @@ type (
 	ADBParams               = types.ADBParams
 	SubWorkflowParams       = types.SubWorkflowParams
 	ReadToVariableParams    = types.ReadToVariableParams
+	SessionParams           = types.SessionParams
 	WorkflowExecutionResult = types.WorkflowExecutionResult
 )
+
+// MCPSessionConfig is a simplified session config for MCP interface
+// This avoids coupling with internal event_types.go definitions
+type MCPSessionConfig struct {
+	// Logcat config
+	LogcatEnabled       bool   `json:"logcatEnabled,omitempty"`
+	LogcatPackageName   string `json:"logcatPackageName,omitempty"`
+	LogcatPreFilter     string `json:"logcatPreFilter,omitempty"`
+	LogcatExcludeFilter string `json:"logcatExcludeFilter,omitempty"`
+
+	// Recording config
+	RecordingEnabled bool   `json:"recordingEnabled,omitempty"`
+	RecordingQuality string `json:"recordingQuality,omitempty"` // "low", "medium", "high"
+
+	// Proxy config
+	ProxyEnabled     bool `json:"proxyEnabled,omitempty"`
+	ProxyPort        int  `json:"proxyPort,omitempty"`
+	ProxyMitmEnabled bool `json:"proxyMitmEnabled,omitempty"`
+
+	// Monitor config
+	MonitorEnabled bool `json:"monitorEnabled,omitempty"`
+}
 
 // GazeApp interface defines the methods that MCP server needs from the main App
 // This allows loose coupling between MCP and the main application
@@ -86,6 +109,7 @@ type GazeApp interface {
 
 	// Session Management
 	CreateSession(deviceId, sessionType, name string) string
+	StartSessionWithConfig(deviceId, name string, config MCPSessionConfig) string
 	EndSession(sessionId string, status string) error
 	GetActiveSession(deviceId string) string
 	ListStoredSessions(deviceID string, limit int) ([]DeviceSession, error)

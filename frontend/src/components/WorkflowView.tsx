@@ -136,6 +136,10 @@ const STEP_TYPES = {
     { key: 'clear_app', icon: <DeleteOutlined />, color: 'orange' },
     { key: 'open_settings', icon: <SettingOutlined />, color: 'blue' },
   ],
+  SESSION_CONTROL: [
+    { key: 'start_session', icon: <PlayCircleOutlined />, color: 'cyan' },
+    { key: 'end_session', icon: <StopOutlined />, color: 'volcano' },
+  ],
 };
 
 const getStepTypeInfo = (type: string) => {
@@ -292,6 +296,26 @@ const WorkflowNode = React.memo(({ data, selected }: any) => {
                 <Tag style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>{step.readToVariable.selector?.type}</Tag>
                 <Text ellipsis style={{ fontSize: 11, maxWidth: 80, color: token.colorTextSecondary }}>{step.readToVariable.selector?.value}</Text>
                 <span style={{ color: token.colorPrimary }}>→ {step.readToVariable.variableName}</span>
+              </div>
+            )}
+            {/* Session config display */}
+            {step.session && step.type === 'start_session' && (
+              <div style={{ fontSize: 11, display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
+                {step.session.sessionName && (
+                  <Text ellipsis style={{ fontSize: 11, color: token.colorTextSecondary, maxWidth: 150 }}>{step.session.sessionName}</Text>
+                )}
+                {step.session.logcatEnabled && <Tag color="blue" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>Logcat</Tag>}
+                {step.session.recordingEnabled && <Tag color="red" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>Recording</Tag>}
+                {step.session.proxyEnabled && <Tag color="orange" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>Proxy</Tag>}
+                {step.session.monitorEnabled && <Tag color="green" style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>Monitor</Tag>}
+              </div>
+            )}
+            {step.session?.status && step.type === 'end_session' && (
+              <div style={{ fontSize: 11, marginTop: 2 }}>
+                <Tag color={step.session.status === 'completed' ? 'success' : step.session.status === 'error' ? 'error' : 'warning'} 
+                     style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>
+                  {step.session.status}
+                </Tag>
               </div>
             )}
           </div>
@@ -1086,6 +1110,19 @@ const WorkflowView: React.FC = () => {
       attribute: step.readToVariable?.attribute || 'text',
       regex: step.readToVariable?.regex,
       defaultValue: step.readToVariable?.defaultValue,
+      // session fields
+      sessionName: step.session?.sessionName,
+      logcatEnabled: step.session?.logcatEnabled,
+      logcatPackageName: step.session?.logcatPackageName,
+      logcatPreFilter: step.session?.logcatPreFilter,
+      logcatExcludeFilter: step.session?.logcatExcludeFilter,
+      recordingEnabled: step.session?.recordingEnabled,
+      recordingQuality: step.session?.recordingQuality || 'medium',
+      proxyEnabled: step.session?.proxyEnabled,
+      proxyPort: step.session?.proxyPort || 8080,
+      proxyMitmEnabled: step.session?.proxyMitmEnabled,
+      monitorEnabled: step.session?.monitorEnabled,
+      sessionStatus: step.session?.status || 'completed',
     });
     setDrawerVisible(true);
   };
@@ -1427,6 +1464,22 @@ const WorkflowView: React.FC = () => {
             workflowId: values.value || '',
           };
         }
+
+        // Build session params if applicable
+        const session = ['start_session', 'end_session'].includes(stepType) ? {
+          sessionName: values.sessionName || undefined,
+          logcatEnabled: values.logcatEnabled || false,
+          logcatPackageName: values.logcatPackageName || undefined,
+          logcatPreFilter: values.logcatPreFilter || undefined,
+          logcatExcludeFilter: values.logcatExcludeFilter || undefined,
+          recordingEnabled: values.recordingEnabled || false,
+          recordingQuality: values.recordingQuality || undefined,
+          proxyEnabled: values.proxyEnabled || false,
+          proxyPort: values.proxyPort || undefined,
+          proxyMitmEnabled: values.proxyMitmEnabled || false,
+          monitorEnabled: values.monitorEnabled || false,
+          status: stepType === 'end_session' ? (values.sessionStatus || 'completed') : undefined,
+        } : originalStep.session;
         
         // Build readToVariable params if applicable
         const readToVariable = stepType === 'read_to_variable' ? {
@@ -1464,6 +1517,7 @@ const WorkflowView: React.FC = () => {
           adb,
           workflow,
           readToVariable,
+          session,
         };
         
         return {
@@ -2295,6 +2349,19 @@ const WorkflowView: React.FC = () => {
                             ))}
                           </Space>
                         )
+                      },
+                      {
+                        key: '7',
+                        label: t("workflow.category.session_control"),
+                        children: (
+                          <Space wrap size={[8, 8]}>
+                            {STEP_TYPES.SESSION_CONTROL.map(s => (
+                              <Tooltip title={t(`workflow.step_type.${s.key}`)} key={s.key}>
+                                <Button size="small" icon={s.icon} onClick={() => handleAddStep(s.key)} />
+                              </Tooltip>
+                            ))}
+                          </Space>
+                        )
                       }
                     ]}
                   />
@@ -2686,6 +2753,114 @@ const WorkflowView: React.FC = () => {
                                   <Input placeholder={t("workflow.default_value_placeholder") || "Value if not found"} />
                                 </Form.Item>
                               </>
+                            )}
+
+                            {/* Session control fields */}
+                            {type === 'start_session' && (
+                              <>
+                                <Form.Item name="sessionName" label={t("workflow.session_name") || "Session Name"}>
+                                  <Input placeholder={t("workflow.session_name_placeholder") || "My Session"} />
+                                </Form.Item>
+                                
+                                <Divider plain style={{ margin: '12px 0 8px 0' }}>
+                                  <Text type="secondary" style={{ fontSize: 12 }}>{t("workflow.session_features") || "Session Features"}</Text>
+                                </Divider>
+
+                                <Form.Item name="logcatEnabled" valuePropName="checked" style={{ marginBottom: 8 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <input type="checkbox" id="logcatEnabled" onChange={(e) => stepForm.setFieldValue('logcatEnabled', e.target.checked)} checked={stepForm.getFieldValue('logcatEnabled')} />
+                                    <label htmlFor="logcatEnabled">{t("workflow.logcat_enabled") || "Enable Logcat"}</label>
+                                  </div>
+                                </Form.Item>
+                                <Form.Item noStyle shouldUpdate={(prev, cur) => prev.logcatEnabled !== cur.logcatEnabled}>
+                                  {({ getFieldValue }) => getFieldValue('logcatEnabled') && (
+                                    <div style={{ marginLeft: 24, marginBottom: 12 }}>
+                                      <Form.Item name="logcatPackageName" label={t("workflow.logcat_package") || "Package Name"} style={{ marginBottom: 8 }}>
+                                        <Select
+                                          showSearch
+                                          allowClear
+                                          placeholder={t("apps.filter_placeholder")}
+                                          loading={appsLoading}
+                                          onFocus={() => packages.length === 0 && fetchPackages()}
+                                          options={packages.map(p => ({ label: `${p.label || ''} ${p.name}`, value: p.name }))}
+                                          filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                                        />
+                                      </Form.Item>
+                                      <Form.Item name="logcatPreFilter" label={t("workflow.logcat_filter") || "Pre-Filter"} style={{ marginBottom: 8 }}>
+                                        <Input placeholder="tag:MyTag" />
+                                      </Form.Item>
+                                      <Form.Item name="logcatExcludeFilter" label={t("workflow.logcat_exclude") || "Exclude Filter"} style={{ marginBottom: 8 }}>
+                                        <Input placeholder="chatty" />
+                                      </Form.Item>
+                                    </div>
+                                  )}
+                                </Form.Item>
+
+                                <Form.Item name="recordingEnabled" valuePropName="checked" style={{ marginBottom: 8 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <input type="checkbox" id="recordingEnabled" onChange={(e) => stepForm.setFieldValue('recordingEnabled', e.target.checked)} checked={stepForm.getFieldValue('recordingEnabled')} />
+                                    <label htmlFor="recordingEnabled">{t("workflow.recording_enabled") || "Enable Recording"}</label>
+                                  </div>
+                                </Form.Item>
+                                <Form.Item noStyle shouldUpdate={(prev, cur) => prev.recordingEnabled !== cur.recordingEnabled}>
+                                  {({ getFieldValue }) => getFieldValue('recordingEnabled') && (
+                                    <div style={{ marginLeft: 24, marginBottom: 12 }}>
+                                      <Form.Item name="recordingQuality" label={t("workflow.recording_quality") || "Quality"} style={{ marginBottom: 8 }}>
+                                        <Select
+                                          defaultValue="medium"
+                                          options={[
+                                            { label: t("workflow.quality_low") || "Low (480p)", value: 'low' },
+                                            { label: t("workflow.quality_medium") || "Medium (720p)", value: 'medium' },
+                                            { label: t("workflow.quality_high") || "High (1080p)", value: 'high' },
+                                          ]}
+                                        />
+                                      </Form.Item>
+                                    </div>
+                                  )}
+                                </Form.Item>
+
+                                <Form.Item name="proxyEnabled" valuePropName="checked" style={{ marginBottom: 8 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <input type="checkbox" id="proxyEnabled" onChange={(e) => stepForm.setFieldValue('proxyEnabled', e.target.checked)} checked={stepForm.getFieldValue('proxyEnabled')} />
+                                    <label htmlFor="proxyEnabled">{t("workflow.proxy_enabled") || "Enable Proxy"}</label>
+                                  </div>
+                                </Form.Item>
+                                <Form.Item noStyle shouldUpdate={(prev, cur) => prev.proxyEnabled !== cur.proxyEnabled}>
+                                  {({ getFieldValue }) => getFieldValue('proxyEnabled') && (
+                                    <div style={{ marginLeft: 24, marginBottom: 12 }}>
+                                      <Form.Item name="proxyPort" label={t("workflow.proxy_port") || "Port"} style={{ marginBottom: 8 }}>
+                                        <InputNumber min={1024} max={65535} defaultValue={8080} style={{ width: '100%' }} />
+                                      </Form.Item>
+                                      <Form.Item name="proxyMitmEnabled" valuePropName="checked" style={{ marginBottom: 8 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                          <input type="checkbox" id="proxyMitmEnabled" onChange={(e) => stepForm.setFieldValue('proxyMitmEnabled', e.target.checked)} checked={stepForm.getFieldValue('proxyMitmEnabled')} />
+                                          <label htmlFor="proxyMitmEnabled">{t("workflow.proxy_mitm") || "Enable MITM (HTTPS)"}</label>
+                                        </div>
+                                      </Form.Item>
+                                    </div>
+                                  )}
+                                </Form.Item>
+
+                                <Form.Item name="monitorEnabled" valuePropName="checked" style={{ marginBottom: 8 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <input type="checkbox" id="monitorEnabled" onChange={(e) => stepForm.setFieldValue('monitorEnabled', e.target.checked)} checked={stepForm.getFieldValue('monitorEnabled')} />
+                                    <label htmlFor="monitorEnabled">{t("workflow.monitor_enabled") || "Enable Device Monitor"}</label>
+                                  </div>
+                                </Form.Item>
+                              </>
+                            )}
+
+                            {type === 'end_session' && (
+                              <Form.Item name="sessionStatus" label={t("workflow.session_status") || "End Status"}>
+                                <Select
+                                  defaultValue="completed"
+                                  options={[
+                                    { label: t("workflow.status_completed") || "Completed", value: 'completed' },
+                                    { label: t("workflow.status_error") || "Error", value: 'error' },
+                                    { label: t("workflow.status_cancelled") || "Cancelled", value: 'cancelled' },
+                                  ]}
+                                />
+                              </Form.Item>
                             )}
                           </>
                         );

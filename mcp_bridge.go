@@ -201,6 +201,31 @@ func (b *MCPBridge) CreateSession(deviceId, sessionType, name string) string {
 	return b.app.StartNewSession(deviceId, sessionType, name)
 }
 
+func (b *MCPBridge) StartSessionWithConfig(deviceId, name string, config mcp.MCPSessionConfig) string {
+	// Convert MCP config to internal SessionConfig
+	sessionConfig := SessionConfig{
+		Logcat: LogcatConfig{
+			Enabled:       config.LogcatEnabled,
+			PackageName:   config.LogcatPackageName,
+			PreFilter:     config.LogcatPreFilter,
+			ExcludeFilter: config.LogcatExcludeFilter,
+		},
+		Recording: RecordingConfig{
+			Enabled: config.RecordingEnabled,
+			Quality: config.RecordingQuality,
+		},
+		Proxy: ProxyConfig{
+			Enabled:     config.ProxyEnabled,
+			Port:        config.ProxyPort,
+			MitmEnabled: config.ProxyMitmEnabled,
+		},
+		Monitor: MonitorConfig{
+			Enabled: config.MonitorEnabled,
+		},
+	}
+	return b.app.StartSessionWithConfig(deviceId, name, sessionConfig)
+}
+
 func (b *MCPBridge) EndSession(sessionId string, status string) error {
 	// Use EndActiveSession which properly closes via EventPipeline
 	b.app.EndActiveSession(sessionId, status)

@@ -145,6 +145,33 @@ type SubWorkflowParams struct {
 	WorkflowId string `json:"workflowId"`
 }
 
+// SessionParams for session control actions (start_session/end_session)
+type SessionParams struct {
+	// Session name (for start_session)
+	SessionName string `json:"sessionName,omitempty"`
+
+	// Logcat config
+	LogcatEnabled       bool   `json:"logcatEnabled,omitempty"`
+	LogcatPackageName   string `json:"logcatPackageName,omitempty"`
+	LogcatPreFilter     string `json:"logcatPreFilter,omitempty"`
+	LogcatExcludeFilter string `json:"logcatExcludeFilter,omitempty"`
+
+	// Recording config
+	RecordingEnabled bool   `json:"recordingEnabled,omitempty"`
+	RecordingQuality string `json:"recordingQuality,omitempty"` // "low", "medium", "high"
+
+	// Proxy config
+	ProxyEnabled     bool `json:"proxyEnabled,omitempty"`
+	ProxyPort        int  `json:"proxyPort,omitempty"`
+	ProxyMitmEnabled bool `json:"proxyMitmEnabled,omitempty"`
+
+	// Monitor config
+	MonitorEnabled bool `json:"monitorEnabled,omitempty"`
+
+	// For end_session: session end status
+	Status string `json:"status,omitempty"` // "completed", "error", "cancelled"
+}
+
 // ============== WorkflowStep ==============
 
 // WorkflowStep represents a single step in a workflow
@@ -171,6 +198,7 @@ type WorkflowStep struct {
 	ADB            *ADBParams            `json:"adb,omitempty"`
 	Workflow       *SubWorkflowParams    `json:"workflow,omitempty"`
 	ReadToVariable *ReadToVariableParams `json:"readToVariable,omitempty"`
+	Session        *SessionParams        `json:"session,omitempty"`
 
 	// UI Layout (separated from business logic)
 	Layout StepLayout `json:"layout,omitempty"`
@@ -317,6 +345,10 @@ func (s *WorkflowStep) Validate() error {
 		if s.ReadToVariable.VariableName == "" {
 			return ValidationError{StepID: s.ID, Field: "readToVariable.variableName", Message: "variableName is required"}
 		}
+
+	case "start_session", "end_session":
+		// Session control nodes have optional params with sensible defaults
+		return nil
 
 	case "key_back", "key_home", "key_recent", "key_power", "key_volume_up", "key_volume_down", "screen_on", "screen_off":
 		// System key events have no specific params
