@@ -115,17 +115,19 @@ const NetworkWaterfall: React.FC<NetworkWaterfallProps> = ({
 
   // 计算时间轴范围
   const timeRange = useMemo(() => {
-    if (requests.length === 0) return { start: 0, end: sessionDuration };
+    if (requests.length === 0) return { start: 0, end: sessionDuration, maxDuration: 1000 };
     const start = Math.min(...requests.map(r => r.startTime));
     const end = Math.max(...requests.map(r => r.startTime + r.duration));
-    const padding = (end - start) * 0.1;
+    const maxDuration = Math.max(...requests.map(r => r.duration), 1); // 最大单次请求时长
+    const padding = (end - start) * 0.05;
     return {
       start: Math.max(0, start - padding),
       end: Math.min(sessionDuration, end + padding),
+      maxDuration,
     };
   }, [requests, sessionDuration]);
 
-  const timeWidth = timeRange.end - timeRange.start;
+  const timeWidth = timeRange.end - timeRange.start || 1; // 避免除零
 
   // 虚拟列表
   const rowVirtualizer = useVirtualizer({
@@ -196,7 +198,9 @@ const NetworkWaterfall: React.FC<NetworkWaterfallProps> = ({
           {rowVirtualizer.getVirtualItems().map(virtualRow => {
             const req = requests[virtualRow.index];
             const barLeft = ((req.startTime - timeRange.start) / timeWidth) * 100;
-            const barWidth = Math.max(2, (req.duration / timeWidth) * 100);
+            // 宽度基于实际时长占时间轴的比例，最小3px，最大50%
+            const rawWidth = (req.duration / timeWidth) * 100;
+            const barWidth = Math.max(0.5, Math.min(50, rawWidth));
             const statusColor = getStatusColor(req.statusCode, token);
             const isHovered = hoveredIndex === virtualRow.index;
 
