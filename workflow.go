@@ -74,6 +74,14 @@ func (a *App) SaveWorkflow(workflow Workflow) error {
 		return fmt.Errorf("failed to write workflow file: %w", err)
 	}
 
+	// Emit event to notify frontend of workflow change
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "workflow-list-changed", map[string]interface{}{
+			"action":     "save",
+			"workflowId": workflow.ID,
+		})
+	}
+
 	return nil
 }
 
@@ -158,6 +166,14 @@ func (a *App) DeleteWorkflow(id string) error {
 			return fmt.Errorf("workflow not found")
 		}
 		return fmt.Errorf("failed to delete workflow: %w", err)
+	}
+
+	// Emit event to notify frontend of workflow change
+	if !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "workflow-list-changed", map[string]interface{}{
+			"action":     "delete",
+			"workflowId": id,
+		})
 	}
 
 	return nil

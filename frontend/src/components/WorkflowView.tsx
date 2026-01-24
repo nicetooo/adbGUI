@@ -664,10 +664,6 @@ const WorkflowView: React.FC = () => {
 
   const nodeTypes = useMemo(() => ({ workflowNode: WorkflowNode }), []);
 
-  useEffect(() => {
-    loadWorkflows();
-  }, []);
-
   const loadWorkflows = async () => {
     try {
       const result = await (window as any).go.main.App.LoadWorkflows();
@@ -676,6 +672,20 @@ const WorkflowView: React.FC = () => {
       setWorkflows([]);
     }
   };
+
+  // Load workflows on mount and subscribe to workflow list changes (e.g., from MCP updates)
+  useEffect(() => {
+    loadWorkflows();
+
+    const unsubscribe = EventsOn("workflow-list-changed", (data: any) => {
+      console.log("[Workflow] List changed from backend:", data);
+      loadWorkflows();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const getLayoutedElements = useCallback((nodes: Node[], edges: Edge[]) => {
     if (nodes.length === 0) return { nodes, edges };

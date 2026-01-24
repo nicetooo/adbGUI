@@ -85,6 +85,9 @@ type App struct {
 
 	// MCP mode flag (no Wails GUI)
 	mcpMode bool
+
+	// Workflow file watcher (for MCP → GUI sync)
+	workflowWatcher *WorkflowWatcher
 }
 
 // NewApp creates a new App instance
@@ -109,6 +112,12 @@ func (a *App) startup(ctx context.Context) {
 	a.initEventSystem() // Initialize new event system
 	a.StartDeviceMonitor()
 	a.LoadMockRules() // Load saved mock rules
+
+	// Start workflow file watcher for MCP → GUI sync
+	a.workflowWatcher = NewWorkflowWatcher(a)
+	if err := a.workflowWatcher.Start(); err != nil {
+		LogWarn("app").Err(err).Msg("Failed to start workflow watcher")
+	}
 }
 
 // Shutdown is called when the application is closing
@@ -116,6 +125,11 @@ func (a *App) Shutdown(ctx context.Context) {
 	LogAppState(StateShuttingDown, map[string]interface{}{
 		"reason": "application_close",
 	})
+
+	// Stop workflow watcher
+	if a.workflowWatcher != nil {
+		a.workflowWatcher.Stop()
+	}
 
 	// Stop proxy and clean up device settings to prevent network issues
 	if a.GetProxyStatus() {
