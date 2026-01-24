@@ -43,8 +43,15 @@ import {
   RightOutlined,
   DeleteOutlined,
   PushpinOutlined,
+  ExclamationCircleOutlined,
+  ClockCircleOutlined,
+  WarningOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import AssertionsPanel from './AssertionsPanel';
+import SessionStats from './SessionStats';
+import NetworkWaterfall from './NetworkWaterfall';
+import EventLanes from './EventLanes';
 import { useTranslation } from 'react-i18next';
 import {
   useEventStore,
@@ -82,6 +89,15 @@ interface TimeIndexEntry {
   hasError: boolean;
 }
 
+// 关键事件类型（用于时间轴标记）
+interface CriticalEvent {
+  id: string;
+  relativeTime: number;
+  type: string;
+  title: string;
+  level: string;
+}
+
 interface TimeRulerProps {
   sessionStart: number;
   sessionDuration: number;
@@ -92,9 +108,11 @@ interface TimeRulerProps {
   onTimeRangeChange: (range: { start: number; end: number } | null) => void;
   bookmarks?: Bookmark[];
   onBookmarkClick?: (bookmark: Bookmark) => void;
+  criticalEvents?: CriticalEvent[];
+  onCriticalEventClick?: (event: CriticalEvent) => void;
 }
 
-const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime, onSeek, timeRange, onTimeRangeChange, bookmarks = [], onBookmarkClick }: TimeRulerProps) => {
+const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime, onSeek, timeRange, onTimeRangeChange, bookmarks = [], onBookmarkClick, criticalEvents = [], onCriticalEventClick }: TimeRulerProps) => {
   const { token } = theme.useToken();
   const containerRef = useRef<HTMLDivElement>(null);
   const {
@@ -293,6 +311,46 @@ const TimeRuler = memo(({ sessionStart, sessionDuration, timeIndex, currentTime,
           </Tooltip>
         ))}
 
+        {/* Critical event markers */}
+        {criticalEvents.map(event => {
+          // 获取关键事件的颜色
+          const eventColor = event.type === 'app_crash' ? '#ff4d4f' : 
+                            event.type === 'app_anr' ? '#fa8c16' :
+                            event.level === 'error' || event.level === 'fatal' ? '#ff4d4f' : '#faad14';
+          return (
+            <Tooltip
+              key={event.id}
+              title={`${event.title} (${formatRelativeTime(event.relativeTime)})`}
+            >
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCriticalEventClick?.(event);
+                }}
+                style={{
+                  position: 'absolute',
+                  left: `${(event.relativeTime / sessionDuration) * 100}%`,
+                  bottom: 2,
+                  transform: 'translateX(-6px)',
+                  cursor: 'pointer',
+                  zIndex: 18,
+                  fontSize: 12,
+                  color: eventColor,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 12,
+                  height: 12,
+                }}
+              >
+                {event.type === 'app_crash' ? <ExclamationCircleOutlined /> :
+                 event.type === 'app_anr' ? <ClockCircleOutlined /> :
+                 <WarningOutlined />}
+              </div>
+            </Tooltip>
+          );
+        })}
+
         {/* Time labels */}
         <div style={{
           position: 'absolute',
@@ -437,7 +495,7 @@ const EventRow = memo(({ event, isSelected, onClick, style }: EventRowProps) => 
       </Text>
 
       {/* Icon */}
-      <span style={{ width: 24, textAlign: 'center', fontSize: 14 }}>
+      <span style={{ width: 24, display: 'inline-flex', justifyContent: 'center', alignItems: 'center', fontSize: 14 }}>
         {icon}
       </span>
 
@@ -721,7 +779,7 @@ const EventDetail = memo(({ event, onClose }: EventDetailProps) => {
     }
     return (
       <Space size={4}>
-        <span>{getEventIcon(event)}</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center' }}>{getEventIcon(event)}</span>
         <Text ellipsis style={{ maxWidth: 280 }}>{event.title}</Text>
       </Space>
     );
@@ -921,6 +979,11 @@ const EventTimeline = () => {
     setBookmarkLabel,
     openBookmarkModal,
     closeBookmarkModal,
+    visualizationPanelOpen,
+    visualizationActiveTab,
+    setVisualizationPanelOpen,
+    toggleVisualizationPanel,
+    setVisualizationActiveTab,
   } = useEventTimelineStore();
 
   // Subscribe to events
@@ -993,6 +1056,25 @@ const EventTimeline = () => {
     return timeIndex.get(activeSessionId) || [];
   }, [timeIndex, activeSessionId]);
 
+  // Extract critical events for timeline markers (crashes, ANRs, errors)
+  const criticalEvents = useMemo((): CriticalEvent[] => {
+    if (!visibleEvents.length) return [];
+    return visibleEvents
+      .filter(e => 
+        e.type === 'app_crash' || 
+        e.type === 'app_anr' || 
+        e.level === 'error' || 
+        e.level === 'fatal'
+      )
+      .slice(0, 50) // 限制数量避免性能问题
+      .map(e => ({
+        id: e.id,
+        relativeTime: e.relativeTime,
+        type: e.type,
+        title: e.title,
+        level: e.level,
+      }));
+  }, [visibleEvents]);
 
   // Virtual list
   const rowVirtualizer = useVirtualizer({
@@ -1092,6 +1174,15 @@ const EventTimeline = () => {
       setSelectedEventFull(event); // 降级使用列表中的数据
     }
   }, []);
+
+  // Handle critical event click from timeline marker - jump to event and select it
+  const handleCriticalEventClick = useCallback((event: CriticalEvent) => {
+    // 先找到完整事件数据
+    const fullEvent = visibleEvents.find(e => e.id === event.id);
+    if (fullEvent) {
+      handleEventClick(fullEvent);
+    }
+  }, [visibleEvents, handleEventClick]);
 
   const handleSeek = useCallback((time: number) => {
     const targetTime = Math.round(time);
@@ -1274,6 +1365,13 @@ const EventTimeline = () => {
             </Title>
 
             <Space>
+              <Button
+                type={visualizationPanelOpen ? 'primary' : 'default'}
+                icon={<BarChartOutlined />}
+                onClick={toggleVisualizationPanel}
+              >
+                {t('timeline.visualization', 'Visualization')}
+              </Button>
               <Button
                 type={assertionsPanelOpen ? 'primary' : 'default'}
                 icon={<ThunderboltOutlined />}
@@ -1460,7 +1558,58 @@ const EventTimeline = () => {
           onTimeRangeChange={handleTimeRangeChange}
           bookmarks={sessionBookmarks}
           onBookmarkClick={handleBookmarkClick}
+          criticalEvents={criticalEvents}
+          onCriticalEventClick={handleCriticalEventClick}
         />
+      )}
+
+      {/* Visualization Panel */}
+      {visualizationPanelOpen && currentSession && (
+        <div style={{ marginTop: 12 }}>
+          <Tabs
+            activeKey={visualizationActiveTab}
+            onChange={setVisualizationActiveTab}
+            size="small"
+            items={[
+              {
+                key: 'stats',
+                label: t('timeline.stats', 'Statistics'),
+                children: (
+                  <SessionStats
+                    events={visibleEvents}
+                    timeIndex={sessionTimeIndex}
+                    sessionDuration={sessionDuration}
+                  />
+                ),
+              },
+              {
+                key: 'waterfall',
+                label: t('timeline.waterfall', 'Network Waterfall'),
+                children: (
+                  <NetworkWaterfall
+                    events={visibleEvents}
+                    sessionStart={currentSession.startTime}
+                    sessionDuration={sessionDuration}
+                    onEventClick={handleEventClick}
+                    maxHeight={300}
+                  />
+                ),
+              },
+              {
+                key: 'lanes',
+                label: t('timeline.lanes', 'Event Lanes'),
+                children: (
+                  <EventLanes
+                    events={visibleEvents}
+                    sessionDuration={sessionDuration}
+                    onEventClick={handleEventClick}
+                    height={250}
+                  />
+                ),
+              },
+            ]}
+          />
+        </div>
       )}
 
       {/* Event count */}

@@ -235,7 +235,40 @@
     "protocol": "协议",
     "url": "URL",
     "selected": "已选择",
-    "seconds": "秒"
+    "seconds": "秒",
+    "visualization": "可视化",
+    "stats": "统计",
+    "waterfall": "瀑布图",
+    "lanes": "泳道图"
+  },
+  "stats": {
+    "total_events": "总事件数",
+    "errors": "错误",
+    "crashes_anrs": "崩溃/ANR",
+    "avg_response": "平均响应",
+    "event_sources": "事件来源",
+    "event_levels": "事件级别",
+    "event_density": "事件密度",
+    "events_per_min": "事件/分钟",
+    "no_data": "暂无数据"
+  },
+  "waterfall": {
+    "time": "时间",
+    "method": "方法",
+    "url": "URL",
+    "status": "状态",
+    "duration": "耗时",
+    "no_requests": "暂无网络请求",
+    "total_requests": "请求总数",
+    "failed_requests": "失败",
+    "avg_response_time": "平均响应"
+  },
+  "lanes": {
+    "show_all": "显示所有来源",
+    "no_events": "暂无事件",
+    "events": "个事件",
+    "collapse": "折叠",
+    "expand": "展开"
   },
   "about": {
     "title": "关于 Gaze",

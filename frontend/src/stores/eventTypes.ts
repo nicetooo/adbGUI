@@ -3,6 +3,45 @@
  * Core types for the new event system with SQLite persistence
  */
 
+import React from 'react';
+import {
+  // Source icons
+  FileTextOutlined,
+  GlobalOutlined,
+  MobileOutlined,
+  AppstoreOutlined,
+  PictureOutlined,
+  AimOutlined,
+  NodeIndexOutlined,
+  BarChartOutlined,
+  ToolOutlined,
+  CheckCircleOutlined,
+  // Level icons
+  UnorderedListOutlined,
+  BugOutlined,
+  InfoCircleOutlined,
+  WarningOutlined,
+  CloseCircleOutlined,
+  StopOutlined,
+  // Event type icons
+  PlayCircleOutlined,
+  FlagOutlined,
+  ApiOutlined,
+  ThunderboltOutlined,
+  WifiOutlined,
+  DesktopOutlined,
+  PauseCircleOutlined,
+  FileOutlined,
+  ExclamationCircleOutlined,
+  ClockCircleOutlined,
+  HighlightOutlined,
+  ExpandOutlined,
+  CaretRightOutlined,
+  CheckOutlined,
+  BorderOutlined,
+  FieldTimeOutlined,
+} from '@ant-design/icons';
+
 // ========================================
 // Event Source - 事件来源
 // ========================================
@@ -335,6 +374,7 @@ export interface EventQuery {
   limit?: number;
   offset?: number;
   orderDesc?: boolean;  // true = 时间倒序
+  includeData?: boolean; // true = 加载完整 event_data（网络请求URL等）
 }
 
 export interface EventQueryResult {
@@ -369,17 +409,17 @@ export interface Bookmark {
 // ========================================
 
 // Source 显示配置 - 使用 Ant Design 预设颜色名称以适配主题
-export const sourceConfig: Record<EventSource, { label: string; icon: string; color: string }> = {
-  logcat: { label: 'Logcat', icon: '📝', color: 'green' },
-  network: { label: 'Network', icon: '🌐', color: 'purple' },
-  device: { label: 'Device', icon: '📱', color: 'cyan' },
-  app: { label: 'App', icon: '📦', color: 'blue' },
-  ui: { label: 'UI', icon: '🖼️', color: 'magenta' },
-  touch: { label: 'Touch', icon: '👆', color: 'orange' },
-  workflow: { label: 'Workflow', icon: '⚙️', color: 'geekblue' },
-  perf: { label: 'Perf', icon: '📊', color: 'gold' },
-  system: { label: 'System', icon: '🔧', color: 'default' },
-  assertion: { label: 'Assert', icon: '✅', color: 'green' },
+export const sourceConfig: Record<EventSource, { label: string; icon: string; iconComponent: React.ReactNode; color: string }> = {
+  logcat: { label: 'Logcat', icon: '📝', iconComponent: React.createElement(FileTextOutlined), color: 'green' },
+  network: { label: 'Network', icon: '🌐', iconComponent: React.createElement(GlobalOutlined), color: 'purple' },
+  device: { label: 'Device', icon: '📱', iconComponent: React.createElement(MobileOutlined), color: 'cyan' },
+  app: { label: 'App', icon: '📦', iconComponent: React.createElement(AppstoreOutlined), color: 'blue' },
+  ui: { label: 'UI', icon: '🖼️', iconComponent: React.createElement(PictureOutlined), color: 'magenta' },
+  touch: { label: 'Touch', icon: '👆', iconComponent: React.createElement(AimOutlined), color: 'orange' },
+  workflow: { label: 'Workflow', icon: '⚙️', iconComponent: React.createElement(NodeIndexOutlined), color: 'geekblue' },
+  perf: { label: 'Perf', icon: '📊', iconComponent: React.createElement(BarChartOutlined), color: 'gold' },
+  system: { label: 'System', icon: '🔧', iconComponent: React.createElement(ToolOutlined), color: 'default' },
+  assertion: { label: 'Assert', icon: '✅', iconComponent: React.createElement(CheckCircleOutlined), color: 'green' },
 };
 
 // Category 显示配置 - 使用 Ant Design 预设颜色名称以适配主题
@@ -393,62 +433,62 @@ export const categoryConfig: Record<EventCategory, { label: string; color: strin
 };
 
 // Level 显示配置 - 使用 Ant Design 预设颜色名称以适配主题
-export const levelConfig: Record<EventLevel, { label: string; color: string; icon: string; priority: number }> = {
-  verbose: { label: 'Verbose', color: 'default', icon: '📋', priority: 0 },
-  debug: { label: 'Debug', color: 'default', icon: '🔧', priority: 1 },
-  info: { label: 'Info', color: 'blue', icon: 'ℹ️', priority: 2 },
-  warn: { label: 'Warn', color: 'gold', icon: '⚠️', priority: 3 },
-  error: { label: 'Error', color: 'red', icon: '❌', priority: 4 },
-  fatal: { label: 'Fatal', color: 'red', icon: '💀', priority: 5 },
+export const levelConfig: Record<EventLevel, { label: string; color: string; icon: string; iconComponent: React.ReactNode; priority: number }> = {
+  verbose: { label: 'Verbose', color: 'default', icon: '📋', iconComponent: React.createElement(UnorderedListOutlined), priority: 0 },
+  debug: { label: 'Debug', color: 'default', icon: '🔧', iconComponent: React.createElement(BugOutlined), priority: 1 },
+  info: { label: 'Info', color: 'blue', icon: 'ℹ️', iconComponent: React.createElement(InfoCircleOutlined), priority: 2 },
+  warn: { label: 'Warn', color: 'gold', icon: '⚠️', iconComponent: React.createElement(WarningOutlined), priority: 3 },
+  error: { label: 'Error', color: 'red', icon: '❌', iconComponent: React.createElement(CloseCircleOutlined), priority: 4 },
+  fatal: { label: 'Fatal', color: 'red', icon: '💀', iconComponent: React.createElement(StopOutlined), priority: 5 },
 };
 
 // Event Type 显示配置
-export const eventTypeConfig: Record<string, { label: string; icon: string }> = {
+export const eventTypeConfig: Record<string, { label: string; icon: string; iconComponent: React.ReactNode }> = {
   // Session
-  session_start: { label: 'Session Start', icon: '🚀' },
-  session_end: { label: 'Session End', icon: '🏁' },
+  session_start: { label: 'Session Start', icon: '🚀', iconComponent: React.createElement(PlayCircleOutlined, { style: { color: '#52c41a' } }) },
+  session_end: { label: 'Session End', icon: '🏁', iconComponent: React.createElement(FlagOutlined) },
 
   // Logcat
-  logcat: { label: 'Log', icon: '📝' },
-  logcat_aggregated: { label: 'Logs', icon: '📝' },
+  logcat: { label: 'Log', icon: '📝', iconComponent: React.createElement(FileTextOutlined) },
+  logcat_aggregated: { label: 'Logs', icon: '📝', iconComponent: React.createElement(FileTextOutlined) },
 
   // Network
-  http_request: { label: 'HTTP Request', icon: '🌐' },
-  websocket_message: { label: 'WebSocket', icon: '🔌' },
+  http_request: { label: 'HTTP Request', icon: '🌐', iconComponent: React.createElement(ApiOutlined) },
+  websocket_message: { label: 'WebSocket', icon: '🔌', iconComponent: React.createElement(ApiOutlined, { style: { color: '#722ed1' } }) },
 
   // Device State
-  battery_change: { label: 'Battery', icon: '🔋' },
-  network_change: { label: 'Network', icon: '📶' },
-  screen_change: { label: 'Screen', icon: '📱' },
+  battery_change: { label: 'Battery', icon: '🔋', iconComponent: React.createElement(ThunderboltOutlined, { style: { color: '#faad14' } }) },
+  network_change: { label: 'Network', icon: '📶', iconComponent: React.createElement(WifiOutlined) },
+  screen_change: { label: 'Screen', icon: '📱', iconComponent: React.createElement(DesktopOutlined) },
 
   // App Lifecycle
-  app_start: { label: 'App Start', icon: '▶️' },
-  app_stop: { label: 'App Stop', icon: '⏹️' },
-  activity_start: { label: 'Activity', icon: '📄' },
-  activity_stop: { label: 'Activity Stop', icon: '📄' },
-  app_crash: { label: 'Crash', icon: '💥' },
-  app_anr: { label: 'ANR', icon: '⏰' },
+  app_start: { label: 'App Start', icon: '▶️', iconComponent: React.createElement(CaretRightOutlined, { style: { color: '#52c41a' } }) },
+  app_stop: { label: 'App Stop', icon: '⏹️', iconComponent: React.createElement(PauseCircleOutlined) },
+  activity_start: { label: 'Activity', icon: '📄', iconComponent: React.createElement(FileOutlined, { style: { color: '#1890ff' } }) },
+  activity_stop: { label: 'Activity Stop', icon: '📄', iconComponent: React.createElement(FileOutlined) },
+  app_crash: { label: 'Crash', icon: '💥', iconComponent: React.createElement(ExclamationCircleOutlined, { style: { color: '#ff4d4f' } }) },
+  app_anr: { label: 'ANR', icon: '⏰', iconComponent: React.createElement(ClockCircleOutlined, { style: { color: '#fa8c16' } }) },
 
   // Touch
-  touch: { label: 'Touch', icon: '👆' },
-  gesture: { label: 'Gesture', icon: '🤚' },
+  touch: { label: 'Touch', icon: '👆', iconComponent: React.createElement(HighlightOutlined) },
+  gesture: { label: 'Gesture', icon: '🤚', iconComponent: React.createElement(ExpandOutlined) },
 
   // Workflow
-  workflow_start: { label: 'Workflow Start', icon: '▶️' },
-  workflow_step_start: { label: 'Step Start', icon: '🔷' },
-  workflow_step_end: { label: 'Step End', icon: '✅' },
-  workflow_complete: { label: 'Workflow Complete', icon: '🏁' },
-  workflow_error: { label: 'Workflow Error', icon: '❌' },
+  workflow_start: { label: 'Workflow Start', icon: '▶️', iconComponent: React.createElement(CaretRightOutlined, { style: { color: '#2f54eb' } }) },
+  workflow_step_start: { label: 'Step Start', icon: '🔷', iconComponent: React.createElement(BorderOutlined, { style: { color: '#1890ff' } }) },
+  workflow_step_end: { label: 'Step End', icon: '✅', iconComponent: React.createElement(CheckOutlined, { style: { color: '#52c41a' } }) },
+  workflow_complete: { label: 'Workflow Complete', icon: '🏁', iconComponent: React.createElement(FlagOutlined, { style: { color: '#52c41a' } }) },
+  workflow_error: { label: 'Workflow Error', icon: '❌', iconComponent: React.createElement(CloseCircleOutlined, { style: { color: '#ff4d4f' } }) },
 
   // Performance
-  perf_sample: { label: 'Perf Sample', icon: '📊' },
+  perf_sample: { label: 'Perf Sample', icon: '📊', iconComponent: React.createElement(BarChartOutlined) },
 
   // Assertion
-  assertion_result: { label: 'Assertion', icon: '✅' },
+  assertion_result: { label: 'Assertion', icon: '✅', iconComponent: React.createElement(CheckCircleOutlined, { style: { color: '#52c41a' } }) },
 
   // Recording
-  recording_start: { label: 'Recording Start', icon: '🔴' },
-  recording_end: { label: 'Recording End', icon: '⏹️' },
+  recording_start: { label: 'Recording Start', icon: '🔴', iconComponent: React.createElement(FieldTimeOutlined, { style: { color: '#ff4d4f' } }) },
+  recording_end: { label: 'Recording End', icon: '⏹️', iconComponent: React.createElement(PauseCircleOutlined) },
 };
 
 // ========================================
@@ -495,9 +535,28 @@ export function formatDuration(ms: number): string {
 }
 
 /**
- * 获取事件显示图标
+ * 获取事件显示图标 (返回 React 组件)
  */
-export function getEventIcon(event: UnifiedEvent): string {
+export function getEventIcon(event: UnifiedEvent): React.ReactNode {
+  // 优先使用事件类型图标
+  const typeInfo = eventTypeConfig[event.type];
+  if (typeInfo?.iconComponent) return typeInfo.iconComponent;
+
+  // 其次使用来源图标
+  const sourceInfo = sourceConfig[event.source];
+  if (sourceInfo?.iconComponent) return sourceInfo.iconComponent;
+
+  // 最后使用级别图标
+  const levelInfo = levelConfig[event.level];
+  if (levelInfo?.iconComponent) return levelInfo.iconComponent;
+
+  return React.createElement('span', null, '•');
+}
+
+/**
+ * 获取事件显示图标 (返回 emoji 字符串，用于向后兼容)
+ */
+export function getEventIconEmoji(event: UnifiedEvent): string {
   const typeInfo = eventTypeConfig[event.type];
   if (typeInfo) return typeInfo.icon;
 

@@ -234,7 +234,40 @@
     "protocol": "Protocol",
     "url": "URL",
     "selected": "Selected",
-    "seconds": "s"
+    "seconds": "s",
+    "visualization": "Visualization",
+    "stats": "Statistics",
+    "waterfall": "Waterfall",
+    "lanes": "Lanes"
+  },
+  "stats": {
+    "total_events": "Total Events",
+    "errors": "Errors",
+    "crashes_anrs": "Crashes/ANRs",
+    "avg_response": "Avg Response",
+    "event_sources": "Event Sources",
+    "event_levels": "Event Levels",
+    "event_density": "Event Density Over Time",
+    "events_per_min": "Events/min",
+    "no_data": "No data available"
+  },
+  "waterfall": {
+    "time": "Time",
+    "method": "Method",
+    "url": "URL",
+    "status": "Status",
+    "duration": "Duration",
+    "no_requests": "No network requests",
+    "total_requests": "Total Requests",
+    "failed_requests": "Failed",
+    "avg_response_time": "Avg Response"
+  },
+  "lanes": {
+    "show_all": "Show All Sources",
+    "no_events": "No events",
+    "events": "events",
+    "collapse": "Collapse",
+    "expand": "Expand"
   },
   "about": {
     "title": "About Gaze",

@@ -349,11 +349,12 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           console.error('[eventStore] loadSession index/bookmarks error:', err);
         });
 
-        // 查询所有事件数据
+        // 查询所有事件数据（包含详细数据用于可视化）
         console.log('[eventStore] loadSession calling QuerySessionEvents...');
         const result = await (window as any).go.main.App.QuerySessionEvents({
           sessionId: sessionId,
           limit: 0,  // 0 表示不限制，加载全部
+          includeData: true,  // 加载完整数据（网络请求URL等）
         });
 
         const events = result?.events || [];
@@ -548,6 +549,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           endTime: end,
           ...filter,
           limit: 1000,
+          includeData: true,
         };
 
         console.log('[eventStore] loadEventsInRange: querying with', query);
@@ -589,6 +591,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           ...filter,
           startTime: startTime,
           limit: pageSize,
+          includeData: true,
         };
 
         const result = await (window as any).go.main.App.QuerySessionEvents(query);
@@ -644,6 +647,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           ...filter,
           endTime: endTime,
           limit: pageSize,
+          includeData: true,
         };
 
         const result = await (window as any).go.main.App.QuerySessionEvents(query);
@@ -706,6 +710,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
         ...filter,
         limit: pageSize,
         offset: page * pageSize,
+        includeData: true,
       };
 
       const result = await (window as any).go.main.App.QuerySessionEvents(query);
@@ -732,6 +737,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
         sessionId: activeSessionId,
         searchText: query,
         limit: 100,
+        includeData: true,
       });
 
       return result?.events || [];
@@ -816,6 +822,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           sessionId: activeSessionId,
           ...filter,
           limit: 2000, // 显示列表最多 2000 条
+          includeData: true,
         };
 
         const result = await (window as any).go.main.App.QuerySessionEvents(query);

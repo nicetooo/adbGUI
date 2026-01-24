@@ -39,6 +39,10 @@ interface EventTimelineState {
   // NetworkEventDetail Tab 状态
   networkDetailActiveTab: string;
 
+  // 可视化面板状态
+  visualizationPanelOpen: boolean;
+  visualizationActiveTab: string;  // 'stats' | 'waterfall' | 'lanes'
+
   // Actions
   setSelectedEventId: (id: string | null) => void;
   setSelectedEventFull: (event: UnifiedEvent | null) => void;
@@ -76,6 +80,11 @@ interface EventTimelineState {
   // NetworkEventDetail
   setNetworkDetailActiveTab: (tab: string) => void;
 
+  // 可视化面板
+  setVisualizationPanelOpen: (open: boolean) => void;
+  toggleVisualizationPanel: () => void;
+  setVisualizationActiveTab: (tab: string) => void;
+
   // 重置
   reset: () => void;
 }
@@ -99,6 +108,8 @@ const initialState = {
   dragStart: null,
   dragEnd: null,
   networkDetailActiveTab: 'overview',
+  visualizationPanelOpen: false,
+  visualizationActiveTab: 'stats',
 };
 
 export const useEventTimelineStore = create<EventTimelineState>()(
@@ -249,6 +260,19 @@ export const useEventTimelineStore = create<EventTimelineState>()(
     // NetworkEventDetail
     setNetworkDetailActiveTab: (tab) => set((state) => {
       state.networkDetailActiveTab = tab;
+    }),
+
+    // 可视化面板
+    setVisualizationPanelOpen: (open) => set((state) => {
+      state.visualizationPanelOpen = open;
+    }),
+
+    toggleVisualizationPanel: () => set((state) => {
+      state.visualizationPanelOpen = !state.visualizationPanelOpen;
+    }),
+
+    setVisualizationActiveTab: (tab) => set((state) => {
+      state.visualizationActiveTab = tab;
     }),
 
     // 重置
