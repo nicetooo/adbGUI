@@ -121,6 +121,10 @@ func (a *App) StartProxy(port int) (string, error) {
 		deviceId := proxyDeviceId
 		proxyDeviceMu.RUnlock()
 
+		// Debug: Log proxy device ID
+		fmt.Printf("[ProxyBridge] Emitting network event: proxyDeviceId=%q, method=%s, url=%s\n",
+			deviceId, req.Method, req.URL)
+
 		// Determine level based on status code
 		level := "info"
 		if req.StatusCode >= 400 && req.StatusCode < 500 {

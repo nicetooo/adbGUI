@@ -550,6 +550,8 @@ func (a *App) StartSessionWithConfig(deviceID, name string, config SessionConfig
 
 	if config.Proxy.Enabled {
 		log.Printf("[StartSessionWithConfig] Starting proxy on port: %d", config.Proxy.Port)
+		// Set proxy device BEFORE starting proxy to ensure events are associated correctly
+		a.SetProxyDevice(deviceID)
 		go func() {
 			port := config.Proxy.Port
 			if port == 0 {
@@ -558,8 +560,8 @@ func (a *App) StartSessionWithConfig(deviceID, name string, config SessionConfig
 			a.SetProxyMITM(config.Proxy.MitmEnabled)
 			if _, err := a.StartProxy(port); err != nil {
 				log.Printf("[StartSessionWithConfig] Failed to start proxy: %v", err)
-			} else {
-				a.SetProxyDevice(deviceID)
+				// Clear proxy device on failure
+				a.SetProxyDevice("")
 			}
 		}()
 	}

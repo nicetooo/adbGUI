@@ -246,7 +246,12 @@ const ProxyView: React.FC = () => {
             await StartProxy(port);
             setProxyRunning(true);
 
-            // 2. Setup adb reverse + device proxy if device selected
+            // 2. Set proxy device for event association
+            if (selectedDevice) {
+                await SetProxyDevice(selectedDevice);
+            }
+
+            // 3. Setup adb reverse + device proxy if device selected
             if (selectedDevice) {
                 try {
                     await SetupProxyForDevice(selectedDevice, port);

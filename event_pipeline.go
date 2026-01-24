@@ -556,6 +556,18 @@ func (p *EventPipeline) processEvent(event UnifiedEvent) {
 	// 1. 尝试关联已有 Session (不自动创建)
 	sessionID := p.GetActiveSessionID(event.DeviceID)
 
+	// Debug: Log network events to diagnose missing events
+	if event.Source == SourceNetwork {
+		p.sessionMu.RLock()
+		var deviceSessions []string
+		for did, sid := range p.deviceSession {
+			deviceSessions = append(deviceSessions, fmt.Sprintf("%q->%q", did, sid))
+		}
+		p.sessionMu.RUnlock()
+		fmt.Printf("[EventPipeline] Network event: DeviceID=%q, found SessionID=%q, deviceSessions=%v, Type=%s\n",
+			event.DeviceID, sessionID, deviceSessions, event.Type)
+	}
+
 	// 2. 填充默认值
 	if event.Category == "" {
 		event.Category = GetCategoryForType(event.Type)
