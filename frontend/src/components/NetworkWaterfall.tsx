@@ -277,8 +277,10 @@ const NetworkWaterfall: React.FC<NetworkWaterfallProps> = ({
           background: token.colorBgElevated,
           fontSize: 11,
         }}>
+          <div style={{ marginBottom: 4, wordBreak: 'break-all' }}>
+            <strong>URL:</strong> {requests[hoveredIndex].url}
+          </div>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            <span><strong>URL:</strong> {requests[hoveredIndex].url}</span>
             <span><strong>Status:</strong> {requests[hoveredIndex].statusCode}</span>
             <span><strong>Duration:</strong> {requests[hoveredIndex].duration}ms</span>
             <span><strong>Size:</strong> {formatSize(requests[hoveredIndex].size)}</span>
