@@ -4,35 +4,107 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gaze</title>
-  <meta name="description" content="Open-source ADB toolbox. Screen mirroring, file manager, logcat, network capture." />
+  <title>Gaze - Open Source Android ADB Toolbox with MCP Server for AI Automation</title>
+  <meta name="description" content="Open-source Android device manager with built-in MCP server for AI-powered automation. 54 MCP tools for Claude, Cursor and other AI clients. Screen mirroring, logcat, network proxy, UI inspector, workflow automation and session tracking." />
+  <meta name="keywords" content="MCP, Model Context Protocol, Android, ADB, ADB GUI, AI automation, Claude MCP, Cursor MCP, Android testing, screen mirroring, logcat, network proxy, UI automation, workflow, open source, scrcpy, Android device manager" />
+  <link rel="canonical" href="https://gaze.nicetooo.com/" />
+  <meta name="author" content="nicetooo" />
+  <meta name="theme-color" content="#0a0a0a" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://gaze.nicetooo.com/">
-  <meta property="og:title" content="Gaze - ADB Toolbox">
-  <meta property="og:description" content="Open-source ADB toolbox for Android.">
+  <meta property="og:title" content="Gaze - Android ADB Toolbox with MCP Server for AI Automation">
+  <meta property="og:description" content="Open-source Android device manager with built-in MCP server. 54 AI tools for Claude, Cursor. Screen mirroring, logcat, proxy, UI automation, workflow and session tracking.">
   <meta property="og:image" content="https://gaze.nicetooo.com/screenshots/mirror.png">
+  <meta property="og:site_name" content="Gaze">
+  <meta property="og:locale" content="en_US">
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:url" content="https://gaze.nicetooo.com/">
-  <meta property="twitter:title" content="Gaze - ADB Toolbox">
-  <meta property="twitter:description" content="Open-source ADB toolbox for Android.">
+  <meta property="twitter:title" content="Gaze - Android ADB Toolbox with MCP Server for AI Automation">
+  <meta property="twitter:description" content="Open-source Android device manager with built-in MCP server. 54 AI tools for Claude, Cursor. Screen mirroring, logcat, proxy, UI automation, workflow and session tracking.">
   <meta property="twitter:image" content="https://gaze.nicetooo.com/screenshots/mirror.png">
 
-  <!-- Structured Data -->
+  <!-- Structured Data: SoftwareApplication -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "Gaze",
+    "url": "https://gaze.nicetooo.com",
     "operatingSystem": "Windows, macOS, Linux",
-    "applicationCategory": "UtilitiesApplication",
+    "applicationCategory": "DeveloperApplication",
+    "applicationSubCategory": "Android Development Tools",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-    "description": "Open-source ADB toolbox with screen mirroring, file manager, logcat viewer, and network capture.",
+    "description": "Open-source Android device manager with built-in MCP (Model Context Protocol) server for AI-powered automation. Provides 54 MCP tools for AI assistants like Claude Desktop, Claude Code, and Cursor to control Android devices.",
+    "featureList": [
+      "Built-in MCP server with 54 tools for AI integration",
+      "Model Context Protocol (MCP) support for Claude, Cursor, and other AI clients",
+      "AI-powered Android device automation via MCP",
+      "Screen mirroring and recording via scrcpy",
+      "Real-time logcat viewer with filters",
+      "HTTP/HTTPS network proxy with MITM decryption",
+      "UI hierarchy inspector and element search",
+      "Visual workflow automation engine",
+      "Session-based unified event tracking timeline",
+      "File manager with drag-and-drop",
+      "App manager with APK analysis",
+      "Multi-device support with wireless ADB"
+    ],
+    "downloadUrl": "https://github.com/nicetooo/Gaze/releases/latest",
+    "screenshot": [
+      "https://gaze.nicetooo.com/screenshots/mirror.png",
+      "https://gaze.nicetooo.com/screenshots/files.png",
+      "https://gaze.nicetooo.com/screenshots/apps.png",
+      "https://gaze.nicetooo.com/screenshots/logcat.png"
+    ],
     "license": "https://opensource.org/licenses/MIT",
-    "author": { "@type": "Person", "name": "nicetooo" }
+    "author": { "@type": "Person", "name": "nicetooo" },
+    "sameAs": "https://github.com/nicetooo/Gaze"
+  }
+  </script>
+
+  <!-- Structured Data: FAQPage -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is MCP and how does Gaze use it?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "MCP (Model Context Protocol) is a standard protocol that allows AI assistants to interact with external tools. Gaze includes a built-in MCP server with 54 tools, enabling AI clients like Claude Desktop, Claude Code, and Cursor to directly control Android devices — managing apps, automating UI, capturing network traffic, running workflows, and more."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I connect Gaze to Claude or Cursor?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "For Claude Desktop, add Gaze to your claude_desktop_config.json with the command path and --mcp flag. For Claude Code CLI, run: claude mcp add gaze -- /path/to/Gaze --mcp. For Cursor, add the same config to .cursor/mcp.json in your project root."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "macOS: App is damaged and can't be opened",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Gatekeeper blocks unsigned apps. Run this command to fix: sudo xattr -cr /Applications/Gaze.app"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Windows: Windows protected your PC",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Click 'More info' then click 'Run anyway' to proceed with launching Gaze."
+        }
+      }
+    ]
   }
   </script>
 
@@ -40,6 +112,9 @@
 
   <link rel="icon" type="image/svg+xml" href="build/icon.svg" />
   <link rel="apple-touch-icon" href="build/icon.svg">
+
+  <!-- AI/LLM discovery -->
+  <link rel="help" type="text/plain" href="/llms.txt" title="LLM information" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

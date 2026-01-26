@@ -1,0 +1,293 @@
+# Gaze - Full MCP Tool Reference
+
+> Complete reference for all 54 MCP tools and 5 resources provided by Gaze's built-in MCP server.
+
+For a summary, see: https://gaze.nicetooo.com/llms.txt
+
+## MCP Server Configuration
+
+Transport: stdio
+Command: `/path/to/Gaze --mcp`
+
+Compatible clients: Claude Desktop, Claude Code (CLI), Cursor, and any MCP-compatible AI client.
+
+---
+
+## Device Management (11 tools)
+
+### device_list
+List all connected Android devices.
+- No parameters required.
+- Returns: Array of device objects with ID, model, status.
+
+### device_info
+Get detailed information about a specific device.
+- Parameters: device_id (required) — Device ID.
+- Returns: Model, Android version, SDK, screen resolution, battery, storage, etc.
+
+### device_connect
+Connect to a device via ADB over network.
+- Parameters: address (required) — IP:port format (e.g., 192.168.1.100:5555).
+
+### device_disconnect
+Disconnect a device from ADB.
+- Parameters: address (required) — Device address to disconnect.
+
+### device_pair
+Pair with a device using wireless debugging.
+- Parameters: address (required) — IP:port, code (required) — 6-digit pairing code.
+
+### device_wireless
+Switch a USB-connected device to wireless ADB mode.
+- Parameters: device_id (required).
+
+### device_ip
+Get the IP address of a connected device.
+- Parameters: device_id (required).
+
+### adb_execute
+Execute an arbitrary ADB command on a device.
+- Parameters: device_id (required), command (required) — ADB command without 'adb' prefix.
+- Examples: "shell ls /sdcard", "shell pm list packages", "shell input tap 500 500".
+
+### aapt_execute
+Execute an aapt command for APK analysis.
+- Parameters: command (required) — aapt command without 'aapt' prefix.
+- Examples: "dump badging /path/to/app.apk", "dump permissions /path/to/app.apk".
+
+### ffmpeg_execute
+Execute an ffmpeg command for video/audio processing.
+- Parameters: command (required) — ffmpeg arguments without 'ffmpeg' prefix.
+- Examples: "-i input.mp4 -vf scale=720:-1 output.mp4".
+
+### ffprobe_execute
+Execute an ffprobe command for media file analysis.
+- Parameters: command (required) — ffprobe arguments without 'ffprobe' prefix.
+- Examples: "-v quiet -print_format json -show_format -show_streams input.mp4".
+
+---
+
+## App Management (8 tools)
+
+### app_list
+List installed applications on a device.
+- Parameters: device_id (required), type (optional) — "user" (default), "system", or "all".
+
+### app_info
+Get detailed information about an installed app.
+- Parameters: device_id (required), package_name (required).
+
+### app_start
+Launch an application on the device.
+- Parameters: device_id (required), package_name (required).
+
+### app_stop
+Force stop an application.
+- Parameters: device_id (required), package_name (required).
+
+### app_running
+Check if an application is currently running.
+- Parameters: device_id (required), package_name (required).
+
+### app_install
+Install an APK file on the device.
+- Parameters: device_id (required), apk_path (required).
+
+### app_uninstall
+Uninstall an application.
+- Parameters: device_id (required), package_name (required).
+
+### app_clear_data
+Clear all data for an application.
+- Parameters: device_id (required), package_name (required).
+
+---
+
+## Screen Control (4 tools)
+
+### screen_screenshot
+Take a screenshot of the device screen and return as base64 image.
+- Parameters: device_id (required), include_ui (optional) — include UI hierarchy, save_path (optional).
+
+### screen_record_start
+Start recording the device screen.
+- Parameters: device_id (required), bit_rate (optional, default 8 Mbps), max_size (optional, default 1280).
+
+### screen_record_stop
+Stop recording the device screen.
+- Parameters: device_id (required).
+
+### screen_recording_status
+Check if device screen is being recorded.
+- Parameters: device_id (required).
+
+---
+
+## UI Automation (6 tools)
+
+### ui_hierarchy
+Get the current UI hierarchy/layout of the device screen.
+- Parameters: device_id (required).
+- Returns: Full XML-based UI tree with element bounds, text, resource-ids.
+
+### ui_search
+Search for UI elements matching a query.
+- Parameters: device_id (required), query (required) — text, resource-id, class name, or XPath.
+
+### ui_tap
+Tap at a specific location or element on the screen.
+- Parameters: device_id (required), bounds (required) — format [x1,y1][x2,y2] or x,y coordinates.
+
+### ui_swipe
+Perform a swipe gesture on the screen.
+- Parameters: device_id (required), bounds (required), direction (optional) — up, down, left, right.
+
+### ui_input
+Input text into the focused field.
+- Parameters: device_id (required), text (required).
+
+### ui_resolution
+Get the device screen resolution.
+- Parameters: device_id (required).
+
+---
+
+## Session Management (6 tools)
+
+### session_create
+Create a new tracking session for a device with optional configuration.
+- Parameters: device_id (required), name (optional), logcat_enabled, recording_enabled, proxy_enabled, monitor_enabled (all optional booleans).
+
+### session_end
+End an active session.
+- Parameters: session_id (required), status (optional) — completed, cancelled, failed.
+
+### session_active
+Get the active session for a device.
+- Parameters: device_id (required).
+
+### session_list
+List sessions for a device.
+- Parameters: device_id (optional), limit (optional, default 20).
+
+### session_events
+Query events from a session.
+- Parameters: session_id (required), search (optional), types (optional), levels (optional), sources (optional), limit (optional, default 100).
+
+### session_stats
+Get statistics for a session.
+- Parameters: session_id (required).
+
+---
+
+## Workflow Automation (12 tools)
+
+### workflow_list
+List all saved workflows.
+
+### workflow_get
+Get detailed information about a specific workflow including all steps.
+- Parameters: workflow_id (required).
+
+### workflow_create
+Create a new workflow with name, steps, and optional variables.
+- Parameters: name (required), steps_json (optional), variables_json (optional), description (optional).
+- Step types: tap, swipe, click_element, input_text, launch_app, stop_app, key_back, key_home, wait, branch, adb, set_variable, read_to_variable, run_workflow, start_session, end_session.
+
+### workflow_update
+Update an existing workflow.
+- Parameters: workflow_id (required), name/description/steps_json/variables_json (all optional).
+
+### workflow_delete
+Delete a saved workflow.
+- Parameters: workflow_id (required).
+
+### workflow_run
+Run a workflow on a device.
+- Parameters: device_id (required), workflow_id (required), wait (optional), variables_json (optional).
+
+### workflow_stop
+Stop a running workflow on a device.
+- Parameters: device_id (required).
+
+### workflow_pause
+Pause a running workflow.
+- Parameters: device_id (required).
+
+### workflow_resume
+Resume a paused workflow.
+- Parameters: device_id (required).
+
+### workflow_step_next
+Execute the next step of a paused workflow (step-by-step debugging).
+- Parameters: device_id (required).
+
+### workflow_status
+Check if a workflow is currently running on a device.
+- Parameters: device_id (required).
+
+### workflow_execute_step
+Execute a single workflow step on a device.
+- Parameters: device_id (required), step_type (required), plus type-specific parameters (x, y, selector_type, selector_value, value, etc.).
+
+---
+
+## Network Proxy (3 tools)
+
+### proxy_start
+Start the HTTP/HTTPS proxy for network interception.
+- Parameters: port (optional, default 8888).
+
+### proxy_stop
+Stop the HTTP/HTTPS proxy.
+
+### proxy_status
+Get the current proxy status.
+
+---
+
+## Video Processing (4 tools)
+
+### video_frame
+Extract a single frame from a video at a specific time.
+- Parameters: video_path (required), time_ms (required), width (optional, default 720).
+- Returns: Base64-encoded JPEG image.
+
+### video_metadata
+Get metadata for a video file (duration, resolution, codec, etc.).
+- Parameters: video_path (required).
+
+### session_video_frame
+Extract a frame from a session's recording at a specific event time.
+- Parameters: session_id (required), event_time_ms (required), width (optional).
+
+### session_video_info
+Get video information for a session (path, duration, metadata).
+- Parameters: session_id (required).
+
+---
+
+## MCP Resources
+
+### gaze://devices
+List of all connected Android devices in JSON format.
+
+### gaze://devices/{deviceId}
+Detailed information about a specific device.
+
+### gaze://sessions
+Active and recent tracking sessions in JSON format.
+
+### workflow://list
+All saved workflows in JSON format.
+
+### workflow://{workflowId}
+Detailed workflow information including all steps and connections.
+
+---
+
+## Links
+
+- Website: https://gaze.nicetooo.com
+- GitHub: https://github.com/nicetooo/Gaze
+- Download: https://github.com/nicetooo/Gaze/releases/latest

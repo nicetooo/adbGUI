@@ -1,0 +1,70 @@
+{
+  "name": "Gaze",
+  "description": "Open-source Android device manager with 54 MCP tools for AI-powered automation",
+  "version": "latest",
+  "transport": {
+    "type": "stdio",
+    "command": "Gaze",
+    "args": ["--mcp"],
+    "platforms": {
+      "macos": "/Applications/Gaze.app/Contents/MacOS/Gaze",
+      "windows": "C:\\Program Files\\Gaze\\Gaze.exe",
+      "linux": "/usr/local/bin/Gaze"
+    }
+  },
+  "tools": {
+    "count": 54,
+    "categories": [
+      {
+        "name": "Device Management",
+        "tools": ["device_list", "device_info", "device_connect", "device_disconnect", "device_pair", "device_wireless", "device_ip", "adb_execute", "aapt_execute", "ffmpeg_execute", "ffprobe_execute"]
+      },
+      {
+        "name": "App Management",
+        "tools": ["app_list", "app_info", "app_start", "app_stop", "app_running", "app_install", "app_uninstall", "app_clear_data"]
+      },
+      {
+        "name": "Screen Control",
+        "tools": ["screen_screenshot", "screen_record_start", "screen_record_stop", "screen_recording_status"]
+      },
+      {
+        "name": "UI Automation",
+        "tools": ["ui_hierarchy", "ui_search", "ui_tap", "ui_swipe", "ui_input", "ui_resolution"]
+      },
+      {
+        "name": "Session Management",
+        "tools": ["session_create", "session_end", "session_active", "session_list", "session_events", "session_stats"]
+      },
+      {
+        "name": "Workflow Automation",
+        "tools": ["workflow_list", "workflow_get", "workflow_create", "workflow_update", "workflow_delete", "workflow_run", "workflow_stop", "workflow_pause", "workflow_resume", "workflow_step_next", "workflow_status", "workflow_execute_step"]
+      },
+      {
+        "name": "Network Proxy",
+        "tools": ["proxy_start", "proxy_stop", "proxy_status"]
+      },
+      {
+        "name": "Video Processing",
+        "tools": ["video_frame", "video_metadata", "session_video_frame", "session_video_info"]
+      }
+    ]
+  },
+  "resources": {
+    "count": 5,
+    "endpoints": [
+      { "uri": "gaze://devices", "description": "List of connected Android devices" },
+      { "uri": "gaze://devices/{deviceId}", "description": "Device details" },
+      { "uri": "gaze://sessions", "description": "Active and recent sessions" },
+      { "uri": "workflow://list", "description": "All saved workflows" },
+      { "uri": "workflow://{workflowId}", "description": "Workflow details with steps" }
+    ]
+  },
+  "compatible_clients": ["Claude Desktop", "Claude Code", "Cursor"],
+  "homepage": "https://gaze.nicetooo.com",
+  "repository": "https://github.com/nicetooo/Gaze",
+  "license": "MIT",
+  "documentation": {
+    "llms_txt": "https://gaze.nicetooo.com/llms.txt",
+    "llms_full_txt": "https://gaze.nicetooo.com/llms-full.txt"
+  }
+}

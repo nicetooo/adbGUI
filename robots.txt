@@ -1,4 +1,9 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://adbgui.nicetooo.com/sitemap.xml
+Sitemap: https://gaze.nicetooo.com/sitemap.xml
+
+# AI/LLM content discovery
+# See https://llmstxt.org/ for the llms.txt specification
+# llms.txt: https://gaze.nicetooo.com/llms.txt
+# llms-full.txt: https://gaze.nicetooo.com/llms-full.txt

@@ -1,0 +1,77 @@
+# Gaze
+
+> Open-source Android device manager with built-in MCP (Model Context Protocol) server for AI-powered automation.
+
+Gaze is a cross-platform desktop application (macOS, Windows, Linux) built with Go + React on the Wails framework. It provides comprehensive Android device management through ADB, featuring a built-in MCP server that exposes 54 tools for AI assistants like Claude Desktop, Claude Code, and Cursor.
+
+## MCP Server
+
+Gaze includes a built-in MCP server that allows AI clients to control Android devices programmatically.
+
+- Transport: stdio (launch with `--mcp` flag)
+- Tools: 54 tools across 8 categories
+- Resources: 5 resource endpoints
+- Compatible with: Claude Desktop, Claude Code (CLI), Cursor, and any MCP-compatible client
+
+### Setup
+
+Claude Desktop: Add to `claude_desktop_config.json`:
+```json
+{ "mcpServers": { "gaze": { "command": "/Applications/Gaze.app/Contents/MacOS/Gaze", "args": ["--mcp"] } } }
+```
+
+Claude Code: Run `claude mcp add gaze -- /Applications/Gaze.app/Contents/MacOS/Gaze --mcp`
+
+Cursor: Add to `.cursor/mcp.json`:
+```json
+{ "mcpServers": { "gaze": { "command": "/Applications/Gaze.app/Contents/MacOS/Gaze", "args": ["--mcp"] } } }
+```
+
+## MCP Tool Categories
+
+- Device Management (11 tools): device_list, device_info, device_connect, device_disconnect, device_pair, device_wireless, device_ip, adb_execute, aapt_execute, ffmpeg_execute, ffprobe_execute
+- App Management (8 tools): app_list, app_info, app_start, app_stop, app_running, app_install, app_uninstall, app_clear_data
+- Screen Control (4 tools): screen_screenshot, screen_record_start, screen_record_stop, screen_recording_status
+- UI Automation (6 tools): ui_hierarchy, ui_search, ui_tap, ui_swipe, ui_input, ui_resolution
+- Session Management (6 tools): session_create, session_end, session_active, session_list, session_events, session_stats
+- Workflow Automation (12 tools): workflow_list, workflow_get, workflow_create, workflow_update, workflow_delete, workflow_run, workflow_stop, workflow_pause, workflow_resume, workflow_step_next, workflow_status, workflow_execute_step
+- Network Proxy (3 tools): proxy_start, proxy_stop, proxy_status
+- Video Processing (4 tools): video_frame, video_metadata, session_video_frame, session_video_info
+
+## MCP Resources
+
+- gaze://devices — List of connected Android devices (JSON)
+- gaze://devices/{deviceId} — Detailed device information
+- gaze://sessions — Active and recent tracking sessions (JSON)
+- workflow://list — All saved workflows (JSON)
+- workflow://{workflowId} — Workflow details with steps
+
+## Core Features
+
+- Screen mirroring and recording via scrcpy with audio forwarding
+- File manager with drag-and-drop upload/download
+- App management: install, uninstall, inspect APK details
+- Real-time logcat viewer with package/tag/level filters and regex search
+- HTTP/HTTPS network proxy with MITM decryption and auto certificate install
+- UI hierarchy inspector with element picker
+- Visual workflow automation engine with branching and variables
+- Session-based unified event tracking timeline (logcat, network, device state, app lifecycle)
+- Multi-device support with wireless ADB
+
+## What AI Can Do with Gaze
+
+Using MCP tools, AI assistants can:
+- Automate Android UI testing by tapping, swiping, and inputting text
+- Take screenshots and analyze UI hierarchy to understand app state
+- Launch/stop apps and manage app lifecycle
+- Capture and inspect network traffic via proxy
+- Create and execute automated workflow scripts
+- Monitor device sessions with logcat, performance, and state events
+- Process video recordings for analysis
+
+## Links
+
+- Website: https://gaze.nicetooo.com
+- GitHub: https://github.com/nicetooo/Gaze
+- Download: https://github.com/nicetooo/Gaze/releases/latest
+- Full tool reference: https://gaze.nicetooo.com/llms-full.txt
