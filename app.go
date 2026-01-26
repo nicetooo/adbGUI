@@ -566,16 +566,38 @@ func (a *App) StartSessionWithConfig(deviceID, name string, config SessionConfig
 		log.Printf("[StartSessionWithConfig] Starting proxy on port: %d", config.Proxy.Port)
 		// Set proxy device BEFORE starting proxy to ensure events are associated correctly
 		a.SetProxyDevice(deviceID)
+		proxyAlreadyRunning := a.GetProxyStatus()
 		go func() {
 			port := config.Proxy.Port
 			if port == 0 {
 				port = 8080
 			}
-			a.SetProxyMITM(config.Proxy.MitmEnabled)
-			if _, err := a.StartProxy(port); err != nil {
-				log.Printf("[StartSessionWithConfig] Failed to start proxy: %v", err)
-				// Clear proxy device on failure
-				a.SetProxyDevice("")
+			if proxyAlreadyRunning {
+				// Proxy was already running — just reuse it, don't take ownership
+				log.Printf("[StartSessionWithConfig] Proxy already running, reusing for session %s", sessionID)
+			} else {
+				// Proxy not running — start it and take ownership
+				a.SetProxyMITM(config.Proxy.MitmEnabled)
+				if _, err := a.StartProxy(port); err != nil {
+					log.Printf("[StartSessionWithConfig] Failed to start proxy: %v", err)
+					if !a.GetProxyStatus() {
+						a.SetProxyDevice("")
+						return
+					}
+				} else {
+					// Successfully started — this session owns the proxy
+					setProxyOwnerSession(sessionID)
+					log.Printf("[StartSessionWithConfig] Proxy started by session %s", sessionID)
+				}
+
+				// Setup adb reverse + device proxy so device traffic routes through the proxy
+				if err := a.SetupProxyForDevice(deviceID, port); err != nil {
+					log.Printf("[StartSessionWithConfig] Failed to setup proxy for device: %v", err)
+				} else {
+					log.Printf("[StartSessionWithConfig] Proxy setup complete for device %s on port %d", deviceID, port)
+				}
+				// Notify frontend of proxy status change
+				a.emitProxyStatus(true, port)
 			}
 		}()
 	}
@@ -631,8 +653,15 @@ func (a *App) EndActiveSession(sessionID, status string) {
 			a.StopRecording(session.DeviceID)
 		}
 		if session.Config.Proxy.Enabled {
-			log.Printf("[EndActiveSession] Stopping proxy")
-			a.StopProxy()
+			owner := getProxyOwnerSession()
+			if owner == sessionID {
+				// This session started the proxy — stop it and clean up
+				log.Printf("[EndActiveSession] Stopping proxy (owned by this session)")
+				a.StopProxy()
+			} else {
+				// Proxy was already running before this session — leave it alone
+				log.Printf("[EndActiveSession] Proxy not owned by this session (owner=%s), leaving running", owner)
+			}
 		}
 		if session.Config.Monitor.Enabled {
 			log.Printf("[EndActiveSession] Stopping device monitor")

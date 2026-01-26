@@ -926,6 +926,7 @@ const EventTimeline = () => {
     sessionsVersion,
     activeSessionId,
     visibleEvents,
+    networkEvents,
     totalEventCount,
     filteredEventCount,
     filter,
@@ -1566,7 +1567,7 @@ const EventTimeline = () => {
                 label: t('timeline.waterfall', 'Network Waterfall'),
                 children: (
                   <NetworkWaterfall
-                    events={visibleEvents}
+                    events={networkEvents}
                     sessionStart={currentSession.startTime}
                     sessionDuration={sessionDuration}
                     onEventClick={handleEventClick}
@@ -1616,6 +1617,7 @@ const EventTimeline = () => {
             rowKey="id"
             rowHeight={36}
             loading={isLoading}
+            loadingText={t('timeline.loading_events', 'Loading events...')}
             emptyText={t('timeline.no_events')}
             autoScroll={autoScroll}
             onAutoScrollChange={setAutoScroll}

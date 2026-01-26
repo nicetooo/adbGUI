@@ -17,12 +17,17 @@ import (
 	"Gaze/proxy"
 
 	"github.com/google/uuid"
+	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // proxyDeviceId tracks which device the proxy is monitoring for session events
 var (
 	proxyDeviceId string
 	proxyDeviceMu sync.RWMutex
+
+	// Track which session started the proxy (empty = proxy was started manually/externally)
+	proxyOwnerSessionID string
+	proxyOwnerMu        sync.Mutex
 
 	// Track emitted request IDs to avoid duplicates (with TTL-based cleanup)
 	emittedRequests    = make(map[string]int64) // requestId -> timestamp (unix nano)
@@ -45,6 +50,27 @@ func (a *App) GetProxyDevice() string {
 	return proxyDeviceId
 }
 
+// setProxyOwnerSession records which session started the proxy
+func setProxyOwnerSession(sessionID string) {
+	proxyOwnerMu.Lock()
+	proxyOwnerSessionID = sessionID
+	proxyOwnerMu.Unlock()
+}
+
+// getProxyOwnerSession returns the session that started the proxy
+func getProxyOwnerSession() string {
+	proxyOwnerMu.Lock()
+	defer proxyOwnerMu.Unlock()
+	return proxyOwnerSessionID
+}
+
+// clearProxyOwnerSession clears the proxy owner
+func clearProxyOwnerSession() {
+	proxyOwnerMu.Lock()
+	proxyOwnerSessionID = ""
+	proxyOwnerMu.Unlock()
+}
+
 // StartProxy starts the internal HTTP/HTTPS proxy
 func (a *App) StartProxy(port int) (string, error) {
 	LogUserAction(ActionProxyStart, "", map[string]interface{}{
@@ -57,7 +83,7 @@ func (a *App) StartProxy(port int) (string, error) {
 	emittedRequestsMu.Unlock()
 
 	err := proxy.GetProxy().Start(port, func(req proxy.RequestLog) {
-		// Skip partial updates (body-only updates without complete response)
+		// Skip partial updates (body-only size updates during transfer)
 		if req.PartialUpdate {
 			return
 		}
@@ -67,32 +93,26 @@ func (a *App) StartProxy(port int) (string, error) {
 			return
 		}
 
-		// Deduplicate: only emit once per request, but prefer the one with response body
+		// Safety-net dedup: emit only once per request ID.
+		// With the proxy.go fixes (logRequest notify=false when TransparentReadCloser
+		// will handle it, and doneCalled guard in update), each request should only
+		// reach here once. This map is a defensive safeguard.
 		emittedRequestsMu.Lock()
 		now := time.Now().UnixNano()
-		emittedAt, alreadyEmitted := emittedRequests[req.Id]
-		hasBody := req.RespBody != ""
-
-		// Skip if already emitted AND this one has no body (keep waiting for body)
-		// But if this one HAS body, emit it even if we emitted before (update with body)
-		if alreadyEmitted && !hasBody {
+		if _, alreadyEmitted := emittedRequests[req.Id]; alreadyEmitted {
 			emittedRequestsMu.Unlock()
 			return
 		}
-
 		emittedRequests[req.Id] = now
 
-		// TTL-based cleanup: remove expired entries when map gets large
+		// TTL-based cleanup when map grows large
 		if len(emittedRequests) > emittedRequestsMax {
-			// Clean up entries older than TTL
 			for id, ts := range emittedRequests {
 				if now-ts > emittedRequestsTTL {
 					delete(emittedRequests, id)
 				}
 			}
-			// If still too large after TTL cleanup, remove oldest half
 			if len(emittedRequests) > emittedRequestsMax {
-				// Find median timestamp and remove older entries
 				count := 0
 				target := len(emittedRequests) / 2
 				for id := range emittedRequests {
@@ -104,8 +124,6 @@ func (a *App) StartProxy(port int) (string, error) {
 				}
 			}
 		}
-		// Suppress unused variable warning
-		_ = emittedAt
 		emittedRequestsMu.Unlock()
 
 		// Calculate duration from ID (SessionId-TimestampNano)
@@ -183,6 +201,7 @@ func (a *App) StartProxy(port int) (string, error) {
 	}
 	mockRulesMu.RUnlock()
 
+	a.emitProxyStatus(true, port)
 	return "Proxy started successfully", nil
 }
 
@@ -238,19 +257,31 @@ func (a *App) StopProxy() (string, error) {
 		a.CleanupProxyForDevice(deviceId, port)
 	}
 
-	// Clear the tracked device
+	// Clear the tracked device and owner
 	a.SetProxyDevice("")
+	clearProxyOwnerSession()
 
 	err := proxy.GetProxy().Stop()
 	if err != nil {
 		return "", err
 	}
+	a.emitProxyStatus(false, port)
 	return "Proxy stopped successfully", nil
 }
 
 // GetProxyStatus returns true if the proxy is running
 func (a *App) GetProxyStatus() bool {
 	return proxy.GetProxy().IsRunning()
+}
+
+// emitProxyStatus notifies the frontend of proxy status changes
+func (a *App) emitProxyStatus(running bool, port int) {
+	if a.ctx != nil && !a.mcpMode {
+		wailsRuntime.EventsEmit(a.ctx, "proxy-status-changed", map[string]interface{}{
+			"running": running,
+			"port":    port,
+		})
+	}
 }
 
 // SetProxyLimit sets the upload and download speed limits for the proxy server (bytes per second)

@@ -169,6 +169,15 @@ const ProxyView: React.FC = () => {
         GetProxyStatus().then((status: boolean) => setProxyRunning(status));
         GetLocalIP().then((ip: string) => setLocalIP(ip));
 
+        // Listen for proxy status changes (e.g. started by session config)
+        const handleProxyStatus = (data: { running: boolean; port: number }) => {
+            setProxyRunning(data.running);
+            if (data.port) {
+                setPort(data.port);
+            }
+        };
+        EventsOn("proxy-status-changed", handleProxyStatus);
+
         // Sync settings from backend
         // Note: These settings are managed by the store and backend
         // @ts-ignore
@@ -227,6 +236,7 @@ const ProxyView: React.FC = () => {
 
         return () => {
             EventsOff("session-events-batch");
+            EventsOff("proxy-status-changed");
         };
     }, []);
 

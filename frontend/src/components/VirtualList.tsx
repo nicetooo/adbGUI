@@ -19,6 +19,8 @@ export interface VirtualListProps<T> {
 
   /** Show loading spinner */
   loading?: boolean;
+  /** Loading tip text shown with spinner */
+  loadingText?: string;
   /** Custom empty state text */
   emptyText?: string;
   /** Custom empty state icon */
@@ -74,6 +76,7 @@ function VirtualListInner<T>(
     height = '100%',
     overscan = 10,
     loading = false,
+    loadingText,
     emptyText,
     emptyIcon,
     onItemClick,
@@ -249,13 +252,20 @@ function VirtualListInner<T>(
         style={{
           height: heightStyle,
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
+          gap: 12,
           backgroundColor: token.colorBgContainer,
           ...style,
         }}
       >
         <Spin />
+        {loadingText && (
+          <span style={{ color: token.colorTextSecondary, fontSize: 13 }}>
+            {loadingText}
+          </span>
+        )}
       </div>
     );
   }

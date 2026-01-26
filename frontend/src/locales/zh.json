@@ -190,6 +190,7 @@
     "refresh": "刷新",
     "clear": "清空",
     "no_events": "暂无事件",
+    "loading_events": "正在加载事件...",
     "showing": "显示",
     "of": "/",
     "events": "条事件",

@@ -50,6 +50,7 @@
     "refresh": "새로고침",
     "clear": "지우기",
     "no_events": "이벤트 없음",
+    "loading_events": "이벤트 로딩 중...",
     "showing": "표시 중",
     "of": "/",
     "events": "이벤트",

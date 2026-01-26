@@ -163,6 +163,9 @@ interface EventStoreState {
   visibleRange: { start: number; end: number };
   visibleEvents: UnifiedEvent[];
 
+  // Network events (always unfiltered by source, for waterfall chart)
+  networkEvents: UnifiedEvent[];
+
   // 筛选条件
   filter: EventQuery;
 
@@ -257,6 +260,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
     bookmarksVersion: 0,
     visibleRange: { start: 0, end: 60000 }, // 默认显示前 60 秒
     visibleEvents: [],
+    networkEvents: [],
     filter: {},
     isLoading: false,
     totalEventCount: 0,
@@ -278,6 +282,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
         if (!sessionId) {
           state.liveEvents.clear();
           state.visibleEvents = [];
+          state.networkEvents = [];
           state.totalEventCount = 0;
         }
       });
@@ -300,6 +305,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
         state.liveEvents = new RingBuffer<UnifiedEvent>(LIVE_BUFFER_SIZE);
         state.pageCache.clear();
         state.visibleEvents = [];
+        state.networkEvents = [];
         state.visibleRange = { start: 0, end: 60000 };
         state.filter = {}; // 重置过滤器
         state.sessionsVersion = currentState.sessionsVersion + 1;
@@ -362,6 +368,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
 
         set(state => {
           state.visibleEvents = events;
+          state.networkEvents = events.filter((e: UnifiedEvent) => e.source === 'network');
           state.totalEventCount = events.length;
           state.filteredEventCount = events.length;
           state.hasMoreOlder = false;
@@ -406,6 +413,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           state.activeSessionId = sessionId;
           state.activeDeviceId = deviceId;
           state.visibleEvents = [];
+          state.networkEvents = [];
           state.totalEventCount = 0;
           state.sessionsVersion = currentState.sessionsVersion + 1;
           state.liveEvents = new RingBuffer<UnifiedEvent>(LIVE_BUFFER_SIZE);
@@ -450,6 +458,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           state.activeSessionId = null;
           state.liveEvents.clear();
           state.visibleEvents = [];
+          state.networkEvents = [];
         }
       });
     },
@@ -508,6 +517,15 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           // 限制列表数量，防止内存溢出（保留最新的 2000 条）
           if (state.visibleEvents.length > 2000) {
             state.visibleEvents = state.visibleEvents.slice(-2000);
+          }
+        }
+
+        // Always append network events regardless of source filter
+        const newNetworkEvents = relevantEvents.filter(e => e.source === 'network');
+        if (newNetworkEvents.length > 0) {
+          state.networkEvents = [...state.networkEvents, ...newNetworkEvents];
+          if (state.networkEvents.length > 2000) {
+            state.networkEvents = state.networkEvents.slice(-2000);
           }
         }
       });
@@ -825,8 +843,28 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           includeData: true,
         };
 
+        // Check if source filter excludes network — if so, query network events separately
+        const sourceFilterExcludesNetwork = filter.sources?.length && !filter.sources.includes('network');
+        const networkQueryPromise = sourceFilterExcludesNetwork
+          ? (window as any).go.main.App.QuerySessionEvents({
+              sessionId: activeSessionId,
+              sources: ['network'],
+              limit: 2000,
+              includeData: true,
+            })
+          : null;
+
         const result = await (window as any).go.main.App.QuerySessionEvents(query);
         const dbEvents = result?.events || [];
+
+        // Get network events (either from separate query or extract from main results)
+        let networkDbEvents: UnifiedEvent[];
+        if (networkQueryPromise) {
+          const networkResult = await networkQueryPromise;
+          networkDbEvents = networkResult?.events || [];
+        } else {
+          networkDbEvents = dbEvents.filter((e: UnifiedEvent) => e.source === 'network');
+        }
 
         // 获取当前 session 状态
         const currentSession = sessions.get(activeSessionId);
@@ -857,8 +895,17 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           const newEventsNotInDb = liveEventsArray.filter(e => !dbEventIds.has(e.id)).length;
           const newFilteredNotInDb = newLiveEvents.length;
 
+          // Merge network events from live buffer
+          const networkDbIds = new Set(networkDbEvents.map((e: UnifiedEvent) => e.id));
+          const liveNetworkEvents = liveEventsArray
+            .filter(e => e.source === 'network' && !networkDbIds.has(e.id));
+          const allNetworkEvents = [...networkDbEvents, ...liveNetworkEvents]
+            .sort((a, b) => a.relativeTime - b.relativeTime);
+
           set(state => {
             state.visibleEvents = displayEvents;
+            state.networkEvents = allNetworkEvents.length > 2000
+              ? allNetworkEvents.slice(-2000) : allNetworkEvents;
             state.totalEventCount = sessionTotalCount + newEventsNotInDb;
             state.filteredEventCount = filteredTotal + newFilteredNotInDb;
             state.isLoading = false;
@@ -867,6 +914,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           // 非 live session：直接使用数据库结果
           set(state => {
             state.visibleEvents = dbEvents;
+            state.networkEvents = networkDbEvents;
             state.totalEventCount = sessionTotalCount;
             state.filteredEventCount = filteredTotal;
             state.isLoading = false;
@@ -1010,6 +1058,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
         state.liveEvents.clear();
         state.pageCache.clear();
         state.visibleEvents = [];
+        state.networkEvents = [];
         state.totalEventCount = 0;
         state.selectedEventId = null;
       });
@@ -1046,6 +1095,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
             state.activeSessionId = session.id;
             state.liveEvents.clear();
             state.visibleEvents = [];
+            state.networkEvents = [];
             state.totalEventCount = 0;
           }
         });

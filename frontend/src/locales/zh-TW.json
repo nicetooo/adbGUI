@@ -50,6 +50,7 @@
     "refresh": "重新整理",
     "clear": "清除",
     "no_events": "暫無事件",
+    "loading_events": "正在載入事件...",
     "showing": "顯示",
     "of": "/",
     "events": "個事件",

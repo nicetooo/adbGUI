@@ -338,8 +338,8 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 		upLimiter := p.upLimiter
 		p.mu.Unlock()
 
-		// Log request immediately
-		p.logRequest(id, r, nil)
+		// Log request immediately (notify=false: StatusCode=0, always filtered by bridge)
+		p.logRequest(id, r, nil, false)
 
 		// 1. Transparent Request Body Copy
 		// Use a Tee-like wrapper to capture the request body as it's sent to the server.
@@ -438,8 +438,14 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 			p.mu.Unlock()
 		}
 
+		// Determine if TransparentReadCloser will handle the final OnRequest callback.
+		// If so, logRequest must NOT notify (to avoid duplicate events entering DB).
+		isWS := resp.StatusCode == 101 || (req != nil && strings.ToLower(req.Header.Get("Upgrade")) == "websocket")
+		willWrapBody := resp.Body != nil && !isWS && (req == nil || req.Method != "CONNECT")
+
 		// Update log with response headers
-		log := p.logRequest(id, req, resp)
+		// notify=!willWrapBody: only fire OnRequest if TransparentReadCloser won't do it
+		log := p.logRequest(id, req, resp, !willWrapBody)
 		log.Mocked = mocked
 		_ = log // Ensure used if Body is nil
 
@@ -449,7 +455,6 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 
 		if resp.Body != nil {
 			rc := resp.Body
-			isWS := resp.StatusCode == 101 || (req != nil && strings.ToLower(req.Header.Get("Upgrade")) == "websocket")
 
 			// 2. Universal Transparent Mirroring
 			// We wrap EVERYTHING to ensure we have size monitoring and logs.
@@ -581,7 +586,7 @@ func (p *ProxyServer) transfer(dst net.Conn, src net.Conn, limiter *rate.Limiter
 	}
 }
 
-func (p *ProxyServer) logRequest(id string, r *http.Request, resp *http.Response) RequestLog {
+func (p *ProxyServer) logRequest(id string, r *http.Request, resp *http.Response, notify bool) RequestLog {
 	if p.OnRequest == nil || r == nil {
 		return RequestLog{}
 	}
@@ -644,9 +649,12 @@ func (p *ProxyServer) logRequest(id string, r *http.Request, resp *http.Response
 		IsWs:        method == "WS",
 	}
 
-	// Always emit log to UI in background to never block network flow
+	// Emit log to UI in background, only if notify is true.
+	// When TransparentReadCloser will wrap the response body, it sends the
+	// final (complete) callback itself, so logRequest should NOT notify to
+	// avoid duplicate events.
 	go func() {
-		if p.OnRequest != nil {
+		if p.OnRequest != nil && notify {
 			p.OnRequest(log)
 		}
 	}()
@@ -798,6 +806,7 @@ type TransparentReadCloser struct {
 	limit      int64
 	totalSize  int64
 	lastUpdate time.Time
+	doneCalled bool // prevents double update(true) from Read EOF + Close
 	mu         sync.Mutex
 }
 
@@ -831,6 +840,13 @@ func (r *TransparentReadCloser) Read(p []byte) (n int, err error) {
 
 func (r *TransparentReadCloser) update(done bool) {
 	r.mu.Lock()
+	if done {
+		if r.doneCalled {
+			r.mu.Unlock()
+			return
+		}
+		r.doneCalled = true
+	}
 	r.lastUpdate = time.Now()
 	size := r.totalSize
 

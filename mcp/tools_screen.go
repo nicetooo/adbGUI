@@ -1,10 +1,13 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/png"
 	"os"
 	"path/filepath"
 	"time"
@@ -19,7 +22,8 @@ func (s *MCPServer) registerScreenTools() {
 		mcp.NewTool("screen_screenshot",
 			mcp.WithDescription(`Take a screenshot of the device screen and return as base64 image.
 Optionally includes UI hierarchy XML for element analysis.
-Returns: base64 PNG image + optional UI hierarchy JSON`),
+Returns: base64 PNG image + optional UI hierarchy JSON
+Note: Images are automatically resized if either dimension exceeds 2000px (aspect ratio preserved).`),
 			mcp.WithString("device_id",
 				mcp.Required(),
 				mcp.Description("Device ID"),
@@ -110,6 +114,36 @@ func (s *MCPServer) handleScreenshot(ctx context.Context, request mcp.CallToolRe
 	if err != nil {
 		return nil, fmt.Errorf("failed to read screenshot: %w", err)
 	}
+
+	// Resize if either dimension exceeds 2000px
+	const maxDimension = 2000
+	if img, _, decErr := image.Decode(bytes.NewReader(imageData)); decErr == nil {
+		bounds := img.Bounds()
+		w, h := bounds.Dx(), bounds.Dy()
+		if w > maxDimension || h > maxDimension {
+			var newW, newH int
+			if w >= h {
+				newW = maxDimension
+				newH = int(float64(h) * float64(maxDimension) / float64(w))
+			} else {
+				newH = maxDimension
+				newW = int(float64(w) * float64(maxDimension) / float64(h))
+			}
+			resized := image.NewRGBA(image.Rect(0, 0, newW, newH))
+			for y := 0; y < newH; y++ {
+				for x := 0; x < newW; x++ {
+					srcX := int(float64(x) * float64(w) / float64(newW))
+					srcY := int(float64(y) * float64(h) / float64(newH))
+					resized.Set(x, y, img.At(srcX, srcY))
+				}
+			}
+			var buf bytes.Buffer
+			if encErr := png.Encode(&buf, resized); encErr == nil {
+				imageData = buf.Bytes()
+			}
+		}
+	}
+
 	base64Image := base64.StdEncoding.EncodeToString(imageData)
 
 	// Also save to user-specified path if provided
