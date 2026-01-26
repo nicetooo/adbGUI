@@ -67,15 +67,16 @@ type MockGazeApp struct {
 	GetDeviceResolutionError  error
 
 	// Session Management
-	CreateSessionResult      string
-	EndSessionError          error
-	GetActiveSessionResult   string
-	ListStoredSessionsResult []DeviceSession
-	ListStoredSessionsError  error
-	QuerySessionEventsResult *EventQueryResult
-	QuerySessionEventsError  error
-	GetSessionStatsResult    map[string]interface{}
-	GetSessionStatsError     error
+	CreateSessionResult          string
+	StartSessionWithConfigResult string
+	EndSessionError              error
+	GetActiveSessionResult       string
+	ListStoredSessionsResult     []DeviceSession
+	ListStoredSessionsError      error
+	QuerySessionEventsResult     *EventQueryResult
+	QuerySessionEventsError      error
+	GetSessionStatsResult        map[string]interface{}
+	GetSessionStatsError         error
 
 	// Workflow
 	LoadWorkflowsResult          []Workflow
@@ -305,6 +306,14 @@ func (m *MockGazeApp) GetDeviceResolution(deviceId string) (string, error) {
 
 func (m *MockGazeApp) CreateSession(deviceId, sessionType, name string) string {
 	m.recordCall("CreateSession", deviceId, sessionType, name)
+	return m.CreateSessionResult
+}
+
+func (m *MockGazeApp) StartSessionWithConfig(deviceId, name string, config MCPSessionConfig) string {
+	m.recordCall("StartSessionWithConfig", deviceId, name, config)
+	if m.StartSessionWithConfigResult != "" {
+		return m.StartSessionWithConfigResult
+	}
 	return m.CreateSessionResult
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -57,7 +58,8 @@ Step JSON format (V2):
   "script": { "scriptName": "my_script" },
   "variable": { "name": "myVar", "value": "myValue" },
   "readToVariable": { "selector": {"type":"id","value":"com.app:id/text"}, "variableName": "myVar", "attribute": "text", "defaultValue": "" },
-  "workflow": { "workflowId": "sub_workflow_id" }
+  "workflow": { "workflowId": "sub_workflow_id" },
+  "session": { "sessionName": "Debug Session", "logcatEnabled": true, "logcatPackageName": "com.example.app", "recordingEnabled": true, "proxyEnabled": true, "monitorEnabled": true, "status": "completed" }
 }
 
 CONNECTIONS explained:
@@ -84,6 +86,7 @@ Step types:
 - KEYS: key_back, key_home, key_recent, key_power, key_volume_up, key_volume_down
 - SCREEN: screen_on, screen_off
 - CONTROL: wait, adb, set_variable, read_to_variable, branch, run_workflow, script
+- SESSION: start_session, end_session
 
 ELEMENT WAIT BEHAVIOR:
 All element-based steps automatically wait for element to appear within timeout before performing action:
@@ -105,6 +108,12 @@ set_variable supports arithmetic expressions after variable substitution:
 - Examples: "{{count}} + 1", "{{a}} * {{b}}", "({{x}} + {{y}}) / 2"
 - If expression is invalid, the raw string is used as-is
 
+SESSION CONTROL:
+- start_session: Creates a new tracking session with optional config (logcat, recording, proxy, monitor).
+  The session ID is stored in workflow variable '_sessionId' for later use.
+- end_session: Ends the current active session. Uses '_sessionId' variable or falls back to device's active session.
+  Status can be: completed, error, cancelled (default: completed).
+
 Element selector types: id, text, contentDesc, className, xpath
 Element actions: click, long_click, input, swipe, wait, wait_gone, assert`),
 			mcp.WithString("name",
@@ -123,7 +132,9 @@ Element actions: click, long_click, input, swipe, wait, wait_gone, assert`),
   {"type":"swipe","swipe":{"x":540,"y":1800,"x2":540,"y2":600}},
   {"type":"click_element","element":{"selector":{"type":"id","value":"com.app:id/button"},"action":"click"}},
   {"type":"input_text","element":{"selector":{"type":"id","value":"com.app:id/input"},"action":"input","inputText":"Hello"}},
-  {"type":"key_back"}
+  {"type":"key_back"},
+  {"type":"start_session","session":{"sessionName":"Debug","logcatEnabled":true,"recordingEnabled":true}},
+  {"type":"end_session","session":{"status":"completed"}}
 ]`),
 			),
 			mcp.WithString("variables_json",
@@ -280,13 +291,18 @@ Step types:
 - Keys: key_back, key_home, key_recent, key_power, key_volume_up, key_volume_down
 - Screen: screen_on, screen_off
 - Control: wait, adb, set_variable, read_to_variable
+- Session: start_session, end_session
 
 ELEMENT WAIT BEHAVIOR: All element steps (click_element, long_click_element, input_text, swipe_element, 
 wait_element, assert_element) automatically wait for element within timeout before action.
 wait_gone waits for element to disappear. read_to_variable also waits, then reads attribute into variable.
 If element not found and default_value is set, uses default_value and succeeds.
 
-set_variable supports arithmetic expressions: {{count}} + 1, {{a}} * {{b}}, ({{x}} + {{y}}) / 2`),
+set_variable supports arithmetic expressions: {{count}} + 1, {{a}} * {{b}}, ({{x}} + {{y}}) / 2
+
+SESSION CONTROL:
+- start_session: Start a new tracking session. Optional params: session_name, logcat_enabled, logcat_package, recording_enabled, recording_quality, proxy_enabled, proxy_port, proxy_mitm, monitor_enabled.
+- end_session: End the current active session. Optional param: session_status (completed/error/cancelled, default: completed).`),
 			mcp.WithString("device_id",
 				mcp.Required(),
 				mcp.Description("Device ID"),
@@ -342,6 +358,37 @@ set_variable supports arithmetic expressions: {{count}} + 1, {{a}} * {{b}}, ({{x
 			),
 			mcp.WithString("condition_type",
 				mcp.Description("Condition for assert/branch: exists, not_exists, text_equals, text_contains"),
+			),
+			// Session params (for start_session / end_session)
+			mcp.WithString("session_name",
+				mcp.Description("Session name for start_session"),
+			),
+			mcp.WithBoolean("logcat_enabled",
+				mcp.Description("Enable logcat capture for start_session"),
+			),
+			mcp.WithString("logcat_package",
+				mcp.Description("Package name to filter logcat for start_session"),
+			),
+			mcp.WithBoolean("recording_enabled",
+				mcp.Description("Enable screen recording for start_session"),
+			),
+			mcp.WithString("recording_quality",
+				mcp.Description("Recording quality for start_session: low, medium, high (default: medium)"),
+			),
+			mcp.WithBoolean("proxy_enabled",
+				mcp.Description("Enable HTTP/HTTPS proxy for start_session"),
+			),
+			mcp.WithNumber("proxy_port",
+				mcp.Description("Proxy port for start_session (default: 8080)"),
+			),
+			mcp.WithBoolean("proxy_mitm",
+				mcp.Description("Enable MITM for HTTPS inspection for start_session"),
+			),
+			mcp.WithBoolean("monitor_enabled",
+				mcp.Description("Enable device state monitoring for start_session"),
+			),
+			mcp.WithString("session_status",
+				mcp.Description("Session end status for end_session: completed, error, cancelled (default: completed)"),
 			),
 		),
 		s.handleWorkflowExecuteStep,
@@ -454,6 +501,33 @@ func (s *MCPServer) handleWorkflowGet(ctx context.Context, request mcp.CallToolR
 		}
 		if step.Workflow != nil {
 			result += fmt.Sprintf("   SubWorkflow: %s\n", step.Workflow.WorkflowId)
+		}
+		if step.Session != nil {
+			if step.Type == "start_session" {
+				features := []string{}
+				if step.Session.LogcatEnabled {
+					features = append(features, "logcat")
+				}
+				if step.Session.RecordingEnabled {
+					features = append(features, "recording")
+				}
+				if step.Session.ProxyEnabled {
+					features = append(features, "proxy")
+				}
+				if step.Session.MonitorEnabled {
+					features = append(features, "monitor")
+				}
+				result += fmt.Sprintf("   Session: start")
+				if step.Session.SessionName != "" {
+					result += fmt.Sprintf(" (name: %s)", step.Session.SessionName)
+				}
+				if len(features) > 0 {
+					result += fmt.Sprintf(" [%s]", strings.Join(features, ", "))
+				}
+				result += "\n"
+			} else {
+				result += fmt.Sprintf("   Session: end (status: %s)\n", step.Session.Status)
+			}
 		}
 
 		// Show connections
@@ -1138,6 +1212,8 @@ func (s *MCPServer) handleWorkflowExecuteStep(ctx context.Context, request mcp.C
 		"screen_on": true, "screen_off": true,
 		// Control flow
 		"wait": true, "adb": true, "set_variable": true, "read_to_variable": true,
+		// Session control
+		"start_session": true, "end_session": true,
 	}
 	if !validTypes[stepType] {
 		return nil, fmt.Errorf("invalid step_type '%s'", stepType)
@@ -1319,6 +1395,46 @@ func (s *MCPServer) handleWorkflowExecuteStep(ctx context.Context, request mcp.C
 			DefaultValue: defaultValue,
 			Regex:        regexPattern,
 		}
+
+	case "start_session":
+		sessionParams := &SessionParams{}
+		if name, ok := args["session_name"].(string); ok && name != "" {
+			sessionParams.SessionName = name
+		}
+		if enabled, ok := args["logcat_enabled"].(bool); ok {
+			sessionParams.LogcatEnabled = enabled
+		}
+		if pkg, ok := args["logcat_package"].(string); ok {
+			sessionParams.LogcatPackageName = pkg
+		}
+		if enabled, ok := args["recording_enabled"].(bool); ok {
+			sessionParams.RecordingEnabled = enabled
+		}
+		if quality, ok := args["recording_quality"].(string); ok {
+			sessionParams.RecordingQuality = quality
+		}
+		if enabled, ok := args["proxy_enabled"].(bool); ok {
+			sessionParams.ProxyEnabled = enabled
+		}
+		if port, ok := args["proxy_port"].(float64); ok {
+			sessionParams.ProxyPort = int(port)
+		}
+		if mitm, ok := args["proxy_mitm"].(bool); ok {
+			sessionParams.ProxyMitmEnabled = mitm
+		}
+		if enabled, ok := args["monitor_enabled"].(bool); ok {
+			sessionParams.MonitorEnabled = enabled
+		}
+		step.Session = sessionParams
+
+	case "end_session":
+		sessionParams := &SessionParams{}
+		if status, ok := args["session_status"].(string); ok && status != "" {
+			sessionParams.Status = status
+		} else {
+			sessionParams.Status = "completed"
+		}
+		step.Session = sessionParams
 	}
 
 	// Execute the step
@@ -1356,6 +1472,31 @@ func (s *MCPServer) handleWorkflowExecuteStep(ctx context.Context, request mcp.C
 	}
 	if step.ADB != nil {
 		result += fmt.Sprintf("Command: %s\n", step.ADB.Command)
+	}
+	if step.Session != nil {
+		if stepType == "start_session" {
+			if step.Session.SessionName != "" {
+				result += fmt.Sprintf("Session name: %s\n", step.Session.SessionName)
+			}
+			features := []string{}
+			if step.Session.LogcatEnabled {
+				features = append(features, "logcat")
+			}
+			if step.Session.RecordingEnabled {
+				features = append(features, "recording")
+			}
+			if step.Session.ProxyEnabled {
+				features = append(features, "proxy")
+			}
+			if step.Session.MonitorEnabled {
+				features = append(features, "monitor")
+			}
+			if len(features) > 0 {
+				result += fmt.Sprintf("Enabled: %s\n", strings.Join(features, ", "))
+			}
+		} else {
+			result += fmt.Sprintf("Status: %s\n", step.Session.Status)
+		}
 	}
 
 	return &mcp.CallToolResult{
