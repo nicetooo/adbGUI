@@ -34,6 +34,8 @@ export function ClearAppData(arg1:string,arg2:string):Promise<string>;
 
 export function ClearSession(arg1:string):Promise<void>;
 
+export function ClearTextViaADBKeyboard(arg1:string):Promise<void>;
+
 export function ClickElement(arg1:context.Context,arg2:string,arg3:types.ElementSelector,arg4:main.ElementActionConfig):Promise<void>;
 
 export function CopyFile(arg1:string,arg2:string,arg3:string):Promise<void>;
@@ -77,6 +79,8 @@ export function EnableApp(arg1:string,arg2:string):Promise<string>;
 export function EndActiveSession(arg1:string,arg2:string):Promise<void>;
 
 export function EndSession(arg1:string,arg2:string):Promise<void>;
+
+export function EnsureADBKeyboard(arg1:string):Promise<boolean>;
 
 export function EnsureActiveSession(arg1:string):Promise<string>;
 
@@ -224,11 +228,19 @@ export function InitializeWithoutGUI():Promise<void>;
 
 export function InputNodeText(arg1:string,arg2:string,arg3:string):Promise<void>;
 
+export function InputText(arg1:string,arg2:string):Promise<void>;
+
 export function InputTextToElement(arg1:context.Context,arg2:string,arg3:types.ElementSelector,arg4:string,arg5:boolean,arg6:main.ElementActionConfig):Promise<void>;
+
+export function InputTextViaADBKeyboard(arg1:string,arg2:string):Promise<void>;
 
 export function InstallAPK(arg1:string,arg2:string):Promise<string>;
 
 export function InstallProxyCert(arg1:string):Promise<string>;
+
+export function IsADBKeyboardActive(arg1:string):Promise<boolean>;
+
+export function IsADBKeyboardInstalled(arg1:string):Promise<boolean>;
 
 export function IsAppRunning(arg1:string,arg2:string):Promise<boolean>;
 

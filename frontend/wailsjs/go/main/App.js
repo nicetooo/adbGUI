@@ -58,6 +58,10 @@ export function ClearSession(arg1) {
   return window['go']['main']['App']['ClearSession'](arg1);
 }
 
+export function ClearTextViaADBKeyboard(arg1) {
+  return window['go']['main']['App']['ClearTextViaADBKeyboard'](arg1);
+}
+
 export function ClickElement(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ClickElement'](arg1, arg2, arg3, arg4);
 }
@@ -144,6 +148,10 @@ export function EndActiveSession(arg1, arg2) {
 
 export function EndSession(arg1, arg2) {
   return window['go']['main']['App']['EndSession'](arg1, arg2);
+}
+
+export function EnsureADBKeyboard(arg1) {
+  return window['go']['main']['App']['EnsureADBKeyboard'](arg1);
 }
 
 export function EnsureActiveSession(arg1) {
@@ -438,8 +446,16 @@ export function InputNodeText(arg1, arg2, arg3) {
   return window['go']['main']['App']['InputNodeText'](arg1, arg2, arg3);
 }
 
+export function InputText(arg1, arg2) {
+  return window['go']['main']['App']['InputText'](arg1, arg2);
+}
+
 export function InputTextToElement(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['main']['App']['InputTextToElement'](arg1, arg2, arg3, arg4, arg5, arg6);
+}
+
+export function InputTextViaADBKeyboard(arg1, arg2) {
+  return window['go']['main']['App']['InputTextViaADBKeyboard'](arg1, arg2);
 }
 
 export function InstallAPK(arg1, arg2) {
@@ -448,6 +464,14 @@ export function InstallAPK(arg1, arg2) {
 
 export function InstallProxyCert(arg1) {
   return window['go']['main']['App']['InstallProxyCert'](arg1);
+}
+
+export function IsADBKeyboardActive(arg1) {
+  return window['go']['main']['App']['IsADBKeyboardActive'](arg1);
+}
+
+export function IsADBKeyboardInstalled(arg1) {
+  return window['go']['main']['App']['IsADBKeyboardInstalled'](arg1);
 }
 
 export function IsAppRunning(arg1, arg2) {

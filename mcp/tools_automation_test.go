@@ -377,13 +377,16 @@ func TestHandleUIInput_Success(t *testing.T) {
 		t.Error("Result should mention input")
 	}
 
-	// Verify text was passed
-	lastCall := mock.GetLastCall()
+	// Verify InputText was called with correct args
+	if !mock.WasMethodCalled("InputText") {
+		t.Error("InputText should have been called")
+	}
+	lastCall := mock.GetLastCallByMethod("InputText")
+	if lastCall.Args[0] != "device1" {
+		t.Errorf("Expected device 'device1', got %v", lastCall.Args[0])
+	}
 	if lastCall.Args[1] != "Hello World" {
 		t.Errorf("Expected text 'Hello World', got %v", lastCall.Args[1])
-	}
-	if lastCall.Args[2] != "input" {
-		t.Errorf("Expected action 'input', got %v", lastCall.Args[2])
 	}
 }
 
@@ -399,7 +402,10 @@ func TestHandleUIInput_SpecialCharacters(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	lastCall := mock.GetLastCall()
+	lastCall := mock.GetLastCallByMethod("InputText")
+	if lastCall == nil {
+		t.Fatal("InputText should have been called")
+	}
 	if lastCall.Args[1] != "test@email.com" {
 		t.Errorf("Expected text 'test@email.com', got %v", lastCall.Args[1])
 	}
@@ -431,15 +437,22 @@ func TestHandleUIInput_MissingText(t *testing.T) {
 
 func TestHandleUIInput_Error(t *testing.T) {
 	mock := NewMockGazeApp()
-	mock.SetupWithError("PerformNodeAction", ErrDeviceOffline)
+	mock.InputTextError = ErrDeviceOffline
 	server := NewMCPServer(mock)
 
-	_, err := server.handleUIInput(context.Background(), makeToolRequest(map[string]interface{}{
+	result, err := server.handleUIInput(context.Background(), makeToolRequest(map[string]interface{}{
 		"device_id": "device1",
 		"text":      "Hello",
 	}))
-	if err == nil {
-		t.Error("Expected error, got nil")
+	if err != nil {
+		t.Fatalf("Unexpected Go error: %v", err)
+	}
+	if !result.IsError {
+		t.Error("Expected IsError=true in result")
+	}
+	text := getTextContent(result)
+	if !strings.Contains(text, "device offline") {
+		t.Errorf("Error message should contain 'device offline', got: %s", text)
 	}
 }
 

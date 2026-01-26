@@ -112,16 +112,20 @@ func (a *App) InputTextToElement(ctx context.Context, deviceId string, selector 
 
 	// Clear existing text if requested
 	if clearFirst {
-		// Select all and delete
-		a.RunAdbCommand(deviceId, "shell input keyevent 67") // Delete key, multiple times
+		// Prefer ADBKeyboard clear (more reliable) if available
+		if a.IsADBKeyboardInstalled(deviceId) && a.IsADBKeyboardActive(deviceId) {
+			_ = a.ClearTextViaADBKeyboard(deviceId)
+		} else {
+			// Fallback: select all (Ctrl+A) then delete
+			a.RunAdbCommand(deviceId, "shell input keyevent --longpress 29") // KEYCODE_A (select all via long press)
+			time.Sleep(100 * time.Millisecond)
+			a.RunAdbCommand(deviceId, "shell input keyevent 67") // KEYCODE_DEL
+		}
+		time.Sleep(200 * time.Millisecond)
 	}
 
-	// Escape special characters for shell
-	escapedText := strings.ReplaceAll(text, " ", "%s")
-	escapedText = strings.ReplaceAll(escapedText, "'", "\\'")
-
-	_, err = a.RunAdbCommand(deviceId, fmt.Sprintf("shell input text '%s'", escapedText))
-	return err
+	// Use unified InputText (auto-detects ASCII vs Unicode)
+	return a.InputText(deviceId, text)
 }
 
 // SwipeOnElement finds an element and performs a swipe from its center

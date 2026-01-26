@@ -196,6 +196,18 @@ func (b *MCPBridge) GetDeviceResolution(deviceId string) (string, error) {
 	return b.app.GetDeviceResolution(deviceId)
 }
 
+func (b *MCPBridge) InputText(deviceId string, text string) error {
+	return b.app.InputText(deviceId, text)
+}
+
+func (b *MCPBridge) EnsureADBKeyboard(deviceId string) (bool, bool, error) {
+	return b.app.EnsureADBKeyboard(deviceId)
+}
+
+func (b *MCPBridge) IsADBKeyboardInstalled(deviceId string) bool {
+	return b.app.IsADBKeyboardInstalled(deviceId)
+}
+
 func (b *MCPBridge) CreateSession(deviceId, sessionType, name string) string {
 	// Use StartNewSession which persists to EventStore (database)
 	return b.app.StartNewSession(deviceId, sessionType, name)

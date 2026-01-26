@@ -106,6 +106,9 @@ type GazeApp interface {
 	SearchUIElements(deviceId string, query string) ([]map[string]interface{}, error)
 	PerformNodeAction(deviceId string, bounds string, actionType string) error
 	GetDeviceResolution(deviceId string) (string, error)
+	InputText(deviceId string, text string) error
+	EnsureADBKeyboard(deviceId string) (bool, bool, error)
+	IsADBKeyboardInstalled(deviceId string) bool
 
 	// Session Management
 	CreateSession(deviceId, sessionType, name string) string

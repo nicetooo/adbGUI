@@ -20,16 +20,17 @@ import (
 
 // App struct
 type App struct {
-	ctx          context.Context
-	ctxCancel    context.CancelFunc // For MCP mode cleanup
-	adbPath      string
-	scrcpyPath   string
-	serverPath   string
-	aaptPath     string
-	ffmpegPath   string
-	ffprobePath  string
-	logcatCmd    *exec.Cmd
-	logcatCancel context.CancelFunc
+	ctx             context.Context
+	ctxCancel       context.CancelFunc // For MCP mode cleanup
+	adbPath         string
+	scrcpyPath      string
+	serverPath      string
+	aaptPath        string
+	ffmpegPath      string
+	ffprobePath     string
+	adbKeyboardPath string // Path to extracted ADBKeyboard APK for Unicode text input
+	logcatCmd       *exec.Cmd
+	logcatCancel    context.CancelFunc
 
 	// Generic mutex for shared state
 	mu sync.Mutex
@@ -366,6 +367,19 @@ func (a *App) setupBinaries() {
 	if len(ffprobeBinary) > 0 {
 		a.ffprobePath = extract("ffprobe", ffprobeBinary)
 		fmt.Fprintf(os.Stderr, "FFprobe setup at: %s\n", a.ffprobePath)
+	}
+
+	// Setup ADBKeyboard APK (cross-platform, runs on Android device)
+	if len(adbKeyboardAPK) > 0 {
+		apkPath := filepath.Join(appBinDir, "ADBKeyboard.apk")
+		info, err := os.Stat(apkPath)
+		if err != nil || info.Size() != int64(len(adbKeyboardAPK)) {
+			if writeErr := os.WriteFile(apkPath, adbKeyboardAPK, 0644); writeErr != nil {
+				LogDebug("app").Str("name", "ADBKeyboard.apk").Err(writeErr).Msg("Error extracting ADBKeyboard APK")
+			}
+		}
+		a.adbKeyboardPath = apkPath
+		fmt.Fprintf(os.Stderr, "ADBKeyboard APK setup at: %s\n", a.adbKeyboardPath)
 	}
 
 	a.Log("Binaries setup at: %s", appBinDir)

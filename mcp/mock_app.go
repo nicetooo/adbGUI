@@ -58,13 +58,18 @@ type MockGazeApp struct {
 	IsRecordingResult    bool
 
 	// UI Automation
-	GetUIHierarchyResult      *UIHierarchyResult
-	GetUIHierarchyError       error
-	SearchUIElementsResult    []map[string]interface{}
-	SearchUIElementsError     error
-	PerformNodeActionError    error
-	GetDeviceResolutionResult string
-	GetDeviceResolutionError  error
+	GetUIHierarchyResult         *UIHierarchyResult
+	GetUIHierarchyError          error
+	SearchUIElementsResult       []map[string]interface{}
+	SearchUIElementsError        error
+	PerformNodeActionError       error
+	GetDeviceResolutionResult    string
+	GetDeviceResolutionError     error
+	InputTextError               error
+	EnsureADBKeyboardReady       bool
+	EnsureADBKeyboardInstalled   bool
+	EnsureADBKeyboardError       error
+	IsADBKeyboardInstalledResult bool
 
 	// Session Management
 	CreateSessionResult          string
@@ -300,6 +305,21 @@ func (m *MockGazeApp) PerformNodeAction(deviceId string, bounds string, actionTy
 func (m *MockGazeApp) GetDeviceResolution(deviceId string) (string, error) {
 	m.recordCall("GetDeviceResolution", deviceId)
 	return m.GetDeviceResolutionResult, m.GetDeviceResolutionError
+}
+
+func (m *MockGazeApp) InputText(deviceId string, text string) error {
+	m.recordCall("InputText", deviceId, text)
+	return m.InputTextError
+}
+
+func (m *MockGazeApp) EnsureADBKeyboard(deviceId string) (bool, bool, error) {
+	m.recordCall("EnsureADBKeyboard", deviceId)
+	return m.EnsureADBKeyboardReady, m.EnsureADBKeyboardInstalled, m.EnsureADBKeyboardError
+}
+
+func (m *MockGazeApp) IsADBKeyboardInstalled(deviceId string) bool {
+	m.recordCall("IsADBKeyboardInstalled", deviceId)
+	return m.IsADBKeyboardInstalledResult
 }
 
 // === Session Management ===

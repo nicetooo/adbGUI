@@ -35,12 +35,12 @@ type DeviceMonitor struct {
 	cancel   context.CancelFunc
 
 	// 状态缓存
-	lastBattery    *BatteryState
-	lastNetwork    *NetworkState
-	lastScreen     *ScreenState
-	lastActivity   string
-	lastPackage    string
-	stateMu        sync.RWMutex
+	lastBattery  *BatteryState
+	lastNetwork  *NetworkState
+	lastScreen   *ScreenState
+	lastActivity string
+	lastPackage  string
+	stateMu      sync.RWMutex
 
 	// Logcat 监听 (用于应用事件)
 	logcatCmd    *exec.Cmd
@@ -63,12 +63,12 @@ type BatteryState struct {
 
 // NetworkState 网络状态
 type NetworkState struct {
-	Type          string `json:"type"` // wifi, mobile, none
-	Connected     bool   `json:"connected"`
-	WifiSSID      string `json:"wifiSsid,omitempty"`
-	WifiRSSI      int    `json:"wifiRssi,omitempty"`
-	MobileType    string `json:"mobileType,omitempty"` // LTE, 5G, etc.
-	AirplaneMode  bool   `json:"airplaneMode"`
+	Type         string `json:"type"` // wifi, mobile, none
+	Connected    bool   `json:"connected"`
+	WifiSSID     string `json:"wifiSsid,omitempty"`
+	WifiRSSI     int    `json:"wifiRssi,omitempty"`
+	MobileType   string `json:"mobileType,omitempty"` // LTE, 5G, etc.
+	AirplaneMode bool   `json:"airplaneMode"`
 }
 
 // ScreenState 屏幕状态

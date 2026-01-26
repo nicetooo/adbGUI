@@ -52,7 +52,7 @@ const TOOL_CATEGORIES = [
     icon: <AimOutlined />,
     color: "#722ed1",
     tools: [
-      "ui_hierarchy", "ui_search", "ui_tap", "ui_swipe", "ui_input", "ui_resolution",
+      "ui_hierarchy", "ui_search", "ui_tap", "ui_swipe", "ui_input", "ui_resolution", "keyboard_setup",
     ],
   },
   {

@@ -76,7 +76,16 @@ func (s *MCPServer) registerAutomationTools() {
 	// ui_input - Input text
 	s.server.AddTool(
 		mcp.NewTool("ui_input",
-			mcp.WithDescription("Input text into the focused field"),
+			mcp.WithDescription(`Input text into the focused field.
+
+Supports both ASCII and Unicode text (Chinese, Japanese, Korean, emoji, etc.).
+
+For ASCII-only text, uses native 'adb shell input text' (fast, no setup needed).
+For Unicode text, automatically installs and activates ADBKeyboard on the device.
+ADBKeyboard is a lightweight IME (~30KB) that enables Unicode input via ADB.
+
+NOTE: First Unicode input on a device may take a few seconds for ADBKeyboard installation.
+The field must already be focused before calling this tool. Use ui_tap to focus first if needed.`),
 			mcp.WithString("device_id",
 				mcp.Required(),
 				mcp.Description("Device ID"),
@@ -87,6 +96,26 @@ func (s *MCPServer) registerAutomationTools() {
 			),
 		),
 		s.handleUIInput,
+	)
+
+	// keyboard_setup - Install and activate ADBKeyboard
+	s.server.AddTool(
+		mcp.NewTool("keyboard_setup",
+			mcp.WithDescription(`Install and activate ADBKeyboard on a device for Unicode text input support.
+
+ADBKeyboard is a lightweight Android IME (~30KB) that enables inputting any Unicode text
+(Chinese, Japanese, Korean, emoji, accented characters, etc.) via ADB commands.
+
+This is called automatically when Unicode text is first input via ui_input, but you can
+call it proactively to avoid the setup delay during actual input.
+
+Returns the setup status including whether installation was performed.`),
+			mcp.WithString("device_id",
+				mcp.Required(),
+				mcp.Description("Device ID"),
+			),
+		),
+		s.handleKeyboardSetup,
 	)
 
 	// ui_resolution - Get device resolution
@@ -246,16 +275,57 @@ func (s *MCPServer) handleUIInput(ctx context.Context, request mcp.CallToolReque
 		return nil, fmt.Errorf("text is required")
 	}
 
-	// Use PerformNodeAction with special "input" type
-	err := s.app.PerformNodeAction(deviceID, text, "input")
+	// Use InputText: supports both ASCII and Unicode via ADBKeyboard
+	err := s.app.InputText(deviceID, text)
 	if err != nil {
-		return nil, fmt.Errorf("failed to input text: %w", err)
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error: %v", err))},
+			IsError: true,
+		}, nil
+	}
+
+	// Indicate which method was used
+	method := "adb input text"
+	for _, r := range text {
+		if r > 127 {
+			method = "ADBKeyboard (base64)"
+			break
+		}
 	}
 
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
-			mcp.NewTextContent(fmt.Sprintf("Input text: \"%s\"", text)),
+			mcp.NewTextContent(fmt.Sprintf("Input text: \"%s\" (method: %s)", text, method)),
 		},
+	}, nil
+}
+
+func (s *MCPServer) handleKeyboardSetup(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	deviceID, ok := args["device_id"].(string)
+	if !ok || deviceID == "" {
+		return nil, fmt.Errorf("device_id is required")
+	}
+
+	ready, installed, err := s.app.EnsureADBKeyboard(deviceID)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error setting up ADBKeyboard: %v", err))},
+			IsError: true,
+		}, nil
+	}
+
+	var msg string
+	if installed {
+		msg = fmt.Sprintf("ADBKeyboard installed and activated on device %s. Unicode text input is now available.", deviceID)
+	} else if ready {
+		msg = fmt.Sprintf("ADBKeyboard is already installed and active on device %s. Ready for Unicode text input.", deviceID)
+	} else {
+		msg = fmt.Sprintf("ADBKeyboard setup on device %s: ready=%v", deviceID, ready)
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(msg)},
 	}, nil
 }
 

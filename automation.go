@@ -2789,7 +2789,8 @@ func (a *App) captureElementInfoAtPoint(deviceId string, x, y int) *ElementInfo 
 	}
 }
 
-// InputNodeText taps a node to focus it and then sends text input
+// InputNodeText taps a node to focus it and then sends text input.
+// Supports Unicode text via ADBKeyboard (auto-installed on first use).
 func (a *App) InputNodeText(deviceId string, bounds string, text string) error {
 	// First click to focus
 	err := a.PerformNodeAction(deviceId, bounds, "click")
@@ -2800,11 +2801,8 @@ func (a *App) InputNodeText(deviceId string, bounds string, text string) error {
 	// Small delay to ensure focus
 	time.Sleep(200 * time.Millisecond)
 
-	// ADB input text doesn't like spaces directly, replace with %s
-	processedText := strings.ReplaceAll(text, " ", "%s")
-	cmd := fmt.Sprintf("shell input text \"%s\"", processedText)
-	_, err = a.RunAdbCommand(deviceId, cmd)
-	return err
+	// Use unified InputText (auto-detects ASCII vs Unicode)
+	return a.InputText(deviceId, text)
 }
 
 // emitTouchEvent sends a touch event to the event pipeline
