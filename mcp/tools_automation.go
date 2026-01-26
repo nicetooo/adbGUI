@@ -81,7 +81,8 @@ func (s *MCPServer) registerAutomationTools() {
 Supports both ASCII and Unicode text (Chinese, Japanese, Korean, emoji, etc.).
 
 For ASCII-only text, uses native 'adb shell input text' (fast, no setup needed).
-For Unicode text, automatically installs and activates ADBKeyboard on the device.
+For Unicode text, automatically installs ADBKeyboard on the device (first use only),
+temporarily activates it for input, then restores the previous IME.
 ADBKeyboard is a lightweight IME (~30KB) that enables Unicode input via ADB.
 
 NOTE: First Unicode input on a device may take a few seconds for ADBKeyboard installation.
@@ -101,15 +102,17 @@ The field must already be focused before calling this tool. Use ui_tap to focus 
 	// keyboard_setup - Install and activate ADBKeyboard
 	s.server.AddTool(
 		mcp.NewTool("keyboard_setup",
-			mcp.WithDescription(`Install and activate ADBKeyboard on a device for Unicode text input support.
+			mcp.WithDescription(`Pre-install ADBKeyboard on a device for Unicode text input support.
 
 ADBKeyboard is a lightweight Android IME (~30KB) that enables inputting any Unicode text
 (Chinese, Japanese, Korean, emoji, accented characters, etc.) via ADB commands.
 
-This is called automatically when Unicode text is first input via ui_input, but you can
-call it proactively to avoid the setup delay during actual input.
+This only installs and enables ADBKeyboard in the IME list. It does NOT switch the active IME.
+ADBKeyboard is temporarily activated only during actual Unicode text input via ui_input,
+and the previous IME is restored immediately after.
 
-Returns the setup status including whether installation was performed.`),
+This is called automatically when Unicode text is first input via ui_input, but you can
+call it proactively to avoid the install delay during actual input.`),
 			mcp.WithString("device_id",
 				mcp.Required(),
 				mcp.Description("Device ID"),
@@ -317,9 +320,9 @@ func (s *MCPServer) handleKeyboardSetup(ctx context.Context, request mcp.CallToo
 
 	var msg string
 	if installed {
-		msg = fmt.Sprintf("ADBKeyboard installed and activated on device %s. Unicode text input is now available.", deviceID)
+		msg = fmt.Sprintf("ADBKeyboard installed and enabled on device %s. It will be temporarily activated during Unicode text input via ui_input.", deviceID)
 	} else if ready {
-		msg = fmt.Sprintf("ADBKeyboard is already installed and active on device %s. Ready for Unicode text input.", deviceID)
+		msg = fmt.Sprintf("ADBKeyboard is already installed on device %s. Ready for Unicode text input.", deviceID)
 	} else {
 		msg = fmt.Sprintf("ADBKeyboard setup on device %s: ready=%v", deviceID, ready)
 	}

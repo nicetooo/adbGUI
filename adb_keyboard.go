@@ -27,20 +27,28 @@ func (a *App) IsADBKeyboardActive(deviceId string) bool {
 	return strings.TrimSpace(output) == adbKeyboardIME
 }
 
-// EnsureADBKeyboard installs (if needed) and activates ADBKeyboard on the device.
-// This is called lazily on first Unicode text input.
-// Returns (ready, installOccurred, error).
+// getCurrentIME returns the current active IME identifier
+func (a *App) getCurrentIME(deviceId string) string {
+	output, err := a.RunAdbCommand(deviceId, "shell settings get secure default_input_method")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(output)
+}
+
+// EnsureADBKeyboard installs ADBKeyboard on the device if not already present,
+// and enables it in the IME list (but does NOT activate it as the current IME).
+// This avoids interfering with the device's normal keyboard.
+// Returns (installed, justInstalled, error).
 func (a *App) EnsureADBKeyboard(deviceId string) (bool, bool, error) {
 	if a.adbKeyboardPath == "" {
 		return false, false, fmt.Errorf("ADBKeyboard APK not available (not embedded in this build)")
 	}
 
-	installed := false
+	justInstalled := false
 
-	// Step 1: Install if not present
 	if !a.IsADBKeyboardInstalled(deviceId) {
 		LogDebug("adb_keyboard").Str("deviceId", deviceId).Msg("Installing ADBKeyboard APK...")
-		// Use newAdbCommand with separate args to handle paths with spaces
 		cmd := a.newAdbCommand(nil, "-s", deviceId, "install", "-r", a.adbKeyboardPath)
 		outputBytes, err := cmd.CombinedOutput()
 		output := string(outputBytes)
@@ -50,10 +58,9 @@ func (a *App) EnsureADBKeyboard(deviceId string) (bool, bool, error) {
 		if !strings.Contains(output, "Success") {
 			return false, false, fmt.Errorf("ADBKeyboard install did not succeed: %s", output)
 		}
-		installed = true
+		justInstalled = true
 		LogDebug("adb_keyboard").Str("deviceId", deviceId).Msg("ADBKeyboard installed successfully")
 
-		// Emit event so frontend timeline shows the installation
 		if a.eventPipeline != nil {
 			a.eventPipeline.EmitRaw(deviceId, SourceApp, "app_install", LevelInfo,
 				"ADBKeyboard installed for Unicode text input support",
@@ -64,48 +71,71 @@ func (a *App) EnsureADBKeyboard(deviceId string) (bool, bool, error) {
 				})
 		}
 
-		// Small delay after install to let the system register the IME
+		// Let the system register the new IME
 		time.Sleep(500 * time.Millisecond)
 	}
 
-	// Step 2: Enable and activate if not already active
-	if !a.IsADBKeyboardActive(deviceId) {
-		_, err := a.RunAdbCommand(deviceId, "shell ime enable "+adbKeyboardIME)
-		if err != nil {
-			return false, installed, fmt.Errorf("failed to enable ADBKeyboard IME: %w", err)
-		}
-		_, err = a.RunAdbCommand(deviceId, "shell ime set "+adbKeyboardIME)
-		if err != nil {
-			return false, installed, fmt.Errorf("failed to activate ADBKeyboard IME: %w", err)
-		}
-		LogDebug("adb_keyboard").Str("deviceId", deviceId).Msg("ADBKeyboard activated as current IME")
+	// Enable in IME list (does NOT switch the active IME)
+	a.RunAdbCommand(deviceId, "shell ime enable "+adbKeyboardIME)
 
-		// Wait for IME service to fully initialize and bind to the input field.
-		// Without this delay, the first broadcast after activation is lost.
-		time.Sleep(1 * time.Second)
+	return true, justInstalled, nil
+}
+
+// activateADBKeyboard temporarily switches the active IME to ADBKeyboard.
+// Returns the previous IME so it can be restored after input.
+func (a *App) activateADBKeyboard(deviceId string) string {
+	previousIME := a.getCurrentIME(deviceId)
+
+	if previousIME == adbKeyboardIME {
+		return previousIME // Already active
 	}
 
-	return true, installed, nil
+	a.RunAdbCommand(deviceId, "shell ime set "+adbKeyboardIME)
+	LogDebug("adb_keyboard").Str("deviceId", deviceId).Msg("ADBKeyboard temporarily activated")
+
+	// Wait for IME service to bind to the input field
+	time.Sleep(800 * time.Millisecond)
+
+	return previousIME
+}
+
+// restoreIME switches back to the previous IME after ADBKeyboard input
+func (a *App) restoreIME(deviceId string, previousIME string) {
+	if previousIME == "" || previousIME == adbKeyboardIME {
+		return
+	}
+	_, err := a.RunAdbCommand(deviceId, "shell ime set "+previousIME)
+	if err != nil {
+		LogDebug("adb_keyboard").Str("deviceId", deviceId).Err(err).Msg("Failed to restore previous IME")
+	} else {
+		LogDebug("adb_keyboard").Str("deviceId", deviceId).Str("ime", previousIME).Msg("Restored previous IME")
+	}
 }
 
 // InputTextViaADBKeyboard inputs text using ADBKeyboard's base64 broadcast.
-// Supports any Unicode text including CJK, emoji, etc.
+// Temporarily activates ADBKeyboard, sends input, then restores the previous IME.
 func (a *App) InputTextViaADBKeyboard(deviceId string, text string) error {
+	// Step 1: Ensure installed
 	ready, _, err := a.EnsureADBKeyboard(deviceId)
 	if !ready {
 		return fmt.Errorf("ADBKeyboard not ready: %w", err)
 	}
 
-	// Encode text as base64 to avoid shell escaping issues
-	encoded := base64.StdEncoding.EncodeToString([]byte(text))
+	// Step 2: Temporarily activate ADBKeyboard (save previous IME)
+	previousIME := a.activateADBKeyboard(deviceId)
 
+	// Step 3: Send input via base64 broadcast
+	encoded := base64.StdEncoding.EncodeToString([]byte(text))
 	cmd := fmt.Sprintf("shell am broadcast -a ADB_INPUT_B64 --es msg %s", encoded)
-	output, err := a.RunAdbCommand(deviceId, cmd)
-	if err != nil {
-		return fmt.Errorf("ADBKeyboard broadcast failed: %w", err)
+	output, broadcastErr := a.RunAdbCommand(deviceId, cmd)
+
+	// Step 4: Restore previous IME immediately after input
+	a.restoreIME(deviceId, previousIME)
+
+	if broadcastErr != nil {
+		return fmt.Errorf("ADBKeyboard broadcast failed: %w", broadcastErr)
 	}
 
-	// ADBKeyboard broadcast returns "result=0" or "result=-1" on success
 	if strings.Contains(output, "result=0") || strings.Contains(output, "result=-1") {
 		return nil
 	}
@@ -114,15 +144,19 @@ func (a *App) InputTextViaADBKeyboard(deviceId string, text string) error {
 	return nil
 }
 
-// ClearTextViaADBKeyboard clears the focused text field using ADBKeyboard
+// ClearTextViaADBKeyboard clears the focused text field using ADBKeyboard.
+// Temporarily activates ADBKeyboard, sends clear, then restores the previous IME.
 func (a *App) ClearTextViaADBKeyboard(deviceId string) error {
 	ready, _, err := a.EnsureADBKeyboard(deviceId)
 	if !ready {
 		return fmt.Errorf("ADBKeyboard not ready: %w", err)
 	}
 
-	_, err = a.RunAdbCommand(deviceId, "shell am broadcast -a ADB_CLEAR_TEXT")
-	return err
+	previousIME := a.activateADBKeyboard(deviceId)
+	_, clearErr := a.RunAdbCommand(deviceId, "shell am broadcast -a ADB_CLEAR_TEXT")
+	a.restoreIME(deviceId, previousIME)
+
+	return clearErr
 }
 
 // containsNonASCII checks if a string contains any non-ASCII characters
@@ -138,6 +172,8 @@ func containsNonASCII(s string) bool {
 // InputText is the unified text input entry point.
 // For ASCII-only text, uses native "adb shell input text" (fast, no extra setup).
 // For Unicode text, automatically installs and uses ADBKeyboard (lazy install).
+// ADBKeyboard is only active during the brief moment of Unicode input,
+// then the previous IME is restored to avoid interfering with normal device usage.
 func (a *App) InputText(deviceId string, text string) error {
 	if containsNonASCII(text) {
 		return a.InputTextViaADBKeyboard(deviceId, text)

@@ -112,15 +112,10 @@ func (a *App) InputTextToElement(ctx context.Context, deviceId string, selector 
 
 	// Clear existing text if requested
 	if clearFirst {
-		// Prefer ADBKeyboard clear (more reliable) if available
-		if a.IsADBKeyboardInstalled(deviceId) && a.IsADBKeyboardActive(deviceId) {
-			_ = a.ClearTextViaADBKeyboard(deviceId)
-		} else {
-			// Fallback: select all (Ctrl+A) then delete
-			a.RunAdbCommand(deviceId, "shell input keyevent --longpress 29") // KEYCODE_A (select all via long press)
-			time.Sleep(100 * time.Millisecond)
-			a.RunAdbCommand(deviceId, "shell input keyevent 67") // KEYCODE_DEL
-		}
+		// Select all (Ctrl+A) then delete
+		a.RunAdbCommand(deviceId, "shell input keyevent --longpress 29") // KEYCODE_A (select all via long press)
+		time.Sleep(100 * time.Millisecond)
+		a.RunAdbCommand(deviceId, "shell input keyevent 67") // KEYCODE_DEL
 		time.Sleep(200 * time.Millisecond)
 	}
 
