@@ -197,7 +197,7 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 
 	// Start getevent command for specific device
 	// Run getevent -lt /dev/input/eventX
-	cmd := exec.CommandContext(ctx, a.adbPath, "-s", deviceId, "shell", "getevent", "-lt", inputDevice)
+	cmd := a.newAdbCommand(ctx, "-s", deviceId, "shell", "getevent", "-lt", inputDevice)
 
 	// Create a pipe to read output
 	stdout, err := cmd.StdoutPipe()
@@ -583,6 +583,29 @@ func (a *App) IsRecordingTouch(deviceId string) bool {
 	return exists
 }
 
+// stopAllTouchRecordings cancels all active touch recordings during shutdown.
+// Unlike StopTouchRecording, this does not parse results — it just kills processes.
+func (a *App) stopAllTouchRecordings() {
+	touchRecordMu.Lock()
+	defer touchRecordMu.Unlock()
+
+	for deviceId, cancel := range touchRecordCancel {
+		cancel()
+		LogInfo("shutdown").Str("device", deviceId).Msg("Cancelled touch recording")
+	}
+	for deviceId, cmd := range touchRecordCmd {
+		if cmd != nil && cmd.Process != nil {
+			_ = cmd.Process.Kill()
+			LogInfo("shutdown").Str("device", deviceId).Msg("Killed touch recording process")
+		}
+	}
+
+	// Clear all maps
+	touchRecordCmd = make(map[string]*exec.Cmd)
+	touchRecordCancel = make(map[string]context.CancelFunc)
+	touchRecordData = make(map[string]*TouchRecordingSession)
+}
+
 // PickPointOnScreen waits for a single tap on the device screen and returns the coordinates
 // Returns a map with x, y coordinates and a bounds string
 func (a *App) PickPointOnScreen(deviceId string, timeoutSeconds int) (map[string]interface{}, error) {
@@ -637,7 +660,7 @@ func (a *App) PickPointOnScreen(deviceId string, timeoutSeconds int) (map[string
 	defer cancel()
 
 	// Start getevent
-	cmd := exec.CommandContext(ctx, a.adbPath, "-s", deviceId, "shell", "getevent", "-lt", inputDevice)
+	cmd := a.newAdbCommand(ctx, "-s", deviceId, "shell", "getevent", "-lt", inputDevice)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)

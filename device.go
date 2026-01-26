@@ -177,7 +177,7 @@ func (a *App) GetDevices(forceLog bool) ([]Device, error) {
 			if node.state == "device" {
 				sCtx, sCancel := context.WithTimeout(ctx, 3*time.Second)
 				defer sCancel()
-				c := exec.CommandContext(sCtx, a.adbPath, "-s", node.id, "shell", "getprop ro.serialno")
+				c := a.newAdbCommand(sCtx, "-s", node.id, "shell", "getprop ro.serialno")
 				out, err := c.Output()
 				if err == nil {
 					s := strings.TrimSpace(string(out))
@@ -317,7 +317,7 @@ func (a *App) GetDevices(forceLog bool) ([]Device, error) {
 				defer wg.Done()
 				pCtx, pCancel := context.WithTimeout(ctx, 5*time.Second)
 				defer pCancel()
-				cmd := exec.CommandContext(pCtx, a.adbPath, "-s", d.ID, "shell", "getprop ro.product.manufacturer; getprop ro.product.model")
+				cmd := a.newAdbCommand(pCtx, "-s", d.ID, "shell", "getprop ro.product.manufacturer; getprop ro.product.model")
 				out, err := cmd.Output()
 				if err == nil {
 					parts := strings.Split(string(out), "\n")
@@ -504,7 +504,7 @@ func (a *App) AdbPair(address string, code string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, a.adbPath, "pair", address, code)
+	cmd := a.newAdbCommand(ctx, "pair", address, code)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(output), fmt.Errorf("pairing failed: %w, output: %s", err, string(output))
@@ -523,10 +523,10 @@ func (a *App) AdbConnect(address string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	disconnectCmd := exec.CommandContext(ctx, a.adbPath, "disconnect", address)
+	disconnectCmd := a.newAdbCommand(ctx, "disconnect", address)
 	_ = disconnectCmd.Run()
 
-	cmd := exec.CommandContext(ctx, a.adbPath, "connect", address)
+	cmd := a.newAdbCommand(ctx, "connect", address)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		timer.EndWithError(err)
@@ -563,7 +563,7 @@ func (a *App) AdbDisconnect(address string) (string, error) {
 		if addr == "" {
 			continue
 		}
-		cmd := exec.CommandContext(ctx, a.adbPath, "disconnect", addr)
+		cmd := a.newAdbCommand(ctx, "disconnect", addr)
 		output, err := cmd.CombinedOutput()
 		lastOut = string(output)
 		if err != nil && !strings.Contains(string(output), "no such device") {
@@ -583,12 +583,12 @@ func (a *App) GetDeviceIP(deviceId string) (string, error) {
 		return "", fmt.Errorf("no device specified")
 	}
 
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "ip addr show wlan0 | grep 'inet ' | awk '{print $2}' | cut -d/ -f1")
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "ip addr show wlan0 | grep 'inet ' | awk '{print $2}' | cut -d/ -f1")
 	output, err := cmd.CombinedOutput()
 	ip := strings.TrimSpace(string(output))
 
 	if err != nil || ip == "" {
-		cmd = exec.Command(a.adbPath, "-s", deviceId, "shell", "getprop dhcp.wlan0.ipaddress")
+		cmd = a.newAdbCommand(nil, "-s", deviceId, "shell", "getprop dhcp.wlan0.ipaddress")
 		output, _ = cmd.CombinedOutput()
 		ip = strings.TrimSpace(string(output))
 	}
@@ -608,7 +608,7 @@ func (a *App) SwitchToWireless(deviceId string) (string, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, a.adbPath, "-s", deviceId, "tcpip", "5555")
+	cmd := a.newAdbCommand(ctx, "-s", deviceId, "tcpip", "5555")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return string(out), fmt.Errorf("failed to enable tcpip mode: %w", err)
 	}
@@ -618,10 +618,19 @@ func (a *App) SwitchToWireless(deviceId string) (string, error) {
 	return a.AdbConnect(ip + ":5555")
 }
 
-// RestartAdbServer kills and restarts the ADB server
+// RestartAdbServer kills and restarts the ADB server.
+// All ADB-dependent processes must be cleaned up before the server is killed,
+// otherwise they become orphaned.
 func (a *App) RestartAdbServer() (string, error) {
-	a.Log("Restarting ADB server...")
+	a.Log("Restarting ADB server, cleaning up all ADB-dependent processes...")
 
+	// Stop all ADB-dependent long-running processes
+	a.StopLogcat()
+	a.stopAllTouchRecordings()
+	a.StopAllDeviceStateMonitors()
+	a.StopAllNetworkMonitors()
+
+	// Kill scrcpy mirroring processes
 	a.scrcpyMu.Lock()
 	for id, cmd := range a.scrcpyCmds {
 		if cmd.Process != nil {
@@ -629,17 +638,24 @@ func (a *App) RestartAdbServer() (string, error) {
 		}
 		delete(a.scrcpyCmds, id)
 	}
+	// Kill scrcpy recording processes
+	for id, cmd := range a.scrcpyRecordCmd {
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		delete(a.scrcpyRecordCmd, id)
+	}
 	a.scrcpyMu.Unlock()
 
 	if runtime.GOOS == "windows" {
 		_ = exec.Command("taskkill", "/F", "/IM", "adb.exe", "/T").Run()
 	} else {
 		_ = exec.Command("killall", "adb").Run()
-		_ = exec.Command(a.adbPath, "kill-server").Run()
+		_ = a.newAdbCommand(nil, "kill-server").Run()
 	}
 	time.Sleep(500 * time.Millisecond)
 
-	startCmd := exec.Command(a.adbPath, "start-server")
+	startCmd := a.newAdbCommand(nil, "start-server")
 	output, err := startCmd.CombinedOutput()
 	if err != nil {
 		return string(output), fmt.Errorf("failed to start adb server: %w", err)
@@ -1041,7 +1057,7 @@ func (a *App) runDeviceMonitor(ctx context.Context) {
 		}
 
 		// Start adb track-devices
-		cmd := exec.CommandContext(ctx, a.adbPath, "track-devices")
+		cmd := a.newAdbCommand(ctx, "track-devices")
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
 			a.Log("Device monitor: failed to create pipe: %v", err)

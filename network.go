@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -85,7 +84,7 @@ func (a *App) StopAllNetworkMonitors() {
 
 // SetDeviceNetworkLimit sets the ingress rate limit (Android 13+)
 func (a *App) SetDeviceNetworkLimit(deviceId string, bytesPerSecond int) (string, error) {
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "settings", "put", "global", "ingress_rate_limit_bytes_per_second", fmt.Sprintf("%d", bytesPerSecond))
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "settings", "put", "global", "ingress_rate_limit_bytes_per_second", fmt.Sprintf("%d", bytesPerSecond))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("%s: %v", string(output), err)
@@ -97,7 +96,7 @@ func (a *App) getNetworkStats(deviceId string) (NetworkStats, error) {
 	var stats NetworkStats
 	stats.Time = time.Now().Unix()
 
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "cat", "/proc/net/dev")
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "cat", "/proc/net/dev")
 	output, err := cmd.Output()
 	if err != nil {
 		return stats, err

@@ -158,7 +158,7 @@ func (m *DeviceMonitor) checkBattery() {
 	ctx, cancel := context.WithTimeout(m.ctx, 3*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, m.app.adbPath, "-s", m.deviceID, "shell", "dumpsys battery")
+	cmd := m.app.newAdbCommand(ctx, "-s", m.deviceID, "shell", "dumpsys battery")
 	output, err := cmd.Output()
 	if err != nil {
 		return
@@ -188,11 +188,11 @@ func (m *DeviceMonitor) checkNetwork() {
 	defer cancel()
 
 	// 获取 WiFi 状态
-	cmd := exec.CommandContext(ctx, m.app.adbPath, "-s", m.deviceID, "shell", "dumpsys wifi | grep 'Wi-Fi is\\|mWifiInfo\\|SSID\\|RSSI'")
+	cmd := m.app.newAdbCommand(ctx, "-s", m.deviceID, "shell", "dumpsys wifi | grep 'Wi-Fi is\\|mWifiInfo\\|SSID\\|RSSI'")
 	wifiOutput, _ := cmd.Output()
 
 	// 获取网络连接状态
-	cmd2 := exec.CommandContext(ctx, m.app.adbPath, "-s", m.deviceID, "shell", "dumpsys connectivity | head -50")
+	cmd2 := m.app.newAdbCommand(ctx, "-s", m.deviceID, "shell", "dumpsys connectivity | head -50")
 	connOutput, _ := cmd2.Output()
 
 	state := parseNetworkState(string(wifiOutput), string(connOutput))
@@ -219,11 +219,11 @@ func (m *DeviceMonitor) checkScreen() {
 	defer cancel()
 
 	// 检查屏幕开关状态
-	cmd := exec.CommandContext(ctx, m.app.adbPath, "-s", m.deviceID, "shell", "dumpsys power | grep 'Display Power\\|mScreenOn\\|mWakefulness'")
+	cmd := m.app.newAdbCommand(ctx, "-s", m.deviceID, "shell", "dumpsys power | grep 'Display Power\\|mScreenOn\\|mWakefulness'")
 	output, _ := cmd.Output()
 
 	// 检查屏幕方向
-	cmd2 := exec.CommandContext(ctx, m.app.adbPath, "-s", m.deviceID, "shell", "dumpsys display | grep 'mCurrentOrientation'")
+	cmd2 := m.app.newAdbCommand(ctx, "-s", m.deviceID, "shell", "dumpsys display | grep 'mCurrentOrientation'")
 	orientOutput, _ := cmd2.Output()
 
 	state := parseScreenState(string(output), string(orientOutput))
@@ -248,7 +248,7 @@ func (m *DeviceMonitor) checkCurrentActivity() {
 	ctx, cancel := context.WithTimeout(m.ctx, 3*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, m.app.adbPath, "-s", m.deviceID, "shell", "dumpsys activity activities | grep 'mResumedActivity'")
+	cmd := m.app.newAdbCommand(ctx, "-s", m.deviceID, "shell", "dumpsys activity activities | grep 'mResumedActivity'")
 	output, err := cmd.Output()
 	if err != nil {
 		return
@@ -281,7 +281,7 @@ func (m *DeviceMonitor) watchAppEvents() {
 	m.logcatCancel = cancel
 
 	// 清除旧日志
-	clearCmd := exec.CommandContext(ctx, m.app.adbPath, "-s", m.deviceID, "logcat", "-c")
+	clearCmd := m.app.newAdbCommand(ctx, "-s", m.deviceID, "logcat", "-c")
 	_ = clearCmd.Run()
 
 	// 监听关键事件
@@ -289,7 +289,7 @@ func (m *DeviceMonitor) watchAppEvents() {
 	// ActivityManager: 应用启动/停止 (旧版本)
 	// AndroidRuntime: 崩溃
 	// ANRManager: ANR
-	cmd := exec.CommandContext(ctx, m.app.adbPath, "-s", m.deviceID, "logcat",
+	cmd := m.app.newAdbCommand(ctx, "-s", m.deviceID, "logcat",
 		"-v", "time",
 		"ActivityTaskManager:I", "ActivityManager:I", "AndroidRuntime:E", "ANRManager:E", "*:S")
 	m.logcatCmd = cmd
@@ -393,7 +393,7 @@ func (m *DeviceMonitor) watchTouchEvents() {
 	// 使用 getevent 监听触摸事件
 	// -l: 使用标签而不是数字
 	// -t: 显示时间戳
-	cmd := exec.CommandContext(ctx, m.app.adbPath, "-s", m.deviceID, "shell", "getevent", "-lt")
+	cmd := m.app.newAdbCommand(ctx, "-s", m.deviceID, "shell", "getevent", "-lt")
 	m.touchCmd = cmd
 
 	stdout, err := cmd.StdoutPipe()

@@ -79,9 +79,9 @@ func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex b
 	}
 
 	if preFilter != "" || excludeFilter != "" {
-		cmd = exec.CommandContext(ctx, a.adbPath, "-s", deviceId, "shell", shellCmd)
+		cmd = a.newAdbCommand(ctx, "-s", deviceId, "shell", shellCmd)
 	} else {
-		cmd = exec.CommandContext(ctx, a.adbPath, "-s", deviceId, "logcat", "-v", "time")
+		cmd = a.newAdbCommand(ctx, "-s", deviceId, "logcat", "-v", "time")
 	}
 	a.logcatCmd = cmd
 
@@ -103,7 +103,7 @@ func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex b
 	var pidMutex sync.RWMutex
 
 	if packageName != "" {
-		uidCmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "pm list packages -U "+packageName)
+		uidCmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "pm list packages -U "+packageName)
 		uidOut, _ := uidCmd.Output()
 		uidStr := string(uidOut)
 		if strings.Contains(uidStr, "uid:") {
@@ -120,18 +120,22 @@ func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex b
 			defer ticker.Stop()
 
 			checkPid := func() {
-				c := exec.Command(a.adbPath, "-s", deviceId, "shell", "pgrep -f", packageName)
+				// Use a timeout context to prevent PID check commands from piling up
+				pidCtx, pidCancel := context.WithTimeout(ctx, 5*time.Second)
+				defer pidCancel()
+
+				c := a.newAdbCommand(pidCtx, "-s", deviceId, "shell", "pgrep -f", packageName)
 				out, _ := c.Output()
 				raw := strings.TrimSpace(string(out))
 
 				if raw == "" {
-					c2 := exec.Command(a.adbPath, "-s", deviceId, "shell", "pidof", packageName)
+					c2 := a.newAdbCommand(pidCtx, "-s", deviceId, "shell", "pidof", packageName)
 					out2, _ := c2.Output()
 					raw = strings.TrimSpace(string(out2))
 				}
 
 				if raw == "" {
-					c3 := exec.Command(a.adbPath, "-s", deviceId, "shell", "ps -A")
+					c3 := a.newAdbCommand(pidCtx, "-s", deviceId, "shell", "ps -A")
 					out3, _ := c3.Output()
 					lines := strings.Split(string(out3), "\n")
 					var matchedPids []string

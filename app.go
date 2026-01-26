@@ -153,6 +153,9 @@ func (a *App) Shutdown(ctx context.Context) {
 	a.scrcpyMu.Unlock()
 	a.StopLogcat()
 	a.StopDeviceMonitor()
+	a.stopAllTouchRecordings()
+	a.StopAllDeviceStateMonitors()
+	a.StopAllNetworkMonitors()
 
 	LogAppState(StateStopped, nil)
 	CloseLogger()
@@ -217,6 +220,9 @@ func (a *App) ShutdownWithoutGUI() {
 
 	a.StopLogcat()
 	a.StopDeviceMonitor()
+	a.stopAllTouchRecordings()
+	a.StopAllDeviceStateMonitors()
+	a.StopAllNetworkMonitors()
 
 	LogAppState(StateStopped, nil)
 	CloseLogger()
@@ -647,6 +653,9 @@ func (a *App) EndActiveSession(sessionID, status string) {
 		if session.Config.Logcat.Enabled {
 			log.Printf("[EndActiveSession] Stopping logcat")
 			a.StopLogcat()
+			a.stopAllTouchRecordings()
+			a.StopAllDeviceStateMonitors()
+			a.StopAllNetworkMonitors()
 		}
 		if session.Config.Recording.Enabled {
 			log.Printf("[EndActiveSession] Stopping recording")
@@ -692,7 +701,7 @@ func (a *App) GetInstalledPackages(deviceID string, thirdPartyOnly bool) ([]stri
 		args = append(args, "-3") // Only third-party (user-installed) apps
 	}
 
-	cmd := exec.Command(a.adbPath, args...)
+	cmd := a.newAdbCommand(nil, args...)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list packages: %v", err)

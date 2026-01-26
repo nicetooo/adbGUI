@@ -34,7 +34,7 @@ func (a *App) ListFiles(deviceId, pathStr string) ([]FileInfo, error) {
 		cmdPath += "/"
 	}
 
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "ls", "-la", "\""+cmdPath+"\"")
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "ls", "-la", "\""+cmdPath+"\"")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list files: %w (output: %s)", err, string(output))
@@ -131,7 +131,7 @@ func (a *App) DownloadFile(deviceId, remotePath string) (string, error) {
 		return "", nil
 	}
 
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "pull", remotePath, savePath)
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "pull", remotePath, savePath)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("failed to download file: %w, output: %s", err, string(output))
 	}
@@ -145,7 +145,7 @@ func (a *App) UploadFile(deviceId, localPath, remotePath string) error {
 		return fmt.Errorf("no device specified")
 	}
 
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "push", localPath, remotePath)
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "push", localPath, remotePath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to upload file: %w, output: %s", err, string(output))
@@ -161,7 +161,7 @@ func (a *App) DeleteFile(deviceId, pathStr string) error {
 		return fmt.Errorf("no device specified")
 	}
 	pathStr = path.Clean("/" + pathStr)
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "rm", "-rf", "\""+pathStr+"\"")
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "rm", "-rf", "\""+pathStr+"\"")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, string(output))
@@ -176,7 +176,7 @@ func (a *App) MoveFile(deviceId, src, dest string) error {
 	}
 	src = path.Clean("/" + src)
 	dest = path.Clean("/" + dest)
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "mv", "\""+src+"\"", "\""+dest+"\"")
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "mv", "\""+src+"\"", "\""+dest+"\"")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, string(output))
@@ -191,7 +191,7 @@ func (a *App) CopyFile(deviceId, src, dest string) error {
 	}
 	src = path.Clean("/" + src)
 	dest = path.Clean("/" + dest)
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "cp", "-R", "\""+src+"\"", "\""+dest+"\"")
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "cp", "-R", "\""+src+"\"", "\""+dest+"\"")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, string(output))
@@ -205,7 +205,7 @@ func (a *App) Mkdir(deviceId, pathStr string) error {
 		return fmt.Errorf("no device specified")
 	}
 	pathStr = path.Clean("/" + pathStr)
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "mkdir", "-p", "\""+pathStr+"\"")
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "mkdir", "-p", "\""+pathStr+"\"")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, string(output))
@@ -227,7 +227,7 @@ func (a *App) OpenFileOnHost(deviceId, remotePath string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, a.adbPath, "-s", deviceId, "pull", remotePath, localPath)
+	cmd := a.newAdbCommand(ctx, "-s", deviceId, "pull", remotePath, localPath)
 
 	a.openFileMu.Lock()
 	a.openFileCmds[remotePath] = cmd
@@ -304,7 +304,7 @@ func (a *App) GetThumbnail(deviceId, remotePath, modTime string) (string, error)
 	localPath := filepath.Join(tmpDir, cacheKey+ext)
 	defer os.Remove(localPath)
 
-	pullCmd := exec.Command(a.adbPath, "-s", deviceId, "pull", remotePath, localPath)
+	pullCmd := a.newAdbCommand(nil, "-s", deviceId, "pull", remotePath, localPath)
 	if err := pullCmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to pull file: %w", err)
 	}

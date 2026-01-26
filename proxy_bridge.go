@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -213,16 +212,16 @@ func (a *App) SetupProxyForDevice(deviceId string, port int) error {
 	}
 
 	// 1. Setup adb reverse: device's localhost:port -> host's localhost:port
-	reverseCmd := exec.Command(a.adbPath, "-s", deviceId, "reverse", "tcp:"+strconv.Itoa(port), "tcp:"+strconv.Itoa(port))
+	reverseCmd := a.newAdbCommand(nil, "-s", deviceId, "reverse", "tcp:"+strconv.Itoa(port), "tcp:"+strconv.Itoa(port))
 	if out, err := reverseCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("adb reverse failed: %v, output: %s", err, string(out))
 	}
 
 	// 2. Set device proxy to localhost (traffic goes through adb tunnel)
-	proxyCmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "settings", "put", "global", "http_proxy", fmt.Sprintf("127.0.0.1:%d", port))
+	proxyCmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "settings", "put", "global", "http_proxy", fmt.Sprintf("127.0.0.1:%d", port))
 	if out, err := proxyCmd.CombinedOutput(); err != nil {
 		// Try to clean up reverse on failure
-		exec.Command(a.adbPath, "-s", deviceId, "reverse", "--remove", "tcp:"+strconv.Itoa(port)).Run()
+		a.newAdbCommand(nil, "-s", deviceId, "reverse", "--remove", "tcp:"+strconv.Itoa(port)).Run()
 		return fmt.Errorf("set proxy failed: %v, output: %s", err, string(out))
 	}
 
@@ -236,10 +235,10 @@ func (a *App) CleanupProxyForDevice(deviceId string, port int) error {
 	}
 
 	// 1. Clear device proxy
-	exec.Command(a.adbPath, "-s", deviceId, "shell", "settings", "put", "global", "http_proxy", ":0").Run()
+	a.newAdbCommand(nil, "-s", deviceId, "shell", "settings", "put", "global", "http_proxy", ":0").Run()
 
 	// 2. Remove adb reverse
-	exec.Command(a.adbPath, "-s", deviceId, "reverse", "--remove", "tcp:"+strconv.Itoa(port)).Run()
+	a.newAdbCommand(nil, "-s", deviceId, "reverse", "--remove", "tcp:"+strconv.Itoa(port)).Run()
 
 	return nil
 }
@@ -327,7 +326,7 @@ func (a *App) InstallProxyCert(deviceId string) (string, error) {
 
 	dest := "/sdcard/Download/Gaze-CA.crt"
 
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "push", certPath, dest)
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "push", certPath, dest)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return "", err
 	} else {

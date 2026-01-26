@@ -435,7 +435,7 @@ func (a *App) TakeScreenshot(deviceId, savePath string) (string, error) {
 
 	a.updateLastActive(deviceId)
 
-	checkCmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "dumpsys power | grep -iE 'state=|wakefulness=' ; dumpsys window | grep -iE 'keyguardShowing|showingLockscreen'")
+	checkCmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "dumpsys power | grep -iE 'state=|wakefulness=' ; dumpsys window | grep -iE 'keyguardShowing|showingLockscreen'")
 	out, _ := checkCmd.CombinedOutput()
 	outStr := strings.TrimSpace(string(out))
 
@@ -458,19 +458,19 @@ func (a *App) TakeScreenshot(deviceId, savePath string) (string, error) {
 	}
 	// Use unique remote path to avoid race conditions with concurrent/rapid calls
 	remotePath := fmt.Sprintf("/sdcard/screenshot_%d.png", time.Now().UnixNano())
-	capCmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "screencap", "-p", remotePath)
+	capCmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "screencap", "-p", remotePath)
 	if out, err := capCmd.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("failed to capture screenshot on device: %w, output: %s", err, string(out))
 	}
-	defer exec.Command(a.adbPath, "-s", deviceId, "shell", "rm", remotePath).Run()
+	defer a.newAdbCommand(nil, "-s", deviceId, "shell", "rm", remotePath).Run()
 
 	// Force filesystem sync to ensure screenshot is fully written before pulling
-	exec.Command(a.adbPath, "-s", deviceId, "shell", "sync").Run()
+	a.newAdbCommand(nil, "-s", deviceId, "shell", "sync").Run()
 
 	if !a.mcpMode {
 		wailsRuntime.EventsEmit(a.ctx, "screenshot-progress", "screenshot_pulling")
 	}
-	pullCmd := exec.Command(a.adbPath, "-s", deviceId, "pull", remotePath, savePath)
+	pullCmd := a.newAdbCommand(nil, "-s", deviceId, "pull", remotePath, savePath)
 	if out, err := pullCmd.CombinedOutput(); err != nil {
 		if !a.mcpMode {
 			wailsRuntime.EventsEmit(a.ctx, "screenshot-progress", "screenshot_error", err.Error())

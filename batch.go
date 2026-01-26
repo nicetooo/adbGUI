@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os/exec"
 	"strings"
 	"sync"
 
@@ -90,7 +89,7 @@ func (a *App) batchInstall(deviceID, apkPath string) BatchResult {
 		return br
 	}
 
-	cmd := exec.Command(a.adbPath, "-s", deviceID, "install", "-r", apkPath)
+	cmd := a.newAdbCommand(nil, "-s", deviceID, "install", "-r", apkPath)
 	output, err := cmd.CombinedOutput()
 	br.Output = string(output)
 
@@ -119,7 +118,7 @@ func (a *App) batchUninstall(deviceID, packageName string) BatchResult {
 	}
 
 	// Try standard uninstall first
-	cmd := exec.Command(a.adbPath, "-s", deviceID, "uninstall", packageName)
+	cmd := a.newAdbCommand(nil, "-s", deviceID, "uninstall", packageName)
 	output, err := cmd.CombinedOutput()
 	br.Output = string(output)
 
@@ -129,7 +128,7 @@ func (a *App) batchUninstall(deviceID, packageName string) BatchResult {
 	}
 
 	// Try pm uninstall for system apps
-	cmd2 := exec.Command(a.adbPath, "-s", deviceID, "shell", "pm", "uninstall", "-k", "--user", "0", packageName)
+	cmd2 := a.newAdbCommand(nil, "-s", deviceID, "shell", "pm", "uninstall", "-k", "--user", "0", packageName)
 	output2, err2 := cmd2.CombinedOutput()
 	br.Output = string(output2)
 
@@ -150,7 +149,7 @@ func (a *App) batchClearData(deviceID, packageName string) BatchResult {
 		return br
 	}
 
-	cmd := exec.Command(a.adbPath, "-s", deviceID, "shell", "pm", "clear", packageName)
+	cmd := a.newAdbCommand(nil, "-s", deviceID, "shell", "pm", "clear", packageName)
 	output, err := cmd.CombinedOutput()
 	br.Output = string(output)
 
@@ -176,7 +175,7 @@ func (a *App) batchForceStop(deviceID, packageName string) BatchResult {
 		return br
 	}
 
-	cmd := exec.Command(a.adbPath, "-s", deviceID, "shell", "am", "force-stop", packageName)
+	cmd := a.newAdbCommand(nil, "-s", deviceID, "shell", "am", "force-stop", packageName)
 	output, err := cmd.CombinedOutput()
 	br.Output = string(output)
 
@@ -197,7 +196,7 @@ func (a *App) batchShellCommand(deviceID, command string) BatchResult {
 		return br
 	}
 
-	cmd := exec.Command(a.adbPath, "-s", deviceID, "shell", command)
+	cmd := a.newAdbCommand(nil, "-s", deviceID, "shell", command)
 	output, err := cmd.CombinedOutput()
 	br.Output = string(output)
 
@@ -218,7 +217,7 @@ func (a *App) batchPushFile(deviceID, localPath, remotePath string) BatchResult 
 		return br
 	}
 
-	cmd := exec.Command(a.adbPath, "-s", deviceID, "push", localPath, remotePath)
+	cmd := a.newAdbCommand(nil, "-s", deviceID, "push", localPath, remotePath)
 	output, err := cmd.CombinedOutput()
 	br.Output = string(output)
 
@@ -234,7 +233,7 @@ func (a *App) batchPushFile(deviceID, localPath, remotePath string) BatchResult 
 func (a *App) batchReboot(deviceID string) BatchResult {
 	br := BatchResult{DeviceID: deviceID}
 
-	cmd := exec.Command(a.adbPath, "-s", deviceID, "reboot")
+	cmd := a.newAdbCommand(nil, "-s", deviceID, "reboot")
 	output, err := cmd.CombinedOutput()
 	br.Output = string(output)
 

@@ -31,7 +31,7 @@ func (a *App) ListPackages(deviceId string, packageType string) ([]AppPackage, e
 
 	// Get list of disabled packages
 	disabledPackages := make(map[string]bool)
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "pm", "list", "packages", "-d")
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "pm", "list", "packages", "-d")
 	output, err := cmd.Output()
 	if err == nil {
 		lines := strings.Split(string(output), "\n")
@@ -46,7 +46,7 @@ func (a *App) ListPackages(deviceId string, packageType string) ([]AppPackage, e
 	var packages []AppPackage
 
 	fetch := func(flag, typeName string) error {
-		cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "pm", "list", "packages", flag)
+		cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "pm", "list", "packages", flag)
 		output, err := cmd.Output()
 		if err != nil {
 			return err
@@ -223,7 +223,7 @@ func (a *App) getAdbDetailedInfo(deviceId, packageName string) (AppPackage, erro
 	var pkg AppPackage
 	pkg.Name = packageName
 
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "dumpsys", "package", packageName)
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "dumpsys", "package", packageName)
 	output, err := cmd.Output()
 	if err != nil {
 		return pkg, err
@@ -339,7 +339,7 @@ func (a *App) getAppInfoWithAapt(deviceId, packageName string) (AppPackage, erro
 		return pkg, fmt.Errorf("aapt not available (file missing or empty)")
 	}
 
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "pm", "path", packageName)
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "pm", "path", packageName)
 	output, err := cmd.Output()
 	if err != nil {
 		return pkg, fmt.Errorf("failed to get APK path: %w", err)
@@ -361,7 +361,7 @@ func (a *App) getAppInfoWithAapt(deviceId, packageName string) (AppPackage, erro
 	tmpAPK := filepath.Join(tmpDir, packageName+".apk")
 	defer os.Remove(tmpAPK)
 
-	pullCmd := exec.Command(a.adbPath, "-s", deviceId, "pull", remotePath, tmpAPK)
+	pullCmd := a.newAdbCommand(nil, "-s", deviceId, "pull", remotePath, tmpAPK)
 	pullOutput, err := pullCmd.CombinedOutput()
 	if err != nil {
 		return pkg, fmt.Errorf("failed to pull APK: %w (output: %s)", err, string(pullOutput))
@@ -755,7 +755,7 @@ func (a *App) UninstallApp(deviceId, packageName string) (string, error) {
 
 	a.Log("Uninstalling %s from %s", packageName, deviceId)
 
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "uninstall", packageName)
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "uninstall", packageName)
 	output, err := cmd.CombinedOutput()
 	outStr := string(output)
 
@@ -764,7 +764,7 @@ func (a *App) UninstallApp(deviceId, packageName string) (string, error) {
 	}
 
 	LogDebug("apps").Str("package", packageName).Str("output", outStr).Msg("Standard uninstall failed, trying pm uninstall --user 0")
-	cmd2 := exec.Command(a.adbPath, "-s", deviceId, "shell", "pm", "uninstall", "-k", "--user", "0", packageName)
+	cmd2 := a.newAdbCommand(nil, "-s", deviceId, "shell", "pm", "uninstall", "-k", "--user", "0", packageName)
 	output2, err2 := cmd2.CombinedOutput()
 	outStr2 := string(output2)
 	if err2 != nil || strings.Contains(outStr2, "Failure") {
@@ -779,7 +779,7 @@ func (a *App) ClearAppData(deviceId, packageName string) (string, error) {
 	if deviceId == "" {
 		return "", fmt.Errorf("no device specified")
 	}
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "pm", "clear", packageName)
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "pm", "clear", packageName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(output), fmt.Errorf("failed to clear data: %w", err)
@@ -792,7 +792,7 @@ func (a *App) ForceStopApp(deviceId, packageName string) (string, error) {
 	if deviceId == "" {
 		return "", fmt.Errorf("no device specified")
 	}
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "am", "force-stop", packageName)
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "am", "force-stop", packageName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(output), fmt.Errorf("failed to force stop: %w", err)
@@ -806,7 +806,7 @@ func (a *App) StartApp(deviceId, packageName string) (string, error) {
 	if deviceId == "" {
 		return "", fmt.Errorf("no device specified")
 	}
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1")
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(output), fmt.Errorf("failed to start app: %w", err)
@@ -819,7 +819,7 @@ func (a *App) EnableApp(deviceId, packageName string) (string, error) {
 	if deviceId == "" {
 		return "", fmt.Errorf("no device specified")
 	}
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "pm", "enable", packageName)
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "pm", "enable", packageName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(output), fmt.Errorf("failed to enable app: %w", err)
@@ -832,7 +832,7 @@ func (a *App) DisableApp(deviceId, packageName string) (string, error) {
 	if deviceId == "" {
 		return "", fmt.Errorf("no device specified")
 	}
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "pm", "disable-user", packageName)
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "pm", "disable-user", packageName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(output), fmt.Errorf("failed to disable app: %w", err)
@@ -845,7 +845,7 @@ func (a *App) StartActivity(deviceId, activityName string) (string, error) {
 	if deviceId == "" {
 		return "", fmt.Errorf("no device specified")
 	}
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "am", "start", "-n", activityName)
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "am", "start", "-n", activityName)
 	output, err := cmd.CombinedOutput()
 	outStr := string(output)
 
@@ -875,7 +875,7 @@ func (a *App) OpenSettings(deviceId string, action string, data string) (string,
 		args = append(args, "-d", data)
 	}
 
-	cmd := exec.Command(a.adbPath, args...)
+	cmd := a.newAdbCommand(nil, args...)
 	output, err := cmd.CombinedOutput()
 	outStr := string(output)
 
@@ -895,13 +895,13 @@ func (a *App) IsAppRunning(deviceId, packageName string) (bool, error) {
 	if deviceId == "" || packageName == "" {
 		return false, nil
 	}
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "pidof", packageName)
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "pidof", packageName)
 	out, _ := cmd.Output()
 	if len(strings.TrimSpace(string(out))) > 0 {
 		return true, nil
 	}
 
-	cmd2 := exec.Command(a.adbPath, "-s", deviceId, "shell", "pgrep", "-f", packageName)
+	cmd2 := a.newAdbCommand(nil, "-s", deviceId, "shell", "pgrep", "-f", packageName)
 	out2, _ := cmd2.Output()
 	if len(strings.TrimSpace(string(out2))) > 0 {
 		return true, nil
@@ -918,7 +918,7 @@ func (a *App) InstallAPK(deviceId string, path string) (string, error) {
 
 	a.Log("Installing APK %s to device %s", path, deviceId)
 
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "install", "-r", path)
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "install", "-r", path)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return string(output), fmt.Errorf("failed to install APK: %w\nOutput: %s", err, string(output))
@@ -933,7 +933,7 @@ func (a *App) ExportAPK(deviceId string, packageName string) (string, error) {
 		return "", err
 	}
 
-	cmd := exec.Command(a.adbPath, "-s", deviceId, "shell", "pm", "path", packageName)
+	cmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "pm", "path", packageName)
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to get APK path: %w", err)
@@ -969,7 +969,7 @@ func (a *App) ExportAPK(deviceId string, packageName string) (string, error) {
 		return "", nil
 	}
 
-	pullCmd := exec.Command(a.adbPath, "-s", deviceId, "pull", remotePath, savePath)
+	pullCmd := a.newAdbCommand(nil, "-s", deviceId, "pull", remotePath, savePath)
 	pullOutput, err := pullCmd.CombinedOutput()
 	if err != nil {
 		return string(pullOutput), fmt.Errorf("failed to pull APK: %w (output: %s)", err, string(pullOutput))
