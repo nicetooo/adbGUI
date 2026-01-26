@@ -155,8 +155,11 @@ func (a *App) Shutdown(ctx context.Context) {
 	a.StopLogcat()
 	a.StopDeviceMonitor()
 	a.stopAllTouchRecordings()
+	a.stopAllActiveTasks()
 	a.StopAllDeviceStateMonitors()
+	a.stopAllSessionMonitors()
 	a.StopAllNetworkMonitors()
+	a.stopAllOpenFileCommands()
 
 	LogAppState(StateStopped, nil)
 	CloseLogger()
@@ -222,11 +225,41 @@ func (a *App) ShutdownWithoutGUI() {
 	a.StopLogcat()
 	a.StopDeviceMonitor()
 	a.stopAllTouchRecordings()
+	a.stopAllActiveTasks()
 	a.StopAllDeviceStateMonitors()
+	a.stopAllSessionMonitors()
 	a.StopAllNetworkMonitors()
+	a.stopAllOpenFileCommands()
 
 	LogAppState(StateStopped, nil)
 	CloseLogger()
+}
+
+// stopAllSessionMonitors stops all DeviceMonitors tracked in a.sessionMonitors.
+// These are created by StartSessionWithConfig and are separate from the package-level deviceStateMonitors.
+func (a *App) stopAllSessionMonitors() {
+	a.sessionMonitorsMu.Lock()
+	defer a.sessionMonitorsMu.Unlock()
+
+	for deviceId, monitor := range a.sessionMonitors {
+		monitor.Stop()
+		LogInfo("shutdown").Str("device", deviceId).Msg("Stopped session monitor")
+	}
+	a.sessionMonitors = make(map[string]*DeviceMonitor)
+}
+
+// stopAllOpenFileCommands kills all in-flight adb pull commands for file opening.
+func (a *App) stopAllOpenFileCommands() {
+	a.openFileMu.Lock()
+	defer a.openFileMu.Unlock()
+
+	for path, cmd := range a.openFileCmds {
+		if cmd != nil && cmd.Process != nil {
+			_ = cmd.Process.Kill()
+			LogInfo("shutdown").Str("path", path).Msg("Killed open file command")
+		}
+	}
+	a.openFileCmds = make(map[string]*exec.Cmd)
 }
 
 // Greet returns a greeting for the given name

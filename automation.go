@@ -606,6 +606,24 @@ func (a *App) stopAllTouchRecordings() {
 	touchRecordData = make(map[string]*TouchRecordingSession)
 }
 
+// stopAllActiveTasks cancels all active touch playback and workflow execution tasks during shutdown.
+func (a *App) stopAllActiveTasks() {
+	activeTaskMu.Lock()
+	defer activeTaskMu.Unlock()
+
+	for id, cancel := range activeTaskCancel {
+		cancel()
+		LogInfo("shutdown").Str("task", id).Msg("Cancelled active task")
+	}
+	activeTaskCancel = make(map[string]context.CancelFunc)
+
+	// Also clear pause signals
+	taskPauseMu.Lock()
+	taskPauseSignal = make(map[string]chan struct{})
+	taskIsPaused = make(map[string]bool)
+	taskPauseMu.Unlock()
+}
+
 // PickPointOnScreen waits for a single tap on the device screen and returns the coordinates
 // Returns a map with x, y coordinates and a bounds string
 func (a *App) PickPointOnScreen(deviceId string, timeoutSeconds int) (map[string]interface{}, error) {
