@@ -399,9 +399,254 @@
       margin-top: 2px;
     }
 
+    /* MCP Section */
+    .mcp-section {
+      padding: 60px 0;
+      border-top: 1px solid #1a1a1a;
+    }
+
+    .mcp-section h2 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .mcp-badge {
+      display: inline-block;
+      background: #1d4ed8;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    .mcp-desc {
+      color: #888;
+      font-size: 14px;
+      margin-bottom: 32px;
+      max-width: 700px;
+    }
+
+    .mcp-configs {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+
+    .mcp-config-card {
+      background: #111;
+      border: 1px solid #1a1a1a;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .mcp-config-header {
+      padding: 14px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid #1a1a1a;
+    }
+
+    .mcp-config-header .client-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .mcp-config-body {
+      padding: 16px;
+    }
+
+    .mcp-config-body p {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 12px;
+    }
+
+    .mcp-code-block {
+      position: relative;
+      background: #0a0a0a;
+      border: 1px solid #222;
+      border-radius: 6px;
+      padding: 14px;
+      font-family: 'SF Mono', Monaco, Consolas, monospace;
+      font-size: 12px;
+      color: #4ade80;
+      overflow-x: auto;
+      white-space: pre;
+      line-height: 1.6;
+    }
+
+    .mcp-copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      color: #888;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .mcp-copy-btn:hover {
+      background: #222;
+      color: #fff;
+    }
+
+    .mcp-copy-btn.copied {
+      color: #4ade80;
+      border-color: #4ade80;
+    }
+
+    .mcp-note {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .mcp-subsection {
+      margin-bottom: 32px;
+    }
+
+    .mcp-subsection h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .mcp-tools-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .mcp-tool-group {
+      background: #111;
+      border: 1px solid #1a1a1a;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .mcp-tool-group-header {
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+    }
+
+    .mcp-tool-group-header:hover {
+      background: #161616;
+    }
+
+    .mcp-tool-group-header .group-icon {
+      font-size: 14px;
+    }
+
+    .mcp-tool-group-header .tool-count {
+      margin-left: auto;
+      font-size: 11px;
+      color: #666;
+      font-weight: 400;
+    }
+
+    .mcp-tool-group-header .chevron {
+      font-size: 10px;
+      color: #555;
+      transition: transform 0.2s;
+    }
+
+    .mcp-tool-group.open .chevron {
+      transform: rotate(90deg);
+    }
+
+    .mcp-tool-group-body {
+      display: none;
+      border-top: 1px solid #1a1a1a;
+    }
+
+    .mcp-tool-group.open .mcp-tool-group-body {
+      display: block;
+    }
+
+    .mcp-tool-item {
+      padding: 8px 16px;
+      display: flex;
+      gap: 12px;
+      align-items: baseline;
+      border-bottom: 1px solid #0f0f0f;
+    }
+
+    .mcp-tool-item:last-child {
+      border-bottom: none;
+    }
+
+    .mcp-tool-item code {
+      font-family: 'SF Mono', Monaco, Consolas, monospace;
+      font-size: 11px;
+      color: #7dd3fc;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .mcp-tool-item span {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .mcp-resources {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .mcp-resource-item {
+      display: flex;
+      gap: 16px;
+      align-items: baseline;
+      padding: 8px 0;
+      border-bottom: 1px solid #111;
+    }
+
+    .mcp-resource-item:last-child {
+      border-bottom: none;
+    }
+
+    .mcp-resource-item code {
+      font-family: 'SF Mono', Monaco, Consolas, monospace;
+      font-size: 12px;
+      color: #c084fc;
+      white-space: nowrap;
+    }
+
+    .mcp-resource-item span {
+      font-size: 13px;
+      color: #888;
+    }
+
     @media (max-width: 640px) {
       .hero { padding: 60px 0 40px; }
       .features-grid { grid-template-columns: 1fr; }
+
       footer .container { flex-direction: column; text-align: center; }
     }
   </style>
@@ -416,6 +661,7 @@
       </a>
       <nav class="nav-links">
         <a href="#features">Features</a>
+        <a href="#mcp">MCP</a>
         <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
       </nav>
     </div>
@@ -426,7 +672,7 @@
       <div class="container">
         <h1>Gaze</h1>
         <p class="hero-subtitle">For Android</p>
-        <p class="hero-features">Mirror · Files · Apps · Shell · Logcat · Proxy · Recording · UI Inspector · Workflow · Sessions</p>
+        <p class="hero-features">Mirror · Files · Apps · Shell · Logcat · Proxy · Recording · UI Inspector · Workflow · Sessions · MCP</p>
         <div class="hero-buttons">
           <div class="download-wrapper">
             <a id="download-btn" href="https://github.com/nicetooo/Gaze/releases/latest" class="btn btn-primary">
@@ -528,6 +774,234 @@
       </div>
     </section>
 
+    <section id="mcp" class="mcp-section">
+      <div class="container">
+        <h2>MCP Integration <span class="mcp-badge">Model Context Protocol</span></h2>
+        <p class="mcp-desc">
+          Gaze includes a built-in MCP server, allowing AI assistants like Claude and Cursor to directly control Android devices — device management, app operations, UI automation, network capture, and more.
+        </p>
+
+        <!-- Setup Configurations -->
+        <div class="mcp-subsection">
+          <h3>Setup</h3>
+          <div class="mcp-configs">
+
+            <div class="mcp-config-card">
+              <div class="mcp-config-header">
+                <span class="client-icon" style="background:#d97706;color:#fff">C</span>
+                Claude Desktop
+              </div>
+              <div class="mcp-config-body">
+                <p>Add to <strong>claude_desktop_config.json</strong><br>
+                  macOS: ~/Library/Application Support/Claude/<br>
+                  Windows: %APPDATA%\Claude\</p>
+                <div class="mcp-code-block" id="config-claude">
+                  <button class="mcp-copy-btn" onclick="copyConfig('config-claude', this)">Copy</button>
+{
+  "mcpServers": {
+    "gaze": {
+      "command": "/Applications/Gaze.app/Contents/MacOS/Gaze",
+      "args": ["--mcp"]
+    }
+  }
+}</div>
+              </div>
+            </div>
+
+            <div class="mcp-config-card">
+              <div class="mcp-config-header">
+                <span class="client-icon" style="background:#7c3aed;color:#fff">&gt;</span>
+                Claude Code (CLI)
+              </div>
+              <div class="mcp-config-body">
+                <p>Run in terminal:</p>
+                <div class="mcp-code-block" id="config-claude-code">
+                  <button class="mcp-copy-btn" onclick="copyConfig('config-claude-code', this)">Copy</button>
+claude mcp add gaze -- /Applications/Gaze.app/Contents/MacOS/Gaze --mcp</div>
+              </div>
+            </div>
+
+            <div class="mcp-config-card">
+              <div class="mcp-config-header">
+                <span class="client-icon" style="background:#0ea5e9;color:#fff">C</span>
+                Cursor
+              </div>
+              <div class="mcp-config-body">
+                <p>Add to <strong>.cursor/mcp.json</strong> in your project root:</p>
+                <div class="mcp-code-block" id="config-cursor">
+                  <button class="mcp-copy-btn" onclick="copyConfig('config-cursor', this)">Copy</button>
+{
+  "mcpServers": {
+    "gaze": {
+      "command": "/Applications/Gaze.app/Contents/MacOS/Gaze",
+      "args": ["--mcp"]
+    }
+  }
+}</div>
+              </div>
+            </div>
+
+          </div>
+          <p class="mcp-note">Replace the path with the actual location of your Gaze binary. On Windows use the .exe path.</p>
+        </div>
+
+        <!-- Tools -->
+        <div class="mcp-subsection">
+          <h3>Available Tools (54)</h3>
+          <div class="mcp-tools-grid">
+
+            <div class="mcp-tool-group" onclick="this.classList.toggle('open')">
+              <div class="mcp-tool-group-header">
+                <span class="group-icon">&#128241;</span> Device Management
+                <span class="tool-count">11 tools</span>
+                <span class="chevron">&#9654;</span>
+              </div>
+              <div class="mcp-tool-group-body">
+                <div class="mcp-tool-item"><code>device_list</code><span>List connected devices</span></div>
+                <div class="mcp-tool-item"><code>device_info</code><span>Get device details</span></div>
+                <div class="mcp-tool-item"><code>device_connect</code><span>Connect via network</span></div>
+                <div class="mcp-tool-item"><code>device_disconnect</code><span>Disconnect device</span></div>
+                <div class="mcp-tool-item"><code>device_pair</code><span>Wireless pairing</span></div>
+                <div class="mcp-tool-item"><code>device_wireless</code><span>Switch to wireless ADB</span></div>
+                <div class="mcp-tool-item"><code>device_ip</code><span>Get device IP</span></div>
+                <div class="mcp-tool-item"><code>adb_execute</code><span>Run any ADB command</span></div>
+                <div class="mcp-tool-item"><code>aapt_execute</code><span>APK analysis</span></div>
+                <div class="mcp-tool-item"><code>ffmpeg_execute</code><span>Video/audio processing</span></div>
+                <div class="mcp-tool-item"><code>ffprobe_execute</code><span>Media file analysis</span></div>
+              </div>
+            </div>
+
+            <div class="mcp-tool-group" onclick="this.classList.toggle('open')">
+              <div class="mcp-tool-group-header">
+                <span class="group-icon">&#128230;</span> App Management
+                <span class="tool-count">8 tools</span>
+                <span class="chevron">&#9654;</span>
+              </div>
+              <div class="mcp-tool-group-body">
+                <div class="mcp-tool-item"><code>app_list</code><span>List installed apps</span></div>
+                <div class="mcp-tool-item"><code>app_info</code><span>App details</span></div>
+                <div class="mcp-tool-item"><code>app_start</code><span>Launch app</span></div>
+                <div class="mcp-tool-item"><code>app_stop</code><span>Force stop</span></div>
+                <div class="mcp-tool-item"><code>app_running</code><span>Check running status</span></div>
+                <div class="mcp-tool-item"><code>app_install</code><span>Install APK</span></div>
+                <div class="mcp-tool-item"><code>app_uninstall</code><span>Uninstall app</span></div>
+                <div class="mcp-tool-item"><code>app_clear_data</code><span>Clear app data</span></div>
+              </div>
+            </div>
+
+            <div class="mcp-tool-group" onclick="this.classList.toggle('open')">
+              <div class="mcp-tool-group-header">
+                <span class="group-icon">&#128247;</span> Screen Control
+                <span class="tool-count">4 tools</span>
+                <span class="chevron">&#9654;</span>
+              </div>
+              <div class="mcp-tool-group-body">
+                <div class="mcp-tool-item"><code>screen_screenshot</code><span>Take screenshot (base64)</span></div>
+                <div class="mcp-tool-item"><code>screen_record_start</code><span>Start recording</span></div>
+                <div class="mcp-tool-item"><code>screen_record_stop</code><span>Stop recording</span></div>
+                <div class="mcp-tool-item"><code>screen_recording_status</code><span>Check recording state</span></div>
+              </div>
+            </div>
+
+            <div class="mcp-tool-group" onclick="this.classList.toggle('open')">
+              <div class="mcp-tool-group-header">
+                <span class="group-icon">&#127919;</span> UI Automation
+                <span class="tool-count">6 tools</span>
+                <span class="chevron">&#9654;</span>
+              </div>
+              <div class="mcp-tool-group-body">
+                <div class="mcp-tool-item"><code>ui_hierarchy</code><span>Get UI layout tree</span></div>
+                <div class="mcp-tool-item"><code>ui_search</code><span>Search UI elements</span></div>
+                <div class="mcp-tool-item"><code>ui_tap</code><span>Tap element/coordinates</span></div>
+                <div class="mcp-tool-item"><code>ui_swipe</code><span>Swipe gesture</span></div>
+                <div class="mcp-tool-item"><code>ui_input</code><span>Input text</span></div>
+                <div class="mcp-tool-item"><code>ui_resolution</code><span>Get screen resolution</span></div>
+              </div>
+            </div>
+
+            <div class="mcp-tool-group" onclick="this.classList.toggle('open')">
+              <div class="mcp-tool-group-header">
+                <span class="group-icon">&#128202;</span> Session Management
+                <span class="tool-count">6 tools</span>
+                <span class="chevron">&#9654;</span>
+              </div>
+              <div class="mcp-tool-group-body">
+                <div class="mcp-tool-item"><code>session_create</code><span>Create tracking session</span></div>
+                <div class="mcp-tool-item"><code>session_end</code><span>End session</span></div>
+                <div class="mcp-tool-item"><code>session_active</code><span>Get active session</span></div>
+                <div class="mcp-tool-item"><code>session_list</code><span>List sessions</span></div>
+                <div class="mcp-tool-item"><code>session_events</code><span>Query events</span></div>
+                <div class="mcp-tool-item"><code>session_stats</code><span>Session statistics</span></div>
+              </div>
+            </div>
+
+            <div class="mcp-tool-group" onclick="this.classList.toggle('open')">
+              <div class="mcp-tool-group-header">
+                <span class="group-icon">&#128260;</span> Workflow
+                <span class="tool-count">12 tools</span>
+                <span class="chevron">&#9654;</span>
+              </div>
+              <div class="mcp-tool-group-body">
+                <div class="mcp-tool-item"><code>workflow_list</code><span>List workflows</span></div>
+                <div class="mcp-tool-item"><code>workflow_get</code><span>Get workflow details</span></div>
+                <div class="mcp-tool-item"><code>workflow_create</code><span>Create workflow</span></div>
+                <div class="mcp-tool-item"><code>workflow_update</code><span>Update workflow</span></div>
+                <div class="mcp-tool-item"><code>workflow_delete</code><span>Delete workflow</span></div>
+                <div class="mcp-tool-item"><code>workflow_run</code><span>Run on device</span></div>
+                <div class="mcp-tool-item"><code>workflow_stop</code><span>Stop execution</span></div>
+                <div class="mcp-tool-item"><code>workflow_pause</code><span>Pause execution</span></div>
+                <div class="mcp-tool-item"><code>workflow_resume</code><span>Resume execution</span></div>
+                <div class="mcp-tool-item"><code>workflow_step_next</code><span>Step-by-step debug</span></div>
+                <div class="mcp-tool-item"><code>workflow_status</code><span>Check run status</span></div>
+                <div class="mcp-tool-item"><code>workflow_execute_step</code><span>Execute single step</span></div>
+              </div>
+            </div>
+
+            <div class="mcp-tool-group" onclick="this.classList.toggle('open')">
+              <div class="mcp-tool-group-header">
+                <span class="group-icon">&#127760;</span> Network Proxy
+                <span class="tool-count">3 tools</span>
+                <span class="chevron">&#9654;</span>
+              </div>
+              <div class="mcp-tool-group-body">
+                <div class="mcp-tool-item"><code>proxy_start</code><span>Start HTTP/HTTPS proxy</span></div>
+                <div class="mcp-tool-item"><code>proxy_stop</code><span>Stop proxy</span></div>
+                <div class="mcp-tool-item"><code>proxy_status</code><span>Get proxy status</span></div>
+              </div>
+            </div>
+
+            <div class="mcp-tool-group" onclick="this.classList.toggle('open')">
+              <div class="mcp-tool-group-header">
+                <span class="group-icon">&#127909;</span> Video Processing
+                <span class="tool-count">4 tools</span>
+                <span class="chevron">&#9654;</span>
+              </div>
+              <div class="mcp-tool-group-body">
+                <div class="mcp-tool-item"><code>video_frame</code><span>Extract frame at time</span></div>
+                <div class="mcp-tool-item"><code>video_metadata</code><span>Get video metadata</span></div>
+                <div class="mcp-tool-item"><code>session_video_frame</code><span>Frame from session recording</span></div>
+                <div class="mcp-tool-item"><code>session_video_info</code><span>Session video info</span></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Resources -->
+        <div class="mcp-subsection">
+          <h3>Resources</h3>
+          <div class="mcp-resources">
+            <div class="mcp-resource-item"><code>gaze://devices</code><span>Connected Android devices (JSON)</span></div>
+            <div class="mcp-resource-item"><code>gaze://devices/{deviceId}</code><span>Device details</span></div>
+            <div class="mcp-resource-item"><code>gaze://sessions</code><span>Active and recent sessions (JSON)</span></div>
+            <div class="mcp-resource-item"><code>workflow://list</code><span>All saved workflows (JSON)</span></div>
+            <div class="mcp-resource-item"><code>workflow://{workflowId}</code><span>Workflow details with steps</span></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
     <section class="troubleshooting">
       <div class="container">
         <h2>Troubleshooting</h2>
@@ -586,6 +1060,40 @@
         btn.href = 'https://github.com/nicetooo/Gaze/releases/latest/download/Gaze-Linux-x86_64.tar.gz';
       }
     })();
+
+    function copyConfig(elementId, btn) {
+      var block = document.getElementById(elementId);
+      if (!block) return;
+      var pre = block.querySelector('pre');
+      if (!pre) return;
+      var text = pre.textContent || pre.innerText;
+      navigator.clipboard.writeText(text).then(function() {
+        var original = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.style.background = '#52c41a';
+        setTimeout(function() {
+          btn.textContent = original;
+          btn.style.background = '';
+        }, 2000);
+      }).catch(function() {
+        // Fallback for older browsers
+        var textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        var original = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.style.background = '#52c41a';
+        setTimeout(function() {
+          btn.textContent = original;
+          btn.style.background = '';
+        }, 2000);
+      });
+    }
   </script>
 </body>
 

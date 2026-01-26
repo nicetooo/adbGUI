@@ -28,6 +28,7 @@ import {
 } from "@ant-design/icons";
 import { useDeviceStore, useMirrorStore, useUIStore, VIEW_KEYS, Device } from "../stores";
 import BatchOperationModal from "./BatchOperationModal";
+import MCPInfoSection from "./MCPInfoSection";
 // @ts-ignore
 import { StartNetworkMonitor, StopNetworkMonitor, StopAllNetworkMonitors } from "../../wailsjs/go/main/App";
 // @ts-ignore
@@ -574,27 +575,32 @@ const DevicesView: React.FC<DevicesViewProps> = ({
           </Button>
         </Space>
       </div>
-      <div
-        className="selectable"
-        style={{
-          flex: 1,
-          overflow: "hidden",
-          backgroundColor: token.colorBgContainer,
-          borderRadius: token.borderRadius,
-          border: `1px solid ${token.colorBorderSecondary}`,
-          display: "flex",
-          flexDirection: "column",
-          userSelect: "text",
-        }}
-      >
-        <VirtualTable
-          columns={deviceColumns}
-          dataSource={allDevices}
-          rowKey="id"
-          loading={loading}
-          scroll={{ y: "calc(100vh - 130px)" }}
-          style={{ flex: 1 }}
-        />
+      <div style={{ flex: 1, overflow: "auto", minHeight: 0 }}>
+        <div
+          className="selectable"
+          style={{
+            overflow: "hidden",
+            backgroundColor: token.colorBgContainer,
+            borderRadius: token.borderRadius,
+            border: `1px solid ${token.colorBorderSecondary}`,
+            display: "flex",
+            flexDirection: "column",
+            userSelect: "text",
+            minHeight: 200,
+            maxHeight: "calc(100vh - 240px)",
+          }}
+        >
+          <VirtualTable
+            columns={deviceColumns}
+            dataSource={allDevices}
+            rowKey="id"
+            loading={loading}
+            scroll={{ y: "calc(100vh - 280px)" }}
+            style={{ flex: 1 }}
+          />
+        </div>
+
+        <MCPInfoSection />
       </div>
 
       <BatchOperationModal

@@ -170,10 +170,11 @@ adbGUI/
 │   │   ├── sessionStore.ts  # ⭐ 前端会话状态
 │   │   └── ...              # 其他状态管理
 │   ├── components/
-│   │   ├── EventTimeline.tsx # 事件时间线组件
+│   │   ├── EventTimeline.tsx  # 事件时间线组件
 │   │   ├── SessionManager.tsx
+│   │   ├── MCPInfoSection.tsx # ⭐ MCP 集成文档（主页展示）
 │   │   └── ...
-│   └── locales/             # 多语言 (en/zh/ja/ko)
+│   └── locales/             # 多语言 (en/zh/ja/ko/zh-TW)
 │
 └── proxy/                   # HTTP/HTTPS 代理模块
     ├── proxy.go
@@ -347,6 +348,21 @@ window.runtime.EventsOn("events-batch", (events) => {
 - **禁止** 实现 AI 驱动的自动化功能（如 AI 生成工作流、AI 崩溃分析）
 - **允许** 通过 MCP 工具暴露数据和操作，让外部 AI 客户端调用
 
+### ⭐ 新增功能必须同步暴露 MCP 工具
+
+**所有新增的后端功能都必须通过 MCP 暴露给外部 AI 客户端。** 这是核心开发规范之一。
+
+当你添加任何新功能时，必须同步完成以下工作：
+
+1. **后端实现** → 在 `app.go` 或相关文件中实现功能方法
+2. **MCP 接口暴露** → 在 `mcp/server.go` 的 `GazeApp` 接口添加方法签名
+3. **MCP 桥接** → 在 `mcp_bridge.go` 中添加桥接方法
+4. **MCP 工具注册** → 在 `mcp/tools_*.go` 中注册工具并编写详细描述
+5. **前端 MCP 文档更新** → 更新 `MCPInfoSection.tsx` 组件中的工具列表和分类
+6. **多语言翻译更新** → 在所有 locale 文件 (`en.json`, `zh.json`, `ja.json`, `ko.json`, `zh-TW.json`) 的 `mcp.tool.*` 下添加新工具的翻译
+
+**不允许** 只在前端 UI 中添加功能而不暴露 MCP 工具。AI 客户端必须能通过 MCP 完成用户在 GUI 中能做的所有操作。
+
 ### MCP 工具文档位置
 
 **重要**: MCP 工具的接口文档直接写在 Go 代码的 `mcp.WithDescription()` 中，这些描述会通过 MCP 协议传递给 AI 客户端。
@@ -444,6 +460,29 @@ mcp/
        }, nil
    }
    ```
+
+6. **更新前端 MCP 文档组件** (`frontend/src/components/MCPInfoSection.tsx`):
+   - 在 `TOOL_CATEGORIES` 数组对应分类的 `tools` 中添加新工具名
+   - 如果是全新分类，在 `TOOL_CATEGORIES` 中新增分类项
+
+7. **更新多语言翻译** (所有 locale 文件: `en.json`, `zh.json`, `ja.json`, `ko.json`, `zh-TW.json`):
+   - 在 `mcp.tool.*` 下添加新工具的描述翻译
+   - 如果新增了分类，同步添加 `mcp.category.*` 和 `mcp.category.*_desc` 翻译
+
+### 前端 MCP 文档组件
+
+应用主页（DevicesView）底部包含一个可折叠的 **MCP 集成文档区域**，由 `MCPInfoSection.tsx` 组件实现，内容包括：
+
+- MCP 功能概述
+- 各 AI 客户端配置方式（Claude Desktop / Claude Code / Cursor）
+- 全部 MCP 工具列表（按分类组织，含描述）
+- 可用资源列表
+
+**关键文件**:
+- 组件: `frontend/src/components/MCPInfoSection.tsx`
+- 翻译: 各 locale 文件的 `mcp` 字段
+
+每次新增/修改 MCP 工具后，**必须同步更新此组件和对应翻译**。
 
 ### MCP 工具描述规范
 
