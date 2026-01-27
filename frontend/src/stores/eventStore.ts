@@ -2,7 +2,9 @@
  * Event Store - 新事件系统的前端状态管理
  *
  * 特点:
- * - 分层存储: 实时事件 (RingBuffer) + 分页缓存 (LRU) + 按需加载
+ * - 全量主表事件加载 (不含 event_data)，客户端过滤
+ * - 独立加载全量网络事件 (含 event_data)，供瀑布图使用
+ * - 点击事件按需加载 event_data 详情
  * - 与后端 SQLite 存储对接
  * - 支持虚拟滚动的数据加载
  */
@@ -30,114 +32,6 @@ const EventsOn = (window as any).runtime?.EventsOn;
 const EventsOff = (window as any).runtime?.EventsOff;
 
 // ========================================
-// LRU Cache 实现
-// ========================================
-
-class LRUCache<K, V> {
-  private capacity: number;
-  private cache: Map<K, V>;
-
-  constructor(capacity: number) {
-    this.capacity = capacity;
-    this.cache = new Map();
-  }
-
-  get(key: K): V | undefined {
-    if (!this.cache.has(key)) return undefined;
-    const value = this.cache.get(key)!;
-    this.cache.delete(key);
-    this.cache.set(key, value);
-    return value;
-  }
-
-  set(key: K, value: V): void {
-    if (this.cache.has(key)) {
-      this.cache.delete(key);
-    } else if (this.cache.size >= this.capacity) {
-      const firstKey = this.cache.keys().next().value;
-      if (firstKey !== undefined) {
-        this.cache.delete(firstKey);
-      }
-    }
-    this.cache.set(key, value);
-  }
-
-  has(key: K): boolean {
-    return this.cache.has(key);
-  }
-
-  clear(): void {
-    this.cache.clear();
-  }
-
-  get size(): number {
-    return this.cache.size;
-  }
-}
-
-// ========================================
-// Ring Buffer 实现
-// ========================================
-
-class RingBuffer<T> {
-  private buffer: T[];
-  private head: number = 0;
-  private count: number = 0;
-
-  constructor(private capacity: number) {
-    this.buffer = new Array(capacity);
-  }
-
-  push(item: T): void {
-    this.buffer[this.head] = item;
-    this.head = (this.head + 1) % this.capacity;
-    if (this.count < this.capacity) this.count++;
-  }
-
-  pushMany(items: T[]): void {
-    items.forEach(item => this.push(item));
-  }
-
-  getAll(): T[] {
-    if (this.count === 0) return [];
-    const result: T[] = [];
-    const start = this.count < this.capacity ? 0 : this.head;
-    for (let i = 0; i < this.count; i++) {
-      result.push(this.buffer[(start + i) % this.capacity]);
-    }
-    return result;
-  }
-
-  getRecent(n: number): T[] {
-    if (n <= 0 || this.count === 0) return [];
-    n = Math.min(n, this.count);
-    const result: T[] = [];
-    const start = (this.head - n + this.capacity) % this.capacity;
-    for (let i = 0; i < n; i++) {
-      result.push(this.buffer[(start + i) % this.capacity]);
-    }
-    return result;
-  }
-
-  clear(): void {
-    this.head = 0;
-    this.count = 0;
-  }
-
-  get size(): number {
-    return this.count;
-  }
-}
-
-// ========================================
-// Constants
-// ========================================
-
-const LIVE_BUFFER_SIZE = 2000;   // 实时事件缓冲大小
-const PAGE_CACHE_SIZE = 50;      // 分页缓存大小
-const DEFAULT_PAGE_SIZE = 200;   // 默认每页事件数
-
-// ========================================
 // Store State & Actions
 // ========================================
 
@@ -148,9 +42,8 @@ interface EventStoreState {
   activeSessionId: string | null;
   activeDeviceId: string | null;
 
-  // Events - 分层存储
-  liveEvents: RingBuffer<UnifiedEvent>;
-  pageCache: LRUCache<string, UnifiedEvent[]>;
+  // Events - 全量主表事件 (不含 event_data)
+  allEvents: UnifiedEvent[];
 
   // 时间索引
   timeIndex: Map<string, TimeIndexEntry[]>;
@@ -161,9 +54,9 @@ interface EventStoreState {
 
   // 当前视图
   visibleRange: { start: number; end: number };
-  visibleEvents: UnifiedEvent[];
+  visibleEvents: UnifiedEvent[];  // 经过 filter 后的事件 (渲染用)
 
-  // Network events (always unfiltered by source, for waterfall chart)
+  // Network events (always unfiltered by source, for waterfall chart, 含 event_data)
   networkEvents: UnifiedEvent[];
 
   // 筛选条件
@@ -173,9 +66,6 @@ interface EventStoreState {
   isLoading: boolean;
   totalEventCount: number;    // session 的总事件数
   filteredEventCount: number; // 匹配过滤条件的事件数
-  hasMoreNewer: boolean;      // 是否还有更新的事件可加载（向下滚动）
-  hasMoreOlder: boolean;      // 是否还有更老的事件可加载（向上滚动）
-  currentOffset: number;      // 当前加载偏移量
 
   // UI 状态
   selectedEventId: string | null;
@@ -198,9 +88,6 @@ interface EventStoreActions {
 
   // 按需加载
   loadEventsInRange: (startTime: number, endTime: number) => Promise<void>;
-  loadNewerEvents: () => Promise<void>;  // 加载更新的事件（向下滚动）
-  loadOlderEvents: () => Promise<void>;  // 加载更老的事件（向上滚动）
-  loadPage: (page: number, pageSize?: number) => Promise<EventQueryResult>;
   searchEvents: (query: string) => Promise<UnifiedEvent[]>;
   loadEvent: (eventId: string) => Promise<UnifiedEvent | null>;
 
@@ -253,8 +140,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
     sessionsVersion: 0,
     activeSessionId: null,
     activeDeviceId: null,
-    liveEvents: new RingBuffer<UnifiedEvent>(LIVE_BUFFER_SIZE),
-    pageCache: new LRUCache<string, UnifiedEvent[]>(PAGE_CACHE_SIZE),
+    allEvents: [],
     timeIndex: new Map(),
     bookmarks: new Map(),
     bookmarksVersion: 0,
@@ -265,9 +151,6 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
     isLoading: false,
     totalEventCount: 0,
     filteredEventCount: 0,
-    hasMoreNewer: false,
-    hasMoreOlder: false,
-    currentOffset: 0,
     selectedEventId: null,
     isTimelineOpen: false,
     autoScroll: true,
@@ -280,7 +163,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
       set(state => {
         state.activeSessionId = sessionId;
         if (!sessionId) {
-          state.liveEvents.clear();
+          state.allEvents = [];
           state.visibleEvents = [];
           state.networkEvents = [];
           state.totalEventCount = 0;
@@ -302,8 +185,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
       set(state => {
         state.isLoading = true;
         state.activeSessionId = sessionId;
-        state.liveEvents = new RingBuffer<UnifiedEvent>(LIVE_BUFFER_SIZE);
-        state.pageCache.clear();
+        state.allEvents = [];
         state.visibleEvents = [];
         state.networkEvents = [];
         state.visibleRange = { start: 0, end: 60000 };
@@ -355,24 +237,32 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           console.error('[eventStore] loadSession index/bookmarks error:', err);
         });
 
-        // 查询所有事件数据（包含详细数据用于可视化）
+        // 全量加载主表事件 (不含 event_data) + 全量网络事件 (含 event_data，供瀑布图)
         console.log('[eventStore] loadSession calling QuerySessionEvents...');
-        const result = await (window as any).go.main.App.QuerySessionEvents({
-          sessionId: sessionId,
-          limit: 0,  // 0 表示不限制，加载全部
-          includeData: true,  // 加载完整数据（网络请求URL等）
-        });
+        const [result, networkResult] = await Promise.all([
+          (window as any).go.main.App.QuerySessionEvents({
+            sessionId: sessionId,
+            limit: 0,             // 全量加载
+            includeData: false,   // 不 JOIN event_data
+          }),
+          (window as any).go.main.App.QuerySessionEvents({
+            sessionId: sessionId,
+            sources: ['network'],
+            limit: 0,             // 瀑布图需要全量网络事件
+            includeData: true,    // 瀑布图需要 event_data
+          }),
+        ]);
 
         const events = result?.events || [];
-        console.log('[eventStore] loadSession loaded all events:', events.length);
+        const networkEvents = networkResult?.events || [];
+        console.log('[eventStore] loadSession loaded events:', events.length, '/ total:', result?.total || 0);
 
         set(state => {
-          state.visibleEvents = events;
-          state.networkEvents = events.filter((e: UnifiedEvent) => e.source === 'network');
+          state.allEvents = events;
+          state.visibleEvents = events; // 初始无 filter，显示全部
+          state.networkEvents = networkEvents;
           state.totalEventCount = events.length;
           state.filteredEventCount = events.length;
-          state.hasMoreOlder = false;
-          state.hasMoreNewer = false;
           state.isLoading = false;
         });
 
@@ -407,16 +297,16 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           newSessions.set(sessionId, session);
         }
 
-        // Update state without immer - use functional update
+        // Update state
         set((state) => {
           state.sessions = newSessions;
           state.activeSessionId = sessionId;
           state.activeDeviceId = deviceId;
+          state.allEvents = [];
           state.visibleEvents = [];
           state.networkEvents = [];
           state.totalEventCount = 0;
           state.sessionsVersion = currentState.sessionsVersion + 1;
-          state.liveEvents = new RingBuffer<UnifiedEvent>(LIVE_BUFFER_SIZE);
         });
 
         // Verify update
@@ -456,7 +346,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
 
         if (state.activeSessionId === sessionId) {
           state.activeSessionId = null;
-          state.liveEvents.clear();
+          state.allEvents = [];
           state.visibleEvents = [];
           state.networkEvents = [];
         }
@@ -489,16 +379,14 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
       if (relevantEvents.length === 0) return;
 
       set(state => {
-        // 添加到实时缓冲
-        state.liveEvents.pushMany(relevantEvents);
-        state.totalEventCount += relevantEvents.length;
+        // 追加到全量事件
+        state.allEvents = [...state.allEvents, ...relevantEvents];
+        state.totalEventCount = state.allEvents.length;
 
-        // 过滤新事件
+        // 过滤新事件并追加到 visibleEvents
         const newFiltered = filterEvents(relevantEvents, filter);
-        // 更新匹配过滤条件的事件数
         state.filteredEventCount += newFiltered.length;
 
-        // 追加所有匹配过滤条件的新事件到列表（不再限制 visibleRange）
         if (newFiltered.length > 0) {
           // 如果自动滚动，更新可视范围到最新
           if (autoScroll) {
@@ -513,20 +401,13 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
 
           // 直接追加所有匹配的新事件
           state.visibleEvents = [...state.visibleEvents, ...newFiltered];
-
-          // 限制列表数量，防止内存溢出（保留最新的 2000 条）
-          if (state.visibleEvents.length > 2000) {
-            state.visibleEvents = state.visibleEvents.slice(-2000);
-          }
         }
 
         // Always append network events regardless of source filter
+        // The waterfall chart needs full data
         const newNetworkEvents = relevantEvents.filter(e => e.source === 'network');
         if (newNetworkEvents.length > 0) {
           state.networkEvents = [...state.networkEvents, ...newNetworkEvents];
-          if (state.networkEvents.length > 2000) {
-            state.networkEvents = state.networkEvents.slice(-2000);
-          }
         }
       });
     },
@@ -536,215 +417,23 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
     // ========================================
 
     loadEventsInRange: async (startTime, endTime) => {
-      const { activeSessionId, filter, pageCache } = get();
-      // 确保时间是整数（后端需要 int64）
+      const { allEvents, filter } = get();
       const start = Math.round(startTime);
       const end = Math.round(endTime);
-      console.log('[eventStore] loadEventsInRange:', { activeSessionId, start, end });
-      if (!activeSessionId) {
-        console.log('[eventStore] loadEventsInRange: no activeSessionId');
-        return;
-      }
+      console.log('[eventStore] loadEventsInRange:', { start, end });
 
-      const cacheKey = `${activeSessionId}:${start}:${end}:${JSON.stringify(filter)}`;
-
-      // 检查缓存
-      if (pageCache.has(cacheKey)) {
-        const cached = pageCache.get(cacheKey)!;
-        console.log('[eventStore] loadEventsInRange: using cache, events:', cached.length);
-        set(state => {
-          state.visibleEvents = cached;
-        });
-        return;
-      }
-
-      set(state => { state.isLoading = true; });
-
-      try {
-        const query: EventQuery = {
-          sessionId: activeSessionId,
-          startTime: start,
-          endTime: end,
-          ...filter,
-          limit: 1000,
-          includeData: true,
-        };
-
-        console.log('[eventStore] loadEventsInRange: querying with', query);
-        const result = await (window as any).go.main.App.QuerySessionEvents(query);
-        console.log('[eventStore] loadEventsInRange: got result', result);
-        const events = result?.events || [];
-
-        // 缓存结果
-        set(state => {
-          state.pageCache.set(cacheKey, events);
-          state.visibleEvents = events;
-          state.totalEventCount = result?.total || 0;
-        });
-        console.log('[eventStore] loadEventsInRange: set visibleEvents:', events.length);
-
-      } finally {
-        set(state => { state.isLoading = false; });
-      }
-    },
-
-    loadNewerEvents: async () => {
-      const { activeSessionId, filter, visibleEvents, hasMoreNewer } = get();
-
-      if (!activeSessionId || !hasMoreNewer) {
-        return;
-      }
-
-      // 获取最后一个事件的时间，从那之后继续加载
-      const lastEvent = visibleEvents[visibleEvents.length - 1];
-      if (!lastEvent) {
-        return;
-      }
-
-      try {
-        const pageSize = 1000;
-        const startTime = lastEvent.relativeTime + 1;
-        const query: EventQuery = {
-          sessionId: activeSessionId,
-          ...filter,
-          startTime: startTime,
-          limit: pageSize,
-          includeData: true,
-        };
-
-        const result = await (window as any).go.main.App.QuerySessionEvents(query);
-        const newEvents = result?.events || [];
-
-        if (newEvents.length === 0) {
-          set(state => { state.hasMoreNewer = false; });
-          return;
-        }
-
-        set(state => {
-          // 追加新事件（去重）
-          const existingIds = new Set(state.visibleEvents.map(e => e.id));
-          const uniqueNewEvents = newEvents.filter((e: UnifiedEvent) => !existingIds.has(e.id));
-
-          if (uniqueNewEvents.length === 0) return;
-
-          let combined = [...state.visibleEvents, ...uniqueNewEvents];
-
-          // 保持最多 2000 条，移除最前面的旧事件
-          if (combined.length > 2000) {
-            combined = combined.slice(-2000);
-            state.hasMoreOlder = true;
-          }
-
-          state.visibleEvents = combined;
-          state.currentOffset = combined.length;
-          state.hasMoreNewer = newEvents.length >= pageSize;
-        });
-      } catch (err) {
-        console.error('[eventStore] loadNewerEvents error:', err);
-      }
-    },
-
-    loadOlderEvents: async () => {
-      const { activeSessionId, filter, visibleEvents, hasMoreOlder } = get();
-
-      if (!activeSessionId || !hasMoreOlder) {
-        return;
-      }
-
-      // 获取第一个事件的时间，从那之前继续加载
-      const firstEvent = visibleEvents[0];
-      if (!firstEvent) {
-        return;
-      }
-
-      try {
-        const pageSize = 1000;
-        const endTime = firstEvent.relativeTime - 1;
-        const query: EventQuery = {
-          sessionId: activeSessionId,
-          ...filter,
-          endTime: endTime,
-          limit: pageSize,
-          includeData: true,
-        };
-
-        const result = await (window as any).go.main.App.QuerySessionEvents(query);
-        let olderEvents = result?.events || [];
-
-        if (olderEvents.length === 0) {
-          set(state => { state.hasMoreOlder = false; });
-          return;
-        }
-
-        const hasMore = olderEvents.length >= pageSize;
-        if (olderEvents.length > pageSize) {
-          olderEvents = olderEvents.slice(-pageSize);
-        }
-
-        set(state => {
-          // 在前面添加旧事件（去重）
-          const existingIds = new Set(state.visibleEvents.map(e => e.id));
-          const uniqueOlderEvents = olderEvents.filter((e: UnifiedEvent) => !existingIds.has(e.id));
-
-          if (uniqueOlderEvents.length === 0) return;
-
-          let combined = [...uniqueOlderEvents, ...state.visibleEvents];
-
-          // 保持最多 2000 条，移除最后面的新事件
-          if (combined.length > 2000) {
-            combined = combined.slice(0, 2000);
-            state.hasMoreNewer = true;
-          }
-
-          state.visibleEvents = combined;
-          state.hasMoreOlder = hasMore;
-        });
-      } catch (err) {
-        console.error('[eventStore] loadOlderEvents error:', err);
-      }
-    },
-
-    loadPage: async (page, pageSize = DEFAULT_PAGE_SIZE) => {
-      const { activeSessionId, filter, pageCache } = get();
-
-      if (!activeSessionId) {
-        return { events: [], total: 0, hasMore: false };
-      }
-
-      const cacheKey = `${activeSessionId}:page:${page}:${pageSize}:${JSON.stringify(filter)}`;
-
-      // 检查缓存
-      const cached = pageCache.get(cacheKey);
-      if (cached) {
-        return {
-          events: cached,
-          total: get().totalEventCount,
-          hasMore: (page + 1) * pageSize < get().totalEventCount,
-        };
-      }
-
-      const query: EventQuery = {
-        sessionId: activeSessionId,
+      // 从内存中的 allEvents 按时间范围过滤
+      const rangeFilter: EventQuery = {
         ...filter,
-        limit: pageSize,
-        offset: page * pageSize,
-        includeData: true,
+        startTime: start,
+        endTime: end,
       };
+      const filtered = filterEvents(allEvents, rangeFilter);
 
-      const result = await (window as any).go.main.App.QuerySessionEvents(query);
-      const events = result?.events || [];
-
-      // 缓存
       set(state => {
-        state.pageCache.set(cacheKey, events);
-        state.totalEventCount = result?.total || 0;
+        state.visibleEvents = filtered;
+        state.filteredEventCount = filtered.length;
       });
-
-      return {
-        events,
-        total: result?.total || 0,
-        hasMore: result?.hasMore || false,
-      };
     },
 
     searchEvents: async (query) => {
@@ -755,7 +444,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
         sessionId: activeSessionId,
         searchText: query,
         limit: 100,
-        includeData: true,
+        includeData: false,
       });
 
       return result?.events || [];
@@ -771,19 +460,15 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
     // ========================================
 
     jumpToTime: async (relativeTime) => {
-      const { activeSessionId, loadEventsInRange } = get();
+      const { activeSessionId } = get();
       if (!activeSessionId) return;
 
-      const windowSize = 30000; // 显示 30 秒窗口
-      const start = Math.max(0, relativeTime - windowSize / 2);
-      const end = relativeTime + windowSize / 2;
-
       set(state => {
-        state.visibleRange = { start, end };
         state.autoScroll = false; // 手动跳转时关闭自动滚动
       });
 
-      await loadEventsInRange(start, end);
+      // visibleEvents 已经是全量的，不需要重新加载
+      // 返回后由 EventTimeline 根据 relativeTime 滚动到对应位置
     },
 
     jumpToEvent: async (eventId) => {
@@ -811,115 +496,65 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
     clearFilter: () => {
       set(state => {
         state.filter = {};
-        state.pageCache.clear();
       });
       get().applyFilter();
     },
 
     applyFilter: async () => {
-      const { activeSessionId, filter, liveEvents, sessions } = get();
+      const { activeSessionId, filter } = get();
 
       if (!activeSessionId) return;
 
-      // 清除缓存
       set(state => {
-        state.pageCache.clear();
         state.isLoading = true;
       });
 
       try {
-        // 获取 session 总事件数（不带过滤条件）
-        const totalResult = await (window as any).go.main.App.QuerySessionEvents({
-          sessionId: activeSessionId,
-          limit: 1, // 只需要 total 数量
+        // 统一走后端查询: limit:0 返回全量匹配, includeData:false 不加载 event_data
+        // 保留 FTS5 全文搜索能力
+        const [result, networkResult] = await Promise.all([
+          (window as any).go.main.App.QuerySessionEvents({
+            sessionId: activeSessionId,
+            ...filter,
+            limit: 0,
+            includeData: false,
+          }),
+          (window as any).go.main.App.QuerySessionEvents({
+            sessionId: activeSessionId,
+            sources: ['network'],
+            limit: 0,
+            includeData: true,  // 瀑布图需要 event_data
+          }),
+        ]);
+
+        const filteredEvents = result?.events || [];
+        const networkEvents: UnifiedEvent[] = networkResult?.events || [];
+
+        // 同时刷新 allEvents（无 filter 的全量数据）
+        // 如果当前有 filter，需要单独获取全量 total
+        const hasFilter = filter.sources?.length || filter.categories?.length ||
+          filter.levels?.length || filter.types?.length ||
+          filter.searchText || filter.startTime || filter.endTime || filter.stepId;
+
+        let allEventsTotal = get().allEvents.length;
+        if (hasFilter) {
+          // allEvents 已经在内存中，totalEventCount 用它的长度
+          allEventsTotal = get().allEvents.length;
+        } else {
+          // 无 filter 时，filteredEvents 就是全量，同步更新 allEvents
+          set(state => {
+            state.allEvents = filteredEvents;
+          });
+          allEventsTotal = filteredEvents.length;
+        }
+
+        set(state => {
+          state.visibleEvents = filteredEvents;
+          state.networkEvents = networkEvents;
+          state.totalEventCount = allEventsTotal;
+          state.filteredEventCount = result?.total || filteredEvents.length;
+          state.isLoading = false;
         });
-        const sessionTotalCount = totalResult?.total || 0;
-
-        // 数据库是 source of truth，查询符合过滤条件的事件
-        const query = {
-          sessionId: activeSessionId,
-          ...filter,
-          limit: 2000, // 显示列表最多 2000 条
-          includeData: true,
-        };
-
-        // Check if source filter excludes network — if so, query network events separately
-        const sourceFilterExcludesNetwork = filter.sources?.length && !filter.sources.includes('network');
-        const networkQueryPromise = sourceFilterExcludesNetwork
-          ? (window as any).go.main.App.QuerySessionEvents({
-              sessionId: activeSessionId,
-              sources: ['network'],
-              limit: 2000,
-              includeData: true,
-            })
-          : null;
-
-        const result = await (window as any).go.main.App.QuerySessionEvents(query);
-        const dbEvents = result?.events || [];
-
-        // Get network events (either from separate query or extract from main results)
-        let networkDbEvents: UnifiedEvent[];
-        if (networkQueryPromise) {
-          const networkResult = await networkQueryPromise;
-          networkDbEvents = networkResult?.events || [];
-        } else {
-          networkDbEvents = dbEvents.filter((e: UnifiedEvent) => e.source === 'network');
-        }
-
-        // 获取当前 session 状态
-        const currentSession = sessions.get(activeSessionId);
-        const isLiveSession = currentSession?.status === 'active';
-
-        // 过滤后匹配的总数（从数据库查询结果）
-        const filteredTotal = result?.total || 0;
-
-        if (isLiveSession) {
-          // Live session: 合并数据库事件 + 内存中尚未持久化的新事件
-          const liveEventsArray = liveEvents.getAll();
-          const filteredLive = filterEvents(liveEventsArray, filter);
-
-          // 找出内存中有但数据库中还没有的事件（通过 ID 去重）
-          const dbEventIds = new Set(dbEvents.map((e: UnifiedEvent) => e.id));
-          const newLiveEvents = filteredLive.filter((e: UnifiedEvent) => !dbEventIds.has(e.id));
-
-          // 合并并按时间排序
-          const mergedEvents = [...dbEvents, ...newLiveEvents]
-            .sort((a, b) => a.relativeTime - b.relativeTime);
-
-          // 限制显示数量（保留最新的 2000 条）
-          const displayEvents = mergedEvents.length > 2000
-            ? mergedEvents.slice(-2000)
-            : mergedEvents;
-
-          // 计算准确的数量
-          const newEventsNotInDb = liveEventsArray.filter(e => !dbEventIds.has(e.id)).length;
-          const newFilteredNotInDb = newLiveEvents.length;
-
-          // Merge network events from live buffer
-          const networkDbIds = new Set(networkDbEvents.map((e: UnifiedEvent) => e.id));
-          const liveNetworkEvents = liveEventsArray
-            .filter(e => e.source === 'network' && !networkDbIds.has(e.id));
-          const allNetworkEvents = [...networkDbEvents, ...liveNetworkEvents]
-            .sort((a, b) => a.relativeTime - b.relativeTime);
-
-          set(state => {
-            state.visibleEvents = displayEvents;
-            state.networkEvents = allNetworkEvents.length > 2000
-              ? allNetworkEvents.slice(-2000) : allNetworkEvents;
-            state.totalEventCount = sessionTotalCount + newEventsNotInDb;
-            state.filteredEventCount = filteredTotal + newFilteredNotInDb;
-            state.isLoading = false;
-          });
-        } else {
-          // 非 live session：直接使用数据库结果
-          set(state => {
-            state.visibleEvents = dbEvents;
-            state.networkEvents = networkDbEvents;
-            state.totalEventCount = sessionTotalCount;
-            state.filteredEventCount = filteredTotal;
-            state.isLoading = false;
-          });
-        }
       } catch (err) {
         console.error('[eventStore] applyFilter error:', err);
         set(state => {
@@ -933,18 +568,9 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
     // ========================================
 
     setVisibleRange: (start, end) => {
-      const { loadEventsInRange, visibleRange } = get();
-
-      // 判断是否需要加载更多数据
-      const needsLoad = start < visibleRange.start - 10000 || end > visibleRange.end + 10000;
-
       set(state => {
         state.visibleRange = { start, end };
       });
-
-      if (needsLoad) {
-        loadEventsInRange(start - 30000, end + 30000);
-      }
     },
 
     // ========================================
@@ -1055,8 +681,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
     clearSession: () => {
       set(state => {
         state.activeSessionId = null;
-        state.liveEvents.clear();
-        state.pageCache.clear();
+        state.allEvents = [];
         state.visibleEvents = [];
         state.networkEvents = [];
         state.totalEventCount = 0;
@@ -1093,7 +718,7 @@ export const useEventStore = create<EventStoreState & EventStoreActions>()(
           // 如果是当前设备的 session，自动切换
           if (state.activeDeviceId === session.deviceId) {
             state.activeSessionId = session.id;
-            state.liveEvents.clear();
+            state.allEvents = [];
             state.visibleEvents = [];
             state.networkEvents = [];
             state.totalEventCount = 0;

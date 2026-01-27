@@ -938,7 +938,6 @@ const EventTimeline = () => {
     endSession,
     setFilter,
     applyFilter,
-    loadEventsInRange,
     createBookmark,
     deleteBookmark,
     subscribeToEvents,
@@ -1090,18 +1089,38 @@ const EventTimeline = () => {
     }
   }, [visibleEvents, autoScroll]);
 
-  // Handle filter changes
+  // Skip initial mount for filter effects (loadSession already loaded all events)
+  const filterMountedRef = useRef(false);
+  const searchMountedRef = useRef(false);
+
+  // Handle non-search filter changes (immediate)
   useEffect(() => {
+    if (!filterMountedRef.current) {
+      filterMountedRef.current = true;
+      return;
+    }
     setFilter({
       sources: filterSources.length > 0 ? filterSources : undefined,
       categories: filterCategories.length > 0 ? filterCategories : undefined,
       levels: filterLevels.length > 0 ? filterLevels : undefined,
-      searchText: searchText || undefined,
       startTime: timeRange?.start,
       endTime: timeRange?.end,
     });
     applyFilter();
-  }, [filterSources, filterCategories, filterLevels, searchText, timeRange, setFilter, applyFilter]);
+  }, [filterSources, filterCategories, filterLevels, timeRange, setFilter, applyFilter]);
+
+  // Handle search text changes (debounced 300ms for FTS5 backend query)
+  useEffect(() => {
+    if (!searchMountedRef.current) {
+      searchMountedRef.current = true;
+      return;
+    }
+    const timer = setTimeout(() => {
+      setFilter({ searchText: searchText || undefined });
+      applyFilter();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchText, setFilter, applyFilter]);
 
   // Scroll to selected event after filter changes
   useEffect(() => {
@@ -1596,7 +1615,6 @@ const EventTimeline = () => {
       <div style={{ padding: '8px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
         <Text type="secondary">
           {filteredEventCount} / {totalEventCount} events
-          {visibleEvents.length < filteredEventCount && ` (showing ${visibleEvents.length})`}
         </Text>
         {currentSession?.status === 'active' && (
           <Badge status="processing" text={t('timeline.recording')} />
@@ -1621,6 +1639,8 @@ const EventTimeline = () => {
             emptyText={t('timeline.no_events')}
             autoScroll={autoScroll}
             onAutoScrollChange={setAutoScroll}
+            onReachTop={undefined}
+            onReachBottom={undefined}
             selectedKey={selectedEventId}
             onItemClick={handleEventClick}
             style={{ height: '100%' }}

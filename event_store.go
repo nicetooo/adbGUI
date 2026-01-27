@@ -238,9 +238,9 @@ func NewEventStore(dataDir string) (*EventStore, error) {
 
 	// 设置连接池
 	// SQLite WAL 模式: 写入串行，但支持并发读取
-	db.SetMaxOpenConns(4)                  // 允许多个读连接
-	db.SetMaxIdleConns(2)                  // 保持 2 个空闲连接
-	db.SetConnMaxLifetime(time.Hour)       // 连接最长存活 1 小时
+	db.SetMaxOpenConns(4)                   // 允许多个读连接
+	db.SetMaxIdleConns(2)                   // 保持 2 个空闲连接
+	db.SetConnMaxLifetime(time.Hour)        // 连接最长存活 1 小时
 	db.SetConnMaxIdleTime(10 * time.Minute) // 空闲连接 10 分钟后关闭
 
 	// 验证数据库连接
@@ -708,7 +708,7 @@ type EventQuery struct {
 	TraceID     string          `json:"traceId,omitempty"`
 	Limit       int             `json:"limit,omitempty"`
 	Offset      int             `json:"offset,omitempty"`
-	OrderDesc   bool            `json:"orderDesc,omitempty"` // true = 时间倒序
+	OrderDesc   bool            `json:"orderDesc,omitempty"`   // true = 时间倒序
 	IncludeData bool            `json:"includeData,omitempty"` // true = 加载完整 event_data
 }
 
@@ -817,21 +817,11 @@ func (s *EventStore) QueryEvents(q EventQuery) (*EventQueryResult, error) {
 		}
 	}
 
-	// 获取总数 - 使用带 LIMIT 的估算以加速
+	// 获取真实总数 - 始终返回准确的 total，供前端分页和计数使用
 	var total int
-	if q.Limit > 0 && q.Limit < 10000 {
-		// 快速估算：如果查询有 limit，只检查是否超过 limit
-		countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (SELECT 1 FROM events %s LIMIT %d)", whereClause, q.Limit+1)
-		if err := s.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
-			// 降级到普通 count
-			countQuery = "SELECT COUNT(*) FROM events" + whereClause
-			s.db.QueryRow(countQuery, args...).Scan(&total)
-		}
-	} else {
-		countQuery := "SELECT COUNT(*) FROM events" + whereClause
-		if err := s.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
-			return nil, fmt.Errorf("count query: %w", err)
-		}
+	countQuery := "SELECT COUNT(*) FROM events " + whereClause
+	if err := s.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
+		return nil, fmt.Errorf("count query: %w", err)
 	}
 
 	// 构建最终查询

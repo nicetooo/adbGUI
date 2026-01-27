@@ -36,6 +36,13 @@ export interface VirtualListProps<T> {
   /** Callback when auto-scroll state changes */
   onAutoScrollChange?: (enabled: boolean) => void;
 
+  /** Callback when scroll reaches near the top (for loading older data) */
+  onReachTop?: () => void;
+  /** Callback when scroll reaches near the bottom (for loading newer data) */
+  onReachBottom?: () => void;
+  /** Threshold in pixels to trigger onReachTop/onReachBottom (default: 200) */
+  reachThreshold?: number;
+
   /** Enable keyboard navigation with arrow keys (default: true when onItemClick is provided) */
   enableKeyboardNavigation?: boolean;
 
@@ -83,6 +90,9 @@ function VirtualListInner<T>(
     selectedKey,
     autoScroll = false,
     onAutoScrollChange,
+    onReachTop,
+    onReachBottom,
+    reachThreshold = 200,
     enableKeyboardNavigation,
     className,
     style,
@@ -97,6 +107,7 @@ function VirtualListInner<T>(
   const { token } = theme.useToken();
   const parentRef = useRef<HTMLDivElement>(null);
   const scrollingRef = useRef(false);
+  const loadingMoreRef = useRef(false); // Debounce for reach callbacks
 
   const virtualizer = useVirtualizer({
     count: dataSource.length,
@@ -193,14 +204,17 @@ function VirtualListInner<T>(
     }
   }, [dataSource.length, autoScroll, virtualizer]);
 
-  // Handle scroll events to detect user scroll
+  // Handle scroll events to detect user scroll and trigger pagination
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (scrollingRef.current) return;
 
     const target = e.currentTarget;
     const { scrollTop, scrollHeight, clientHeight } = target;
     const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+    const distanceFromTop = scrollTop;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
 
+    // Auto-scroll toggle
     if (onAutoScrollChange) {
       if (!isAtBottom && autoScroll) {
         onAutoScrollChange(false);
@@ -208,7 +222,24 @@ function VirtualListInner<T>(
         onAutoScrollChange(true);
       }
     }
-  }, [autoScroll, onAutoScrollChange]);
+
+    // Infinite scroll: trigger load more when near edges
+    if (!loadingMoreRef.current && !loading) {
+      if (onReachTop && distanceFromTop < reachThreshold) {
+        console.log('[VirtualList] onReachTop triggered, distFromTop:', distanceFromTop);
+        loadingMoreRef.current = true;
+        Promise.resolve(onReachTop()).finally(() => {
+          setTimeout(() => { loadingMoreRef.current = false; }, 300);
+        });
+      } else if (onReachBottom && distanceFromBottom < reachThreshold) {
+        console.log('[VirtualList] onReachBottom triggered, distFromBottom:', distanceFromBottom);
+        loadingMoreRef.current = true;
+        Promise.resolve(onReachBottom()).finally(() => {
+          setTimeout(() => { loadingMoreRef.current = false; }, 300);
+        });
+      }
+    }
+  }, [autoScroll, onAutoScrollChange, onReachTop, onReachBottom, reachThreshold, loading]);
 
   // Expose methods via ref
   useImperativeHandle(ref, () => ({
