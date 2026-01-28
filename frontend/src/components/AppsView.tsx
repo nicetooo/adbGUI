@@ -4,12 +4,11 @@ import {
   Space,
   Input,
   Radio,
-  message,
-  Modal,
   Tag,
   Dropdown,
   theme,
   Spin,
+  App,
 } from "antd";
 import VirtualTable from "./VirtualTable";
 import { useTranslation } from "react-i18next";
@@ -57,6 +56,7 @@ const AppsView: React.FC = () => {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const { isDark } = useTheme();
+  const { modal, message } = App.useApp();
   const { selectedDevice } = useDeviceStore();
   const { setSelectedPackage, setLogFilter, toggleLogcat, stopLogcat, isLogging } = useLogcatStore();
   const { setSelectedKey } = useUIStore();
@@ -511,7 +511,7 @@ const AppsView: React.FC = () => {
                     label: t("apps.clear_data"),
                     danger: true,
                     onClick: () => {
-                      Modal.confirm({
+                      modal.confirm({
                         title: t("apps.clear_data_confirm_title"),
                         content: t("apps.clear_data_confirm_content", { name: record.name }),
                         okText: t("apps.clear_data"),
@@ -527,7 +527,7 @@ const AppsView: React.FC = () => {
                     label: t("apps.uninstall"),
                     danger: true,
                     onClick: () => {
-                      Modal.confirm({
+                      modal.confirm({
                         title: t("apps.uninstall_confirm_title"),
                         content: t("apps.uninstall_confirm_content", { name: record.name }),
                         okText: t("apps.uninstall"),

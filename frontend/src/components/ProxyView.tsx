@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback } from 'react';
-import { Card, Button, InputNumber, Space, Typography, Tag, message, Modal, Divider, Switch, Tooltip, Radio, Input, Tabs, theme, Form, Table, Popconfirm, Popover, Spin } from 'antd';
+import { Card, Button, InputNumber, Space, Typography, Tag, Divider, Switch, Tooltip, Radio, Input, Tabs, theme, Form, Table, Popconfirm, Popover, Spin, App, Modal } from 'antd';
 import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, BlockOutlined, SendOutlined, CloseOutlined, PlusOutlined, EditOutlined } from '@ant-design/icons';
 import VirtualList from './VirtualList';
 import DeviceSelector from './DeviceSelector';
@@ -44,6 +44,7 @@ interface RequestLog {
 const ProxyView: React.FC = () => {
     const { t } = useTranslation();
     const { token } = theme.useToken();
+    const { modal, message } = App.useApp();
     const { selectedDevice } = useDeviceStore();
 
     // Use proxyStore instead of useState
@@ -300,7 +301,7 @@ const ProxyView: React.FC = () => {
     };
 
     const showSecurityError = () => {
-        Modal.error({
+        modal.error({
             title: t('proxy.permission_denied'),
             content: (
                 <div>
@@ -390,7 +391,7 @@ const ProxyView: React.FC = () => {
         if (!selectedDevice) return;
         try {
             const path = await InstallProxyCert(selectedDevice);
-            Modal.success({
+            modal.success({
                 title: t('proxy.cert_pushed'),
                 content: (
                     <div>
