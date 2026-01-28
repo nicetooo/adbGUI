@@ -328,6 +328,82 @@ window.runtime.EventsOn("events-batch", (events) => {
 - 时间索引使用内存缓存 + 定期持久化 (5s)
 - 大数据 (请求/响应体) 分离存储，列表查询不加载
 
+## 拖拽安装功能 (APK/XAPK/AAB)
+
+### 功能概述
+
+应用管理页面支持通过拖拽文件直接安装 Android 应用包，支持三种格式：
+- **APK**: 标准 Android 应用包，使用 `adb install -r`
+- **XAPK**: 包含多个 split APK 和 OBB 文件的 ZIP 压缩包，使用 `adb install-multiple`
+- **AAB**: Android App Bundle，需要 bundletool 转换后安装
+
+### 关键文件和代码路径
+
+**后端 (`apps.go`)**:
+- `InstallAPK(deviceId, path)`: 安装标准 APK
+- `InstallXAPK(deviceId, path)`: 解压并安装 XAPK（处理 split APKs + OBB 文件）
+- `InstallAAB(deviceId, path)`: 使用 bundletool 安装 AAB
+- `InstallPackage(deviceId, path)`: 统一入口，根据扩展名自动选择安装方法
+- `findBundletool()`: 查找 bundletool 可执行文件
+
+**前端 (`AppsView.tsx`)**:
+- 使用 Wails 的 `OnFileDrop` API 监听文件拖放事件
+- 容器需要 CSS 属性 `--wails-drop-target: "drop"` 才能接收拖放
+- 拖拽状态通过 `appsStore` 管理 (`isDraggingOver`, `isInstalling`, `installingFileName`)
+- 安装成功后延迟 1 秒刷新应用列表（等待 Android 注册新应用）
+
+**状态管理 (`appsStore.ts`)**:
+```typescript
+// 拖拽安装相关状态
+isDraggingOver: boolean;      // 是否有文件拖拽到区域上
+isInstalling: boolean;        // 是否正在安装
+installingFileName: string;   // 正在安装的文件名
+```
+
+### 实现要点
+
+1. **Wails 文件拖放配置** (`main.go`):
+   ```go
+   DragAndDrop: &options.DragAndDrop{
+       EnableFileDrop:     true,
+       DisableWebViewDrop: true,  // 禁用 WebView 原生拖放，使用 Wails 事件
+   },
+   ```
+
+2. **前端拖放目标** (`AppsView.tsx`):
+   ```tsx
+   <div style={{ "--wails-drop-target": "drop" } as React.CSSProperties}>
+   ```
+
+3. **XAPK 安装流程**:
+   - 创建临时目录解压 XAPK (ZIP 格式)
+   - 提取所有 `.apk` 文件，确保 base.apk 排在最前
+   - 使用 `adb install-multiple -r -d` 安装
+   - 如遇签名冲突，尝试先卸载再安装
+   - 提取 OBB 文件并推送到 `/sdcard/Android/obb/<package>/`
+
+4. **AAB 安装流程**:
+   - 查找 bundletool（PATH 或 `~/Library/Application Support/Gaze/bin/bundletool.jar`）
+   - 获取设备规格 `bundletool get-device-spec`
+   - 构建优化 APKs `bundletool build-apks --device-spec=...`
+   - 安装 `bundletool install-apks`
+
+### 注意事项
+
+- **签名冲突**: 系统预装应用（如 Google Play Services）无法被第三方签名的包覆盖安装
+- **AAB 依赖**: 需要用户安装 bundletool，否则显示友好错误提示
+- **刷新延迟**: 安装成功后需等待 1 秒再刷新列表，否则新应用可能不显示
+- **多语言**: 相关翻译键在 `apps.` 命名空间下（如 `apps.drop_package_here`）
+
+### 修改此功能时的检查清单
+
+- [ ] 确保 `--wails-drop-target` CSS 属性存在于容器元素
+- [ ] 确保 `OnFileDrop` 回调正确注册和清理
+- [ ] 确保 `appsStore` 中的拖拽状态正确更新
+- [ ] 确保安装成功后有延迟刷新逻辑
+- [ ] 测试 APK、XAPK、AAB 三种格式
+- [ ] 测试签名冲突场景的错误提示
+
 ## MCP (Model Context Protocol) 模块
 
 ### AI 架构原则
