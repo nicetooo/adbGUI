@@ -407,7 +407,14 @@
     "uninstall_confirm_title": "卸载应用",
     "uninstall_confirm_content": "您确定要卸载 {{name}} 吗？",
     "export": "导出 APK",
-    "app_settings": "应用设置"
+    "app_settings": "应用设置",
+    "no_device_selected": "请先选择设备",
+    "install_success": "成功安装 {{name}}",
+    "install_failed": "安装失败",
+    "no_package_files": "未找到可安装文件（支持：.apk, .xapk, .aab）",
+    "installing": "正在安装...",
+    "drop_package_here": "拖拽文件到此处安装",
+    "drop_package_hint": "支持 .apk, .xapk, .aab 文件"
   },
   "device_info": {
     "title": "设备信息",

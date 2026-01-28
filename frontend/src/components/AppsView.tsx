@@ -9,6 +9,7 @@ import {
   Tag,
   Dropdown,
   theme,
+  Spin,
 } from "antd";
 import VirtualTable from "./VirtualTable";
 import { useTranslation } from "react-i18next";
@@ -26,6 +27,8 @@ import {
   DeleteOutlined,
   MoreOutlined,
   SettingOutlined,
+  CloudUploadOutlined,
+  LoadingOutlined,
 } from "@ant-design/icons";
 import DeviceSelector from "./DeviceSelector";
 import AppInfoModal from "./AppInfoModal";
@@ -42,8 +45,11 @@ import {
   EnableApp,
   DisableApp,
   ExportAPK,
-  OpenSettings
+  OpenSettings,
+  InstallPackage,
 } from "../../wailsjs/go/main/App";
+// @ts-ignore
+import { OnFileDrop, OnFileDropOff } from "../../wailsjs/runtime/runtime";
 // @ts-ignore
 import { main } from "../types/wails-models";
 
@@ -68,6 +74,9 @@ const AppsView: React.FC = () => {
     selectedAppInfo,
     permissionSearch,
     activitySearch,
+    isDraggingOver,
+    isInstalling,
+    installingFileName,
     setTableHeight,
     setPackages,
     setAppsLoading,
@@ -78,6 +87,8 @@ const AppsView: React.FC = () => {
     setSelectedAppInfo,
     setPermissionSearch,
     setActivitySearch,
+    setIsDraggingOver,
+    setIsInstalling,
   } = useAppsStore();
 
   const handleJumpToLogcat = async (pkg: string) => {
@@ -92,6 +103,148 @@ const AppsView: React.FC = () => {
       setTimeout(() => toggleLogcat(selectedDevice, pkg), 100);
     }
   };
+
+  // Handle package installation from drag and drop (APK, XAPK, AAB)
+  const handleInstallPackage = async (packagePath: string) => {
+    console.log("[AppsView] handleInstallPackage called with:", packagePath);
+    console.log("[AppsView] selectedDevice:", selectedDevice);
+    
+    if (!selectedDevice) {
+      message.error(t("apps.no_device_selected") || "Please select a device first");
+      return;
+    }
+
+    const fileName = packagePath.split("/").pop() || packagePath.split("\\").pop() || packagePath;
+    console.log("[AppsView] Starting install for:", fileName);
+    setIsInstalling(true, fileName);
+
+    try {
+      console.log("[AppsView] Calling InstallPackage...");
+      const result = await InstallPackage(selectedDevice, packagePath);
+      console.log("[AppsView] InstallPackage result:", result);
+      if (result.toLowerCase().includes("success")) {
+        message.success(t("apps.install_success", { name: fileName }) || `Successfully installed ${fileName}`);
+        // Refresh package list after installation (with delay for Android to register the app)
+        setTimeout(() => {
+          console.log("[AppsView] Refreshing packages after install, typeFilter:", typeFilter, "device:", selectedDevice);
+          fetchPackages(typeFilter, selectedDevice);
+        }, 1000);
+      } else {
+        message.error(t("apps.install_failed") + ": " + result);
+      }
+    } catch (err) {
+      console.error("[AppsView] InstallPackage error:", err);
+      message.error(t("apps.install_failed") + ": " + String(err));
+    } finally {
+      setIsInstalling(false);
+    }
+  };
+
+  // Listen for file drop events
+  useEffect(() => {
+    const handleFileDrop = (_x: number, _y: number, paths: string[]) => {
+      console.log("[AppsView] OnFileDrop triggered, paths:", paths);
+      setIsDraggingOver(false);
+      
+      // Filter for installable package files (APK, XAPK, AAB)
+      const packageFiles = paths.filter(path => {
+        const lowerPath = path.toLowerCase();
+        return lowerPath.endsWith(".apk") || lowerPath.endsWith(".xapk") || lowerPath.endsWith(".aab");
+      });
+      
+      console.log("[AppsView] Filtered package files:", packageFiles);
+      
+      if (packageFiles.length === 0) {
+        message.warning(t("apps.no_package_files") || "No installable files found (supported: .apk, .xapk, .aab)");
+        return;
+      }
+
+      // Install package files sequentially
+      const installSequentially = async () => {
+        for (const packagePath of packageFiles) {
+          console.log("[AppsView] Installing:", packagePath);
+          await handleInstallPackage(packagePath);
+        }
+      };
+      installSequentially();
+    };
+
+    // Register file drop handler with drop target
+    console.log("[AppsView] Registering OnFileDrop handler");
+    OnFileDrop(handleFileDrop, true);
+
+    // Cleanup on unmount
+    return () => {
+      console.log("[AppsView] Unregistering OnFileDrop handler");
+      OnFileDropOff();
+    };
+  }, [selectedDevice, typeFilter, t]);
+
+  // Handle drag visual feedback
+  useEffect(() => {
+    let dragCounter = 0;
+    let dropTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const handleDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter++;
+      if (e.dataTransfer?.types.includes("Files")) {
+        setIsDraggingOver(true);
+        // Safety timeout: reset after 3 seconds if drop doesn't happen
+        if (dropTimeout) clearTimeout(dropTimeout);
+        dropTimeout = setTimeout(() => {
+          setIsDraggingOver(false);
+          dragCounter = 0;
+        }, 3000);
+      }
+    };
+
+    const handleDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter--;
+      if (dragCounter <= 0) {
+        dragCounter = 0;
+        setIsDraggingOver(false);
+        if (dropTimeout) {
+          clearTimeout(dropTimeout);
+          dropTimeout = null;
+        }
+      }
+    };
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter = 0;
+      // Reset state immediately - OnFileDrop will handle the actual installation
+      setIsDraggingOver(false);
+      if (dropTimeout) {
+        clearTimeout(dropTimeout);
+        dropTimeout = null;
+      }
+    };
+
+    // Listen on document for better drop detection
+    document.addEventListener("dragenter", handleDragEnter);
+    document.addEventListener("dragleave", handleDragLeave);
+    document.addEventListener("dragover", handleDragOver);
+    document.addEventListener("drop", handleDrop);
+
+    return () => {
+      document.removeEventListener("dragenter", handleDragEnter);
+      document.removeEventListener("dragleave", handleDragLeave);
+      document.removeEventListener("dragover", handleDragOver);
+      document.removeEventListener("drop", handleDrop);
+      if (dropTimeout) clearTimeout(dropTimeout);
+    };
+  }, []);
 
   const fetchPackages = async (packageType?: string, deviceId?: string) => {
     const targetDevice = deviceId || selectedDevice;
@@ -405,8 +558,53 @@ const AppsView: React.FC = () => {
         height: "100%",
         position: "relative",
         padding: "16px 24px",
-      }}
+        // @ts-ignore - Wails drop target CSS property
+        "--wails-drop-target": "drop",
+      } as React.CSSProperties}
     >
+      {/* Drag and drop overlay */}
+      {(isDraggingOver || isInstalling) && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: isDark ? "rgba(0, 0, 0, 0.85)" : "rgba(255, 255, 255, 0.95)",
+            zIndex: 1000,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: token.borderRadiusLG,
+            border: isDraggingOver ? `3px dashed ${token.colorPrimary}` : "none",
+            transition: "all 0.2s ease",
+          }}
+        >
+          {isInstalling ? (
+            <>
+              <Spin indicator={<LoadingOutlined style={{ fontSize: 48, color: token.colorPrimary }} spin />} />
+              <div style={{ marginTop: 16, fontSize: 18, color: token.colorText }}>
+                {t("apps.installing") || "Installing..."}
+              </div>
+              <div style={{ marginTop: 8, fontSize: 14, color: token.colorTextSecondary }}>
+                {installingFileName}
+              </div>
+            </>
+          ) : (
+            <>
+              <CloudUploadOutlined style={{ fontSize: 64, color: token.colorPrimary }} />
+              <div style={{ marginTop: 16, fontSize: 18, color: token.colorText }}>
+                {t("apps.drop_package_here") || "Drop files here to install"}
+              </div>
+              <div style={{ marginTop: 8, fontSize: 14, color: token.colorTextSecondary }}>
+                {t("apps.drop_package_hint") || "Supports .apk, .xapk, .aab files"}
+              </div>
+            </>
+          )}
+        </div>
+      )}
       <div
         style={{
           marginBottom: 16,

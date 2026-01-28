@@ -13,6 +13,10 @@ interface AppsState {
   selectedAppInfo: main.AppPackage | null;
   permissionSearch: string;
   activitySearch: string;
+  // Drag and drop state
+  isDraggingOver: boolean;
+  isInstalling: boolean;
+  installingFileName: string;
   
   setTableHeight: (height: number) => void;
   setPackages: (packages: main.AppPackage[]) => void;
@@ -24,6 +28,8 @@ interface AppsState {
   setSelectedAppInfo: (info: main.AppPackage | null) => void;
   setPermissionSearch: (search: string) => void;
   setActivitySearch: (search: string) => void;
+  setIsDraggingOver: (isDragging: boolean) => void;
+  setIsInstalling: (isInstalling: boolean, fileName?: string) => void;
 }
 
 export const useAppsStore = create<AppsState>()(
@@ -38,6 +44,10 @@ export const useAppsStore = create<AppsState>()(
     selectedAppInfo: null,
     permissionSearch: "",
     activitySearch: "",
+    // Drag and drop state
+    isDraggingOver: false,
+    isInstalling: false,
+    installingFileName: "",
     
     setTableHeight: (height) => set((state: AppsState) => {
       state.tableHeight = height;
@@ -68,6 +78,13 @@ export const useAppsStore = create<AppsState>()(
     }),
     setActivitySearch: (search) => set((state: AppsState) => {
       state.activitySearch = search;
+    }),
+    setIsDraggingOver: (isDragging) => set((state: AppsState) => {
+      state.isDraggingOver = isDragging;
+    }),
+    setIsInstalling: (isInstalling, fileName = "") => set((state: AppsState) => {
+      state.isInstalling = isInstalling;
+      state.installingFileName = fileName;
     }),
   }))
 );

@@ -234,9 +234,15 @@ export function InputTextToElement(arg1:context.Context,arg2:string,arg3:types.E
 
 export function InputTextViaADBKeyboard(arg1:string,arg2:string):Promise<void>;
 
+export function InstallAAB(arg1:string,arg2:string):Promise<string>;
+
 export function InstallAPK(arg1:string,arg2:string):Promise<string>;
 
+export function InstallPackage(arg1:string,arg2:string):Promise<string>;
+
 export function InstallProxyCert(arg1:string):Promise<string>;
+
+export function InstallXAPK(arg1:string,arg2:string):Promise<string>;
 
 export function IsADBKeyboardActive(arg1:string):Promise<boolean>;
 

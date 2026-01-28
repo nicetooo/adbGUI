@@ -406,7 +406,14 @@
     "uninstall_confirm_title": "Uninstall App",
     "uninstall_confirm_content": "Are you sure you want to uninstall {{name}}?",
     "export": "Export APK",
-    "app_settings": "App Settings"
+    "app_settings": "App Settings",
+    "no_device_selected": "Please select a device first",
+    "install_success": "Successfully installed {{name}}",
+    "install_failed": "Failed to install package",
+    "no_package_files": "No installable files found (supported: .apk, .xapk, .aab)",
+    "installing": "Installing...",
+    "drop_package_here": "Drop files here to install",
+    "drop_package_hint": "Supports .apk, .xapk, .aab files"
   },
   "device_info": {
     "title": "Device Information",

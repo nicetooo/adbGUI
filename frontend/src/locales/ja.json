@@ -267,7 +267,14 @@
     "uninstall_confirm_title": "アプリのアンインストール",
     "uninstall_confirm_content": "{{name}} をアンインストールしてもよろしいですか？",
     "export": "APKをエクスポート",
-    "app_settings": "アプリ設定"
+    "app_settings": "アプリ設定",
+    "no_device_selected": "先にデバイスを選択してください",
+    "install_success": "{{name}} のインストールに成功しました",
+    "install_failed": "インストールに失敗しました",
+    "no_package_files": "インストール可能なファイルが見つかりません（対応: .apk, .xapk, .aab）",
+    "installing": "インストール中...",
+    "drop_package_here": "ファイルをここにドロップしてインストール",
+    "drop_package_hint": ".apk, .xapk, .aab ファイルに対応"
   },
   "device_info": {
     "title": "デバイス情報",

@@ -458,12 +458,24 @@ export function InputTextViaADBKeyboard(arg1, arg2) {
   return window['go']['main']['App']['InputTextViaADBKeyboard'](arg1, arg2);
 }
 
+export function InstallAAB(arg1, arg2) {
+  return window['go']['main']['App']['InstallAAB'](arg1, arg2);
+}
+
 export function InstallAPK(arg1, arg2) {
   return window['go']['main']['App']['InstallAPK'](arg1, arg2);
 }
 
+export function InstallPackage(arg1, arg2) {
+  return window['go']['main']['App']['InstallPackage'](arg1, arg2);
+}
+
 export function InstallProxyCert(arg1) {
   return window['go']['main']['App']['InstallProxyCert'](arg1);
+}
+
+export function InstallXAPK(arg1, arg2) {
+  return window['go']['main']['App']['InstallXAPK'](arg1, arg2);
 }
 
 export function IsADBKeyboardActive(arg1) {

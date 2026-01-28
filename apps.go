@@ -927,6 +927,332 @@ func (a *App) InstallAPK(deviceId string, path string) (string, error) {
 	return string(output), nil
 }
 
+// InstallXAPK installs an XAPK file to the specified device
+// XAPK is a ZIP archive containing multiple APKs and optional OBB files
+func (a *App) InstallXAPK(deviceId string, xapkPath string) (string, error) {
+	if err := ValidateDeviceID(deviceId); err != nil {
+		return "", err
+	}
+
+	a.Log("Installing XAPK %s to device %s", xapkPath, deviceId)
+
+	// Create temp directory for extraction
+	tempDir, err := os.MkdirTemp("", "xapk_extract_")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Open and extract XAPK (which is a ZIP file)
+	zipReader, err := zip.OpenReader(xapkPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to open XAPK file: %w", err)
+	}
+	defer zipReader.Close()
+
+	var apkFiles []string
+	var obbFiles []struct {
+		localPath  string
+		remotePath string
+	}
+	var packageName string
+
+	// Extract files
+	for _, file := range zipReader.File {
+		if file.FileInfo().IsDir() {
+			continue
+		}
+
+		destPath := filepath.Join(tempDir, file.Name)
+
+		// Create parent directories
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return "", fmt.Errorf("failed to create directory: %w", err)
+		}
+
+		// Extract file
+		srcFile, err := file.Open()
+		if err != nil {
+			return "", fmt.Errorf("failed to open file in XAPK: %w", err)
+		}
+
+		destFile, err := os.Create(destPath)
+		if err != nil {
+			srcFile.Close()
+			return "", fmt.Errorf("failed to create extracted file: %w", err)
+		}
+
+		_, err = io.Copy(destFile, srcFile)
+		srcFile.Close()
+		destFile.Close()
+		if err != nil {
+			return "", fmt.Errorf("failed to extract file: %w", err)
+		}
+
+		// Categorize files
+		lowerName := strings.ToLower(file.Name)
+		if strings.HasSuffix(lowerName, ".apk") {
+			apkFiles = append(apkFiles, destPath)
+		} else if strings.HasSuffix(lowerName, ".obb") {
+			// OBB files go to /sdcard/Android/obb/<package_name>/
+			// Extract package name from OBB filename (format: main.<version>.<package_name>.obb)
+			baseName := filepath.Base(file.Name)
+			parts := strings.Split(baseName, ".")
+			if len(parts) >= 4 {
+				packageName = strings.Join(parts[2:len(parts)-1], ".")
+			}
+			obbFiles = append(obbFiles, struct {
+				localPath  string
+				remotePath string
+			}{
+				localPath:  destPath,
+				remotePath: filepath.Join("/sdcard/Android/obb", packageName, baseName),
+			})
+		}
+	}
+
+	if len(apkFiles) == 0 {
+		return "", fmt.Errorf("no APK files found in XAPK")
+	}
+
+	a.Log("Found %d APK files in XAPK: %v", len(apkFiles), apkFiles)
+
+	// Install APKs using adb install-multiple
+	var result strings.Builder
+	if len(apkFiles) == 1 {
+		// Single APK - use regular install
+		a.Log("Installing single APK: %s", apkFiles[0])
+		cmd := a.newAdbCommand(nil, "-s", deviceId, "install", "-r", apkFiles[0])
+		output, err := cmd.CombinedOutput()
+		result.WriteString(string(output))
+		a.Log("Install output: %s", string(output))
+		if err != nil {
+			a.Log("Install error: %v", err)
+			return result.String(), fmt.Errorf("failed to install APK: %w\nOutput: %s", err, string(output))
+		}
+	} else {
+		// Multiple APKs - use install-multiple
+		// Sort APKs to ensure base.apk is first (some devices require this)
+		sortedApks := make([]string, 0, len(apkFiles))
+		var baseApk string
+		for _, apk := range apkFiles {
+			baseName := strings.ToLower(filepath.Base(apk))
+			if baseName == "base.apk" || strings.Contains(baseName, "base") {
+				baseApk = apk
+			} else {
+				sortedApks = append(sortedApks, apk)
+			}
+		}
+		if baseApk != "" {
+			sortedApks = append([]string{baseApk}, sortedApks...)
+		} else {
+			sortedApks = apkFiles
+		}
+
+		a.Log("Installing %d split APKs: %v", len(sortedApks), sortedApks)
+		// Try with -r (replace) first
+		args := []string{"-s", deviceId, "install-multiple", "-r", "-d"}
+		args = append(args, sortedApks...)
+		cmd := a.newAdbCommand(nil, args...)
+		output, err := cmd.CombinedOutput()
+		result.WriteString(string(output))
+		a.Log("Install-multiple output: %s", string(output))
+
+		// If signature mismatch, try to uninstall first and reinstall
+		if err != nil && strings.Contains(string(output), "INSTALL_FAILED_UPDATE_INCOMPATIBLE") {
+			a.Log("Signature mismatch detected, attempting to uninstall existing package first")
+
+			// Extract package name from the first APK using aapt
+			if a.aaptPath != "" {
+				aaptCmd := exec.Command(a.aaptPath, "dump", "badging", sortedApks[0])
+				aaptOutput, _ := aaptCmd.Output()
+				// Parse package name from "package: name='com.example.app'"
+				if matches := regexp.MustCompile(`package: name='([^']+)'`).FindSubmatch(aaptOutput); len(matches) > 1 {
+					pkgName := string(matches[1])
+					a.Log("Attempting to uninstall %s", pkgName)
+
+					// Try uninstall (may fail for system apps)
+					uninstallCmd := a.newAdbCommand(nil, "-s", deviceId, "uninstall", pkgName)
+					uninstallCmd.Run()
+
+					// Also try pm uninstall for user
+					pmCmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "pm", "uninstall", "-k", "--user", "0", pkgName)
+					pmCmd.Run()
+
+					// Retry installation
+					retryArgs := []string{"-s", deviceId, "install-multiple", "-r", "-d"}
+					retryArgs = append(retryArgs, sortedApks...)
+					retryCmd := a.newAdbCommand(nil, retryArgs...)
+					retryOutput, retryErr := retryCmd.CombinedOutput()
+					result.WriteString("\nRetry: ")
+					result.WriteString(string(retryOutput))
+
+					if retryErr == nil {
+						return result.String(), nil
+					}
+				}
+			}
+
+			return result.String(), fmt.Errorf("failed to install split APKs: signature mismatch with existing app. Try uninstalling the existing app first.\nOutput: %s", string(output))
+		}
+
+		if err != nil {
+			a.Log("Install-multiple error: %v", err)
+			return result.String(), fmt.Errorf("failed to install split APKs: %w\nOutput: %s", err, string(output))
+		}
+	}
+
+	// Push OBB files if any
+	for _, obb := range obbFiles {
+		// Create OBB directory on device
+		mkdirCmd := a.newAdbCommand(nil, "-s", deviceId, "shell", "mkdir", "-p", filepath.Dir(obb.remotePath))
+		mkdirCmd.Run()
+
+		// Push OBB file
+		pushCmd := a.newAdbCommand(nil, "-s", deviceId, "push", obb.localPath, obb.remotePath)
+		output, err := pushCmd.CombinedOutput()
+		result.WriteString("\n")
+		result.WriteString(string(output))
+		if err != nil {
+			a.Log("Warning: Failed to push OBB file %s: %v", obb.localPath, err)
+		}
+	}
+
+	return result.String(), nil
+}
+
+// InstallAAB installs an AAB (Android App Bundle) file to the specified device
+// AAB requires bundletool to convert to APKs first
+func (a *App) InstallAAB(deviceId string, aabPath string) (string, error) {
+	if err := ValidateDeviceID(deviceId); err != nil {
+		return "", err
+	}
+
+	a.Log("Installing AAB %s to device %s", aabPath, deviceId)
+
+	// Check if bundletool is available
+	bundletoolPath := a.findBundletool()
+	if bundletoolPath == "" {
+		return "", fmt.Errorf("bundletool not found. Please install bundletool: https://github.com/google/bundletool/releases\nOr place bundletool.jar in: %s", filepath.Dir(a.adbPath))
+	}
+
+	// Create temp directory for APKS output
+	tempDir, err := os.MkdirTemp("", "aab_install_")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	apksPath := filepath.Join(tempDir, "output.apks")
+
+	// Helper to run bundletool command (handles both .jar and executable)
+	runBundletool := func(args ...string) *exec.Cmd {
+		if strings.HasSuffix(bundletoolPath, ".jar") {
+			// Run via java -jar
+			javaArgs := append([]string{"-jar", bundletoolPath}, args...)
+			return exec.Command("java", javaArgs...)
+		}
+		return exec.Command(bundletoolPath, args...)
+	}
+
+	// Get device spec for optimized APKs
+	deviceSpecPath := filepath.Join(tempDir, "device-spec.json")
+	specCmd := runBundletool("get-device-spec",
+		"--adb="+a.adbPath,
+		"--device-id="+deviceId,
+		"--output="+deviceSpecPath)
+	specOutput, specErr := specCmd.CombinedOutput()
+
+	var result strings.Builder
+
+	// Build APKs from AAB
+	buildArgs := []string{"build-apks",
+		"--bundle=" + aabPath,
+		"--output=" + apksPath,
+		"--overwrite",
+	}
+
+	// If we got device spec, use it for optimized build
+	if specErr == nil {
+		buildArgs = append(buildArgs, "--device-spec="+deviceSpecPath)
+	} else {
+		// Fallback: build universal APKs
+		buildArgs = append(buildArgs, "--mode=universal")
+		a.Log("Warning: Could not get device spec, building universal APKs: %s", string(specOutput))
+	}
+
+	buildCmd := runBundletool(buildArgs...)
+	buildOutput, err := buildCmd.CombinedOutput()
+	result.WriteString(string(buildOutput))
+	if err != nil {
+		return result.String(), fmt.Errorf("failed to build APKs from AAB: %w\nOutput: %s", err, string(buildOutput))
+	}
+
+	// Install APKs to device
+	installCmd := runBundletool("install-apks",
+		"--apks="+apksPath,
+		"--adb="+a.adbPath,
+		"--device-id="+deviceId)
+	installOutput, err := installCmd.CombinedOutput()
+	result.WriteString("\n")
+	result.WriteString(string(installOutput))
+	if err != nil {
+		return result.String(), fmt.Errorf("failed to install APKs: %w\nOutput: %s", err, string(installOutput))
+	}
+
+	return result.String(), nil
+}
+
+// findBundletool looks for bundletool in common locations
+func (a *App) findBundletool() string {
+	// Check if bundletool is in PATH first
+	if path, err := exec.LookPath("bundletool"); err == nil {
+		return path
+	}
+
+	// Get app's bin directory from adbPath
+	appBinDir := filepath.Dir(a.adbPath)
+
+	// Check in app's bin directory
+	appBundletool := filepath.Join(appBinDir, "bundletool.jar")
+	if _, err := os.Stat(appBundletool); err == nil {
+		return appBundletool
+	}
+
+	// Check common installation paths
+	homeDir, _ := os.UserHomeDir()
+	commonPaths := []string{
+		filepath.Join(homeDir, "bundletool.jar"),
+		filepath.Join(homeDir, "Android", "bundletool.jar"),
+		"/usr/local/bin/bundletool",
+		"/opt/homebrew/bin/bundletool",
+	}
+
+	for _, p := range commonPaths {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+
+	return ""
+}
+
+// InstallPackage installs APK, XAPK, or AAB based on file extension
+func (a *App) InstallPackage(deviceId string, path string) (string, error) {
+	lowerPath := strings.ToLower(path)
+
+	switch {
+	case strings.HasSuffix(lowerPath, ".apk"):
+		return a.InstallAPK(deviceId, path)
+	case strings.HasSuffix(lowerPath, ".xapk"):
+		return a.InstallXAPK(deviceId, path)
+	case strings.HasSuffix(lowerPath, ".aab"):
+		return a.InstallAAB(deviceId, path)
+	default:
+		return "", fmt.Errorf("unsupported file format: %s (supported: .apk, .xapk, .aab)", filepath.Ext(path))
+	}
+}
+
 // ExportAPK extracts an installed APK from the device to the local machine
 func (a *App) ExportAPK(deviceId string, packageName string) (string, error) {
 	if err := ValidateDeviceID(deviceId); err != nil {

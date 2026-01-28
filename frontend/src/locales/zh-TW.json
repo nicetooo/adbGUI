@@ -267,7 +267,14 @@
     "uninstall_confirm_title": "解除安裝應用",
     "uninstall_confirm_content": "您確定要解除安裝 {{name}} 嗎？",
     "export": "匯出 APK",
-    "app_settings": "應用設定"
+    "app_settings": "應用設定",
+    "no_device_selected": "請先選擇裝置",
+    "install_success": "成功安裝 {{name}}",
+    "install_failed": "安裝失敗",
+    "no_package_files": "未找到可安裝檔案（支援：.apk, .xapk, .aab）",
+    "installing": "正在安裝...",
+    "drop_package_here": "拖曳檔案到此處安裝",
+    "drop_package_hint": "支援 .apk, .xapk, .aab 檔案"
   },
   "device_info": {
     "title": "裝置資訊",
