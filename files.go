@@ -141,12 +141,15 @@ func (a *App) DownloadFile(deviceId, remotePath string) (string, error) {
 
 // UploadFile pushes a local file to the device
 func (a *App) UploadFile(deviceId, localPath, remotePath string) error {
+	LogInfo("app").Str("deviceId", deviceId).Str("localPath", localPath).Str("remotePath", remotePath).Msg("UploadFile called")
+
 	if deviceId == "" {
 		return fmt.Errorf("no device specified")
 	}
 
 	cmd := a.newAdbCommand(nil, "-s", deviceId, "push", localPath, remotePath)
 	output, err := cmd.CombinedOutput()
+	LogInfo("app").Str("output", string(output)).Err(err).Msg("UploadFile adb push result")
 	if err != nil {
 		return fmt.Errorf("failed to upload file: %w, output: %s", err, string(output))
 	}

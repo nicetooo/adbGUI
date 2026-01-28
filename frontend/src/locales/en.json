@@ -494,7 +494,15 @@
     "delete_confirm_content": "Are you sure you want to delete {{name}}?",
     "show_hidden": "Show Hidden",
     "new_folder": "New Folder",
-    "paste": "Paste"
+    "paste": "Paste",
+    "mode": "Permissions",
+    "drop_files_here": "Drop files here to upload",
+    "drop_files_hint": "Files will be uploaded to {{path}}",
+    "uploading": "Uploading {{name}}...",
+    "upload_success": "Successfully uploaded {{count}} file(s)",
+    "upload_partial": "Uploaded {{success}} file(s), {{failed}} failed",
+    "upload_failed": "Failed to upload files",
+    "upload_redirect_sdcard": "Root directory is read-only, uploading to /sdcard"
   },
   "logcat": {
     "title": "Logcat",

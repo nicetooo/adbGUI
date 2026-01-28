@@ -151,6 +151,10 @@ type GazeApp interface {
 	RunFfmpegCommand(command string, timeoutSec int) (string, error)
 	RunFfprobeCommand(command string, timeoutSec int) (string, error)
 
+	// File Management
+	UploadFile(deviceId, localPath, remotePath string) error
+	ListFiles(deviceId, pathStr string) ([]map[string]interface{}, error)
+
 	// Utility
 	GetAppVersion() string
 }

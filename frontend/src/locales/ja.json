@@ -355,7 +355,15 @@
     "delete_confirm_content": "{{name}} を削除してもよろしいですか？",
     "show_hidden": "隠しファイル表示",
     "new_folder": "新規フォルダ",
-    "paste": "貼り付け"
+    "paste": "貼り付け",
+    "mode": "権限",
+    "drop_files_here": "ファイルをここにドロップしてアップロード",
+    "drop_files_hint": "ファイルは {{path}} にアップロードされます",
+    "uploading": "{{name}} をアップロード中...",
+    "upload_success": "{{count}} 個のファイルをアップロードしました",
+    "upload_partial": "{{success}} 個成功、{{failed}} 個失敗",
+    "upload_failed": "ファイルのアップロードに失敗しました",
+    "upload_redirect_sdcard": "ルートは読み取り専用のため、/sdcard にアップロードします"
   },
   "logcat": {
     "title": "Logcat",

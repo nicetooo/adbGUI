@@ -6,9 +6,10 @@ import {
   Input,
   Checkbox,
   Dropdown,
-  Modal,
-  message,
+  App,
   theme,
+  Progress,
+  Spin,
 } from "antd";
 import { useTranslation } from "react-i18next";
 import VirtualTable from "./VirtualTable";
@@ -24,6 +25,7 @@ import {
   PictureOutlined,
   PlaySquareOutlined,
   VerticalAlignBottomOutlined,
+  CloudUploadOutlined,
 } from "@ant-design/icons";
 // @ts-ignore
 import {
@@ -35,8 +37,10 @@ import {
   Mkdir,
   OpenFileOnHost,
   CancelOpenFile,
-  DownloadFile
+  DownloadFile,
+  UploadFile,
 } from "../../wailsjs/go/main/App";
+import { OnFileDrop, OnFileDropOff } from "../../wailsjs/runtime/runtime";
 import DeviceSelector from "./DeviceSelector";
 import { useDeviceStore, useFilesStore, useThumbnailStore } from "../stores";
 
@@ -178,10 +182,11 @@ const FocusInput = ({
 };
 
 const FilesView: React.FC<FilesViewProps> = ({
-  initialPath = "/",
+  initialPath,
 }) => {
   const { t } = useTranslation();
   const { token } = theme.useToken();
+  const { modal, message } = App.useApp();
   const { selectedDevice } = useDeviceStore();
 
   // Use filesStore instead of useState
@@ -191,18 +196,28 @@ const FilesView: React.FC<FilesViewProps> = ({
     filesLoading,
     clipboard,
     showHiddenFiles,
+    isDraggingOver,
+    isUploading,
+    uploadingFileName,
+    uploadProgress,
     setCurrentPath,
     setFileList,
     setFilesLoading,
     setClipboard,
     setShowHiddenFiles,
+    setIsDraggingOver,
+    setIsUploading,
+    setUploadingFileName,
+    setUploadProgress,
   } = useFilesStore();
 
+  // Only set initialPath on first mount if provided
   useEffect(() => {
-    if (initialPath && initialPath !== currentPath) {
+    if (initialPath) {
       setCurrentPath(initialPath);
     }
-  }, [initialPath, currentPath, setCurrentPath]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
 
   const fetchFiles = async (path: string) => {
     if (!selectedDevice) return;
@@ -223,6 +238,157 @@ const FilesView: React.FC<FilesViewProps> = ({
       fetchFiles(currentPath);
     }
   }, [selectedDevice]);
+
+  // Listen for file drop events
+  useEffect(() => {
+    const handleFileDrop = async (_x: number, _y: number, paths: string[]) => {
+      console.log("[FilesView] OnFileDrop triggered, paths:", paths);
+      console.log("[FilesView] selectedDevice:", selectedDevice, "currentPath:", currentPath);
+      setIsDraggingOver(false);
+      
+      if (paths.length === 0) {
+        console.log("[FilesView] No paths provided");
+        return;
+      }
+
+      if (!selectedDevice) {
+        console.log("[FilesView] No device selected");
+        message.error(t("apps.no_device_selected") || "Please select a device first");
+        return;
+      }
+
+      // Use /sdcard as default if currentPath is root or empty (root is read-only)
+      const isRootRedirect = !currentPath || currentPath === "/";
+      const uploadDir = isRootRedirect ? "/sdcard" : currentPath;
+      console.log("[FilesView] Upload directory:", uploadDir, "redirected:", isRootRedirect);
+
+      // Notify user if redirecting to /sdcard
+      if (isRootRedirect) {
+        message.info(t("files.upload_redirect_sdcard"));
+      }
+
+      // Start upload
+      setIsUploading(true);
+      setUploadProgress({ current: 0, total: paths.length });
+
+      let successCount = 0;
+      let failedFiles: string[] = [];
+
+      for (let i = 0; i < paths.length; i++) {
+        const localPath = paths[i];
+        const fileName = localPath.split("/").pop() || localPath.split("\\").pop() || localPath;
+        setUploadingFileName(fileName);
+        setUploadProgress({ current: i, total: paths.length });
+
+        try {
+          const remotePath = uploadDir + (uploadDir.endsWith("/") ? "" : "/") + fileName;
+          console.log("[FilesView] Uploading", localPath, "to", remotePath);
+          await UploadFile(selectedDevice, localPath, remotePath);
+          console.log("[FilesView] Upload success:", fileName);
+          successCount++;
+        } catch (err) {
+          console.error(`[FilesView] Failed to upload ${fileName}:`, err);
+          failedFiles.push(fileName);
+        }
+      }
+
+      setIsUploading(false);
+      setUploadingFileName("");
+      setUploadProgress(null);
+
+      // Show result message
+      if (failedFiles.length === 0) {
+        message.success(t("files.upload_success", { count: successCount }));
+      } else if (successCount > 0) {
+        message.warning(t("files.upload_partial", { success: successCount, failed: failedFiles.length }));
+      } else {
+        message.error(t("files.upload_failed"));
+      }
+
+      // Refresh file list - navigate to upload directory if redirected
+      if (isRootRedirect && successCount > 0) {
+        fetchFiles(uploadDir);
+      } else {
+        fetchFiles(currentPath);
+      }
+    };
+
+    // Register file drop handler
+    console.log("[FilesView] Registering OnFileDrop handler, device:", selectedDevice);
+    OnFileDrop(handleFileDrop, true);
+
+    // Cleanup on unmount
+    return () => {
+      console.log("[FilesView] Unregistering OnFileDrop handler");
+      OnFileDropOff();
+    };
+  }, [selectedDevice, currentPath, t, setIsDraggingOver, setIsUploading, setUploadingFileName, setUploadProgress]);
+
+  // Handle drag visual feedback
+  useEffect(() => {
+    let dragCounter = 0;
+    let dropTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const handleDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter++;
+      if (e.dataTransfer?.types.includes("Files")) {
+        setIsDraggingOver(true);
+        // Safety timeout: reset after 3 seconds if drop doesn't happen
+        if (dropTimeout) clearTimeout(dropTimeout);
+        dropTimeout = setTimeout(() => {
+          setIsDraggingOver(false);
+          dragCounter = 0;
+        }, 3000);
+      }
+    };
+
+    const handleDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter--;
+      if (dragCounter <= 0) {
+        dragCounter = 0;
+        setIsDraggingOver(false);
+        if (dropTimeout) {
+          clearTimeout(dropTimeout);
+          dropTimeout = null;
+        }
+      }
+    };
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter = 0;
+      // Reset state immediately - OnFileDrop will handle the actual upload
+      setIsDraggingOver(false);
+      if (dropTimeout) {
+        clearTimeout(dropTimeout);
+        dropTimeout = null;
+      }
+    };
+
+    // Listen on document for better drop detection
+    document.addEventListener("dragenter", handleDragEnter);
+    document.addEventListener("dragleave", handleDragLeave);
+    document.addEventListener("dragover", handleDragOver);
+    document.addEventListener("drop", handleDrop);
+
+    return () => {
+      document.removeEventListener("dragenter", handleDragEnter);
+      document.removeEventListener("dragleave", handleDragLeave);
+      document.removeEventListener("dragover", handleDragOver);
+      document.removeEventListener("drop", handleDrop);
+      if (dropTimeout) clearTimeout(dropTimeout);
+    };
+  }, [setIsDraggingOver]);
 
   const handleFileAction = async (action: string, file: any) => {
     if (!selectedDevice) return;
@@ -306,7 +472,7 @@ const FilesView: React.FC<FilesViewProps> = ({
           break;
         case "rename":
           let newName = file.name;
-          Modal.confirm({
+          modal.confirm({
             title: t("common.rename"),
             okText: t("common.ok"),
             cancelText: t("common.cancel"),
@@ -339,7 +505,7 @@ const FilesView: React.FC<FilesViewProps> = ({
           break;
         case "mkdir":
           let folderName = "";
-          Modal.confirm({
+          modal.confirm({
             title: t("common.new_directory"),
             okText: t("common.ok"),
             cancelText: t("common.cancel"),
@@ -407,6 +573,15 @@ const FilesView: React.FC<FilesViewProps> = ({
             : (size / 1024).toFixed(2) + " KB",
     },
     {
+      title: t("files.mode"),
+      dataIndex: "mode",
+      key: "mode",
+      width: 110,
+      render: (mode: string) => (
+        <span style={{ fontFamily: "monospace", fontSize: 12 }}>{mode || "-"}</span>
+      ),
+    },
+    {
       title: t("files.time"),
       dataIndex: "modTime",
       key: "modTime",
@@ -467,7 +642,7 @@ const FilesView: React.FC<FilesViewProps> = ({
                   label: t("files.delete"),
                   danger: true,
                   onClick: () => {
-                    Modal.confirm({
+                    modal.confirm({
                       title: t("files.delete_confirm_title"),
                       okText: t("common.delete"),
                       okType: "danger",
@@ -501,8 +676,60 @@ const FilesView: React.FC<FilesViewProps> = ({
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-      }}
+        position: "relative",
+        "--wails-drop-target": "drop",
+      } as React.CSSProperties}
     >
+      {/* Drag overlay */}
+      {(isDraggingOver || isUploading) && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: isUploading ? "rgba(0, 0, 0, 0.7)" : "rgba(22, 119, 255, 0.15)",
+            border: isUploading ? "none" : `3px dashed ${token.colorPrimary}`,
+            borderRadius: 8,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            pointerEvents: isUploading ? "auto" : "none",
+          }}
+        >
+          {isUploading ? (
+            <>
+              <Spin size="large" />
+              <div style={{ marginTop: 16, color: "#fff", fontSize: 16 }}>
+                {t("files.uploading", { name: uploadingFileName })}
+              </div>
+              {uploadProgress && (
+                <div style={{ width: 200, marginTop: 12 }}>
+                  <Progress
+                    percent={Math.round(((uploadProgress.current + 1) / uploadProgress.total) * 100)}
+                    size="small"
+                    status="active"
+                    format={() => `${uploadProgress.current + 1}/${uploadProgress.total}`}
+                  />
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <CloudUploadOutlined style={{ fontSize: 64, color: token.colorPrimary }} />
+              <div style={{ marginTop: 16, color: token.colorPrimary, fontSize: 18, fontWeight: 500 }}>
+                {t("files.drop_files_here")}
+              </div>
+              <div style={{ marginTop: 8, color: token.colorTextSecondary, fontSize: 14 }}>
+                {t("files.drop_files_hint", { path: currentPath })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
       <div
         style={{
           marginBottom: 16,
@@ -529,11 +756,15 @@ const FilesView: React.FC<FilesViewProps> = ({
           <Button
             icon={<ArrowLeftOutlined />}
             onClick={() => {
-              const parts = currentPath.split("/").filter(Boolean);
+              // Navigate to parent directory
+              const normalizedPath = currentPath.replace(/\/+$/, ""); // Remove trailing slashes
+              const parts = normalizedPath.split("/").filter(Boolean);
               parts.pop();
-              fetchFiles("/" + parts.join("/"));
+              const parentPath = parts.length > 0 ? "/" + parts.join("/") : "/";
+              console.log("[FilesView] Navigating back from", currentPath, "to", parentPath);
+              fetchFiles(parentPath);
             }}
-            disabled={currentPath === "/" || currentPath === ""}
+            disabled={!currentPath || currentPath === "/" || currentPath === ""}
           />
           <Input
             value={currentPath}

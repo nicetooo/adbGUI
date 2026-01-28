@@ -294,6 +294,96 @@ COMMON FLAGS:
 		),
 		s.handleFfprobeExecute,
 	)
+
+	// file_upload - Upload file from host to device
+	s.server.AddTool(
+		mcp.NewTool("file_upload",
+			mcp.WithDescription(`Upload a file from the host machine to an Android device.
+
+This tool uses 'adb push' internally to transfer files from your computer to the device.
+
+COMMON USE CASES:
+- Upload APKs for manual installation
+- Push configuration files
+- Transfer media files (images, videos, audio)
+- Deploy test data files
+
+COMMON REMOTE PATHS:
+- /sdcard/: Main external storage (most common)
+- /sdcard/Download/: Downloads folder
+- /sdcard/DCIM/: Camera photos folder
+- /sdcard/Pictures/: Pictures folder
+- /sdcard/Music/: Music folder
+- /sdcard/Android/data/<package>/: App-specific data
+
+EXAMPLES:
+  Upload an image:
+    local_path: /Users/me/image.png
+    remote_path: /sdcard/Pictures/image.png
+
+  Upload test data:
+    local_path: /tmp/test_data.json
+    remote_path: /sdcard/Download/test_data.json
+
+NOTE: 
+- The local_path must be an absolute path on your computer
+- Ensure the remote directory exists or use /sdcard/ for auto-creation
+- Some system directories require root access`),
+			mcp.WithString("device_id",
+				mcp.Required(),
+				mcp.Description("Device ID to upload the file to"),
+			),
+			mcp.WithString("local_path",
+				mcp.Required(),
+				mcp.Description("Absolute path to the file on the host machine"),
+			),
+			mcp.WithString("remote_path",
+				mcp.Required(),
+				mcp.Description("Destination path on the Android device (e.g., /sdcard/Download/file.txt)"),
+			),
+		),
+		s.handleFileUpload,
+	)
+
+	// file_list - List files in a directory on device
+	s.server.AddTool(
+		mcp.NewTool("file_list",
+			mcp.WithDescription(`List files and directories in a path on an Android device.
+
+Returns information about each file including:
+- name: File or directory name
+- path: Full path on device
+- size: File size in bytes (0 for directories)
+- isDir: Whether it's a directory
+- modTime: Last modification time
+
+COMMON PATHS:
+- /sdcard/: Main external storage
+- /sdcard/Download/: Downloads folder
+- /sdcard/DCIM/Camera/: Camera photos
+- /sdcard/Android/data/: App data folders
+- /data/data/: App internal data (requires root)
+
+EXAMPLES:
+  List sdcard root:
+    path: /sdcard
+
+  List downloads:
+    path: /sdcard/Download
+
+  List app data:
+    path: /sdcard/Android/data/com.example.app/files`),
+			mcp.WithString("device_id",
+				mcp.Required(),
+				mcp.Description("Device ID to list files from"),
+			),
+			mcp.WithString("path",
+				mcp.Required(),
+				mcp.Description("Directory path on the device to list (e.g., /sdcard)"),
+			),
+		),
+		s.handleFileList,
+	)
 }
 
 // Tool handlers
@@ -609,4 +699,112 @@ func (s *MCPServer) handleFfprobeExecute(ctx context.Context, request mcp.CallTo
 			mcp.NewTextContent(result),
 		},
 	}, nil
+}
+
+func (s *MCPServer) handleFileUpload(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	deviceID, ok := args["device_id"].(string)
+	if !ok || deviceID == "" {
+		return nil, fmt.Errorf("device_id is required")
+	}
+
+	localPath, ok := args["local_path"].(string)
+	if !ok || localPath == "" {
+		return nil, fmt.Errorf("local_path is required")
+	}
+
+	remotePath, ok := args["remote_path"].(string)
+	if !ok || remotePath == "" {
+		return nil, fmt.Errorf("remote_path is required")
+	}
+
+	err := s.app.UploadFile(deviceID, localPath, remotePath)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				mcp.NewTextContent(fmt.Sprintf("Failed to upload file: %v", err)),
+			},
+			IsError: true,
+		}, nil
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			mcp.NewTextContent(fmt.Sprintf("Successfully uploaded %s to %s on device %s", localPath, remotePath, deviceID)),
+		},
+	}, nil
+}
+
+func (s *MCPServer) handleFileList(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	deviceID, ok := args["device_id"].(string)
+	if !ok || deviceID == "" {
+		return nil, fmt.Errorf("device_id is required")
+	}
+
+	path, ok := args["path"].(string)
+	if !ok || path == "" {
+		return nil, fmt.Errorf("path is required")
+	}
+
+	files, err := s.app.ListFiles(deviceID, path)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				mcp.NewTextContent(fmt.Sprintf("Failed to list files: %v", err)),
+			},
+			IsError: true,
+		}, nil
+	}
+
+	if len(files) == 0 {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				mcp.NewTextContent(fmt.Sprintf("Directory %s is empty or does not exist", path)),
+			},
+		}, nil
+	}
+
+	// Format as readable text
+	result := fmt.Sprintf("Files in %s (%d items):\n\n", path, len(files))
+	for _, f := range files {
+		typeStr := "FILE"
+		if isDir, ok := f["isDir"].(bool); ok && isDir {
+			typeStr = "DIR "
+		}
+		size := int64(0)
+		if s, ok := f["size"].(int64); ok {
+			size = s
+		}
+		name := f["name"]
+		modTime := f["modTime"]
+
+		if typeStr == "DIR " {
+			result += fmt.Sprintf("[%s] %s/\n", typeStr, name)
+		} else {
+			sizeStr := formatSize(size)
+			result += fmt.Sprintf("[%s] %s (%s, %v)\n", typeStr, name, sizeStr, modTime)
+		}
+	}
+
+	// Also include JSON for structured access
+	jsonData, _ := json.MarshalIndent(files, "", "  ")
+	result += fmt.Sprintf("\nJSON data:\n```json\n%s\n```", string(jsonData))
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			mcp.NewTextContent(result),
+		},
+	}, nil
+}
+
+func formatSize(size int64) string {
+	if size < 1024 {
+		return fmt.Sprintf("%d B", size)
+	} else if size < 1024*1024 {
+		return fmt.Sprintf("%.1f KB", float64(size)/1024)
+	} else if size < 1024*1024*1024 {
+		return fmt.Sprintf("%.1f MB", float64(size)/(1024*1024))
+	}
+	return fmt.Sprintf("%.1f GB", float64(size)/(1024*1024*1024))
 }

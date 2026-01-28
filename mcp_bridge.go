@@ -777,6 +777,30 @@ func (b *MCPBridge) RunFfprobeCommand(command string, timeoutSec int) (string, e
 	return b.app.RunFfprobeCommand(command, timeoutSec)
 }
 
+// UploadFile uploads a file from host to device
+func (b *MCPBridge) UploadFile(deviceId, localPath, remotePath string) error {
+	return b.app.UploadFile(deviceId, localPath, remotePath)
+}
+
+// ListFiles lists files in a directory on the device
+func (b *MCPBridge) ListFiles(deviceId, pathStr string) ([]map[string]interface{}, error) {
+	files, err := b.app.ListFiles(deviceId, pathStr)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]map[string]interface{}, len(files))
+	for i, f := range files {
+		result[i] = map[string]interface{}{
+			"name":    f.Name,
+			"path":    f.Path,
+			"size":    f.Size,
+			"isDir":   f.IsDir,
+			"modTime": f.ModTime,
+		}
+	}
+	return result, nil
+}
+
 // StartMCPServer starts the MCP server with the given app
 func StartMCPServer(app *App) {
 	bridge := NewMCPBridge(app)

@@ -495,7 +495,15 @@
     "delete_confirm_content": "您确定要删除 {{name}} 吗？",
     "show_hidden": "显示隐藏文件",
     "new_folder": "新建文件夹",
-    "paste": "粘贴"
+    "paste": "粘贴",
+    "mode": "权限",
+    "drop_files_here": "拖放文件到此处上传",
+    "drop_files_hint": "文件将上传到 {{path}}",
+    "uploading": "正在上传 {{name}}...",
+    "upload_success": "成功上传 {{count}} 个文件",
+    "upload_partial": "已上传 {{success}} 个文件，{{failed}} 个失败",
+    "upload_failed": "文件上传失败",
+    "upload_redirect_sdcard": "根目录为只读，已自动上传至 /sdcard"
   },
   "logcat": {
     "title": "日志",

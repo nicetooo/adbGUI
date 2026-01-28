@@ -355,7 +355,15 @@
     "delete_confirm_content": "您確定要刪除 {{name}} 嗎？",
     "show_hidden": "顯示隱藏檔案",
     "new_folder": "新建資料夾",
-    "paste": "貼上"
+    "paste": "貼上",
+    "mode": "權限",
+    "drop_files_here": "拖放檔案到此處上傳",
+    "drop_files_hint": "檔案將上傳到 {{path}}",
+    "uploading": "正在上傳 {{name}}...",
+    "upload_success": "成功上傳 {{count}} 個檔案",
+    "upload_partial": "已上傳 {{success}} 個檔案，{{failed}} 個失敗",
+    "upload_failed": "檔案上傳失敗",
+    "upload_redirect_sdcard": "根目錄為唯讀，已自動上傳至 /sdcard"
   },
   "logcat": {
     "title": "日誌",
