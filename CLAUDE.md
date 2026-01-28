@@ -404,6 +404,111 @@ installingFileName: string;   // 正在安装的文件名
 - [ ] 测试 APK、XAPK、AAB 三种格式
 - [ ] 测试签名冲突场景的错误提示
 
+## 文件管理拖拽上传功能
+
+### 功能概述
+
+文件管理页面支持通过拖拽文件直接上传到 Android 设备，支持以下特性：
+- **拖拽上传**: 将本地文件拖拽到文件列表区域即可上传
+- **批量上传**: 支持同时拖拽多个文件
+- **权限显示**: 文件列表显示文件权限（mode）列，如 `drwxr-xr-x`
+- **智能重定向**: 当在只读根目录 `/` 时，自动重定向到 `/sdcard` 并提示用户
+
+### 关键文件和代码路径
+
+**后端 (`files.go`)**:
+- `UploadFile(deviceId, localPath, remotePath)`: 使用 `adb push` 上传文件到设备
+- `ListFiles(deviceId, path)`: 列出目录内容，返回包含 `mode` 权限字段的文件列表
+
+**前端 (`FilesView.tsx`)**:
+- 使用 Wails 的 `OnFileDrop`/`OnFileDropOff` API 监听文件拖放事件
+- 容器需要 CSS 属性 `--wails-drop-target: "drop"` 才能接收拖放
+- 使用 `App.useApp()` 获取 `modal` 和 `message` 实例（确保主题适配）
+- 拖拽状态通过 `filesStore` 管理
+- 根目录上传时自动重定向到 `/sdcard` 并显示提示
+
+**状态管理 (`filesStore.ts`)**:
+```typescript
+// 拖拽上传相关状态
+isDraggingOver: boolean;      // 是否有文件拖拽到区域上
+isUploading: boolean;         // 是否正在上传
+uploadingFileName: string;    // 正在上传的文件名
+uploadProgress: { current: number; total: number } | null;  // 上传进度
+```
+
+**MCP 工具 (`mcp/tools_device.go`)**:
+- `file_upload`: 上传文件到设备
+- `file_list`: 列出设备目录内容
+
+### 实现要点
+
+1. **拖放事件注册** (`FilesView.tsx`):
+   ```tsx
+   useEffect(() => {
+     const handleFileDrop = async (_x: number, _y: number, paths: string[]) => {
+       // 处理上传逻辑
+     };
+     OnFileDrop(handleFileDrop, true);
+     return () => OnFileDropOff();
+   }, [selectedDevice, currentPath, ...]);
+   ```
+
+2. **根目录重定向**:
+   ```typescript
+   // 根目录是只读的，自动重定向到 /sdcard
+   const isRootRedirect = !currentPath || currentPath === "/";
+   const uploadDir = isRootRedirect ? "/sdcard" : currentPath;
+   if (isRootRedirect) {
+     message.info(t("files.upload_redirect_sdcard"));
+   }
+   ```
+
+3. **主题适配** (`ThemeContext.tsx` + `FilesView.tsx`):
+   ```tsx
+   // ThemeContext.tsx - 包裹 AntApp 组件
+   <ConfigProvider theme={themeConfig}>
+     <AntApp>
+       {children}
+     </AntApp>
+   </ConfigProvider>
+   
+   // FilesView.tsx - 使用 App.useApp() 获取实例
+   const { modal, message } = App.useApp();
+   modal.confirm({ ... });  // 而不是 Modal.confirm
+   ```
+
+4. **权限列显示**:
+   ```typescript
+   {
+     title: t("files.mode"),
+     dataIndex: "mode",
+     key: "mode",
+     width: 110,
+     render: (mode: string) => (
+       <span style={{ fontFamily: "monospace", fontSize: 12 }}>{mode || "-"}</span>
+     ),
+   }
+   ```
+
+### 注意事项
+
+- **根目录只读**: Android 设备的根目录 `/` 是只读的，必须上传到 `/sdcard` 等可写目录
+- **闭包问题**: `OnFileDrop` 回调中使用的变量需要在 `useEffect` 依赖数组中正确声明
+- **主题适配**: `Modal.confirm` 等静态方法不会自动继承主题，必须使用 `App.useApp()` 获取实例
+- **多语言**: 相关翻译键在 `files.` 命名空间下
+
+### 修改此功能时的检查清单
+
+- [ ] 确保 `--wails-drop-target` CSS 属性存在于 FilesView 容器元素
+- [ ] 确保 `OnFileDrop` 回调正确注册和清理（检查 useEffect 依赖数组）
+- [ ] 确保 `filesStore` 中的拖拽状态正确更新
+- [ ] 确保根目录上传时有重定向提示
+- [ ] 确保上传成功后正确刷新文件列表（如重定向则导航到目标目录）
+- [ ] 确保使用 `App.useApp()` 获取 modal/message 实例（主题适配）
+- [ ] 测试暗色/亮色主题下的弹窗显示
+- [ ] 测试批量上传多个文件
+- [ ] 确保 MCP 工具 `file_upload` 和 `file_list` 正常工作
+
 ## MCP (Model Context Protocol) 模块
 
 ### AI 架构原则
