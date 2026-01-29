@@ -142,8 +142,7 @@ adbGUI/
 │   ├── app.go               # App 结构和初始化
 │   ├── event_types.go       # ⭐ 事件类型定义
 │   ├── event_store.go       # ⭐ SQLite 事件存储
-│   ├── event_pipeline.go    # ⭐ 事件处理管道
-│   ├── session_manager.go   # ⭐ 会话管理 (兼容层)
+│   ├── event_pipeline.go    # ⭐ 事件处理管道 (唯一的 Session 管理入口)
 │   ├── event_assertion.go   # 断言引擎
 │   ├── device.go            # 设备管理
 │   ├── device_monitor.go    # 设备状态监控
@@ -167,7 +166,7 @@ adbGUI/
 ├── frontend/src/
 │   ├── stores/
 │   │   ├── eventStore.ts    # ⭐ 前端事件状态
-│   │   ├── sessionStore.ts  # ⭐ 前端会话状态
+│   │   ├── eventTypes.ts    # ⭐ 事件类型定义 + 工具函数 (formatDuration 等)
 │   │   └── ...              # 其他状态管理
 │   ├── components/
 │   │   ├── EventTimeline.tsx  # 事件时间线组件
@@ -203,10 +202,11 @@ go test ./...
 ```
 frontend/src/stores/
 ├── eventStore.ts       # 事件和时间线状态
-├── sessionStore.ts     # 会话状态（兼容层）
+├── eventTypes.ts       # 事件类型定义 + 格式化工具函数
 ├── deviceStore.ts      # 设备列表和选中状态
 ├── workflowStore.ts    # 工作流编辑和执行状态
 ├── automationStore.ts  # 触摸录制和任务状态
+├── elementStore.ts     # UI 元素类型 (UINode, ElementSelector 的唯一定义)
 ├── proxyStore.ts       # 代理和网络请求状态
 ├── uiStore.ts          # 全局 UI 状态（导航、模态框）
 └── ...                 # 其他领域状态
@@ -249,6 +249,24 @@ function DeviceList() {
 1. **自动创建**: 当设备产生事件但无活跃 Session 时，自动创建 "auto" 类型 Session
 2. **手动创建**: 用户开始录制/工作流时，创建带配置的 Session
 3. **结束 Session**: 调用 `EndSession(sessionID, status)` 或新 Session 替换旧 Session
+4. **不会自动重建**: 用户结束 Session 后，`GetDevices()` 轮询不会自动重建 Session
+
+### 后端架构要点
+
+- **单一 Session 系统**: 所有 Session 管理通过 `EventPipeline` 进行
+- **初始化/关闭共享逻辑**: `app.go` 中 `initCore()` / `shutdownCore()` 是 GUI 模式和 MCP 模式共用的核心初始化/清理逻辑。`startup()` 和 `Shutdown()` 供 Wails GUI 调用；`InitializeWithoutGUI()` 和 `ShutdownWithoutGUI()` 供 MCP 模式调用，两者都委托到共享方法
+- **URL 模式匹配**: `proxy.MatchPattern()` 是唯一的 URL 通配符匹配实现（`proxy/proxy.go`），`proxy_bridge.go` 通过导入使用，禁止创建本地副本
+- **触摸事件去重**: `device_monitor.go` 的 `emitTouchEvent()` 内置了 `IsTouchRecordingActive()` 守卫，当 `automation.go` 正在进行触摸录制时自动跳过，防止同一个触摸产生两条事件
+
+### 前端类型唯一来源
+
+- **`UINode`**: 唯一定义在 `elementStore.ts`，其他文件（如 `automationStore.ts`）通过 `import type` 引入并 re-export
+- **`ElementSelector`**: `elementStore.ts`（前端 UI 用）和 `types/workflow.ts`（匹配后端 Go 类型）各有一份，type union 不同，属于有意区分
+- **`formatDuration` 系列**: 统一在 `eventTypes.ts` 中定义三个版本：
+  - `formatDuration(ms)` — 紧凑格式（`381ms`, `5.0s`, `2m 30s`）
+  - `formatDurationHMS(ms)` — 人类可读（`3s`, `2m 3s`, `1h 2m 3s`）
+  - `formatDurationMMSS(seconds)` — 时钟格式（`02:30`）
+  - 组件中禁止再创建本地 `formatDuration`，应从 `eventTypes.ts` 导入
 
 ### 事件级别 (EventLevel)
 
