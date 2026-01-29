@@ -102,29 +102,3 @@ func (a *App) SubmitSelectorChoice(deviceId string, selectorType string, selecto
 	LogDebug("automation").Msg("Recording resumed")
 	return nil
 }
-
-// GetRecordingStatus returns the current recording status including pause state
-func (a *App) GetRecordingStatus(deviceId string) map[string]interface{} {
-	touchRecordMu.Lock()
-	defer touchRecordMu.Unlock()
-
-	sess, exists := touchRecordData[deviceId]
-	if !exists {
-		return map[string]interface{}{
-			"isRecording": false,
-		}
-	}
-
-	result := map[string]interface{}{
-		"isRecording":   true,
-		"recordingMode": sess.RecordingMode,
-		"isPaused":      sess.IsPaused,
-		"eventCount":    len(sess.RawEvents),
-	}
-
-	if sess.PendingSelectorReq != nil {
-		result["pendingSelector"] = sess.PendingSelectorReq
-	}
-
-	return result
-}

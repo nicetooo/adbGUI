@@ -42,25 +42,10 @@ import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
 import { useDeviceStore, useUIStore, useEventStore, VIEW_KEYS, useSessionManagerStore } from '../stores';
 import type { DeviceSession } from '../stores/eventTypes';
+import { formatDurationHMS as formatDuration } from '../stores/eventTypes';
 
 const { Text, Title } = Typography;
 const { RangePicker } = DatePicker;
-
-// Format duration from ms to readable string
-const formatDuration = (ms: number): string => {
-  if (!ms || ms <= 0) return '-';
-  const seconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-
-  if (hours > 0) {
-    return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-  } else if (minutes > 0) {
-    return `${minutes}m ${seconds % 60}s`;
-  } else {
-    return `${seconds}s`;
-  }
-};
 
 // Format timestamp to readable date
 const formatTime = (timestamp: number): string => {

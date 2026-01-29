@@ -174,26 +174,6 @@ func TestValidateDeviceID(t *testing.T) {
 	}
 }
 
-func TestMustValidateDeviceID(t *testing.T) {
-	// Initialize logger to prevent nil pointer
-	_ = InitLogger(DefaultLogConfig())
-
-	// Valid device ID should return true
-	if !MustValidateDeviceID("valid-device-123") {
-		t.Error("Expected valid device ID to return true")
-	}
-
-	// Invalid device ID should return false
-	if MustValidateDeviceID("device; rm -rf /") {
-		t.Error("Expected invalid device ID to return false")
-	}
-
-	// Empty device ID should return false
-	if MustValidateDeviceID("") {
-		t.Error("Expected empty device ID to return false")
-	}
-}
-
 // ========================================
 // Pause/Resume/Stop Integration Tests
 // ========================================

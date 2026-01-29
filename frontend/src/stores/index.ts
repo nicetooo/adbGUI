@@ -1,18 +1,15 @@
 // Barrel file for all stores
 export * from './types';
 export { useDeviceStore } from './deviceStore';
-export { useMirrorStore, openRecordPath } from './mirrorStore';
+export { useMirrorStore } from './mirrorStore';
 export { useLogcatStore } from './logcatStore';
 export type { FilterPreset, ParsedLog } from './logcatStore';
 export { useUIStore } from './uiStore';
 export { useAutomationStore } from './automationStore';
 export type { TouchEvent, TouchScript, ScriptTask, TaskStep } from './automationStore';
 export { useElementStore } from './elementStore';
-export type { ElementSelector, UINode, SelectorSuggestion, ElementInfo } from './elementStore';
-export { useSessionStore, formatEventTime, formatDuration, getEventIcon, getEventColor, categoryColors, levelStyles } from './sessionStore';
-export type { Session, SessionEvent, SessionFilter } from './sessionStore';
-
-// New unified event system
+export type { ElementSelector, UINode, SelectorSuggestion } from './elementStore';
+// Unified event system
 export * from './eventTypes';
 export { useEventStore, useCurrentBookmarks } from './eventStore';
 
@@ -25,19 +22,6 @@ export { useUIInspectorStore } from './uiInspectorStore';
 export { useAppsStore } from './appsStore';
 export { useFilesStore } from './filesStore';
 export { useShellStore } from './shellStore';
-export { useRecordingStore } from './recordingStore';
-export { useTimelineStore } from './timelineStore';
-
-// Video Store
-export { useVideoStore } from './videoStore';
-export type {
-  VideoServiceInfo,
-  VideoMetadata,
-  VideoThumbnail,
-  SessionVideoInfo,
-  Recording,
-} from './videoStore';
-
 // Session Manager Store
 export { useSessionManagerStore } from './sessionManagerStore';
 

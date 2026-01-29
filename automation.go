@@ -42,6 +42,15 @@ var (
 	uiHierarchyMinInterval = 500 * time.Millisecond // Min time between dumps
 )
 
+// IsTouchRecordingActive returns true if touch recording is active for the given device.
+// Used by DeviceMonitor to avoid emitting duplicate touch events.
+func IsTouchRecordingActive(deviceID string) bool {
+	touchRecordMu.Lock()
+	defer touchRecordMu.Unlock()
+	_, exists := touchRecordData[deviceID]
+	return exists
+}
+
 type cachedUIHierarchy struct {
 	result        *UIHierarchyResult
 	timestamp     time.Time // Finish time

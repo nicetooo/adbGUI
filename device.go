@@ -18,12 +18,6 @@ import (
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// sessionEnsuredDevices 追踪已确保 session 的设备，避免重复 goroutine
-var (
-	sessionEnsuredDevices   = make(map[string]bool)
-	sessionEnsuredDevicesMu sync.Mutex
-)
-
 // deviceIDPattern 用于验证 deviceId 格式
 // 支持以下格式:
 // - USB 序列号: 字母数字下划线，如 "1234567890ABCDEF", "emulator-5554"
@@ -51,15 +45,6 @@ func ValidateDeviceID(deviceId string) error {
 		}
 	}
 	return nil
-}
-
-// MustValidateDeviceID 验证 deviceId，如果无效则记录警告并返回 false
-func MustValidateDeviceID(deviceId string) bool {
-	if err := ValidateDeviceID(deviceId); err != nil {
-		LogWarn("device").Str("deviceId", deviceId).Err(err).Msg("Invalid device ID rejected")
-		return false
-	}
-	return true
 }
 
 // GetDevices returns a list of connected ADB devices
@@ -386,36 +371,9 @@ func (a *App) GetDevices(forceLog bool) ([]Device, error) {
 	}
 
 	result := make([]Device, len(finalDevices))
-	// 收集当前活跃设备 ID，用于清理断开的设备
-	activeDeviceIDs := make(map[string]bool)
-
 	for i, d := range finalDevices {
 		result[i] = *d
-		// Auto-ensure session for active devices so logs/events are captured immediately
-		// 使用去重逻辑避免重复启动 goroutine
-		if d.State == "device" {
-			activeDeviceIDs[d.ID] = true
-			sessionEnsuredDevicesMu.Lock()
-			if !sessionEnsuredDevices[d.ID] {
-				sessionEnsuredDevices[d.ID] = true
-				sessionEnsuredDevicesMu.Unlock()
-				go func(deviceID string) {
-					a.EnsureActiveSession(deviceID)
-				}(d.ID)
-			} else {
-				sessionEnsuredDevicesMu.Unlock()
-			}
-		}
 	}
-
-	// 清理断开设备的 session 追踪，允许重新连接时重新创建 session
-	sessionEnsuredDevicesMu.Lock()
-	for deviceID := range sessionEnsuredDevices {
-		if !activeDeviceIDs[deviceID] {
-			delete(sessionEnsuredDevices, deviceID)
-		}
-	}
-	sessionEnsuredDevicesMu.Unlock()
 
 	return result, nil
 }

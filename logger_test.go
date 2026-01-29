@@ -106,11 +106,7 @@ func TestLogFunctions(t *testing.T) {
 	LogError("test").Msg("error test")
 
 	// Test module-specific functions
-	DeviceLog().Msg("device test")
 	SessionLog().Msg("session test")
-	EventLog().Msg("event test")
-	ProxyLog().Msg("proxy test")
-	AutomationLog().Msg("automation test")
 }
 
 func TestLogConfigLevels(t *testing.T) {
@@ -264,43 +260,6 @@ func TestOperationTimer(t *testing.T) {
 	timer2 := StartOperation("test_module", "failing_operation")
 	time.Sleep(5 * time.Millisecond)
 	timer2.EndWithError(os.ErrNotExist)
-}
-
-func TestLogErrorWithContext(t *testing.T) {
-	err := InitLogger(DefaultLogConfig())
-	if err != nil {
-		t.Fatalf("Failed to init logger: %v", err)
-	}
-
-	// Test error logging with context (should not panic)
-	LogErrorWithContext("test_module", os.ErrNotExist, map[string]interface{}{
-		"file_path": "/some/path",
-		"operation": "read",
-	})
-}
-
-func TestLogPanic(t *testing.T) {
-	err := InitLogger(DefaultLogConfig())
-	if err != nil {
-		t.Fatalf("Failed to init logger: %v", err)
-	}
-
-	// Test panic logging (should not panic)
-	LogPanic("test_module", "test panic value", "fake stack trace")
-}
-
-func TestLogSystemMetrics(t *testing.T) {
-	err := InitLogger(DefaultLogConfig())
-	if err != nil {
-		t.Fatalf("Failed to init logger: %v", err)
-	}
-
-	// Test system metrics logging (should not panic)
-	LogSystemMetrics(map[string]interface{}{
-		"memory_used":    1024 * 1024 * 100,
-		"cpu_percent":    45.5,
-		"active_devices": 3,
-	})
 }
 
 func TestLogRotation(t *testing.T) {

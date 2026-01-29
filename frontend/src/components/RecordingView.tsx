@@ -38,6 +38,7 @@ import {
 } from "@ant-design/icons";
 import DeviceSelector from "./DeviceSelector";
 import { useDeviceStore, useAutomationStore, TouchScript } from "../stores";
+import { formatDurationMMSS } from "../stores/eventTypes";
 import { main } from "../types/wails-models";
 
 const RecordingView: React.FC = () => {
@@ -426,11 +427,7 @@ const RecordingView: React.FC = () => {
     }
   };
 
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
+
 
   const formatEventDescription = (event: main.TouchEvent, index: number) => {
     // Build element info suffix if available
@@ -564,7 +561,7 @@ const RecordingView: React.FC = () => {
                         {t("recording.recording")}
                       </Tag>
                       <span style={{ fontWeight: "bold", fontFamily: "monospace" }}>
-                        {formatDuration(recordingDuration)} · {recordedActionCount} {t("recording.events")}
+                        {formatDurationMMSS(recordingDuration)} · {recordedActionCount} {t("recording.events")}
                       </span>
                     </div>
 

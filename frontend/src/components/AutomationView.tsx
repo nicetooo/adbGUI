@@ -39,6 +39,7 @@ import { Tabs, Form, InputNumber, Select, Divider } from "antd";
 import DeviceSelector from "./DeviceSelector";
 import { useDeviceStore, useAutomationStore, TouchScript, ScriptTask, TaskStep } from "../stores";
 import { useAutomationViewStore } from "../stores/automationViewStore";
+import { formatDurationMMSS } from "../stores/eventTypes";
 import { main } from "../types/wails-models";
 
 const AutomationView: React.FC = () => {
@@ -532,11 +533,7 @@ const AutomationView: React.FC = () => {
     }
   };
 
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
+
 
   const formatEventDescription = (event: any, index: number) => {
     switch (event.type) {
@@ -638,7 +635,7 @@ const AutomationView: React.FC = () => {
                         {t("automation.recording")}
                       </Tag>
                       <span style={{ fontWeight: "bold", fontFamily: "monospace" }}>
-                        {formatDuration(recordingDuration)} · {recordedActionCount} {t("automation.events")}
+                        {formatDurationMMSS(recordingDuration)} · {recordedActionCount} {t("automation.events")}
                       </span>
                     </div>
                     <div style={{ fontSize: 12, color: token.colorTextSecondary, marginTop: 8 }}>

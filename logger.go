@@ -371,29 +371,9 @@ func LogError(module string) *zerolog.Event {
 // 模块特定日志
 // ========================================
 
-// DeviceLog 设备管理日志
-func DeviceLog() *zerolog.Event {
-	return Logger.Info().Str("module", "device")
-}
-
 // SessionLog Session 管理日志
 func SessionLog() *zerolog.Event {
 	return Logger.Info().Str("module", "session")
-}
-
-// EventLog 事件管道日志
-func EventLog() *zerolog.Event {
-	return Logger.Info().Str("module", "event")
-}
-
-// ProxyLog 代理日志
-func ProxyLog() *zerolog.Event {
-	return Logger.Info().Str("module", "proxy")
-}
-
-// AutomationLog 自动化日志
-func AutomationLog() *zerolog.Event {
-	return Logger.Info().Str("module", "automation")
 }
 
 // ========================================
@@ -544,74 +524,6 @@ func LogAppState(state AppState, details map[string]interface{}) {
 	}
 
 	event.Msg("App state changed")
-}
-
-// LogSystemMetrics 记录系统指标
-func LogSystemMetrics(metrics map[string]interface{}) {
-	event := Logger.Info().
-		Str("category", "system_metrics").
-		Time("timestamp", time.Now())
-
-	for k, v := range metrics {
-		switch val := v.(type) {
-		case string:
-			event.Str(k, val)
-		case int:
-			event.Int(k, val)
-		case int64:
-			event.Int64(k, val)
-		case float64:
-			event.Float64(k, val)
-		case bool:
-			event.Bool(k, val)
-		default:
-			event.Interface(k, val)
-		}
-	}
-
-	event.Msg("System metrics")
-}
-
-// ========================================
-// 错误追踪日志
-// ========================================
-
-// LogErrorWithContext 记录带上下文的错误
-func LogErrorWithContext(module string, err error, context map[string]interface{}) {
-	event := Logger.Error().
-		Str("module", module).
-		Err(err).
-		Time("timestamp", time.Now())
-
-	for k, v := range context {
-		switch val := v.(type) {
-		case string:
-			event.Str(k, val)
-		case int:
-			event.Int(k, val)
-		case int64:
-			event.Int64(k, val)
-		case float64:
-			event.Float64(k, val)
-		case bool:
-			event.Bool(k, val)
-		default:
-			event.Interface(k, val)
-		}
-	}
-
-	event.Msg("Error occurred")
-}
-
-// LogPanic 记录 panic 信息
-func LogPanic(module string, recovered interface{}, stack string) {
-	Logger.Error().
-		Str("module", module).
-		Str("category", "panic").
-		Interface("recovered", recovered).
-		Str("stack", stack).
-		Time("timestamp", time.Now()).
-		Msg("Panic recovered")
 }
 
 // ========================================

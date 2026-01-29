@@ -20,12 +20,8 @@ interface UIState {
   // App info
   appVersion: string;
 
-  // Component measurements
-  syncTimelineContainerWidth: number;
-
   // Actions
   setSelectedKey: (key: ViewKey | string) => void;
-  navigateToView: (viewName: string) => void;
 
   // Modal toggles
   showAbout: () => void;
@@ -34,9 +30,6 @@ interface UIState {
   hideWirelessConnect: () => void;
   showFeedback: () => void;
   hideFeedback: () => void;
-
-  // Component measurements
-  setSyncTimelineContainerWidth: (width: number) => void;
 
   // Initialization
   init: () => Promise<void>;
@@ -55,21 +48,11 @@ export const useUIStore = create<UIState>()(
     feedbackVisible: false,
 
     appVersion: '',
-    syncTimelineContainerWidth: 0,
 
     // Actions
     setSelectedKey: (key) => set((state: UIState) => {
       state.selectedKey = key as ViewKey;
     }),
-
-    navigateToView: (viewName) => {
-      const viewKey = VIEW_NAME_MAP[viewName];
-      if (viewKey) {
-        set((state: UIState) => {
-          state.selectedKey = viewKey;
-        });
-      }
-    },
 
     // Modal toggles
     showAbout: () => set((state: UIState) => {
@@ -89,11 +72,6 @@ export const useUIStore = create<UIState>()(
     }),
     hideFeedback: () => set((state: UIState) => {
       state.feedbackVisible = false;
-    }),
-
-    // Component measurements
-    setSyncTimelineContainerWidth: (width) => set((state: UIState) => {
-      state.syncTimelineContainerWidth = width;
     }),
 
     // Initialization

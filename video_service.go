@@ -7,8 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
-	"image/jpeg"
-	"image/png"
+	_ "image/jpeg" // register JPEG decoder for image.DecodeConfig
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,60 +23,43 @@ import (
 
 // VideoService handles video processing operations
 type VideoService struct {
-	ctx        context.Context
-	ffmpegPath string
+	ctx         context.Context
+	ffmpegPath  string
 	ffprobePath string
-	cacheDir   string
-	cacheMu    sync.RWMutex
-	cache      map[string]*VideoMetadata
+	cacheDir    string
+	cacheMu     sync.RWMutex
+	cache       map[string]*VideoMetadata
 }
 
 // VideoMetadata contains video file metadata
 type VideoMetadata struct {
-	Path          string        `json:"path"`
-	Duration      float64       `json:"duration"`      // Duration in seconds
-	DurationMs    int64         `json:"durationMs"`    // Duration in milliseconds
-	Width         int           `json:"width"`
-	Height        int           `json:"height"`
-	FrameRate     float64       `json:"frameRate"`
-	Codec         string        `json:"codec"`
-	BitRate       int64         `json:"bitRate"`
-	TotalFrames   int64         `json:"totalFrames"`
-	ThumbnailPath string        `json:"thumbnailPath,omitempty"`
+	Path          string  `json:"path"`
+	Duration      float64 `json:"duration"`   // Duration in seconds
+	DurationMs    int64   `json:"durationMs"` // Duration in milliseconds
+	Width         int     `json:"width"`
+	Height        int     `json:"height"`
+	FrameRate     float64 `json:"frameRate"`
+	Codec         string  `json:"codec"`
+	BitRate       int64   `json:"bitRate"`
+	TotalFrames   int64   `json:"totalFrames"`
+	ThumbnailPath string  `json:"thumbnailPath,omitempty"`
 }
 
 // VideoFrame represents an extracted video frame
 type VideoFrame struct {
-	TimeMs    int64  `json:"timeMs"`    // Time position in milliseconds
-	Data      []byte `json:"data"`      // Raw image data (JPEG)
-	Base64    string `json:"base64"`    // Base64 encoded image
-	Width     int    `json:"width"`
-	Height    int    `json:"height"`
+	TimeMs int64  `json:"timeMs"` // Time position in milliseconds
+	Data   []byte `json:"data"`   // Raw image data (JPEG)
+	Base64 string `json:"base64"` // Base64 encoded image
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
 }
 
 // VideoThumbnail represents a thumbnail at a specific time
 type VideoThumbnail struct {
-	TimeMs    int64  `json:"timeMs"`
-	Base64    string `json:"base64"`
-	Width     int    `json:"width"`
-	Height    int    `json:"height"`
-}
-
-// NewVideoService creates a new video service
-func NewVideoService(ctx context.Context, dataDir string) *VideoService {
-	cacheDir := filepath.Join(dataDir, "video_cache")
-	_ = os.MkdirAll(cacheDir, 0755)
-
-	svc := &VideoService{
-		ctx:      ctx,
-		cacheDir: cacheDir,
-		cache:    make(map[string]*VideoMetadata),
-	}
-
-	// Find ffmpeg and ffprobe
-	svc.findFFmpeg()
-
-	return svc
+	TimeMs int64  `json:"timeMs"`
+	Base64 string `json:"base64"`
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
 }
 
 // NewVideoServiceWithPaths creates a video service with pre-configured FFmpeg paths
@@ -362,113 +344,6 @@ func (s *VideoService) GenerateThumbnails(videoPath string, intervalMs int64, wi
 	return thumbnails, nil
 }
 
-// ExtractKeyFrames extracts frames at scene changes
-func (s *VideoService) ExtractKeyFrames(videoPath string, threshold float64, maxFrames int) ([]VideoFrame, error) {
-	if !s.IsAvailable() {
-		return nil, fmt.Errorf("ffmpeg not available")
-	}
-
-	if threshold <= 0 {
-		threshold = 0.3 // Default scene change threshold
-	}
-	if maxFrames <= 0 {
-		maxFrames = 100
-	}
-
-	// Create temp directory for frames
-	tempDir, err := os.MkdirTemp(s.cacheDir, "keyframes_")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create temp dir: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Use ffmpeg to detect scene changes and extract frames
-	ctx, cancel := context.WithTimeout(s.ctx, 120*time.Second)
-	defer cancel()
-
-	outputPattern := filepath.Join(tempDir, "frame_%04d.jpg")
-
-	cmd := exec.CommandContext(ctx, s.ffmpegPath,
-		"-i", videoPath,
-		"-vf", fmt.Sprintf("select='gt(scene,%f)',showinfo", threshold),
-		"-vsync", "vfr",
-		"-frames:v", strconv.Itoa(maxFrames),
-		outputPattern,
-	)
-
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("ffmpeg failed: %w, stderr: %s", err, stderr.String())
-	}
-
-	// Read extracted frames
-	var frames []VideoFrame
-	files, _ := filepath.Glob(filepath.Join(tempDir, "frame_*.jpg"))
-	for _, file := range files {
-		data, err := os.ReadFile(file)
-		if err != nil {
-			continue
-		}
-
-		// Try to extract frame number from filename to estimate time
-		// This is approximate; for exact time we'd need to parse ffmpeg's showinfo output
-		frames = append(frames, VideoFrame{
-			Data:   data,
-			Base64: base64.StdEncoding.EncodeToString(data),
-		})
-	}
-
-	return frames, nil
-}
-
-// CreateThumbnail creates a thumbnail image for the video
-func (s *VideoService) CreateThumbnail(videoPath string, outputPath string, timeMs int64, width int) error {
-	if !s.IsAvailable() {
-		return fmt.Errorf("ffmpeg not available")
-	}
-
-	if timeMs < 0 {
-		// Default to 1 second into the video
-		timeMs = 1000
-	}
-	if width <= 0 {
-		width = 320
-	}
-
-	timeStr := formatFFmpegTime(timeMs)
-
-	ctx, cancel := context.WithTimeout(s.ctx, 10*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, s.ffmpegPath,
-		"-ss", timeStr,
-		"-i", videoPath,
-		"-vframes", "1",
-		"-vf", fmt.Sprintf("scale=%d:-1", width),
-		"-y", // Overwrite output
-		outputPath,
-	)
-
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("ffmpeg failed: %w, stderr: %s", err, stderr.String())
-	}
-
-	return nil
-}
-
-// GetVideoURL returns a URL path for serving the video
-// The actual serving is handled by the Wails app
-func (s *VideoService) GetVideoURL(videoPath string) string {
-	// Return a special protocol that the frontend can use
-	// The backend will serve this through a file handler
-	return "video://" + videoPath
-}
-
 // formatFFmpegTime formats milliseconds to ffmpeg time format (HH:MM:SS.mmm)
 func formatFFmpegTime(ms int64) string {
 	seconds := float64(ms) / 1000.0
@@ -476,58 +351,4 @@ func formatFFmpegTime(ms int64) string {
 	minutes := (int(seconds) % 3600) / 60
 	secs := seconds - float64(hours*3600) - float64(minutes*60)
 	return fmt.Sprintf("%02d:%02d:%06.3f", hours, minutes, secs)
-}
-
-// ========================================
-// Image utilities
-// ========================================
-
-// ResizeImage resizes a JPEG/PNG image
-func ResizeImage(data []byte, maxWidth int) ([]byte, error) {
-	// Decode image
-	img, format, err := image.Decode(bytes.NewReader(data))
-	if err != nil {
-		return nil, err
-	}
-
-	bounds := img.Bounds()
-	width := bounds.Dx()
-	height := bounds.Dy()
-
-	// Check if resize is needed
-	if maxWidth <= 0 || width <= maxWidth {
-		return data, nil
-	}
-
-	// Calculate new dimensions
-	newWidth := maxWidth
-	newHeight := int(float64(height) * float64(maxWidth) / float64(width))
-
-	// Simple resize using nearest neighbor (for speed)
-	// For better quality, use golang.org/x/image/draw
-	resized := image.NewRGBA(image.Rect(0, 0, newWidth, newHeight))
-	for y := 0; y < newHeight; y++ {
-		for x := 0; x < newWidth; x++ {
-			srcX := x * width / newWidth
-			srcY := y * height / newHeight
-			resized.Set(x, y, img.At(srcX, srcY))
-		}
-	}
-
-	// Encode back
-	var buf bytes.Buffer
-	switch format {
-	case "jpeg":
-		err = jpeg.Encode(&buf, resized, &jpeg.Options{Quality: 85})
-	case "png":
-		err = png.Encode(&buf, resized)
-	default:
-		err = jpeg.Encode(&buf, resized, &jpeg.Options{Quality: 85})
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return buf.Bytes(), nil
 }

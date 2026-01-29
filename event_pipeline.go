@@ -828,6 +828,22 @@ func (p *EventPipeline) EndSession(sessionID, status string) {
 	}
 }
 
+// EnsureActiveSession ensures an active session exists for the device.
+// If one already exists, returns its ID. Otherwise creates a new auto session.
+// This replaces the old App.EnsureActiveSession() and works entirely within EventPipeline.
+func (p *EventPipeline) EnsureActiveSession(deviceID string) string {
+	// Fast path: check if session already exists (read lock)
+	p.sessionMu.RLock()
+	if sid, ok := p.deviceSession[deviceID]; ok {
+		p.sessionMu.RUnlock()
+		return sid
+	}
+	p.sessionMu.RUnlock()
+
+	// Slow path: create auto session (uses StartSession which takes write lock)
+	return p.StartSession(deviceID, "auto", "Auto Session "+time.Now().Format("15:04:05"), nil)
+}
+
 // GetActiveSessionID 获取设备的活跃 Session ID
 func (p *EventPipeline) GetActiveSessionID(deviceID string) string {
 	p.sessionMu.RLock()

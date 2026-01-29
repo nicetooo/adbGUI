@@ -42,20 +42,12 @@ export function CleanupOldSessionData(arg1) {
   return window['go']['main']['App']['CleanupOldSessionData'](arg1);
 }
 
-export function CleanupOldSessions(arg1) {
-  return window['go']['main']['App']['CleanupOldSessions'](arg1);
-}
-
 export function CleanupProxyForDevice(arg1, arg2) {
   return window['go']['main']['App']['CleanupProxyForDevice'](arg1, arg2);
 }
 
 export function ClearAppData(arg1, arg2) {
   return window['go']['main']['App']['ClearAppData'](arg1, arg2);
-}
-
-export function ClearSession(arg1) {
-  return window['go']['main']['App']['ClearSession'](arg1);
 }
 
 export function ClearTextViaADBKeyboard(arg1) {
@@ -68,10 +60,6 @@ export function ClickElement(arg1, arg2, arg3, arg4) {
 
 export function CopyFile(arg1, arg2, arg3) {
   return window['go']['main']['App']['CopyFile'](arg1, arg2, arg3);
-}
-
-export function CreateSession(arg1, arg2, arg3) {
-  return window['go']['main']['App']['CreateSession'](arg1, arg2, arg3);
 }
 
 export function CreateSessionBookmark(arg1, arg2, arg3, arg4, arg5) {
@@ -126,18 +114,6 @@ export function EmitEvent(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['main']['App']['EmitEvent'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
-export function EmitSessionEvent(arg1, arg2, arg3, arg4, arg5, arg6) {
-  return window['go']['main']['App']['EmitSessionEvent'](arg1, arg2, arg3, arg4, arg5, arg6);
-}
-
-export function EmitSessionEventFull(arg1) {
-  return window['go']['main']['App']['EmitSessionEventFull'](arg1);
-}
-
-export function EmitSessionEventWithStep(arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
-  return window['go']['main']['App']['EmitSessionEventWithStep'](arg1, arg2, arg3, arg4, arg5, arg6, arg7);
-}
-
 export function EnableApp(arg1, arg2) {
   return window['go']['main']['App']['EnableApp'](arg1, arg2);
 }
@@ -146,16 +122,8 @@ export function EndActiveSession(arg1, arg2) {
   return window['go']['main']['App']['EndActiveSession'](arg1, arg2);
 }
 
-export function EndSession(arg1, arg2) {
-  return window['go']['main']['App']['EndSession'](arg1, arg2);
-}
-
 export function EnsureADBKeyboard(arg1) {
   return window['go']['main']['App']['EnsureADBKeyboard'](arg1);
-}
-
-export function EnsureActiveSession(arg1) {
-  return window['go']['main']['App']['EnsureActiveSession'](arg1);
 }
 
 export function ExecuteAssertion(arg1) {
@@ -176,10 +144,6 @@ export function ExecuteSingleTouchEvent(arg1, arg2, arg3) {
 
 export function ExecuteSingleWorkflowStep(arg1, arg2) {
   return window['go']['main']['App']['ExecuteSingleWorkflowStep'](arg1, arg2);
-}
-
-export function ExecuteStoredAssertion(arg1) {
-  return window['go']['main']['App']['ExecuteStoredAssertion'](arg1);
 }
 
 export function ExecuteStoredAssertionInSession(arg1, arg2, arg3) {
@@ -218,14 +182,6 @@ export function ForceStopApp(arg1, arg2) {
   return window['go']['main']['App']['ForceStopApp'](arg1, arg2);
 }
 
-export function GenerateSelectorSuggestions(arg1, arg2) {
-  return window['go']['main']['App']['GenerateSelectorSuggestions'](arg1, arg2);
-}
-
-export function GetActiveSession(arg1) {
-  return window['go']['main']['App']['GetActiveSession'](arg1);
-}
-
 export function GetAppInfo(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetAppInfo'](arg1, arg2, arg3);
 }
@@ -234,16 +190,8 @@ export function GetAppVersion() {
   return window['go']['main']['App']['GetAppVersion']();
 }
 
-export function GetAssertionResult(arg1) {
-  return window['go']['main']['App']['GetAssertionResult'](arg1);
-}
-
 export function GetBackendLogs() {
   return window['go']['main']['App']['GetBackendLogs']();
-}
-
-export function GetBestSelector(arg1, arg2) {
-  return window['go']['main']['App']['GetBestSelector'](arg1, arg2);
 }
 
 export function GetDeviceActiveSession(arg1) {
@@ -318,10 +266,6 @@ export function GetProxyStatus() {
   return window['go']['main']['App']['GetProxyStatus']();
 }
 
-export function GetRecentEvents(arg1, arg2, arg3) {
-  return window['go']['main']['App']['GetRecentEvents'](arg1, arg2, arg3);
-}
-
 export function GetRecentSessionEvents(arg1, arg2) {
   return window['go']['main']['App']['GetRecentSessionEvents'](arg1, arg2);
 }
@@ -330,20 +274,8 @@ export function GetRecordingEventCount(arg1) {
   return window['go']['main']['App']['GetRecordingEventCount'](arg1);
 }
 
-export function GetRecordingStatus(arg1) {
-  return window['go']['main']['App']['GetRecordingStatus'](arg1);
-}
-
 export function GetRecordingsDir() {
   return window['go']['main']['App']['GetRecordingsDir']();
-}
-
-export function GetSelectorMatchCount(arg1, arg2) {
-  return window['go']['main']['App']['GetSelectorMatchCount'](arg1, arg2);
-}
-
-export function GetSession(arg1) {
-  return window['go']['main']['App']['GetSession'](arg1);
 }
 
 export function GetSessionBookmarks(arg1) {
@@ -362,10 +294,6 @@ export function GetSessionEventTypes(arg1) {
   return window['go']['main']['App']['GetSessionEventTypes'](arg1);
 }
 
-export function GetSessionMetadata(arg1, arg2) {
-  return window['go']['main']['App']['GetSessionMetadata'](arg1, arg2);
-}
-
 export function GetSessionStats(arg1) {
   return window['go']['main']['App']['GetSessionStats'](arg1);
 }
@@ -374,16 +302,8 @@ export function GetSessionTimeIndex(arg1) {
   return window['go']['main']['App']['GetSessionTimeIndex'](arg1);
 }
 
-export function GetSessionTimeline(arg1, arg2) {
-  return window['go']['main']['App']['GetSessionTimeline'](arg1, arg2);
-}
-
 export function GetSessionVideoInfo(arg1) {
   return window['go']['main']['App']['GetSessionVideoInfo'](arg1);
-}
-
-export function GetSessions(arg1, arg2) {
-  return window['go']['main']['App']['GetSessions'](arg1, arg2);
 }
 
 export function GetStoredAssertion(arg1) {
@@ -440,10 +360,6 @@ export function GetWorkflow(arg1) {
 
 export function GetWorkflowExecutionResult(arg1) {
   return window['go']['main']['App']['GetWorkflowExecutionResult'](arg1);
-}
-
-export function Greet(arg1) {
-  return window['go']['main']['App']['Greet'](arg1);
 }
 
 export function ImportSession() {
@@ -534,10 +450,6 @@ export function ListAssertionResults(arg1, arg2) {
   return window['go']['main']['App']['ListAssertionResults'](arg1, arg2);
 }
 
-export function ListAssertionTemplates(arg1) {
-  return window['go']['main']['App']['ListAssertionTemplates'](arg1);
-}
-
 export function ListCameras(arg1) {
   return window['go']['main']['App']['ListCameras'](arg1);
 }
@@ -560,10 +472,6 @@ export function ListPackages(arg1, arg2) {
 
 export function ListRecordings() {
   return window['go']['main']['App']['ListRecordings']();
-}
-
-export function ListStoredAssertionResults(arg1, arg2) {
-  return window['go']['main']['App']['ListStoredAssertionResults'](arg1, arg2);
 }
 
 export function ListStoredAssertions(arg1, arg2, arg3, arg4) {
@@ -816,10 +724,6 @@ export function SetProxyMITM(arg1) {
 
 export function SetProxyWSEnabled(arg1) {
   return window['go']['main']['App']['SetProxyWSEnabled'](arg1);
-}
-
-export function SetSessionMetadata(arg1, arg2, arg3) {
-  return window['go']['main']['App']['SetSessionMetadata'](arg1, arg2, arg3);
 }
 
 export function SetupProxyForDevice(arg1, arg2) {

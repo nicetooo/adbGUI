@@ -222,7 +222,7 @@ func (a *App) RunWorkflow(device Device, workflow Workflow) error {
 	activeTaskCancel[deviceId] = cancel
 	activeTaskMu.Unlock()
 
-	sessionId := a.EnsureActiveSession(deviceId)
+	sessionId := a.eventPipeline.EnsureActiveSession(deviceId)
 
 	a.eventPipeline.EmitRaw(deviceId, SourceWorkflow, "workflow_start", LevelInfo,
 		fmt.Sprintf("Workflow started: %s", workflow.Name),

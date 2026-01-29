@@ -155,8 +155,7 @@ func (a *App) StartProxy(port int) (string, error) {
 			title = title[:97] + "..."
 		}
 
-		// Emit via session manager - this ensures events go to session-events-batch
-		// which ProxyView is listening to
+		// Emit directly to EventPipeline (unified storage + frontend broadcast)
 		detail := map[string]interface{}{
 			"id":              req.Id,
 			"method":          req.Method,
@@ -175,15 +174,21 @@ func (a *App) StartProxy(port int) (string, error) {
 			"mocked":          req.Mocked,
 		}
 
-		a.EmitSessionEventFull(SessionEvent{
+		dataBytes, err := json.Marshal(detail)
+		if err != nil {
+			dataBytes = []byte("{}")
+		}
+
+		a.eventPipeline.Emit(UnifiedEvent{
 			ID:        uuid.New().String(),
 			DeviceID:  deviceId,
 			Timestamp: time.Now().UnixMilli(),
+			Source:    SourceNetwork,
+			Category:  CategoryNetwork,
 			Type:      "network_request",
-			Category:  "network",
-			Level:     level,
+			Level:     ParseEventLevel(level),
 			Title:     title,
-			Detail:    detail,
+			Data:      dataBytes,
 			Duration:  durationMs,
 		})
 	})
@@ -367,119 +372,6 @@ func (a *App) SetProxyLatency(latencyMs int) {
 	proxy.GetProxy().SetLatency(latencyMs)
 }
 
-// isStaticResource checks if a request is for a static resource (image, css, js, font, etc.)
-// Returns true if it should be filtered out from the timeline
-func isStaticResource(url, contentType string) bool {
-	// Check by content type first (most reliable)
-	if contentType != "" {
-		staticContentTypes := []string{
-			"image/",
-			"text/css",
-			"text/javascript",
-			"application/javascript",
-			"application/x-javascript",
-			"font/",
-			"application/font",
-			"application/x-font",
-			"video/",
-			"audio/",
-		}
-
-		// Normalize content type (remove charset, etc.)
-		ctLower := contentType
-		for idx := 0; idx < len(contentType); idx++ {
-			if contentType[idx] == ';' {
-				ctLower = contentType[:idx]
-				break
-			}
-		}
-
-		for _, ct := range staticContentTypes {
-			if len(ctLower) >= len(ct) {
-				match := true
-				for j := 0; j < len(ct); j++ {
-					c1 := ctLower[j]
-					c2 := ct[j]
-					if c1 >= 'A' && c1 <= 'Z' {
-						c1 += 32
-					}
-					if c1 != byte(c2) {
-						match = false
-						break
-					}
-				}
-				if match && (len(ctLower) == len(ct) || ctLower[len(ct)] == '/' || ctLower[len(ct)] == ';') {
-					return true
-				}
-			}
-		}
-	}
-
-	// Check by URL extension as fallback
-	// Extract path part (before ? or #)
-	pathEnd := len(url)
-	for i := 0; i < len(url); i++ {
-		if url[i] == '?' || url[i] == '#' {
-			pathEnd = i
-			break
-		}
-	}
-
-	if pathEnd == 0 {
-		return false
-	}
-
-	path := url[:pathEnd]
-
-	// Find the last dot in the path
-	lastDot := -1
-	for i := len(path) - 1; i >= 0; i-- {
-		if path[i] == '.' {
-			lastDot = i
-			break
-		}
-		if path[i] == '/' {
-			// No extension found before path separator
-			break
-		}
-	}
-
-	if lastDot == -1 || lastDot == len(path)-1 {
-		return false
-	}
-
-	// Extract extension (including the dot)
-	ext := path[lastDot:]
-
-	// Convert to lowercase
-	extLower := ""
-	for i := 0; i < len(ext); i++ {
-		c := ext[i]
-		if c >= 'A' && c <= 'Z' {
-			extLower += string(c + 32)
-		} else {
-			extLower += string(c)
-		}
-	}
-
-	// Check against known static extensions
-	staticExtensions := []string{
-		".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".ico", ".bmp",
-		".css", ".js", ".mjs",
-		".woff", ".woff2", ".ttf", ".eot", ".otf",
-		".mp4", ".webm", ".ogg", ".mp3", ".wav",
-		".pdf", ".zip", ".tar", ".gz",
-	}
-
-	for _, staticExt := range staticExtensions {
-		if extLower == staticExt {
-			return true
-		}
-	}
-
-	return false
-}
-
 // matchMockRuleLocal checks if a request matches any enabled mock rule
 func matchMockRuleLocal(method, url string) *MockRule {
 	mockRulesMu.RLock()
@@ -494,40 +386,11 @@ func matchMockRuleLocal(method, url string) *MockRule {
 			continue
 		}
 		// Check URL pattern
-		if matchPatternLocal(url, rule.URLPattern) {
+		if proxy.MatchPattern(url, rule.URLPattern) {
 			return rule
 		}
 	}
 	return nil
-}
-
-// matchPatternLocal checks if a URL matches a pattern with * wildcards
-func matchPatternLocal(url, pattern string) bool {
-	if pattern == "*" {
-		return true
-	}
-	parts := strings.Split(pattern, "*")
-	if len(parts) == 1 {
-		return url == pattern
-	}
-	pos := 0
-	for i, part := range parts {
-		if part == "" {
-			continue
-		}
-		idx := strings.Index(url[pos:], part)
-		if idx == -1 {
-			return false
-		}
-		if i == 0 && idx != 0 {
-			return false
-		}
-		pos += idx + len(part)
-	}
-	if !strings.HasSuffix(pattern, "*") && pos != len(url) {
-		return false
-	}
-	return true
 }
 
 // ResendRequest sends an HTTP request with optional modifications

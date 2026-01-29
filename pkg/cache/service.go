@@ -121,13 +121,6 @@ func (s *Service) SetCachedPackage(packageName string, pkg AppPackage) {
 	s.aaptCacheMu.Unlock()
 }
 
-// ClearPackageCache clears the entire AAPT cache
-func (s *Service) ClearPackageCache() {
-	s.aaptCacheMu.Lock()
-	s.aaptCache = make(map[string]AppPackage)
-	s.aaptCacheMu.Unlock()
-}
-
 // SaveCache persists the AAPT cache to disk
 func (s *Service) SaveCache() error {
 	s.aaptCacheMu.RLock()
@@ -261,19 +254,9 @@ func (s *Service) ConfigDir() string {
 	return s.configDir
 }
 
-// CachePath returns the cache file path
-func (s *Service) CachePath() string {
-	return s.cachePath
-}
-
 // HistoryPath returns the history file path
 func (s *Service) HistoryPath() string {
 	return s.historyPath
-}
-
-// SettingsPath returns the settings file path
-func (s *Service) SettingsPath() string {
-	return s.settingsPath
 }
 
 // ========================================

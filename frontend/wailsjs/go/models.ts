@@ -1189,101 +1189,7 @@ export namespace main {
 	        this.description = source["description"];
 	    }
 	}
-	export class Session {
-	    id: string;
-	    deviceId: string;
-	    type: string;
-	    name: string;
-	    startTime: number;
-	    endTime: number;
-	    status: string;
-	    eventCount: number;
-	    metadata: Record<string, any>;
 	
-	    static createFrom(source: any = {}) {
-	        return new Session(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.deviceId = source["deviceId"];
-	        this.type = source["type"];
-	        this.name = source["name"];
-	        this.startTime = source["startTime"];
-	        this.endTime = source["endTime"];
-	        this.status = source["status"];
-	        this.eventCount = source["eventCount"];
-	        this.metadata = source["metadata"];
-	    }
-	}
-	
-	export class SessionEvent {
-	    id: string;
-	    sessionId: string;
-	    deviceId: string;
-	    timestamp: number;
-	    type: string;
-	    category: string;
-	    level: string;
-	    title: string;
-	    detail: any;
-	    stepId?: string;
-	    duration?: number;
-	    success?: boolean;
-	
-	    static createFrom(source: any = {}) {
-	        return new SessionEvent(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.sessionId = source["sessionId"];
-	        this.deviceId = source["deviceId"];
-	        this.timestamp = source["timestamp"];
-	        this.type = source["type"];
-	        this.category = source["category"];
-	        this.level = source["level"];
-	        this.title = source["title"];
-	        this.detail = source["detail"];
-	        this.stepId = source["stepId"];
-	        this.duration = source["duration"];
-	        this.success = source["success"];
-	    }
-	}
-	export class SessionFilter {
-	    sessionId?: string;
-	    deviceId?: string;
-	    categories?: string[];
-	    types?: string[];
-	    levels?: string[];
-	    stepId?: string;
-	    startTime?: number;
-	    endTime?: number;
-	    limit?: number;
-	    offset?: number;
-	    searchText?: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new SessionFilter(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.sessionId = source["sessionId"];
-	        this.deviceId = source["deviceId"];
-	        this.categories = source["categories"];
-	        this.types = source["types"];
-	        this.levels = source["levels"];
-	        this.stepId = source["stepId"];
-	        this.startTime = source["startTime"];
-	        this.endTime = source["endTime"];
-	        this.limit = source["limit"];
-	        this.offset = source["offset"];
-	        this.searchText = source["searchText"];
-	    }
-	}
 	export class StoredAssertion {
 	    id: string;
 	    name: string;
@@ -1342,40 +1248,6 @@ export namespace main {
 		    }
 		    return a;
 		}
-	}
-	export class StoredAssertionResult {
-	    id: string;
-	    assertionId: string;
-	    assertionName: string;
-	    sessionId: string;
-	    passed: boolean;
-	    message: string;
-	    matchedEvents?: string[];
-	    actualValue?: number[];
-	    expectedValue?: number[];
-	    executedAt: number;
-	    duration: number;
-	    details?: number[];
-	
-	    static createFrom(source: any = {}) {
-	        return new StoredAssertionResult(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.assertionId = source["assertionId"];
-	        this.assertionName = source["assertionName"];
-	        this.sessionId = source["sessionId"];
-	        this.passed = source["passed"];
-	        this.message = source["message"];
-	        this.matchedEvents = source["matchedEvents"];
-	        this.actualValue = source["actualValue"];
-	        this.expectedValue = source["expectedValue"];
-	        this.executedAt = source["executedAt"];
-	        this.duration = source["duration"];
-	        this.details = source["details"];
-	    }
 	}
 	
 	export class TimeIndexEntry {

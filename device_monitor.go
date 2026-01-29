@@ -490,6 +490,11 @@ func (m *DeviceMonitor) emitTouchEvent(x, y int, action string, duration int64) 
 		return
 	}
 
+	// Skip if touch recording is active for this device to avoid duplicate events
+	if IsTouchRecordingActive(m.deviceID) {
+		return
+	}
+
 	title := fmt.Sprintf("👆 Touch %s at (%d, %d)", action, x, y)
 	if duration > 500 {
 		title = fmt.Sprintf("👆 Long press at (%d, %d) - %dms", x, y, duration)

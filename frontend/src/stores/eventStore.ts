@@ -17,12 +17,8 @@ import {
   UnifiedEvent,
   DeviceSession,
   EventQuery,
-  EventQueryResult,
   TimeIndexEntry,
   Bookmark,
-  EventSource,
-  EventCategory,
-  EventLevel,
 } from './eventTypes';
 
 // Enable Map/Set support in Immer
@@ -807,24 +803,4 @@ export function useCurrentBookmarks(): Bookmark[] {
   }, [activeSessionId, bookmarksMap, version]);
 }
 
-/**
- * 获取当前 session 的时间索引
- */
-export function useCurrentTimeIndex(): TimeIndexEntry[] {
-  const activeSessionId = useEventStore(state => state.activeSessionId);
-  const timeIndex = useEventStore(state => state.timeIndex);
 
-  if (!activeSessionId) return [];
-  return timeIndex.get(activeSessionId) || [];
-}
-
-/**
- * 获取当前 session 信息
- */
-export function useCurrentSession(): DeviceSession | null {
-  const activeSessionId = useEventStore(state => state.activeSessionId);
-  const sessions = useEventStore(state => state.sessions);
-
-  if (!activeSessionId) return null;
-  return sessions.get(activeSessionId) || null;
-}

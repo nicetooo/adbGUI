@@ -109,10 +109,7 @@ func NewApp(version string) *App {
 // startup is called when the app starts
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	a.setupBinaries()
-	a.initEventSystem() // Initialize new event system
-	a.StartDeviceMonitor()
-	a.LoadMockRules() // Load saved mock rules
+	a.initCore()
 
 	// Start workflow file watcher for MCP → GUI sync
 	a.workflowWatcher = NewWorkflowWatcher(a)
@@ -132,37 +129,7 @@ func (a *App) Shutdown(ctx context.Context) {
 		a.workflowWatcher.Stop()
 	}
 
-	// Stop proxy and clean up device settings to prevent network issues
-	if a.GetProxyStatus() {
-		a.StopProxy()
-	}
-
-	a.shutdownEventSystem() // Shutdown new event system
-	a.scrcpyMu.Lock()
-	for id, cmd := range a.scrcpyCmds {
-		if cmd.Process != nil {
-			os.Stderr.WriteString(fmt.Sprintf("\n[SHUTDOWN] Killing mirroring for %s\n", id))
-			_ = cmd.Process.Kill()
-		}
-	}
-	for id, cmd := range a.scrcpyRecordCmd {
-		if cmd.Process != nil {
-			os.Stderr.WriteString(fmt.Sprintf("\n[SHUTDOWN] Killing recording for %s\n", id))
-			_ = cmd.Process.Kill()
-		}
-	}
-	a.scrcpyMu.Unlock()
-	a.StopLogcat()
-	a.StopDeviceMonitor()
-	a.stopAllTouchRecordings()
-	a.stopAllActiveTasks()
-	a.StopAllDeviceStateMonitors()
-	a.stopAllSessionMonitors()
-	a.StopAllNetworkMonitors()
-	a.stopAllOpenFileCommands()
-
-	LogAppState(StateStopped, nil)
-	CloseLogger()
+	a.shutdownCore()
 }
 
 // GetAppVersion returns the application version
@@ -170,37 +137,22 @@ func (a *App) GetAppVersion() string {
 	return a.version
 }
 
-// InitializeWithoutGUI initializes the app for non-GUI mode (MCP server)
-func (a *App) InitializeWithoutGUI() {
-	// Create a cancellable context for MCP mode
-	// This allows proper cleanup when the MCP server shuts down
-	ctx, cancel := context.WithCancel(context.Background())
-	a.ctx = ctx
-	a.ctxCancel = cancel
-	a.mcpMode = true // No Wails GUI, skip EventsEmit calls
+// initCore contains the shared initialization logic for both GUI and MCP modes.
+func (a *App) initCore() {
 	a.setupBinaries()
 	a.initEventSystem()
 	a.StartDeviceMonitor()
 	a.LoadMockRules()
 }
 
-// IsMCPMode returns true if running in MCP server mode (no GUI)
-func (a *App) IsMCPMode() bool {
-	return a.mcpMode
-}
-
-// ShutdownWithoutGUI shuts down the app in non-GUI mode
-func (a *App) ShutdownWithoutGUI() {
-	LogAppState(StateShuttingDown, map[string]interface{}{
-		"reason": "mcp_server_shutdown",
-	})
-
-	// Cancel the context first to signal all goroutines to stop
+// shutdownCore contains the shared shutdown logic for both GUI and MCP modes.
+func (a *App) shutdownCore() {
+	// Cancel context if available (MCP mode creates its own cancellable context)
 	if a.ctxCancel != nil {
 		a.ctxCancel()
 	}
 
-	// Stop proxy
+	// Stop proxy and clean up device settings to prevent network issues
 	if a.GetProxyStatus() {
 		a.StopProxy()
 	}
@@ -235,6 +187,29 @@ func (a *App) ShutdownWithoutGUI() {
 	CloseLogger()
 }
 
+// InitializeWithoutGUI initializes the app for non-GUI mode (MCP server)
+func (a *App) InitializeWithoutGUI() {
+	// Create a cancellable context for MCP mode
+	ctx, cancel := context.WithCancel(context.Background())
+	a.ctx = ctx
+	a.ctxCancel = cancel
+	a.mcpMode = true // No Wails GUI, skip EventsEmit calls
+	a.initCore()
+}
+
+// IsMCPMode returns true if running in MCP server mode (no GUI)
+func (a *App) IsMCPMode() bool {
+	return a.mcpMode
+}
+
+// ShutdownWithoutGUI shuts down the app in non-GUI mode
+func (a *App) ShutdownWithoutGUI() {
+	LogAppState(StateShuttingDown, map[string]interface{}{
+		"reason": "mcp_server_shutdown",
+	})
+	a.shutdownCore()
+}
+
 // stopAllSessionMonitors stops all DeviceMonitors tracked in a.sessionMonitors.
 // These are created by StartSessionWithConfig and are separate from the package-level deviceStateMonitors.
 func (a *App) stopAllSessionMonitors() {
@@ -260,11 +235,6 @@ func (a *App) stopAllOpenFileCommands() {
 		}
 	}
 	a.openFileCmds = make(map[string]*exec.Cmd)
-}
-
-// Greet returns a greeting for the given name
-func (a *App) Greet(name string) string {
-	return fmt.Sprintf("Hello %s, It's show time!", name)
 }
 
 // Log adds a message to the runtime logs (legacy method, forwards to zerolog)

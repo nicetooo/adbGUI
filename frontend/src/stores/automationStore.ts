@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { main } from '../types/wails-models';
+import type { UINode } from './elementStore';
 import {
   StartTouchRecording,
   StopTouchRecording,
@@ -43,27 +44,8 @@ export interface ScriptTask {
   createdAt: string;
 }
 
-export type ScriptTaskModel = main.ScriptTask;
-
-export interface UINode {
-  text: string;
-  resourceId: string;
-  class: string;
-  package: string;
-  contentDesc: string;
-  bounds: string;
-  checkable: string;
-  checked: string;
-  clickable: string;
-  enabled: string;
-  focusable: string;
-  focused: string;
-  scrollable: string;
-  longClickable: string;
-  password: string;
-  selected: string;
-  nodes: UINode[]; // Note: XML maps to 'nodes' in JSON serialization
-}
+// Re-export UINode from elementStore for backward compatibility
+export type { UINode };
 
 interface AutomationState {
   // State

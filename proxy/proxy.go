@@ -123,7 +123,7 @@ func (p *ProxyServer) matchMockRule(method, url string) *MockRule {
 		}
 
 		// Check URL pattern (supports * wildcard)
-		matched := matchPattern(url, rule.URLPattern)
+		matched := MatchPattern(url, rule.URLPattern)
 		fmt.Fprintf(os.Stderr, "[MOCK DEBUG]     Pattern match: %v\n", matched)
 		if matched {
 			return rule
@@ -132,8 +132,8 @@ func (p *ProxyServer) matchMockRule(method, url string) *MockRule {
 	return nil
 }
 
-// matchPattern checks if a URL matches a pattern with * wildcards
-func matchPattern(url, pattern string) bool {
+// MatchPattern checks if a URL matches a pattern with * wildcards
+func MatchPattern(url, pattern string) bool {
 	// Simple wildcard matching
 	if pattern == "*" {
 		return true

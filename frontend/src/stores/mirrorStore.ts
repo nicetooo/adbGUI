@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { MirrorStatus, RecordStatus } from './types';
-import { OpenPath } from '../../wailsjs/go/main/App';
 import { main } from '../types/wails-models';
 
 // @ts-ignore
@@ -192,8 +191,3 @@ export const useMirrorStore = create<MirrorState>()(
     },
   }))
 );
-
-// Helper to open recorded file path
-export const openRecordPath = (path: string) => {
-  OpenPath(path);
-};

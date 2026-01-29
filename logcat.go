@@ -277,8 +277,8 @@ func (a *App) StartLogcat(deviceId, packageName, preFilter string, preUseRegex b
 				title = fmt.Sprintf("Logcat Output (%d entries) - %s", len(buffer), lastTag)
 			}
 
-			// Emit complete aggregated event
-			a.EmitSessionEvent(deviceId, "logcat", "log", sessionLevel, title, buffer)
+			// Emit complete aggregated event directly to EventPipeline
+			a.eventPipeline.EmitRaw(deviceId, SourceLogcat, "logcat", ParseEventLevel(sessionLevel), title, buffer)
 
 			// Clear buffer
 			buffer = nil

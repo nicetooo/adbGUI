@@ -206,154 +206,6 @@ export interface LogcatData {
   raw?: string;
 }
 
-// 聚合的 logcat 数据
-export interface LogcatAggregatedData {
-  entries: LogcatData[];
-  tag: string;
-  count: number;
-}
-
-// 网络请求数据
-export interface NetworkRequestData {
-  requestId: string;
-  method: string;
-  url: string;
-  host?: string;
-  path?: string;
-  statusCode: number;
-  contentType?: string;
-
-  // 请求
-  requestHeaders?: Record<string, string>;
-  requestBody?: string;
-  requestBodySize?: number;
-
-  // 响应
-  responseHeaders?: Record<string, string>;
-  responseBody?: string;
-  responseBodySize?: number;
-
-  // 时间
-  startTime?: number;
-  endTime?: number;
-  dnsTime?: number;
-  connectTime?: number;
-  tlsTime?: number;
-  firstByteTime?: number;
-
-  // 状态
-  isHttps: boolean;
-  isWs: boolean;
-  error?: string;
-}
-
-// 设备状态数据
-export interface DeviceStateData {
-  stateType: 'battery' | 'network' | 'screen' | 'storage' | 'memory';
-
-  // Battery
-  batteryLevel?: number;
-  batteryStatus?: 'charging' | 'discharging' | 'full';
-  batteryTemp?: number;
-
-  // Network
-  networkType?: 'wifi' | 'mobile' | 'none';
-  wifiSsid?: string;
-  signalStrength?: number;
-
-  // Screen
-  screenState?: 'on' | 'off';
-  brightness?: number;
-  orientation?: 'portrait' | 'landscape';
-
-  // Memory
-  memoryTotal?: number;
-  memoryAvail?: number;
-  memoryUsed?: number;
-}
-
-// 应用生命周期数据
-export interface AppLifecycleData {
-  packageName: string;
-  activityName?: string;
-  action: 'start' | 'stop' | 'resume' | 'pause' | 'crash' | 'anr';
-  pid?: number;
-
-  // Crash Info
-  crashType?: 'java' | 'native';
-  crashMessage?: string;
-  stackTrace?: string;
-}
-
-// 触摸事件数据
-export interface TouchEventData {
-  action: 'down' | 'up' | 'move';
-  x: number;
-  y: number;
-  pressure?: number;
-  pointerId?: number;
-
-  // 手势识别
-  gestureType?: 'tap' | 'double_tap' | 'long_press' | 'swipe' | 'pinch';
-  swipeDir?: 'up' | 'down' | 'left' | 'right';
-}
-
-// 自动化事件数据
-export interface WorkflowEventData {
-  workflowId: string;
-  workflowName: string;
-  stepId?: string;
-  stepName?: string;
-  stepType?: string;
-
-  action: 'start' | 'step_start' | 'step_end' | 'complete' | 'error';
-  success: boolean;
-  errorMessage?: string;
-
-  // 元素信息
-  selector?: {
-    type: string;
-    value: string;
-    index?: number;
-  };
-  foundElement?: boolean;
-}
-
-// 性能数据
-export interface PerfData {
-  metricType: 'cpu' | 'memory' | 'fps' | 'network_speed';
-  value: number;
-  unit: string;
-
-  // CPU
-  cpuUsage?: number;
-  cpuAppUsage?: number;
-
-  // Memory
-  memoryRss?: number;
-  memoryHeap?: number;
-
-  // FPS
-  fps?: number;
-  frameTime?: number;
-  jankCount?: number;
-}
-
-// 断言数据
-export interface AssertionData {
-  assertionId: string;
-  assertionType: 'exists' | 'not_exists' | 'sequence' | 'timing' | 'condition';
-  expression: string;
-
-  passed: boolean;
-  actualValue?: any;
-  expectedValue?: any;
-  errorMessage?: string;
-
-  // 关联的事件
-  matchedEvents?: string[];
-}
-
 // ========================================
 // Query Types
 // ========================================
@@ -524,7 +376,7 @@ export function formatTimestamp(timestamp: number): string {
 }
 
 /**
- * 格式化持续时间
+ * 格式化持续时间 (毫秒 → 紧凑格式: "381ms", "5.0s", "2m 30s")
  */
 export function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
@@ -532,6 +384,33 @@ export function formatDuration(ms: number): string {
   const mins = Math.floor(ms / 60000);
   const secs = Math.floor((ms % 60000) / 1000);
   return `${mins}m ${secs}s`;
+}
+
+/**
+ * 格式化持续时间 (毫秒 → 人类可读: "3s", "2m 3s", "1h 2m 3s")
+ */
+export function formatDurationHMS(ms: number): string {
+  if (!ms || ms <= 0) return '-';
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (hours > 0) {
+    return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+  } else if (minutes > 0) {
+    return `${minutes}m ${seconds % 60}s`;
+  } else {
+    return `${seconds}s`;
+  }
+}
+
+/**
+ * 格式化持续时间 (秒 → MM:SS 格式)
+ */
+export function formatDurationMMSS(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
 /**
@@ -554,19 +433,6 @@ export function getEventIcon(event: UnifiedEvent): React.ReactNode {
 }
 
 /**
- * 获取事件显示图标 (返回 emoji 字符串，用于向后兼容)
- */
-export function getEventIconEmoji(event: UnifiedEvent): string {
-  const typeInfo = eventTypeConfig[event.type];
-  if (typeInfo) return typeInfo.icon;
-
-  const sourceInfo = sourceConfig[event.source];
-  if (sourceInfo) return sourceInfo.icon;
-
-  return levelConfig[event.level]?.icon || '•';
-}
-
-/**
  * 获取事件显示颜色
  */
 export function getEventColor(event: UnifiedEvent): string {
@@ -581,14 +447,6 @@ export function getEventColor(event: UnifiedEvent): string {
 }
 
 /**
- * 获取事件显示标签
- */
-export function getEventLabel(event: UnifiedEvent): string {
-  const typeInfo = eventTypeConfig[event.type];
-  return typeInfo?.label || event.type;
-}
-
-/**
  * 判断事件是否为关键事件
  */
 export function isCriticalEvent(event: UnifiedEvent): boolean {
@@ -600,22 +458,6 @@ export function isCriticalEvent(event: UnifiedEvent): boolean {
   );
 }
 
-/**
- * 从事件数据中提取网络请求信息
- */
-export function extractNetworkData(event: UnifiedEvent): NetworkRequestData | null {
-  if (event.source !== 'network' || !event.data) return null;
-  return event.data as NetworkRequestData;
-}
-
-/**
- * 从事件数据中提取 Logcat 信息
- */
-export function extractLogcatData(event: UnifiedEvent): LogcatData | LogcatAggregatedData | null {
-  if (event.source !== 'logcat' || !event.data) return null;
-  return event.data as LogcatData | LogcatAggregatedData;
-}
-
 // Helper functions
 function pad(n: number): string {
   return n.toString().padStart(2, '0');
@@ -625,37 +467,4 @@ function pad3(n: number): string {
   return n.toString().padStart(3, '0');
 }
 
-// ========================================
-// Legacy Compatibility - 兼容旧类型
-// ========================================
 
-// 兼容旧的 SessionEvent 类型
-export type SessionEvent = UnifiedEvent;
-
-// 兼容旧的 Session 类型
-export type Session = DeviceSession;
-
-// 兼容旧的 SessionFilter 类型
-export interface SessionFilter {
-  categories?: string[];
-  types?: string[];
-  levels?: string[];
-  stepId?: string;
-  startTime?: number;
-  endTime?: number;
-  searchText?: string;
-}
-
-// 将旧的 SessionFilter 转换为 EventQuery
-export function sessionFilterToEventQuery(sessionId: string, filter: SessionFilter): EventQuery {
-  return {
-    sessionId,
-    categories: filter.categories as EventCategory[] | undefined,
-    types: filter.types,
-    levels: filter.levels as EventLevel[] | undefined,
-    stepId: filter.stepId,
-    startTime: filter.startTime,
-    endTime: filter.endTime,
-    searchText: filter.searchText,
-  };
-}

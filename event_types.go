@@ -164,150 +164,6 @@ type LogcatData struct {
 	Raw          string `json:"raw,omitempty"`
 }
 
-// LogcatAggregatedData 聚合的 logcat 数据
-type LogcatAggregatedData struct {
-	Entries []LogcatData `json:"entries"`
-	Tag     string       `json:"tag"`
-	Count   int          `json:"count"`
-}
-
-// NetworkRequestData 网络请求数据
-type NetworkRequestData struct {
-	RequestID   string `json:"requestId"`
-	Method      string `json:"method"`
-	URL         string `json:"url"`
-	Host        string `json:"host,omitempty"`
-	Path        string `json:"path,omitempty"`
-	StatusCode  int    `json:"statusCode"`
-	ContentType string `json:"contentType,omitempty"`
-
-	// 请求
-	RequestHeaders  map[string]string `json:"requestHeaders,omitempty"`
-	RequestBody     string            `json:"requestBody,omitempty"`
-	RequestBodySize int64             `json:"requestBodySize,omitempty"`
-
-	// 响应
-	ResponseHeaders  map[string]string `json:"responseHeaders,omitempty"`
-	ResponseBody     string            `json:"responseBody,omitempty"`
-	ResponseBodySize int64             `json:"responseBodySize,omitempty"`
-
-	// 时间
-	StartTime     int64 `json:"startTime,omitempty"`
-	EndTime       int64 `json:"endTime,omitempty"`
-	DNSTime       int64 `json:"dnsTime,omitempty"`
-	ConnectTime   int64 `json:"connectTime,omitempty"`
-	TLSTime       int64 `json:"tlsTime,omitempty"`
-	FirstByteTime int64 `json:"firstByteTime,omitempty"`
-
-	// 状态
-	IsHTTPS bool   `json:"isHttps"`
-	IsWS    bool   `json:"isWs"`
-	Error   string `json:"error,omitempty"`
-}
-
-// DeviceStateData 设备状态数据
-type DeviceStateData struct {
-	StateType string `json:"stateType"` // battery, network, screen, storage, memory
-
-	// Battery
-	BatteryLevel  int    `json:"batteryLevel,omitempty"`
-	BatteryStatus string `json:"batteryStatus,omitempty"` // charging, discharging, full
-	BatteryTemp   int    `json:"batteryTemp,omitempty"`
-
-	// Network
-	NetworkType    string `json:"networkType,omitempty"` // wifi, mobile, none
-	WifiSSID       string `json:"wifiSsid,omitempty"`
-	SignalStrength int    `json:"signalStrength,omitempty"`
-
-	// Screen
-	ScreenState string `json:"screenState,omitempty"` // on, off
-	Brightness  int    `json:"brightness,omitempty"`
-	Orientation string `json:"orientation,omitempty"` // portrait, landscape
-
-	// Memory
-	MemoryTotal int64 `json:"memoryTotal,omitempty"`
-	MemoryAvail int64 `json:"memoryAvail,omitempty"`
-	MemoryUsed  int64 `json:"memoryUsed,omitempty"`
-}
-
-// AppLifecycleData 应用生命周期数据
-type AppLifecycleData struct {
-	PackageName  string `json:"packageName"`
-	ActivityName string `json:"activityName,omitempty"`
-	Action       string `json:"action"` // start, stop, resume, pause, crash, anr
-	PID          int    `json:"pid,omitempty"`
-
-	// Crash Info
-	CrashType    string `json:"crashType,omitempty"` // java, native
-	CrashMessage string `json:"crashMessage,omitempty"`
-	StackTrace   string `json:"stackTrace,omitempty"`
-}
-
-// TouchEventData 触摸事件数据
-type TouchEventData struct {
-	Action    string  `json:"action"` // down, up, move
-	X         float64 `json:"x"`
-	Y         float64 `json:"y"`
-	Pressure  float64 `json:"pressure,omitempty"`
-	PointerID int     `json:"pointerId,omitempty"`
-
-	// 手势识别
-	GestureType string `json:"gestureType,omitempty"` // tap, double_tap, long_press, swipe, pinch
-	SwipeDir    string `json:"swipeDir,omitempty"`    // up, down, left, right
-}
-
-// WorkflowEventData 自动化事件数据
-type WorkflowEventData struct {
-	WorkflowID   string `json:"workflowId"`
-	WorkflowName string `json:"workflowName"`
-	StepID       string `json:"stepId,omitempty"`
-	StepName     string `json:"stepName,omitempty"`
-	StepType     string `json:"stepType,omitempty"`
-
-	Action       string `json:"action"` // start, step_start, step_end, complete, error
-	Success      bool   `json:"success"`
-	ErrorMessage string `json:"errorMessage,omitempty"`
-
-	// 元素信息
-	Selector     *ElementSelector `json:"selector,omitempty"`
-	FoundElement bool             `json:"foundElement,omitempty"`
-}
-
-// PerfData 性能数据
-type PerfData struct {
-	MetricType string  `json:"metricType"` // cpu, memory, fps, network_speed
-	Value      float64 `json:"value"`
-	Unit       string  `json:"unit"`
-
-	// CPU
-	CPUUsage    float64 `json:"cpuUsage,omitempty"`
-	CPUAppUsage float64 `json:"cpuAppUsage,omitempty"`
-
-	// Memory
-	MemoryRSS  int64 `json:"memoryRss,omitempty"`
-	MemoryHeap int64 `json:"memoryHeap,omitempty"`
-
-	// FPS
-	FPS       float64 `json:"fps,omitempty"`
-	FrameTime float64 `json:"frameTime,omitempty"`
-	JankCount int     `json:"jankCount,omitempty"`
-}
-
-// AssertionData 断言数据
-type AssertionData struct {
-	AssertionID   string `json:"assertionId"`
-	AssertionType string `json:"assertionType"` // exists, not_exists, sequence, timing, condition
-	Expression    string `json:"expression"`    // 原始断言表达式
-
-	Passed        bool   `json:"passed"`
-	ActualValue   any    `json:"actualValue,omitempty"`
-	ExpectedValue any    `json:"expectedValue,omitempty"`
-	ErrorMessage  string `json:"errorMessage,omitempty"`
-
-	// 关联的事件
-	MatchedEvents []string `json:"matchedEvents,omitempty"` // 匹配到的事件 ID 列表
-}
-
 // ========================================
 // Time Index Entry - 时间索引条目
 // ========================================
@@ -359,6 +215,10 @@ var EventRegistry = map[string]EventTypeInfo{
 	"http_request": {
 		Type: "http_request", Source: SourceNetwork, Category: CategoryNetwork,
 		Description: "HTTP/HTTPS request",
+	},
+	"network_request": {
+		Type: "network_request", Source: SourceNetwork, Category: CategoryNetwork,
+		Description: "Network request (proxy-captured)",
 	},
 	"websocket_message": {
 		Type: "websocket_message", Source: SourceNetwork, Category: CategoryNetwork,
@@ -466,6 +326,27 @@ var EventRegistry = map[string]EventTypeInfo{
 		Type: "recording_end", Source: SourceSystem, Category: CategoryState,
 		Description: "Screen recording ended",
 	},
+}
+
+// ParseEventLevel converts a string level (e.g. from old SessionEvent) to EventLevel.
+// Returns LevelInfo for unrecognized values.
+func ParseEventLevel(level string) EventLevel {
+	switch level {
+	case "fatal":
+		return LevelFatal
+	case "error":
+		return LevelError
+	case "warn":
+		return LevelWarn
+	case "info":
+		return LevelInfo
+	case "debug":
+		return LevelDebug
+	case "verbose":
+		return LevelVerbose
+	default:
+		return LevelInfo
+	}
 }
 
 // GetCategoryForType 根据事件类型获取分类

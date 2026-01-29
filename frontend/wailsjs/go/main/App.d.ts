@@ -26,21 +26,15 @@ export function CheckCertTrust(arg1:string):Promise<string>;
 
 export function CleanupOldSessionData(arg1:number):Promise<number>;
 
-export function CleanupOldSessions(arg1:time.Duration):Promise<number>;
-
 export function CleanupProxyForDevice(arg1:string,arg2:number):Promise<void>;
 
 export function ClearAppData(arg1:string,arg2:string):Promise<string>;
-
-export function ClearSession(arg1:string):Promise<void>;
 
 export function ClearTextViaADBKeyboard(arg1:string):Promise<void>;
 
 export function ClickElement(arg1:context.Context,arg2:string,arg3:types.ElementSelector,arg4:main.ElementActionConfig):Promise<void>;
 
 export function CopyFile(arg1:string,arg2:string,arg3:string):Promise<void>;
-
-export function CreateSession(arg1:string,arg2:string,arg3:string):Promise<string>;
 
 export function CreateSessionBookmark(arg1:string,arg2:number,arg3:string,arg4:string,arg5:string):Promise<void>;
 
@@ -68,21 +62,11 @@ export function DownloadFile(arg1:string,arg2:string):Promise<string>;
 
 export function EmitEvent(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:any):Promise<void>;
 
-export function EmitSessionEvent(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:any):Promise<void>;
-
-export function EmitSessionEventFull(arg1:main.SessionEvent):Promise<void>;
-
-export function EmitSessionEventWithStep(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:any):Promise<void>;
-
 export function EnableApp(arg1:string,arg2:string):Promise<string>;
 
 export function EndActiveSession(arg1:string,arg2:string):Promise<void>;
 
-export function EndSession(arg1:string,arg2:string):Promise<void>;
-
 export function EnsureADBKeyboard(arg1:string):Promise<boolean>;
-
-export function EnsureActiveSession(arg1:string):Promise<string>;
 
 export function ExecuteAssertion(arg1:main.Assertion):Promise<main.AssertionResult>;
 
@@ -93,8 +77,6 @@ export function ExecuteBatchOperation(arg1:main.BatchOperation):Promise<main.Bat
 export function ExecuteSingleTouchEvent(arg1:string,arg2:main.TouchEvent,arg3:string):Promise<void>;
 
 export function ExecuteSingleWorkflowStep(arg1:string,arg2:types.WorkflowStep):Promise<void>;
-
-export function ExecuteStoredAssertion(arg1:string):Promise<main.AssertionResult>;
 
 export function ExecuteStoredAssertionInSession(arg1:string,arg2:string,arg3:string):Promise<main.AssertionResult>;
 
@@ -114,19 +96,11 @@ export function FindElementBySelector(arg1:main.UINode,arg2:types.ElementSelecto
 
 export function ForceStopApp(arg1:string,arg2:string):Promise<string>;
 
-export function GenerateSelectorSuggestions(arg1:main.UINode,arg2:main.UINode):Promise<Array<main.SelectorSuggestion>>;
-
-export function GetActiveSession(arg1:string):Promise<string>;
-
 export function GetAppInfo(arg1:string,arg2:string,arg3:boolean):Promise<main.AppPackage>;
 
 export function GetAppVersion():Promise<string>;
 
-export function GetAssertionResult(arg1:string):Promise<main.AssertionResult>;
-
 export function GetBackendLogs():Promise<Array<string>>;
-
-export function GetBestSelector(arg1:main.UINode,arg2:main.UINode):Promise<types.ElementSelector>;
 
 export function GetDeviceActiveSession(arg1:string):Promise<main.DeviceSession>;
 
@@ -164,19 +138,11 @@ export function GetProxySettings():Promise<Record<string, any>>;
 
 export function GetProxyStatus():Promise<boolean>;
 
-export function GetRecentEvents(arg1:string,arg2:number,arg3:Array<string>):Promise<Array<main.SessionEvent>>;
-
 export function GetRecentSessionEvents(arg1:string,arg2:number):Promise<Array<main.UnifiedEvent>>;
 
 export function GetRecordingEventCount(arg1:string):Promise<number>;
 
-export function GetRecordingStatus(arg1:string):Promise<Record<string, any>>;
-
 export function GetRecordingsDir():Promise<string>;
-
-export function GetSelectorMatchCount(arg1:main.UINode,arg2:types.ElementSelector):Promise<number>;
-
-export function GetSession(arg1:string):Promise<main.Session>;
 
 export function GetSessionBookmarks(arg1:string):Promise<Array<main.Bookmark>>;
 
@@ -186,17 +152,11 @@ export function GetSessionEventSources(arg1:string):Promise<Array<string>>;
 
 export function GetSessionEventTypes(arg1:string):Promise<Array<string>>;
 
-export function GetSessionMetadata(arg1:string,arg2:string):Promise<any>;
-
 export function GetSessionStats(arg1:string):Promise<Record<string, any>>;
 
 export function GetSessionTimeIndex(arg1:string):Promise<Array<main.TimeIndexEntry>>;
 
-export function GetSessionTimeline(arg1:string,arg2:main.SessionFilter):Promise<Array<main.SessionEvent>>;
-
 export function GetSessionVideoInfo(arg1:string):Promise<Record<string, any>>;
-
-export function GetSessions(arg1:string,arg2:number):Promise<Array<main.Session>>;
 
 export function GetStoredAssertion(arg1:string):Promise<main.StoredAssertion>;
 
@@ -225,8 +185,6 @@ export function GetVideoThumbnails(arg1:string,arg2:number,arg3:number):Promise<
 export function GetWorkflow(arg1:string):Promise<types.Workflow>;
 
 export function GetWorkflowExecutionResult(arg1:string):Promise<types.WorkflowExecutionResult>;
-
-export function Greet(arg1:string):Promise<string>;
 
 export function ImportSession():Promise<string>;
 
@@ -272,8 +230,6 @@ export function IsWorkflowRunning(arg1:string):Promise<boolean>;
 
 export function ListAssertionResults(arg1:string,arg2:number):Promise<Array<main.AssertionResult>>;
 
-export function ListAssertionTemplates(arg1:number):Promise<Array<main.StoredAssertion>>;
-
 export function ListCameras(arg1:string):Promise<Array<string>>;
 
 export function ListDisplays(arg1:string):Promise<Array<string>>;
@@ -285,8 +241,6 @@ export function ListLogFiles():Promise<Array<string>>;
 export function ListPackages(arg1:string,arg2:string):Promise<Array<main.AppPackage>>;
 
 export function ListRecordings():Promise<Array<Record<string, any>>>;
-
-export function ListStoredAssertionResults(arg1:string,arg2:number):Promise<Array<main.StoredAssertionResult>>;
 
 export function ListStoredAssertions(arg1:string,arg2:string,arg3:boolean,arg4:number):Promise<Array<main.StoredAssertion>>;
 
@@ -413,8 +367,6 @@ export function SetProxyLimit(arg1:number,arg2:number):Promise<void>;
 export function SetProxyMITM(arg1:boolean):Promise<void>;
 
 export function SetProxyWSEnabled(arg1:boolean):Promise<void>;
-
-export function SetSessionMetadata(arg1:string,arg2:string,arg3:any):Promise<void>;
 
 export function SetupProxyForDevice(arg1:string,arg2:number):Promise<void>;
 

@@ -575,19 +575,6 @@ func (s *EventStore) GetSession(id string) (*DeviceSession, error) {
 	return s.scanSession(row)
 }
 
-// GetActiveSession 获取设备的活跃 Session
-func (s *EventStore) GetActiveSession(deviceID string) (*DeviceSession, error) {
-	row := s.db.QueryRow(`
-		SELECT id, device_id, type, name, start_time, end_time, status, event_count,
-			video_path, video_duration, video_offset, metadata
-		FROM sessions
-		WHERE device_id = ? AND status = 'active'
-		ORDER BY start_time DESC
-		LIMIT 1
-	`, deviceID)
-	return s.scanSession(row)
-}
-
 // ListSessions 列出 Sessions
 func (s *EventStore) ListSessions(deviceID string, limit int) ([]DeviceSession, error) {
 	query := `
@@ -1755,16 +1742,6 @@ func (s *EventStore) SaveAssertionResult(result *StoredAssertionResult) error {
 		result.ExecutedAt, result.Duration, string(result.Details),
 	)
 	return err
-}
-
-// GetAssertionResult 获取单个断言结果
-func (s *EventStore) GetAssertionResult(id string) (*StoredAssertionResult, error) {
-	row := s.db.QueryRow(`
-		SELECT id, assertion_id, assertion_name, session_id, passed, message,
-			matched_events, actual_value, expected_value, executed_at, duration, details
-		FROM assertion_results WHERE id = ?
-	`, id)
-	return s.scanAssertionResult(row)
 }
 
 // ListAssertionResults 列出断言结果
