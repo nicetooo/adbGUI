@@ -61,7 +61,7 @@ const TOOL_CATEGORIES = [
     color: "#13c2c2",
     tools: [
       "session_create", "session_end", "session_active", "session_list",
-      "session_events", "session_stats",
+      "session_events", "session_stats", "session_export", "session_import",
     ],
   },
   {

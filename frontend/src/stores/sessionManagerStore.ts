@@ -27,6 +27,11 @@ interface SessionManagerState {
   renameSession: DeviceSession | null;
   newName: string;
 
+  // 导出/导入状态
+  isExporting: boolean;
+  exportingSessionId: string | null;
+  isImporting: boolean;
+
   // Actions
   setSessions: (sessions: DeviceSession[]) => void;
   setLoading: (loading: boolean) => void;
@@ -43,6 +48,10 @@ interface SessionManagerState {
   openRenameModal: (session: DeviceSession) => void;
   closeRenameModal: () => void;
   setNewName: (name: string) => void;
+
+  // 导出/导入
+  setExporting: (exporting: boolean, sessionId?: string | null) => void;
+  setImporting: (importing: boolean) => void;
 
   // 重置
   reset: () => void;
@@ -61,6 +70,9 @@ export const useSessionManagerStore = create<SessionManagerState>()(
     renameModalOpen: false,
     renameSession: null,
     newName: '',
+    isExporting: false,
+    exportingSessionId: null,
+    isImporting: false,
     // Actions
     setSessions: (sessions) => set((state) => {
       state.sessions = sessions;
@@ -113,6 +125,16 @@ export const useSessionManagerStore = create<SessionManagerState>()(
       state.newName = name;
     }),
 
+    // 导出/导入
+    setExporting: (exporting, sessionId = null) => set((state) => {
+      state.isExporting = exporting;
+      state.exportingSessionId = sessionId ?? null;
+    }),
+
+    setImporting: (importing) => set((state) => {
+      state.isImporting = importing;
+    }),
+
     // 重置
     reset: () => set((state) => {
       state.sessions = [];
@@ -125,6 +147,9 @@ export const useSessionManagerStore = create<SessionManagerState>()(
       state.renameModalOpen = false;
       state.renameSession = null;
       state.newName = '';
+      state.isExporting = false;
+      state.exportingSessionId = null;
+      state.isImporting = false;
     }),
   }))
 );

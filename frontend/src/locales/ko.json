@@ -921,6 +921,8 @@
       "session_list": "기기의 세션 목록 표시",
       "session_events": "세션에서 이벤트 조회",
       "session_stats": "세션의 통계 정보 가져오기",
+      "session_export": "세션(이벤트, 북마크, 녹화)을 .gaze 아카이브로 내보내기",
+      "session_import": ".gaze 아카이브 파일에서 세션 가져오기",
       "workflow_list": "저장된 모든 워크플로 목록 표시",
       "workflow_get": "모든 단계를 포함한 워크플로 상세 정보 가져오기",
       "workflow_create": "단계가 포함된 새 워크플로 생성",

@@ -126,7 +126,14 @@
     "enabled_features": "已启用功能",
     "rename_title": "重命名 Session",
     "new_name": "新名称",
-    "name_placeholder": "请输入新名称"
+    "name_placeholder": "请输入新名称",
+    "export_session": "导出会话",
+    "export_success": "会话导出成功",
+    "export_failed": "会话导出失败",
+    "open_folder": "打开文件位置",
+    "import_session": "导入会话",
+    "import_success": "会话导入成功",
+    "import_failed": "会话导入失败"
   },
   "assertions": {
     "title": "断言验证",
@@ -1231,6 +1238,8 @@
       "session_list": "列出设备的会话",
       "session_events": "查询会话中的事件",
       "session_stats": "获取会话的统计信息",
+      "session_export": "导出会话（事件、书签、录屏）为 .gaze 归档文件",
+      "session_import": "从 .gaze 归档文件导入会话",
       "workflow_list": "列出所有已保存的工作流",
       "workflow_get": "获取工作流的详细信息（包含所有步骤）",
       "workflow_create": "创建带步骤的新工作流",

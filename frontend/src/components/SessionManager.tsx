@@ -9,6 +9,7 @@ import {
   Tooltip,
   Popconfirm,
   message,
+  notification,
   Typography,
   Input,
   Select,
@@ -32,6 +33,10 @@ import {
   EditOutlined,
   EyeOutlined,
   PauseCircleOutlined,
+  ExportOutlined,
+  ImportOutlined,
+  DownloadOutlined,
+  FolderOpenOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
@@ -115,6 +120,9 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
     renameModalOpen,
     renameSession,
     newName,
+    isExporting,
+    exportingSessionId,
+    isImporting,
     setSessions,
     setLoading,
     setSelectedRowKeys,
@@ -125,6 +133,8 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
     openRenameModal,
     closeRenameModal,
     setNewName,
+    setExporting,
+    setImporting,
   } = useSessionManagerStore();
 
   // Load sessions
@@ -239,6 +249,57 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
     }
   }, [endSession, loadSessions, t]);
 
+  // Export session
+  const handleExport = useCallback(async (sessionId: string) => {
+    setExporting(true, sessionId);
+    try {
+      const result = await (window as any).go.main.App.ExportSession(sessionId);
+      if (result) {
+        const fileName = result.split('/').pop() || result.split('\\').pop() || result;
+        notification.success({
+          message: t('session_manager.export_success'),
+          description: fileName,
+          btn: (
+            <Button
+              type="primary"
+              size="small"
+              icon={<FolderOpenOutlined />}
+              onClick={() => {
+                (window as any).go.main.App.ShowInFolder(result);
+                notification.destroy();
+              }}
+            >
+              {t('session_manager.open_folder')}
+            </Button>
+          ),
+          duration: 6,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to export session:', err);
+      message.error(t('session_manager.export_failed') + ': ' + (err as Error).message);
+    } finally {
+      setExporting(false);
+    }
+  }, [t, setExporting]);
+
+  // Import session
+  const handleImport = useCallback(async () => {
+    setImporting(true);
+    try {
+      const newId = await (window as any).go.main.App.ImportSession();
+      if (newId) {
+        message.success(t('session_manager.import_success'));
+        loadSessions();
+      }
+    } catch (err) {
+      console.error('Failed to import session:', err);
+      message.error(t('session_manager.import_failed') + ': ' + (err as Error).message);
+    } finally {
+      setImporting(false);
+    }
+  }, [t, setImporting, loadSessions]);
+
   // Filter sessions
   const filteredSessions = useMemo(() => {
     return sessions.filter(session => {
@@ -342,7 +403,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
     {
       title: t('session_manager.col_actions'),
       key: 'actions',
-      width: 280,
+      width: 320,
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
@@ -387,6 +448,15 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
               size="small"
               icon={<EditOutlined />}
               onClick={() => handleOpenRename(record)}
+            />
+          </Tooltip>
+          <Tooltip title={t('session_manager.export_session')}>
+            <Button
+              type="text"
+              size="small"
+              icon={<ExportOutlined />}
+              loading={isExporting && exportingSessionId === record.id}
+              onClick={() => handleExport(record.id)}
             />
           </Tooltip>
           <Tooltip title={t('session_manager.view_detail')}>
@@ -483,6 +553,13 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
                 { label: t('session_manager.status_cancelled'), value: 'cancelled' },
               ]}
             />
+            <Button
+              icon={<ImportOutlined />}
+              onClick={handleImport}
+              loading={isImporting}
+            >
+              {t('session_manager.import_session')}
+            </Button>
             <Button icon={<ReloadOutlined />} onClick={loadSessions}>
               {t('session_manager.refresh')}
             </Button>

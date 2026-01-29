@@ -921,6 +921,8 @@
       "session_list": "デバイスのセッションを一覧表示",
       "session_events": "セッションからイベントを検索",
       "session_stats": "セッションの統計情報を取得",
+      "session_export": "セッション（イベント、ブックマーク、録画）を .gaze アーカイブにエクスポート",
+      "session_import": ".gaze アーカイブファイルからセッションをインポート",
       "workflow_list": "保存されたすべてのワークフローを一覧表示",
       "workflow_get": "全ステップを含むワークフローの詳細情報を取得",
       "workflow_create": "ステップ付きの新しいワークフローを作成",

@@ -111,6 +111,12 @@ type MockGazeApp struct {
 	GetSessionVideoInfoResult map[string]interface{}
 	GetSessionVideoInfoError  error
 
+	// Session Export/Import
+	ExportSessionToPathResult   string
+	ExportSessionToPathError    error
+	ImportSessionFromPathResult string
+	ImportSessionFromPathError  error
+
 	// Utility
 	AppVersion string
 }
@@ -489,6 +495,30 @@ func (m *MockGazeApp) RunFfmpegCommand(command string, timeoutSec int) (string, 
 func (m *MockGazeApp) RunFfprobeCommand(command string, timeoutSec int) (string, error) {
 	m.recordCall("RunFfprobeCommand", command, timeoutSec)
 	return "", nil
+}
+
+// === File Management ===
+
+func (m *MockGazeApp) UploadFile(deviceId, localPath, remotePath string) error {
+	m.recordCall("UploadFile", deviceId, localPath, remotePath)
+	return nil
+}
+
+func (m *MockGazeApp) ListFiles(deviceId, pathStr string) ([]map[string]interface{}, error) {
+	m.recordCall("ListFiles", deviceId, pathStr)
+	return nil, nil
+}
+
+// === Session Export/Import ===
+
+func (m *MockGazeApp) ExportSessionToPath(sessionID, outputPath string) (string, error) {
+	m.recordCall("ExportSessionToPath", sessionID, outputPath)
+	return m.ExportSessionToPathResult, m.ExportSessionToPathError
+}
+
+func (m *MockGazeApp) ImportSessionFromPath(inputPath string) (string, error) {
+	m.recordCall("ImportSessionFromPath", inputPath)
+	return m.ImportSessionFromPathResult, m.ImportSessionFromPathError
 }
 
 // === Utility ===

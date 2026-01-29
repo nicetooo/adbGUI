@@ -155,6 +155,10 @@ type GazeApp interface {
 	UploadFile(deviceId, localPath, remotePath string) error
 	ListFiles(deviceId, pathStr string) ([]map[string]interface{}, error)
 
+	// Session Export/Import
+	ExportSessionToPath(sessionID, outputPath string) (string, error)
+	ImportSessionFromPath(inputPath string) (string, error)
+
 	// Utility
 	GetAppVersion() string
 }

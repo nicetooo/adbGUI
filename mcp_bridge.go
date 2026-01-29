@@ -801,6 +801,16 @@ func (b *MCPBridge) ListFiles(deviceId, pathStr string) ([]map[string]interface{
 	return result, nil
 }
 
+// ExportSessionToPath exports a session to a file path
+func (b *MCPBridge) ExportSessionToPath(sessionID, outputPath string) (string, error) {
+	return b.app.ExportSessionToPath(sessionID, outputPath)
+}
+
+// ImportSessionFromPath imports a session from a file path
+func (b *MCPBridge) ImportSessionFromPath(inputPath string) (string, error) {
+	return b.app.ImportSessionFromPath(inputPath)
+}
+
 // StartMCPServer starts the MCP server with the given app
 func StartMCPServer(app *App) {
 	bridge := NewMCPBridge(app)

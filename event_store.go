@@ -1343,6 +1343,135 @@ func (s *EventStore) VacuumDatabase() error {
 }
 
 // ========================================
+// Session Export/Import
+// ========================================
+
+// ExportSessionEvents exports all events (with data) for a session
+func (s *EventStore) ExportSessionEvents(sessionID string) ([]UnifiedEvent, error) {
+	rows, err := s.db.Query(`
+		SELECT e.id, e.session_id, e.device_id, e.timestamp, e.relative_time, e.duration,
+			e.source, e.category, e.type, e.level, e.title, e.summary,
+			e.parent_id, e.step_id, e.trace_id,
+			e.aggregate_count, e.aggregate_first, e.aggregate_last,
+			ed.data
+		FROM events e
+		LEFT JOIN event_data ed ON e.id = ed.event_id
+		WHERE e.session_id = ?
+		ORDER BY e.relative_time ASC
+	`, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("query events for export: %w", err)
+	}
+	defer rows.Close()
+
+	var events []UnifiedEvent
+	for rows.Next() {
+		event, err := s.scanEventRow(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan event for export: %w", err)
+		}
+		events = append(events, *event)
+	}
+	return events, rows.Err()
+}
+
+// ImportSession imports a session with all its events and bookmarks
+func (s *EventStore) ImportSession(session *DeviceSession, events []UnifiedEvent, bookmarks []Bookmark) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// 1. Insert session
+	metadata, err := json.Marshal(session.Metadata)
+	if err != nil {
+		metadata = []byte("{}")
+	}
+	_, err = tx.Exec(`
+		INSERT INTO sessions (
+			id, device_id, type, name, start_time, end_time, status,
+			event_count, video_path, video_duration, video_offset, metadata
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`,
+		session.ID, session.DeviceID, session.Type, session.Name,
+		session.StartTime, session.EndTime, session.Status, len(events),
+		nullString(session.VideoPath), session.VideoDuration, session.VideoOffset,
+		string(metadata),
+	)
+	if err != nil {
+		return fmt.Errorf("insert session: %w", err)
+	}
+
+	// 2. Batch insert events
+	stmtEvent, err := tx.Prepare(`
+		INSERT INTO events (
+			id, session_id, device_id, timestamp, relative_time, duration,
+			source, category, type, level, title, summary,
+			parent_id, step_id, trace_id,
+			aggregate_count, aggregate_first, aggregate_last
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return fmt.Errorf("prepare insert event: %w", err)
+	}
+	defer stmtEvent.Close()
+
+	stmtData, err := tx.Prepare(`
+		INSERT OR REPLACE INTO event_data (event_id, data, data_size) VALUES (?, ?, ?)
+	`)
+	if err != nil {
+		return fmt.Errorf("prepare insert event data: %w", err)
+	}
+	defer stmtData.Close()
+
+	for _, event := range events {
+		_, err = stmtEvent.Exec(
+			event.ID, event.SessionID, event.DeviceID,
+			event.Timestamp, event.RelativeTime, event.Duration,
+			string(event.Source), string(event.Category), event.Type, string(event.Level),
+			event.Title, nullString(event.Summary),
+			nullString(event.ParentID), nullString(event.StepID), nullString(event.TraceID),
+			event.AggregateCount, event.AggregateFirst, event.AggregateLast,
+		)
+		if err != nil {
+			return fmt.Errorf("insert event %s: %w", event.ID, err)
+		}
+
+		if len(event.Data) > 0 {
+			_, err = stmtData.Exec(event.ID, string(event.Data), len(event.Data))
+			if err != nil {
+				return fmt.Errorf("insert event data %s: %w", event.ID, err)
+			}
+		}
+	}
+
+	// 3. Insert bookmarks
+	if len(bookmarks) > 0 {
+		stmtBookmark, err := tx.Prepare(`
+			INSERT INTO bookmarks (id, session_id, relative_time, label, color, type, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`)
+		if err != nil {
+			return fmt.Errorf("prepare insert bookmark: %w", err)
+		}
+		defer stmtBookmark.Close()
+
+		for _, b := range bookmarks {
+			_, err = stmtBookmark.Exec(
+				b.ID, b.SessionID, b.RelativeTime,
+				b.Label, nullString(b.Color), b.Type, b.CreatedAt,
+			)
+			if err != nil {
+				return fmt.Errorf("insert bookmark %s: %w", b.ID, err)
+			}
+		}
+	}
+
+	return tx.Commit()
+}
+
+// ========================================
 // 辅助函数
 // ========================================
 

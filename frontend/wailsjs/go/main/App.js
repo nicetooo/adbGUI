@@ -190,6 +190,14 @@ export function ExportAPK(arg1, arg2) {
   return window['go']['main']['App']['ExportAPK'](arg1, arg2);
 }
 
+export function ExportSession(arg1) {
+  return window['go']['main']['App']['ExportSession'](arg1);
+}
+
+export function ExportSessionToPath(arg1, arg2) {
+  return window['go']['main']['App']['ExportSessionToPath'](arg1, arg2);
+}
+
 export function FindAllElementsBySelector(arg1, arg2) {
   return window['go']['main']['App']['FindAllElementsBySelector'](arg1, arg2);
 }
@@ -436,6 +444,14 @@ export function GetWorkflowExecutionResult(arg1) {
 
 export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
+}
+
+export function ImportSession() {
+  return window['go']['main']['App']['ImportSession']();
+}
+
+export function ImportSessionFromPath(arg1) {
+  return window['go']['main']['App']['ImportSessionFromPath'](arg1);
 }
 
 export function InitializeWithoutGUI() {
@@ -808,6 +824,10 @@ export function SetSessionMetadata(arg1, arg2, arg3) {
 
 export function SetupProxyForDevice(arg1, arg2) {
   return window['go']['main']['App']['SetupProxyForDevice'](arg1, arg2);
+}
+
+export function ShowInFolder(arg1) {
+  return window['go']['main']['App']['ShowInFolder'](arg1);
 }
 
 export function Shutdown(arg1) {

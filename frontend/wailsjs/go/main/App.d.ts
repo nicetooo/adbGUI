@@ -100,6 +100,10 @@ export function ExecuteStoredAssertionInSession(arg1:string,arg2:string,arg3:str
 
 export function ExportAPK(arg1:string,arg2:string):Promise<string>;
 
+export function ExportSession(arg1:string):Promise<string>;
+
+export function ExportSessionToPath(arg1:string,arg2:string):Promise<string>;
+
 export function FindAllElementsBySelector(arg1:main.UINode,arg2:types.ElementSelector):Promise<Array<main.UINode>>;
 
 export function FindElement(arg1:main.UINode,arg2:string,arg3:string):Promise<boolean>;
@@ -223,6 +227,10 @@ export function GetWorkflow(arg1:string):Promise<types.Workflow>;
 export function GetWorkflowExecutionResult(arg1:string):Promise<types.WorkflowExecutionResult>;
 
 export function Greet(arg1:string):Promise<string>;
+
+export function ImportSession():Promise<string>;
+
+export function ImportSessionFromPath(arg1:string):Promise<string>;
 
 export function InitializeWithoutGUI():Promise<void>;
 
@@ -409,6 +417,8 @@ export function SetProxyWSEnabled(arg1:boolean):Promise<void>;
 export function SetSessionMetadata(arg1:string,arg2:string,arg3:any):Promise<void>;
 
 export function SetupProxyForDevice(arg1:string,arg2:number):Promise<void>;
+
+export function ShowInFolder(arg1:string):Promise<void>;
 
 export function Shutdown(arg1:context.Context):Promise<void>;
 

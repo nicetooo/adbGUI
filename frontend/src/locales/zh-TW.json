@@ -932,6 +932,8 @@
       "session_list": "列出裝置的工作階段",
       "session_events": "查詢工作階段中的事件",
       "session_stats": "取得工作階段的統計資訊",
+      "session_export": "匯出工作階段（事件、書籤、錄影）為 .gaze 封存檔",
+      "session_import": "從 .gaze 封存檔匯入工作階段",
       "workflow_list": "列出所有已儲存的工作流程",
       "workflow_get": "取得包含所有步驟的工作流程詳細資訊",
       "workflow_create": "建立帶步驟的新工作流程",

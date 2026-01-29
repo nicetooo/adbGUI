@@ -125,7 +125,14 @@
     "enabled_features": "Enabled Features",
     "rename_title": "Rename Session",
     "new_name": "New Name",
-    "name_placeholder": "Enter new name"
+    "name_placeholder": "Enter new name",
+    "export_session": "Export Session",
+    "export_success": "Session exported successfully",
+    "export_failed": "Failed to export session",
+    "open_folder": "Show in Folder",
+    "import_session": "Import Session",
+    "import_success": "Session imported successfully",
+    "import_failed": "Failed to import session"
   },
   "assertions": {
     "title": "Assertions",
@@ -1229,6 +1236,8 @@
       "session_list": "List sessions for a device",
       "session_events": "Query events from a session",
       "session_stats": "Get statistics for a session",
+      "session_export": "Export a session (events, bookmarks, recording) to a .gaze archive",
+      "session_import": "Import a session from a .gaze archive file",
       "workflow_list": "List all saved workflows",
       "workflow_get": "Get detailed workflow info including all steps",
       "workflow_create": "Create a new workflow with steps",

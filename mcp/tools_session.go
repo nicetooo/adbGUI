@@ -160,6 +160,64 @@ Examples:
 		s.handleSessionEvents,
 	)
 
+	// session_export - Export a session to a .gaze archive
+	s.server.AddTool(
+		mcp.NewTool("session_export",
+			mcp.WithDescription(`Export a session (events, bookmarks, recording) to a .gaze archive file.
+
+The .gaze file is a ZIP archive containing:
+- manifest.json: Archive metadata (format version, app version, export time)
+- session.json: Session metadata (name, type, status, timestamps, config)
+- events.jsonl: All events with full data payloads (JSON Lines format)
+- bookmarks.json: User bookmarks (if any)
+- recording.mp4: Screen recording video (if session has one)
+
+The exported file can be imported on another machine using session_import.
+
+EXAMPLES:
+  Export session to file:
+    session_id: "abc12345"
+    output_path: "/tmp/debug_session.gaze"
+
+NOTE: output_path must be an absolute path on the host machine.`),
+			mcp.WithString("session_id",
+				mcp.Required(),
+				mcp.Description("Session ID to export"),
+			),
+			mcp.WithString("output_path",
+				mcp.Required(),
+				mcp.Description("Absolute file path to save the .gaze archive"),
+			),
+		),
+		s.handleSessionExport,
+	)
+
+	// session_import - Import a session from a .gaze archive
+	s.server.AddTool(
+		mcp.NewTool("session_import",
+			mcp.WithDescription(`Import a session from a .gaze archive file.
+
+Imports all data from a .gaze archive:
+- Session metadata (assigned a new ID to avoid conflicts)
+- All events with data payloads
+- Bookmarks
+- Screen recording video (extracted to recordings directory)
+
+The imported session name will have " (imported)" appended.
+
+EXAMPLES:
+  Import from file:
+    input_path: "/tmp/debug_session.gaze"
+
+NOTE: input_path must be an absolute path to an existing .gaze file.`),
+			mcp.WithString("input_path",
+				mcp.Required(),
+				mcp.Description("Absolute file path to the .gaze archive to import"),
+			),
+		),
+		s.handleSessionImport,
+	)
+
 	// session_stats - Get session statistics
 	s.server.AddTool(
 		mcp.NewTool("session_stats",
@@ -509,6 +567,58 @@ func (s *MCPServer) handleSessionStats(ctx context.Context, request mcp.CallTool
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
 			mcp.NewTextContent(fmt.Sprintf("Session %s statistics:\n\n```json\n%s\n```", sessionID, string(jsonData))),
+		},
+	}, nil
+}
+
+func (s *MCPServer) handleSessionExport(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	sessionID, ok := args["session_id"].(string)
+	if !ok || sessionID == "" {
+		return nil, fmt.Errorf("session_id is required")
+	}
+	outputPath, ok := args["output_path"].(string)
+	if !ok || outputPath == "" {
+		return nil, fmt.Errorf("output_path is required")
+	}
+
+	resultPath, err := s.app.ExportSessionToPath(sessionID, outputPath)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				mcp.NewTextContent(fmt.Sprintf("Export failed: %v", err)),
+			},
+			IsError: true,
+		}, nil
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			mcp.NewTextContent(fmt.Sprintf("Session %s exported successfully to:\n%s", sessionID, resultPath)),
+		},
+	}, nil
+}
+
+func (s *MCPServer) handleSessionImport(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	inputPath, ok := args["input_path"].(string)
+	if !ok || inputPath == "" {
+		return nil, fmt.Errorf("input_path is required")
+	}
+
+	newSessionID, err := s.app.ImportSessionFromPath(inputPath)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				mcp.NewTextContent(fmt.Sprintf("Import failed: %v", err)),
+			},
+			IsError: true,
+		}, nil
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			mcp.NewTextContent(fmt.Sprintf("Session imported successfully.\nNew session ID: %s\nSource: %s", newSessionID, inputPath)),
 		},
 	}, nil
 }
