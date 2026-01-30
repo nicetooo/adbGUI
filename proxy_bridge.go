@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	net_url "net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -232,7 +234,7 @@ func (a *App) StartProxy(port int) (string, error) {
 	mockRulesMu.RLock()
 	for _, rule := range mockRules {
 		if rule.Enabled {
-			proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay)
+			proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay, toProxyConditions(rule.Conditions))
 		}
 	}
 	mockRulesMu.RUnlock()
@@ -404,8 +406,9 @@ func (a *App) SetProxyLatency(latencyMs int) {
 	proxy.GetProxy().SetLatency(latencyMs)
 }
 
-// matchMockRuleLocal checks if a request matches any enabled mock rule
-func matchMockRuleLocal(method, url string) *MockRule {
+// matchMockRuleLocal checks if a request matches any enabled mock rule.
+// headers and body are used for condition evaluation in ResendRequest context.
+func matchMockRuleLocal(method, url string, headers map[string]string, body string) *MockRule {
 	mockRulesMu.RLock()
 	defer mockRulesMu.RUnlock()
 
@@ -418,11 +421,77 @@ func matchMockRuleLocal(method, url string) *MockRule {
 			continue
 		}
 		// Check URL pattern
-		if proxy.MatchPattern(url, rule.URLPattern) {
-			return rule
+		if !proxy.MatchPattern(url, rule.URLPattern) {
+			continue
 		}
+		// Check conditions (AND logic)
+		if len(rule.Conditions) > 0 && !evaluateConditionsLocal(rule.Conditions, headers, url, body) {
+			continue
+		}
+		return rule
 	}
 	return nil
+}
+
+// evaluateConditionsLocal evaluates conditions using local string data (for ResendRequest).
+func evaluateConditionsLocal(conditions []MockCondition, headers map[string]string, rawURL, body string) bool {
+	for _, cond := range conditions {
+		switch cond.Type {
+		case "header":
+			val, exists := headers[cond.Key]
+			if !matchOperatorLocal(cond.Operator, val, cond.Value, exists) {
+				return false
+			}
+		case "query":
+			// Parse query params from URL
+			if idx := strings.IndexByte(rawURL, '?'); idx >= 0 {
+				params, _ := net_url.ParseQuery(rawURL[idx+1:])
+				vals, exists := params[cond.Key]
+				val := ""
+				if len(vals) > 0 {
+					val = vals[0]
+				}
+				if !matchOperatorLocal(cond.Operator, val, cond.Value, exists) {
+					return false
+				}
+			} else {
+				// No query string
+				if cond.Operator == "exists" {
+					return false
+				}
+				if cond.Operator != "not_exists" {
+					return false
+				}
+			}
+		case "body":
+			if !matchOperatorLocal(cond.Operator, body, cond.Value, body != "") {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// matchOperatorLocal applies a match operator to compare values.
+func matchOperatorLocal(operator, actual, expected string, exists bool) bool {
+	switch operator {
+	case "equals":
+		return actual == expected
+	case "contains":
+		return strings.Contains(actual, expected)
+	case "regex":
+		re, err := regexp.Compile(expected)
+		if err != nil {
+			return false
+		}
+		return re.MatchString(actual)
+	case "exists":
+		return exists
+	case "not_exists":
+		return !exists
+	default:
+		return actual == expected
+	}
 }
 
 // ResendRequest sends an HTTP request with optional modifications
@@ -430,7 +499,7 @@ func matchMockRuleLocal(method, url string) *MockRule {
 // Checks mock rules first, then sends actual request if no match
 func (a *App) ResendRequest(method, url string, headers map[string]string, body string) (map[string]interface{}, error) {
 	// Check for matching mock rule first (works without proxy running)
-	if mockRule := matchMockRuleLocal(method, url); mockRule != nil {
+	if mockRule := matchMockRuleLocal(method, url, headers, body); mockRule != nil {
 		// Apply mock delay
 		if mockRule.Delay > 0 {
 			time.Sleep(time.Duration(mockRule.Delay) * time.Millisecond)
@@ -509,6 +578,14 @@ func (a *App) ResendRequest(method, url string, headers map[string]string, body 
 	}, nil
 }
 
+// MockCondition defines an additional match condition for mock rules.
+type MockCondition struct {
+	Type     string `json:"type"`     // "header", "query", "body"
+	Key      string `json:"key"`      // header name or query param name (unused for body type)
+	Operator string `json:"operator"` // "equals", "contains", "regex", "exists", "not_exists"
+	Value    string `json:"value"`    // expected value (unused for exists/not_exists)
+}
+
 // MockRule defines a rule for mocking HTTP responses
 type MockRule struct {
 	ID          string            `json:"id"`
@@ -521,6 +598,24 @@ type MockRule struct {
 	Enabled     bool              `json:"enabled"`     // Whether this rule is active
 	Description string            `json:"description"` // Optional description
 	CreatedAt   int64             `json:"createdAt"`   // Unix milliseconds, for stable ordering
+	Conditions  []MockCondition   `json:"conditions"`  // Additional match conditions (AND logic)
+}
+
+// toProxyConditions converts app-level conditions to proxy-level conditions.
+func toProxyConditions(conditions []MockCondition) []proxy.MockCondition {
+	if len(conditions) == 0 {
+		return nil
+	}
+	result := make([]proxy.MockCondition, len(conditions))
+	for i, c := range conditions {
+		result[i] = proxy.MockCondition{
+			Type:     c.Type,
+			Key:      c.Key,
+			Operator: c.Operator,
+			Value:    c.Value,
+		}
+	}
+	return result
 }
 
 var (
@@ -582,7 +677,7 @@ func (a *App) LoadMockRules() error {
 		mockRules[rule.ID] = rule
 		// Register enabled rules with proxy if it's running
 		if rule.Enabled && proxy.GetProxy().IsRunning() {
-			proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay)
+			proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay, toProxyConditions(rule.Conditions))
 		}
 	}
 
@@ -604,7 +699,7 @@ func (a *App) AddMockRule(rule MockRule) string {
 	mockRules[rule.ID] = &rule
 
 	// Register with proxy
-	proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay)
+	proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay, toProxyConditions(rule.Conditions))
 
 	// Persist to disk
 	saveMockRules()
@@ -626,7 +721,7 @@ func (a *App) UpdateMockRule(rule MockRule) error {
 	// Update in proxy
 	proxy.GetProxy().RemoveMockRule(rule.ID)
 	if rule.Enabled {
-		proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay)
+		proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay, toProxyConditions(rule.Conditions))
 	}
 
 	// Persist to disk
@@ -675,7 +770,7 @@ func (a *App) ToggleMockRule(ruleID string, enabled bool) error {
 	rule.Enabled = enabled
 
 	if enabled {
-		proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay)
+		proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay, toProxyConditions(rule.Conditions))
 	} else {
 		proxy.GetProxy().RemoveMockRule(rule.ID)
 	}

@@ -33,6 +33,19 @@ export interface NetworkStats {
   time: number;
 }
 
+export interface MockCondition {
+  type: string;   // "header", "query", "body"
+  key: string;
+  operator: string; // "equals", "contains", "regex", "exists", "not_exists"
+  value: string;
+}
+
+// Hints extracted from a captured request for pre-filling condition fields
+export interface MockConditionHints {
+  headers: Array<{ key: string; value: string }>;
+  queryParams: Array<{ key: string; value: string }>;
+}
+
 interface MockRule {
   id: string;
   urlPattern: string;
@@ -44,6 +57,7 @@ interface MockRule {
   description?: string;
   enabled: boolean;
   createdAt?: number;
+  conditions?: MockCondition[];
 }
 
 // Data for pre-filling a mock rule from another view (e.g. EventTimeline)
@@ -121,6 +135,9 @@ interface ProxyState {
   aiSearchText: string;
   aiPopoverOpen: boolean;
   
+  // Condition hints from captured request
+  mockConditionHints: MockConditionHints | null;
+  
   // Proto management
   protoFiles: ProtoFileEntry[];
   protoMappings: ProtoMapping[];
@@ -176,6 +193,7 @@ interface ProxyState {
   closeMockEditModal: () => void;
   setPendingMockData: (data: PendingMockData | null) => void;
   openMockWithPrefill: (data: PendingMockData) => void;
+  setMockConditionHints: (hints: MockConditionHints | null) => void;
   
   // 证书状态
   setCertTrustStatus: (status: string | null) => void;
@@ -245,6 +263,9 @@ export const useProxyStore = create<ProxyState>()(
     isAIParsing: false,
     aiSearchText: "",
     aiPopoverOpen: false,
+    
+    // Condition hints
+    mockConditionHints: null,
     
     // Proto management
     protoFiles: [],
@@ -363,7 +384,10 @@ export const useProxyStore = create<ProxyState>()(
       pendingMockData: data,
       mockEditModalOpen: true,
       editingMockRule: null,
+      mockConditionHints: null,
     }),
+    
+    setMockConditionHints: (hints: MockConditionHints | null) => set({ mockConditionHints: hints }),
     
     // 证书状态
     setCertTrustStatus: (status: string | null) => set({ certTrustStatus: status }),

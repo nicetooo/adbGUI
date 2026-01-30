@@ -1,6 +1,6 @@
-import React, { useEffect, useCallback } from 'react';
-import { Card, Button, InputNumber, Space, Typography, Tag, Divider, Switch, Tooltip, Radio, Input, Tabs, theme, Form, Table, Popconfirm, Popover, Spin, App, Modal } from 'antd';
-import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, BlockOutlined, SendOutlined, CloseOutlined, PlusOutlined, EditOutlined, CodeOutlined, CloudDownloadOutlined, FolderOpenOutlined, LoadingOutlined } from '@ant-design/icons';
+import React, { useEffect, useCallback, useMemo } from 'react';
+import { Card, Button, InputNumber, Space, Typography, Tag, Divider, Switch, Tooltip, Radio, Input, Tabs, theme, Form, Table, Popconfirm, Popover, Spin, App, Modal, Select, AutoComplete } from 'antd';
+import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, BlockOutlined, SendOutlined, CloseOutlined, PlusOutlined, EditOutlined, CodeOutlined, CloudDownloadOutlined, FolderOpenOutlined, LoadingOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import VirtualList from './VirtualList';
 import DeviceSelector from './DeviceSelector';
 import JsonViewer from './JsonViewer';
@@ -94,6 +94,9 @@ const ProxyView: React.FC = () => {
     const [protoFileForm] = Form.useForm();
     const [protoMappingForm] = Form.useForm();
 
+    // Watch conditions array to reactively disable/hide fields based on type & operator
+    const watchedConditions: Array<{ type?: string; operator?: string }> | undefined = Form.useWatch('conditions', mockForm);
+
     // Additional proxy store state
     const {
         resendModalOpen,
@@ -120,6 +123,8 @@ const ProxyView: React.FC = () => {
         setMockEditModalOpen,
         pendingMockData,
         setPendingMockData,
+        mockConditionHints,
+        setMockConditionHints,
         setCertTrustStatus,
         setIsAIParsing,
         setAiSearchText,
@@ -149,6 +154,57 @@ const ProxyView: React.FC = () => {
         closeProtoImportURLModal,
         setProtoImportURL,
     } = useProxyStore();
+
+    // Watch hidden _conditionHints field stored in the form (survives HMR / store resets)
+    const formStoredHints: string | undefined = Form.useWatch('_conditionHints', mockForm);
+
+    // Compute condition key presets.
+    // Priority: 1) store hints (set when creating mock from a request)
+    //           2) form-persisted hints (survives HMR)
+    //           3) scan captured logs
+    const conditionKeyPresets = useMemo(() => {
+        // Priority 1: store-level hints (freshly set from createMockFromRequest)
+        if (mockConditionHints && mockConditionHints.headers.length > 0) {
+            return mockConditionHints;
+        }
+        // Priority 2: form-persisted hints (survives store resets / HMR)
+        if (formStoredHints) {
+            try {
+                const parsed = JSON.parse(formStoredHints);
+                if (parsed && parsed.headers && parsed.headers.length > 0) {
+                    return parsed as { headers: Array<{ key: string; value: string }>; queryParams: Array<{ key: string; value: string }> };
+                }
+            } catch (_) { /* ignore */ }
+        }
+        // Priority 3: derive from all captured logs
+        const headerMap = new Map<string, string>();
+        const queryMap = new Map<string, string>();
+        const cap = Math.min(logs.length, 200);
+        for (let i = 0; i < cap; i++) {
+            const log = logs[i];
+            const hd = log.headers || (log as any).requestHeaders;
+            if (hd) {
+                for (const [k, v] of Object.entries(hd)) {
+                    if (!headerMap.has(k)) {
+                        headerMap.set(k, Array.isArray(v) ? (v as string[]).join(', ') : String(v || ''));
+                    }
+                }
+            }
+            try {
+                const u = new URL(log.url);
+                u.searchParams.forEach((val, key) => {
+                    if (!queryMap.has(key)) queryMap.set(key, val);
+                });
+            } catch (_) { /* ignore */ }
+        }
+        const headers = Array.from(headerMap.entries())
+            .map(([key, value]) => ({ key, value }))
+            .sort((a, b) => a.key.localeCompare(b.key));
+        const queryParams = Array.from(queryMap.entries())
+            .map(([key, value]) => ({ key, value }))
+            .sort((a, b) => a.key.localeCompare(b.key));
+        return { headers, queryParams };
+    }, [mockConditionHints, formStoredHints, logs.length]);
 
     // Check cert trust status when MITM is enabled and proxy is running
     useEffect(() => {
@@ -626,7 +682,7 @@ const ProxyView: React.FC = () => {
     const loadMockRules = async () => {
         try {
             const rules = await GetMockRules();
-            setMockRules(rules || []);
+            setMockRules((rules || []) as any);
         } catch (err) {
             console.error('Failed to load mock rules:', err);
         }
@@ -642,6 +698,10 @@ const ProxyView: React.FC = () => {
     const handleSaveMockRule = async () => {
         try {
             const values = await mockForm.validateFields();
+            // Filter out incomplete conditions (must have at least type and operator)
+            const conditions = (values.conditions || []).filter(
+                (c: any) => c && c.type && c.operator
+            );
             const rule = {
                 id: editingMockRule?.id || '',
                 urlPattern: values.urlPattern,
@@ -653,13 +713,14 @@ const ProxyView: React.FC = () => {
                 description: values.description || '',
                 enabled: true,
                 createdAt: editingMockRule?.createdAt || 0,
+                conditions,
             };
 
             if (editingMockRule) {
                 // Update existing - for now just remove and re-add
                 await RemoveMockRule(editingMockRule.id);
             }
-            await AddMockRule(rule);
+            await AddMockRule(rule as any);
 
             message.success(editingMockRule ? t('proxy.mock_rule_updated') : t('proxy.mock_rule_added'));
             mockForm.resetFields();
@@ -693,6 +754,7 @@ const ProxyView: React.FC = () => {
 
     // Edit mock rule — open edit modal with prefilled form
     const startEditMockRule = (rule: any) => {
+        setMockConditionHints(null);
         openMockEditModal(rule);
         mockForm.resetFields();
         mockForm.setFieldsValue({
@@ -703,6 +765,7 @@ const ProxyView: React.FC = () => {
             body: rule.body,
             delay: rule.delay,
             description: rule.description,
+            conditions: rule.conditions || [],
         });
     };
 
@@ -718,6 +781,38 @@ const ProxyView: React.FC = () => {
             urlPattern = `*${log.url.split('?')[0]}*`;
         }
 
+        // Extract condition hints from the captured request
+        const hintHeaders: Array<{ key: string; value: string }> = [];
+        const headerData = log.headers || (log as any).requestHeaders;
+        if (headerData) {
+            for (const [key, values] of Object.entries(headerData)) {
+                const val = Array.isArray(values) ? (values as string[]).join(', ') : String(values || '');
+                hintHeaders.push({ key, value: val });
+            }
+            hintHeaders.sort((a, b) => a.key.localeCompare(b.key));
+        }
+
+        const hintQueryParams: Array<{ key: string; value: string }> = [];
+        try {
+            const urlObj = new URL(log.url);
+            urlObj.searchParams.forEach((value, key) => {
+                hintQueryParams.push({ key, value });
+            });
+        } catch (e) {
+            const qIdx = log.url.indexOf('?');
+            if (qIdx >= 0) {
+                try {
+                    const params = new URLSearchParams(log.url.substring(qIdx + 1));
+                    params.forEach((value, key) => {
+                        hintQueryParams.push({ key, value });
+                    });
+                } catch (_) { /* ignore */ }
+            }
+        }
+
+        const hints = { headers: hintHeaders, queryParams: hintQueryParams };
+        setMockConditionHints(hints);
+
         openMockEditModal(null);
         mockForm.resetFields();
         mockForm.setFieldsValue({
@@ -728,6 +823,7 @@ const ProxyView: React.FC = () => {
             body: log.respBody || '',
             delay: 0,
             description: `Mock for ${log.method} ${urlPattern}`,
+            _conditionHints: JSON.stringify(hints),
         });
     };
 
@@ -1004,7 +1100,7 @@ const ProxyView: React.FC = () => {
                                     </Button>
                                 </Tooltip>
                                 <Tooltip title={t('proxy.add_mock_rule')}>
-                                    <Button icon={<PlusOutlined />} onClick={() => { mockForm.resetFields(); openMockEditModal(null); }} />
+                                    <Button icon={<PlusOutlined />} onClick={() => { mockForm.resetFields(); setMockConditionHints(null); openMockEditModal(null); }} />
                                 </Tooltip>
                             </Button.Group>
                             <Tooltip title={t('proxy.proto_management')}>
@@ -1496,7 +1592,7 @@ const ProxyView: React.FC = () => {
                 style={{ top: 32, paddingBottom: 0 }}
             >
                 <div style={{ marginBottom: 12 }}>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => { mockForm.resetFields(); openMockEditModal(null); }}>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => { mockForm.resetFields(); setMockConditionHints(null); openMockEditModal(null); }}>
                         {t('proxy.add_mock_rule')}
                     </Button>
                 </div>
@@ -1514,6 +1610,7 @@ const ProxyView: React.FC = () => {
                                 { title: t('proxy.col_method'), dataIndex: 'method', width: 80, render: (v: string) => v || '*' },
                                 { title: t('proxy.status_code'), dataIndex: 'statusCode', width: 80 },
                                 { title: t('proxy.delay_ms'), dataIndex: 'delay', width: 80, render: (v: number) => v ? `${v}ms` : '-' },
+                                { title: t('proxy.conditions'), dataIndex: 'conditions', width: 90, render: (v: any[]) => v && v.length > 0 ? <Tag color="blue">{v.length}</Tag> : '-' },
                                 {
                                     title: t('proxy.mock_enabled'),
                                     dataIndex: 'enabled',
@@ -1568,11 +1665,129 @@ const ProxyView: React.FC = () => {
                         <Input placeholder="application/json" />
                     </Form.Item>
                     <Form.Item name="body" label={t('proxy.response_body')} style={{ marginBottom: 8 }}>
-                        <JsonEditor height={'calc(100vh - 460px)'} placeholder='{"success": true}' />
+                        <JsonEditor height={'calc(100vh - 560px)'} placeholder='{"success": true}' />
                     </Form.Item>
                     <Form.Item name="description" label={t('proxy.description')} style={{ marginBottom: 12 }}>
                         <Input placeholder={t('proxy.description')} />
                     </Form.Item>
+
+                    {/* Conditions editor */}
+                    <Divider style={{ margin: '8px 0' }}>{t('proxy.conditions')}</Divider>
+                    <Form.List name="conditions">
+                        {(fields, { add, remove }) => (
+                            <>
+                                {fields.map(({ key, name, ...restField }) => {
+                                    const rowType = watchedConditions?.[name]?.type;
+                                    const rowOperator = watchedConditions?.[name]?.operator;
+                                    const isBodyType = rowType === 'body';
+                                    const isExistenceOp = rowOperator === 'exists' || rowOperator === 'not_exists';
+
+                                    // Filter AutoComplete presets based on selected condition type
+                                    const keyOptions = (() => {
+                                        const showHeaders = rowType !== 'query';
+                                        const showQuery = rowType !== 'header';
+                                        const groups: Array<{ label: React.ReactNode; options: Array<{ value: string; label: React.ReactNode }> }> = [];
+                                        if (showHeaders && conditionKeyPresets.headers.length > 0) {
+                                            groups.push({
+                                                label: <span style={{ fontWeight: 600, fontSize: 11, color: '#888' }}>Headers</span>,
+                                                options: conditionKeyPresets.headers.map(h => ({
+                                                    value: h.key,
+                                                    label: (
+                                                        <span>
+                                                            <strong>{h.key}</strong>
+                                                            <span style={{ color: '#888', marginLeft: 6, fontSize: 12 }}>
+                                                                {h.value.length > 30 ? h.value.substring(0, 30) + '...' : h.value}
+                                                            </span>
+                                                        </span>
+                                                    ),
+                                                })),
+                                            });
+                                        }
+                                        if (showQuery && conditionKeyPresets.queryParams.length > 0) {
+                                            groups.push({
+                                                label: <span style={{ fontWeight: 600, fontSize: 11, color: '#888' }}>Query Params</span>,
+                                                options: conditionKeyPresets.queryParams.map(q => ({
+                                                    value: q.key,
+                                                    label: (
+                                                        <span>
+                                                            <strong>{q.key}</strong>
+                                                            <span style={{ color: '#888' }}> = {q.value}</span>
+                                                        </span>
+                                                    ),
+                                                })),
+                                            });
+                                        }
+                                        return groups;
+                                    })();
+
+                                    return (
+                                    <Space key={key} align="baseline" style={{ display: 'flex', marginBottom: 4 }} wrap>
+                                        <Form.Item {...restField} name={[name, 'type']} style={{ marginBottom: 0, width: 100 }}>
+                                            <Select placeholder={t('proxy.condition_type')} size="small"
+                                                onChange={() => {
+                                                    mockForm.setFieldValue(['conditions', name, 'key'], '');
+                                                    mockForm.setFieldValue(['conditions', name, 'value'], '');
+                                                }}
+                                            >
+                                                <Select.Option value="header">{t('proxy.condition_header')}</Select.Option>
+                                                <Select.Option value="query">{t('proxy.condition_query')}</Select.Option>
+                                                <Select.Option value="body">{t('proxy.condition_body')}</Select.Option>
+                                            </Select>
+                                        </Form.Item>
+
+                                        {/* Key field — disabled for body type, AutoComplete with presets filtered by type */}
+                                        <Form.Item {...restField} name={[name, 'key']} style={{ marginBottom: 0, width: 200 }}>
+                                            <AutoComplete
+                                                options={isBodyType ? [] : keyOptions}
+                                                placeholder={isBodyType ? '-' : t('proxy.condition_key')}
+                                                size="small"
+                                                disabled={isBodyType}
+                                                filterOption={(input, option) =>
+                                                    ((option as { value?: string })?.value ?? '').toLowerCase().includes(input.toLowerCase())
+                                                }
+                                                onSelect={(val: string) => {
+                                                    const hint = conditionKeyPresets.headers.find(h => h.key === val)
+                                                        || conditionKeyPresets.queryParams.find(q => q.key === val);
+                                                    if (hint) {
+                                                        mockForm.setFieldValue(['conditions', name, 'value'], hint.value);
+                                                    }
+                                                }}
+                                            />
+                                        </Form.Item>
+
+                                        <Form.Item {...restField} name={[name, 'operator']} style={{ marginBottom: 0, width: 120 }}>
+                                            <Select placeholder={t('proxy.condition_operator')} size="small"
+                                                onChange={(val: string) => {
+                                                    // Clear value when switching to existence operators
+                                                    if (val === 'exists' || val === 'not_exists') {
+                                                        mockForm.setFieldValue(['conditions', name, 'value'], '');
+                                                    }
+                                                }}
+                                            >
+                                                <Select.Option value="equals">{t('proxy.op_equals')}</Select.Option>
+                                                <Select.Option value="contains">{t('proxy.op_contains')}</Select.Option>
+                                                <Select.Option value="regex">{t('proxy.op_regex')}</Select.Option>
+                                                <Select.Option value="exists">{t('proxy.op_exists')}</Select.Option>
+                                                <Select.Option value="not_exists">{t('proxy.op_not_exists')}</Select.Option>
+                                            </Select>
+                                        </Form.Item>
+                                        {/* Value field — hidden for exists/not_exists operators */}
+                                        {!isExistenceOp && (
+                                        <Form.Item {...restField} name={[name, 'value']} style={{ marginBottom: 0, flex: 1, minWidth: 140 }}>
+                                            <Input placeholder={t('proxy.condition_value')} size="small" />
+                                        </Form.Item>
+                                        )}
+                                        <MinusCircleOutlined onClick={() => remove(name)} style={{ color: '#ff4d4f' }} />
+                                    </Space>
+                                    );
+                                })}
+                                <Button type="dashed" onClick={() => add({ type: 'header', key: '', operator: 'equals', value: '' })} icon={<PlusOutlined />} size="small" style={{ marginBottom: 12 }}>
+                                    {t('proxy.add_condition')}
+                                </Button>
+                            </>
+                        )}
+                    </Form.List>
+
                     <Space>
                         <Button type="primary" onClick={handleSaveMockRule}>
                             {editingMockRule ? t('common.save') : t('proxy.add_mock_rule')}

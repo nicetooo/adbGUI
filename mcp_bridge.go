@@ -987,7 +987,7 @@ func (b *MCPBridge) LoadProtoFromURL(rawURL string) ([]string, error) {
 
 // === Mock Rules ===
 
-func (b *MCPBridge) AddMockRule(urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, description string) string {
+func (b *MCPBridge) AddMockRule(urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, description string, conditions []mcp.MCPMockCondition) string {
 	rule := MockRule{
 		URLPattern:  urlPattern,
 		Method:      method,
@@ -996,11 +996,12 @@ func (b *MCPBridge) AddMockRule(urlPattern, method string, statusCode int, heade
 		Body:        body,
 		Delay:       delay,
 		Description: description,
+		Conditions:  fromMCPConditions(conditions),
 	}
 	return b.app.AddMockRule(rule)
 }
 
-func (b *MCPBridge) UpdateMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, enabled bool, description string) error {
+func (b *MCPBridge) UpdateMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, enabled bool, description string, conditions []mcp.MCPMockCondition) error {
 	rule := MockRule{
 		ID:          id,
 		URLPattern:  urlPattern,
@@ -1011,6 +1012,7 @@ func (b *MCPBridge) UpdateMockRule(id, urlPattern, method string, statusCode int
 		Delay:       delay,
 		Enabled:     enabled,
 		Description: description,
+		Conditions:  fromMCPConditions(conditions),
 	}
 	return b.app.UpdateMockRule(rule)
 }
@@ -1033,6 +1035,41 @@ func (b *MCPBridge) GetMockRules() []mcp.MCPMockRule {
 			Delay:       r.Delay,
 			Enabled:     r.Enabled,
 			Description: r.Description,
+			Conditions:  toMCPConditions(r.Conditions),
+		}
+	}
+	return result
+}
+
+// toMCPConditions converts app-level conditions to MCP-level conditions.
+func toMCPConditions(conditions []MockCondition) []mcp.MCPMockCondition {
+	if len(conditions) == 0 {
+		return nil
+	}
+	result := make([]mcp.MCPMockCondition, len(conditions))
+	for i, c := range conditions {
+		result[i] = mcp.MCPMockCondition{
+			Type:     c.Type,
+			Key:      c.Key,
+			Operator: c.Operator,
+			Value:    c.Value,
+		}
+	}
+	return result
+}
+
+// fromMCPConditions converts MCP-level conditions to app-level conditions.
+func fromMCPConditions(conditions []mcp.MCPMockCondition) []MockCondition {
+	if len(conditions) == 0 {
+		return nil
+	}
+	result := make([]MockCondition, len(conditions))
+	for i, c := range conditions {
+		result[i] = MockCondition{
+			Type:     c.Type,
+			Key:      c.Key,
+			Operator: c.Operator,
+			Value:    c.Value,
 		}
 	}
 	return result

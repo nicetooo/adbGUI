@@ -481,13 +481,13 @@ func (m *MockGazeApp) GetProxyStatus() bool {
 
 // === Mock Rules ===
 
-func (m *MockGazeApp) AddMockRule(urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, description string) string {
-	m.recordCall("AddMockRule", urlPattern, method, statusCode, headers, body, delay, description)
+func (m *MockGazeApp) AddMockRule(urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, description string, conditions []MCPMockCondition) string {
+	m.recordCall("AddMockRule", urlPattern, method, statusCode, headers, body, delay, description, conditions)
 	return m.AddMockRuleResult
 }
 
-func (m *MockGazeApp) UpdateMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, enabled bool, description string) error {
-	m.recordCall("UpdateMockRule", id, urlPattern, method, statusCode, headers, body, delay, enabled, description)
+func (m *MockGazeApp) UpdateMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, enabled bool, description string, conditions []MCPMockCondition) error {
+	m.recordCall("UpdateMockRule", id, urlPattern, method, statusCode, headers, body, delay, enabled, description, conditions)
 	return m.UpdateMockRuleError
 }
 

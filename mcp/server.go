@@ -231,8 +231,8 @@ type GazeApp interface {
 	GetProxyStatus() bool
 
 	// Mock Rules
-	AddMockRule(urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, description string) string
-	UpdateMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, enabled bool, description string) error
+	AddMockRule(urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, description string, conditions []MCPMockCondition) string
+	UpdateMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, enabled bool, description string, conditions []MCPMockCondition) error
 	RemoveMockRule(ruleID string)
 	GetMockRules() []MCPMockRule
 	ToggleMockRule(ruleID string, enabled bool) error
@@ -299,17 +299,26 @@ type MCPProtoMapping struct {
 	Description string `json:"description"`
 }
 
+// MCPMockCondition represents a conditional match for mock rules
+type MCPMockCondition struct {
+	Type     string `json:"type"`     // "header", "query", "body"
+	Key      string `json:"key"`      // header name or query param name (unused for body type)
+	Operator string `json:"operator"` // "equals", "contains", "regex", "exists", "not_exists"
+	Value    string `json:"value"`    // expected value (unused for exists/not_exists)
+}
+
 // MCPMockRule represents a mock rule for MCP interface
 type MCPMockRule struct {
-	ID          string            `json:"id"`
-	URLPattern  string            `json:"urlPattern"`
-	Method      string            `json:"method"`
-	StatusCode  int               `json:"statusCode"`
-	Headers     map[string]string `json:"headers"`
-	Body        string            `json:"body"`
-	Delay       int               `json:"delay"`
-	Enabled     bool              `json:"enabled"`
-	Description string            `json:"description"`
+	ID          string             `json:"id"`
+	URLPattern  string             `json:"urlPattern"`
+	Method      string             `json:"method"`
+	StatusCode  int                `json:"statusCode"`
+	Headers     map[string]string  `json:"headers"`
+	Body        string             `json:"body"`
+	Delay       int                `json:"delay"`
+	Enabled     bool               `json:"enabled"`
+	Description string             `json:"description"`
+	Conditions  []MCPMockCondition `json:"conditions,omitempty"`
 }
 
 // MCPServer wraps the MCP server and provides Gaze-specific functionality

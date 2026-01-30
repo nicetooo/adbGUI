@@ -88,6 +88,11 @@ Examples:
 			mcp.WithString("description",
 				mcp.Description("Optional description of what this mock rule does"),
 			),
+			mcp.WithString("conditions_json",
+				mcp.Description(`Optional JSON array of match conditions (AND logic). Each condition:
+  {"type":"header|query|body", "key":"header-name or param-name", "operator":"equals|contains|regex|exists|not_exists", "value":"expected"}
+Example: '[{"type":"header","key":"Authorization","operator":"exists"},{"type":"query","key":"page","operator":"equals","value":"1"}]'`),
+			),
 		),
 		s.handleMockRuleAdd,
 	)
@@ -125,6 +130,9 @@ Examples:
 			),
 			mcp.WithString("description",
 				mcp.Description("Optional description"),
+			),
+			mcp.WithString("conditions_json",
+				mcp.Description(`Optional JSON array of match conditions (AND logic). Same format as mock_rule_add.`),
 			),
 		),
 		s.handleMockRuleUpdate,
@@ -282,7 +290,14 @@ func (s *MCPServer) handleMockRuleAdd(ctx context.Context, request mcp.CallToolR
 		}
 	}
 
-	id := s.app.AddMockRule(urlPattern, method, statusCode, headers, body, delay, description)
+	var conditions []MCPMockCondition
+	if cj, ok := args["conditions_json"].(string); ok && cj != "" {
+		if err := json.Unmarshal([]byte(cj), &conditions); err != nil {
+			return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error parsing conditions_json: %v", err))}, IsError: true}, nil
+		}
+	}
+
+	id := s.app.AddMockRule(urlPattern, method, statusCode, headers, body, delay, description, conditions)
 
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Mock rule added successfully.\nID: %s\nPattern: %s\nStatus: %d", id, urlPattern, statusCode))},
@@ -324,7 +339,14 @@ func (s *MCPServer) handleMockRuleUpdate(ctx context.Context, request mcp.CallTo
 		}
 	}
 
-	if err := s.app.UpdateMockRule(id, urlPattern, method, statusCode, headers, body, delay, enabled, description); err != nil {
+	var conditions []MCPMockCondition
+	if cj, ok := args["conditions_json"].(string); ok && cj != "" {
+		if err := json.Unmarshal([]byte(cj), &conditions); err != nil {
+			return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error parsing conditions_json: %v", err))}, IsError: true}, nil
+		}
+	}
+
+	if err := s.app.UpdateMockRule(id, urlPattern, method, statusCode, headers, body, delay, enabled, description, conditions); err != nil {
 		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error: %v", err))}, IsError: true}, nil
 	}
 

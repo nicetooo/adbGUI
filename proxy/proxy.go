@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -31,6 +32,15 @@ func copyHeader(h http.Header) http.Header {
 	return h2
 }
 
+// MockCondition defines an additional match condition for mock rules.
+// All conditions must match (AND logic) for a rule to apply.
+type MockCondition struct {
+	Type     string `json:"type"`     // "header", "query", "body"
+	Key      string `json:"key"`      // header name or query param name (unused for body type)
+	Operator string `json:"operator"` // "equals", "contains", "regex", "exists", "not_exists"
+	Value    string `json:"value"`    // expected value (unused for exists/not_exists)
+}
+
 // MockRule defines a rule for mocking HTTP responses
 type MockRule struct {
 	ID         string
@@ -40,6 +50,7 @@ type MockRule struct {
 	Headers    map[string]string
 	Body       string
 	Delay      int
+	Conditions []MockCondition // Additional match conditions (AND logic)
 }
 
 // ProxyServer handles the HTTP/HTTPS logic using goproxy
@@ -91,10 +102,10 @@ func (p *ProxyServer) SetLatency(latencyMs int) {
 }
 
 // AddMockRule adds a mock response rule
-func (p *ProxyServer) AddMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body string, delay int) {
+func (p *ProxyServer) AddMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, conditions []MockCondition) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	fmt.Fprintf(os.Stderr, "[MOCK DEBUG] AddMockRule: id=%s pattern=%s method=%s status=%d\n", id, urlPattern, method, statusCode)
+	fmt.Fprintf(os.Stderr, "[MOCK DEBUG] AddMockRule: id=%s pattern=%s method=%s status=%d conditions=%d\n", id, urlPattern, method, statusCode, len(conditions))
 	if p.mockRules == nil {
 		p.mockRules = make(map[string]*MockRule)
 	}
@@ -106,6 +117,7 @@ func (p *ProxyServer) AddMockRule(id, urlPattern, method string, statusCode int,
 		Headers:    headers,
 		Body:       body,
 		Delay:      delay,
+		Conditions: conditions,
 	}
 }
 
@@ -118,29 +130,120 @@ func (p *ProxyServer) RemoveMockRule(id string) {
 	}
 }
 
-// matchMockRule checks if a request matches any mock rule and returns it
-func (p *ProxyServer) matchMockRule(method, url string) *MockRule {
+// matchMockRule checks if a request matches any mock rule and returns it.
+// It accepts the full http.Request to evaluate header, query, and body conditions.
+// bodyBytes is the pre-read request body (may be nil if no rules need body matching).
+func (p *ProxyServer) matchMockRule(r *http.Request, bodyBytes []byte) *MockRule {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	method := r.Method
+	url := r.URL.String()
 
 	fmt.Fprintf(os.Stderr, "[MOCK DEBUG] Checking %s %s against %d rules\n", method, url, len(p.mockRules))
 
 	for id, rule := range p.mockRules {
-		fmt.Fprintf(os.Stderr, "[MOCK DEBUG]   Rule %s: method=%s pattern=%s\n", id, rule.Method, rule.URLPattern)
+		fmt.Fprintf(os.Stderr, "[MOCK DEBUG]   Rule %s: method=%s pattern=%s conditions=%d\n", id, rule.Method, rule.URLPattern, len(rule.Conditions))
 		// Check method (empty means match all)
 		if rule.Method != "" && rule.Method != method {
-			fmt.Fprintf(os.Stderr, "[MOCK DEBUG]     Method mismatch: %s != %s\n", rule.Method, method)
 			continue
 		}
 
 		// Check URL pattern (supports * wildcard)
-		matched := MatchPattern(url, rule.URLPattern)
-		fmt.Fprintf(os.Stderr, "[MOCK DEBUG]     Pattern match: %v\n", matched)
-		if matched {
-			return rule
+		if !MatchPattern(url, rule.URLPattern) {
+			continue
 		}
+
+		// Check additional conditions (AND logic)
+		if len(rule.Conditions) > 0 && !evaluateConditions(rule.Conditions, r, bodyBytes) {
+			fmt.Fprintf(os.Stderr, "[MOCK DEBUG]     Conditions not met\n")
+			continue
+		}
+
+		fmt.Fprintf(os.Stderr, "[MOCK DEBUG]     MATCHED\n")
+		return rule
 	}
 	return nil
+}
+
+// hasBodyConditions checks if any registered mock rule has body-type conditions.
+func (p *ProxyServer) hasBodyConditions() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, rule := range p.mockRules {
+		for _, c := range rule.Conditions {
+			if c.Type == "body" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// evaluateConditions checks all conditions against the request (AND logic).
+func evaluateConditions(conditions []MockCondition, r *http.Request, bodyBytes []byte) bool {
+	for _, cond := range conditions {
+		if !evaluateCondition(cond, r, bodyBytes) {
+			return false
+		}
+	}
+	return true
+}
+
+// evaluateCondition checks a single condition against the request.
+func evaluateCondition(cond MockCondition, r *http.Request, bodyBytes []byte) bool {
+	switch cond.Type {
+	case "header":
+		return evaluateHeaderCondition(cond, r.Header)
+	case "query":
+		return evaluateQueryCondition(cond, r.URL.Query())
+	case "body":
+		return evaluateBodyCondition(cond, bodyBytes)
+	default:
+		return true // unknown condition type → pass
+	}
+}
+
+func evaluateHeaderCondition(cond MockCondition, headers http.Header) bool {
+	value := headers.Get(cond.Key)
+	exists := value != "" || headers[http.CanonicalHeaderKey(cond.Key)] != nil
+	return matchOperator(cond.Operator, value, cond.Value, exists)
+}
+
+func evaluateQueryCondition(cond MockCondition, query map[string][]string) bool {
+	values, exists := query[cond.Key]
+	value := ""
+	if len(values) > 0 {
+		value = values[0]
+	}
+	return matchOperator(cond.Operator, value, cond.Value, exists)
+}
+
+func evaluateBodyCondition(cond MockCondition, bodyBytes []byte) bool {
+	body := string(bodyBytes)
+	return matchOperator(cond.Operator, body, cond.Value, len(bodyBytes) > 0)
+}
+
+// matchOperator applies an operator to compare actual vs expected values.
+func matchOperator(operator, actual, expected string, exists bool) bool {
+	switch operator {
+	case "equals":
+		return actual == expected
+	case "contains":
+		return strings.Contains(actual, expected)
+	case "regex":
+		re, err := regexp.Compile(expected)
+		if err != nil {
+			return false
+		}
+		return re.MatchString(actual)
+	case "exists":
+		return exists
+	case "not_exists":
+		return !exists
+	default:
+		return actual == expected // default to equals
+	}
 }
 
 // MatchPattern checks if a URL matches a pattern with * wildcards
@@ -383,8 +486,15 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 			}
 		}
 
+		// Read request body for condition matching (only if needed)
+		var mockBodyBytes []byte
+		if p.hasBodyConditions() && r.Body != nil && r.Body != http.NoBody {
+			mockBodyBytes, _ = io.ReadAll(r.Body)
+			r.Body = io.NopCloser(bytes.NewReader(mockBodyBytes)) // reset for upstream
+		}
+
 		// Check for mock rules
-		if mockRule := p.matchMockRule(r.Method, r.URL.String()); mockRule != nil {
+		if mockRule := p.matchMockRule(r, mockBodyBytes); mockRule != nil {
 			fmt.Fprintf(os.Stderr, "[MOCK DEBUG] >>> RETURNING MOCK RESPONSE for %s %s (Rule: %s, Status: %d)\n", r.Method, r.URL.String(), mockRule.ID, mockRule.StatusCode)
 			p.debugLog("  -> MOCK RESPONSE (Rule: %s)", mockRule.ID)
 
