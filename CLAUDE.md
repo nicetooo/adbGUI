@@ -208,22 +208,58 @@ go test ./...
 
 #### 开发测试流程
 
+**第 1 步：启动开发服务器**
+
+使用 Bash 工具在后台启动 Wails 开发服务器：
+
+```bash
+# 在项目根目录执行，使用 & 后台运行，避免阻塞终端
+wails dev &
 ```
-1. 启动开发服务器
-   $ wails dev
-   → 后端 Go 服务启动
-   → 前端 Vite dev server 启动在 http://localhost:34115
 
-2. 用 Playwright 打开浏览器验证
-   → browser_navigate 到 http://localhost:34115
-   → browser_snapshot 查看页面结构
-   → browser_take_screenshot 截图查看视觉效果
-   → browser_click / browser_type 等操作交互测试
+启动后会同时运行：
+- Go 后端服务（Wails 运行时、API、代理等）
+- 前端 Vite dev server，监听在 **http://localhost:34115**
 
-3. 修改代码（Vite HMR 自动热更新）
+> **注意**: 首次启动需要等待 Go 编译和 Vite 构建完成，可能需要 10-30 秒。
+> 如果端口 34115 被占用，检查是否已有 `wails dev` 进程在运行。
 
-4. 再次用 Playwright 验证修改效果
-   → 重复 snapshot/screenshot 确认
+**第 2 步：用 Playwright 打开浏览器**
+
+使用 Playwright `browser_navigate` 工具打开应用页面：
+
+```
+→ browser_navigate 到 http://localhost:34115
+```
+
+页面加载后，立即用 snapshot 或 screenshot 确认页面状态：
+
+```
+→ browser_snapshot    （查看页面完整 DOM 结构，推荐首选）
+→ browser_take_screenshot  （查看视觉渲染效果）
+```
+
+**第 3 步：修改代码**
+
+修改前端代码后，Vite HMR 会自动热更新，无需刷新页面。
+修改 Go 后端代码后，Wails 会自动重新编译并重启。
+
+**第 4 步：再次用 Playwright 验证修改效果**
+
+```
+→ browser_snapshot / browser_take_screenshot 确认改动生效且无异常
+→ browser_console_messages (level: "error") 检查是否有新增报错
+```
+
+**完整操作序列示例**:
+```
+1. Bash: wails dev &                           ← 启动开发服务器
+2. 等待启动完成（约 10-30 秒）
+3. browser_navigate: http://localhost:34115     ← 打开应用
+4. browser_snapshot                             ← 查看当前状态
+5. 用 Edit 工具修改代码                          ← HMR 自动生效
+6. browser_snapshot                             ← 验证修改结果
+7. browser_console_messages (level: "error")    ← 检查报错
 ```
 
 #### Playwright 常用验证操作
