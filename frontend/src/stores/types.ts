@@ -57,6 +57,7 @@ export const VIEW_KEYS = {
   INSPECTOR: '10' as ViewKey,
   EVENTS: '11' as ViewKey,
   SESSIONS: '12' as ViewKey,
+  PERFORMANCE: '13' as ViewKey,
 } as const;
 
 export const VIEW_NAME_MAP: Record<string, ViewKey> = {
@@ -72,6 +73,7 @@ export const VIEW_NAME_MAP: Record<string, ViewKey> = {
   inspector: VIEW_KEYS.INSPECTOR,
   events: VIEW_KEYS.EVENTS,
   sessions: VIEW_KEYS.SESSIONS,
+  performance: VIEW_KEYS.PERFORMANCE,
 };
 
 // Batch operation types

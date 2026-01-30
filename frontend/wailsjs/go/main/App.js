@@ -254,6 +254,18 @@ export function GetMockRules() {
   return window['go']['main']['App']['GetMockRules']();
 }
 
+export function GetPerfMonitorConfig(arg1) {
+  return window['go']['main']['App']['GetPerfMonitorConfig'](arg1);
+}
+
+export function GetPerfSnapshot(arg1, arg2) {
+  return window['go']['main']['App']['GetPerfSnapshot'](arg1, arg2);
+}
+
+export function GetProcessDetail(arg1, arg2) {
+  return window['go']['main']['App']['GetProcessDetail'](arg1, arg2);
+}
+
 export function GetProxyDevice() {
   return window['go']['main']['App']['GetProxyDevice']();
 }
@@ -424,6 +436,10 @@ export function IsAppRunning(arg1, arg2) {
 
 export function IsMCPMode() {
   return window['go']['main']['App']['IsMCPMode']();
+}
+
+export function IsPerfMonitorRunning(arg1) {
+  return window['go']['main']['App']['IsPerfMonitorRunning'](arg1);
 }
 
 export function IsPlayingTouch(arg1) {
@@ -770,6 +786,10 @@ export function StartNewSession(arg1, arg2, arg3) {
   return window['go']['main']['App']['StartNewSession'](arg1, arg2, arg3);
 }
 
+export function StartPerfMonitor(arg1, arg2) {
+  return window['go']['main']['App']['StartPerfMonitor'](arg1, arg2);
+}
+
 export function StartProxy(arg1) {
   return window['go']['main']['App']['StartProxy'](arg1);
 }
@@ -806,6 +826,10 @@ export function StopAllNetworkMonitors() {
   return window['go']['main']['App']['StopAllNetworkMonitors']();
 }
 
+export function StopAllPerfMonitors() {
+  return window['go']['main']['App']['StopAllPerfMonitors']();
+}
+
 export function StopDeviceMonitor() {
   return window['go']['main']['App']['StopDeviceMonitor']();
 }
@@ -820,6 +844,10 @@ export function StopLogcat() {
 
 export function StopNetworkMonitor(arg1) {
   return window['go']['main']['App']['StopNetworkMonitor'](arg1);
+}
+
+export function StopPerfMonitor(arg1) {
+  return window['go']['main']['App']['StopPerfMonitor'](arg1);
 }
 
 export function StopProxy() {

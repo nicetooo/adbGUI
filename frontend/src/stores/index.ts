@@ -53,6 +53,10 @@ export { useBatchOperationStore } from './batchOperationStore';
 // Assertions Panel Store
 export { useAssertionsPanelStore } from './assertionsPanelStore';
 
+// Performance Monitor Store
+export { usePerfStore } from './perfStore';
+export type { PerfSampleData, PerfMonitorConfig, PerfHistoryEntry } from './perfStore';
+
 // Automation View Store
 export { useAutomationViewStore } from './automationViewStore';
 

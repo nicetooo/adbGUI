@@ -132,6 +132,12 @@ export function GetMITMBypassPatterns():Promise<Array<string>>;
 
 export function GetMockRules():Promise<Array<main.MockRule>>;
 
+export function GetPerfMonitorConfig(arg1:string):Promise<main.PerfMonitorConfig>;
+
+export function GetPerfSnapshot(arg1:string,arg2:string):Promise<main.PerfSampleData>;
+
+export function GetProcessDetail(arg1:string,arg2:number):Promise<main.ProcessDetail>;
+
 export function GetProxyDevice():Promise<string>;
 
 export function GetProxySettings():Promise<Record<string, any>>;
@@ -217,6 +223,8 @@ export function IsADBKeyboardInstalled(arg1:string):Promise<boolean>;
 export function IsAppRunning(arg1:string,arg2:string):Promise<boolean>;
 
 export function IsMCPMode():Promise<boolean>;
+
+export function IsPerfMonitorRunning(arg1:string):Promise<boolean>;
 
 export function IsPlayingTouch(arg1:string):Promise<boolean>;
 
@@ -390,6 +398,8 @@ export function StartNetworkMonitor(arg1:string):Promise<void>;
 
 export function StartNewSession(arg1:string,arg2:string,arg3:string):Promise<string>;
 
+export function StartPerfMonitor(arg1:string,arg2:main.PerfMonitorConfig):Promise<string>;
+
 export function StartProxy(arg1:number):Promise<string>;
 
 export function StartRecording(arg1:string,arg2:main.ScrcpyConfig):Promise<void>;
@@ -408,6 +418,8 @@ export function StopAllDeviceStateMonitors():Promise<void>;
 
 export function StopAllNetworkMonitors():Promise<void>;
 
+export function StopAllPerfMonitors():Promise<void>;
+
 export function StopDeviceMonitor():Promise<void>;
 
 export function StopDeviceStateMonitor(arg1:string):Promise<void>;
@@ -415,6 +427,8 @@ export function StopDeviceStateMonitor(arg1:string):Promise<void>;
 export function StopLogcat():Promise<void>;
 
 export function StopNetworkMonitor(arg1:string):Promise<void>;
+
+export function StopPerfMonitor(arg1:string):Promise<string>;
 
 export function StopProxy():Promise<string>;
 

@@ -949,6 +949,241 @@ export namespace main {
 	    }
 	}
 	
+	export class PerfMonitorConfig {
+	    packageName?: string;
+	    intervalMs: number;
+	    enableCPU: boolean;
+	    enableMemory: boolean;
+	    enableFPS: boolean;
+	    enableNetwork: boolean;
+	    enableBattery: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new PerfMonitorConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.packageName = source["packageName"];
+	        this.intervalMs = source["intervalMs"];
+	        this.enableCPU = source["enableCPU"];
+	        this.enableMemory = source["enableMemory"];
+	        this.enableFPS = source["enableFPS"];
+	        this.enableNetwork = source["enableNetwork"];
+	        this.enableBattery = source["enableBattery"];
+	    }
+	}
+	export class ProcessPerfData {
+	    pid: number;
+	    name: string;
+	    cpu: number;
+	    memoryKB: number;
+	    user: number;
+	    kernel: number;
+	    linuxUser: string;
+	    ppid: number;
+	    vszKB: number;
+	    state: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProcessPerfData(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.pid = source["pid"];
+	        this.name = source["name"];
+	        this.cpu = source["cpu"];
+	        this.memoryKB = source["memoryKB"];
+	        this.user = source["user"];
+	        this.kernel = source["kernel"];
+	        this.linuxUser = source["linuxUser"];
+	        this.ppid = source["ppid"];
+	        this.vszKB = source["vszKB"];
+	        this.state = source["state"];
+	    }
+	}
+	export class PerfSampleData {
+	    cpuUsage: number;
+	    cpuApp: number;
+	    cpuCores: number;
+	    cpuFreqMHz: number;
+	    cpuTempC: number;
+	    memTotalMB: number;
+	    memUsedMB: number;
+	    memFreeMB: number;
+	    memUsage: number;
+	    memAppMB: number;
+	    fps: number;
+	    jankCount: number;
+	    netRxKBps: number;
+	    netTxKBps: number;
+	    netRxTotalMB: number;
+	    netTxTotalMB: number;
+	    batteryLevel: number;
+	    batteryTemp: number;
+	    packageName?: string;
+	    processes?: ProcessPerfData[];
+	
+	    static createFrom(source: any = {}) {
+	        return new PerfSampleData(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.cpuUsage = source["cpuUsage"];
+	        this.cpuApp = source["cpuApp"];
+	        this.cpuCores = source["cpuCores"];
+	        this.cpuFreqMHz = source["cpuFreqMHz"];
+	        this.cpuTempC = source["cpuTempC"];
+	        this.memTotalMB = source["memTotalMB"];
+	        this.memUsedMB = source["memUsedMB"];
+	        this.memFreeMB = source["memFreeMB"];
+	        this.memUsage = source["memUsage"];
+	        this.memAppMB = source["memAppMB"];
+	        this.fps = source["fps"];
+	        this.jankCount = source["jankCount"];
+	        this.netRxKBps = source["netRxKBps"];
+	        this.netTxKBps = source["netTxKBps"];
+	        this.netRxTotalMB = source["netRxTotalMB"];
+	        this.netTxTotalMB = source["netTxTotalMB"];
+	        this.batteryLevel = source["batteryLevel"];
+	        this.batteryTemp = source["batteryTemp"];
+	        this.packageName = source["packageName"];
+	        this.processes = this.convertValues(source["processes"], ProcessPerfData);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ProcessObjects {
+	    views: number;
+	    viewRootImpl: number;
+	    appContexts: number;
+	    activities: number;
+	    assets: number;
+	    assetManagers: number;
+	    localBinders: number;
+	    proxyBinders: number;
+	    deathRecipients: number;
+	    webViews: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProcessObjects(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.views = source["views"];
+	        this.viewRootImpl = source["viewRootImpl"];
+	        this.appContexts = source["appContexts"];
+	        this.activities = source["activities"];
+	        this.assets = source["assets"];
+	        this.assetManagers = source["assetManagers"];
+	        this.localBinders = source["localBinders"];
+	        this.proxyBinders = source["proxyBinders"];
+	        this.deathRecipients = source["deathRecipients"];
+	        this.webViews = source["webViews"];
+	    }
+	}
+	export class ProcessMemoryCategory {
+	    name: string;
+	    pssKB: number;
+	    rssKB: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProcessMemoryCategory(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.pssKB = source["pssKB"];
+	        this.rssKB = source["rssKB"];
+	    }
+	}
+	export class ProcessDetail {
+	    pid: number;
+	    packageName: string;
+	    totalPssKB: number;
+	    totalRssKB: number;
+	    swapPssKB: number;
+	    memory: ProcessMemoryCategory[];
+	    javaHeapSizeKB: number;
+	    javaHeapAllocKB: number;
+	    javaHeapFreeKB: number;
+	    nativeHeapSizeKB: number;
+	    nativeHeapAllocKB: number;
+	    nativeHeapFreeKB: number;
+	    objects: ProcessObjects;
+	    threads: number;
+	    fdSize: number;
+	    vmSwapKB: number;
+	    oomScoreAdj: number;
+	    uid: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProcessDetail(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.pid = source["pid"];
+	        this.packageName = source["packageName"];
+	        this.totalPssKB = source["totalPssKB"];
+	        this.totalRssKB = source["totalRssKB"];
+	        this.swapPssKB = source["swapPssKB"];
+	        this.memory = this.convertValues(source["memory"], ProcessMemoryCategory);
+	        this.javaHeapSizeKB = source["javaHeapSizeKB"];
+	        this.javaHeapAllocKB = source["javaHeapAllocKB"];
+	        this.javaHeapFreeKB = source["javaHeapFreeKB"];
+	        this.nativeHeapSizeKB = source["nativeHeapSizeKB"];
+	        this.nativeHeapAllocKB = source["nativeHeapAllocKB"];
+	        this.nativeHeapFreeKB = source["nativeHeapFreeKB"];
+	        this.objects = this.convertValues(source["objects"], ProcessObjects);
+	        this.threads = source["threads"];
+	        this.fdSize = source["fdSize"];
+	        this.vmSwapKB = source["vmSwapKB"];
+	        this.oomScoreAdj = source["oomScoreAdj"];
+	        this.uid = source["uid"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	
+	
 	
 	
 	export class ScrcpyConfig {

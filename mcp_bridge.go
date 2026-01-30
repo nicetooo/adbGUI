@@ -811,6 +811,117 @@ func (b *MCPBridge) ImportSessionFromPath(inputPath string) (string, error) {
 	return b.app.ImportSessionFromPath(inputPath)
 }
 
+// Performance Monitoring bridge methods
+
+func (b *MCPBridge) StartPerfMonitor(deviceId string, config mcp.PerfMonitorConfig) string {
+	return b.app.StartPerfMonitor(deviceId, PerfMonitorConfig{
+		PackageName:   config.PackageName,
+		IntervalMs:    config.IntervalMs,
+		EnableCPU:     config.EnableCPU,
+		EnableMemory:  config.EnableMemory,
+		EnableFPS:     config.EnableFPS,
+		EnableNetwork: config.EnableNetwork,
+		EnableBattery: config.EnableBattery,
+	})
+}
+
+func (b *MCPBridge) StopPerfMonitor(deviceId string) string {
+	return b.app.StopPerfMonitor(deviceId)
+}
+
+func (b *MCPBridge) IsPerfMonitorRunning(deviceId string) bool {
+	return b.app.IsPerfMonitorRunning(deviceId)
+}
+
+func (b *MCPBridge) GetPerfSnapshot(deviceId string, packageName string) (*mcp.PerfSampleData, error) {
+	sample, err := b.app.GetPerfSnapshot(deviceId, packageName)
+	if err != nil {
+		return nil, err
+	}
+	result := &mcp.PerfSampleData{
+		CPUUsage:     sample.CPUUsage,
+		CPUApp:       sample.CPUApp,
+		CPUCores:     sample.CPUCores,
+		CPUFreqMHz:   sample.CPUFreqMHz,
+		CPUTempC:     sample.CPUTempC,
+		MemTotalMB:   sample.MemTotalMB,
+		MemUsedMB:    sample.MemUsedMB,
+		MemFreeMB:    sample.MemFreeMB,
+		MemUsage:     sample.MemUsage,
+		MemAppMB:     sample.MemAppMB,
+		FPS:          sample.FPS,
+		JankCount:    sample.JankCount,
+		NetRxKBps:    sample.NetRxKBps,
+		NetTxKBps:    sample.NetTxKBps,
+		NetRxTotalMB: sample.NetRxTotalMB,
+		NetTxTotalMB: sample.NetTxTotalMB,
+		BatteryLevel: sample.BatteryLevel,
+		BatteryTemp:  sample.BatteryTemp,
+		PackageName:  sample.PackageName,
+	}
+	// Convert process list
+	for _, p := range sample.Processes {
+		result.Processes = append(result.Processes, mcp.ProcessPerfData{
+			PID:       p.PID,
+			Name:      p.Name,
+			CPU:       p.CPU,
+			MemoryKB:  p.MemoryKB,
+			User:      p.User,
+			Kernel:    p.Kernel,
+			LinuxUser: p.LinuxUser,
+			PPID:      p.PPID,
+			VSZKB:     p.VSZKB,
+			State:     p.State,
+		})
+	}
+	return result, nil
+}
+
+func (b *MCPBridge) GetProcessDetail(deviceId string, pid int) (*mcp.ProcessDetail, error) {
+	detail, err := b.app.GetProcessDetail(deviceId, pid)
+	if err != nil {
+		return nil, err
+	}
+	result := &mcp.ProcessDetail{
+		PID:               detail.PID,
+		PackageName:       detail.PackageName,
+		TotalPSSKB:        detail.TotalPSSKB,
+		TotalRSSKB:        detail.TotalRSSKB,
+		SwapPSSKB:         detail.SwapPSSKB,
+		JavaHeapSizeKB:    detail.JavaHeapSizeKB,
+		JavaHeapAllocKB:   detail.JavaHeapAllocKB,
+		JavaHeapFreeKB:    detail.JavaHeapFreeKB,
+		NativeHeapSizeKB:  detail.NativeHeapSizeKB,
+		NativeHeapAllocKB: detail.NativeHeapAllocKB,
+		NativeHeapFreeKB:  detail.NativeHeapFreeKB,
+		Threads:           detail.Threads,
+		FDSize:            detail.FDSize,
+		VmSwapKB:          detail.VmSwapKB,
+		OomScoreAdj:       detail.OomScoreAdj,
+		UID:               detail.UID,
+		Objects: mcp.ProcessObjects{
+			Views:           detail.Objects.Views,
+			ViewRootImpl:    detail.Objects.ViewRootImpl,
+			AppContexts:     detail.Objects.AppContexts,
+			Activities:      detail.Objects.Activities,
+			Assets:          detail.Objects.Assets,
+			AssetManagers:   detail.Objects.AssetManagers,
+			LocalBinders:    detail.Objects.LocalBinders,
+			ProxyBinders:    detail.Objects.ProxyBinders,
+			DeathRecipients: detail.Objects.DeathRecipients,
+			WebViews:        detail.Objects.WebViews,
+		},
+	}
+	for _, m := range detail.Memory {
+		result.Memory = append(result.Memory, mcp.ProcessMemoryCategory{
+			Name:  m.Name,
+			PssKB: m.PssKB,
+			RssKB: m.RssKB,
+		})
+	}
+	return result, nil
+}
+
 // StartMCPServer starts the MCP server with the given app
 func StartMCPServer(app *App) {
 	bridge := NewMCPBridge(app)

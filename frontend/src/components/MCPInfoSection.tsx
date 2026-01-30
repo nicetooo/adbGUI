@@ -14,6 +14,7 @@ import {
   VideoCameraOutlined,
   CheckOutlined,
   CodeOutlined,
+  LineChartOutlined,
 } from "@ant-design/icons";
 
 const { Text, Paragraph } = Typography;
@@ -85,6 +86,12 @@ const TOOL_CATEGORIES = [
     icon: <VideoCameraOutlined />,
     color: "#f5222d",
     tools: ["video_frame", "video_metadata", "session_video_frame", "session_video_info"],
+  },
+  {
+    key: "perf",
+    icon: <LineChartOutlined />,
+    color: "#2f54eb",
+    tools: ["perf_start", "perf_stop", "perf_snapshot", "perf_process_detail"],
   },
 ];
 

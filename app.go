@@ -672,6 +672,7 @@ func (a *App) EndActiveSession(sessionID, status string) {
 			a.StopLogcat()
 			a.stopAllTouchRecordings()
 			a.StopAllDeviceStateMonitors()
+			a.StopAllPerfMonitors()
 			a.StopAllNetworkMonitors()
 		}
 		if session.Config.Recording.Enabled {

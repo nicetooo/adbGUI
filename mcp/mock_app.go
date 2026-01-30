@@ -521,6 +521,52 @@ func (m *MockGazeApp) ImportSessionFromPath(inputPath string) (string, error) {
 	return m.ImportSessionFromPathResult, m.ImportSessionFromPathError
 }
 
+// === Performance Monitoring ===
+
+func (m *MockGazeApp) StartPerfMonitor(deviceId string, config PerfMonitorConfig) string {
+	m.recordCall("StartPerfMonitor", deviceId, config)
+	return "started"
+}
+
+func (m *MockGazeApp) StopPerfMonitor(deviceId string) string {
+	m.recordCall("StopPerfMonitor", deviceId)
+	return "stopped"
+}
+
+func (m *MockGazeApp) IsPerfMonitorRunning(deviceId string) bool {
+	m.recordCall("IsPerfMonitorRunning", deviceId)
+	return false
+}
+
+func (m *MockGazeApp) GetPerfSnapshot(deviceId string, packageName string) (*PerfSampleData, error) {
+	m.recordCall("GetPerfSnapshot", deviceId, packageName)
+	return &PerfSampleData{
+		CPUUsage:     25.5,
+		MemTotalMB:   8192,
+		MemUsedMB:    4096,
+		MemUsage:     50.0,
+		FPS:          60.0,
+		BatteryLevel: 85,
+	}, nil
+}
+
+func (m *MockGazeApp) GetProcessDetail(deviceId string, pid int) (*ProcessDetail, error) {
+	m.recordCall("GetProcessDetail", deviceId, pid)
+	return &ProcessDetail{
+		PID:         pid,
+		PackageName: "com.example.app",
+		TotalPSSKB:  431653,
+		TotalRSSKB:  585360,
+		Memory: []ProcessMemoryCategory{
+			{Name: "Java Heap", PssKB: 21028, RssKB: 33280},
+			{Name: "Native Heap", PssKB: 43224, RssKB: 44452},
+			{Name: "Graphics", PssKB: 225272, RssKB: 225272},
+		},
+		Objects: ProcessObjects{Views: 10, Activities: 1},
+		Threads: 75,
+	}, nil
+}
+
 // === Utility ===
 
 func (m *MockGazeApp) GetAppVersion() string {

@@ -51,6 +51,98 @@ type (
 	WorkflowExecutionResult = types.WorkflowExecutionResult
 )
 
+// PerfMonitorConfig is the performance monitor configuration for MCP interface
+type PerfMonitorConfig struct {
+	PackageName   string `json:"packageName,omitempty"`
+	IntervalMs    int    `json:"intervalMs"`
+	EnableCPU     bool   `json:"enableCPU"`
+	EnableMemory  bool   `json:"enableMemory"`
+	EnableFPS     bool   `json:"enableFPS"`
+	EnableNetwork bool   `json:"enableNetwork"`
+	EnableBattery bool   `json:"enableBattery"`
+}
+
+// ProcessPerfData represents a single process performance entry for MCP interface
+type ProcessPerfData struct {
+	PID       int     `json:"pid"`
+	Name      string  `json:"name"`
+	CPU       float64 `json:"cpu"`
+	MemoryKB  int     `json:"memoryKB"`
+	User      float64 `json:"user"`
+	Kernel    float64 `json:"kernel"`
+	LinuxUser string  `json:"linuxUser"`
+	PPID      int     `json:"ppid"`
+	VSZKB     int     `json:"vszKB"`
+	State     string  `json:"state"`
+}
+
+// ProcessMemoryCategory represents a memory category from dumpsys meminfo App Summary
+type ProcessMemoryCategory struct {
+	Name  string `json:"name"`
+	PssKB int    `json:"pssKB"`
+	RssKB int    `json:"rssKB"`
+}
+
+// ProcessObjects represents Android object counts from dumpsys meminfo
+type ProcessObjects struct {
+	Views           int `json:"views"`
+	ViewRootImpl    int `json:"viewRootImpl"`
+	AppContexts     int `json:"appContexts"`
+	Activities      int `json:"activities"`
+	Assets          int `json:"assets"`
+	AssetManagers   int `json:"assetManagers"`
+	LocalBinders    int `json:"localBinders"`
+	ProxyBinders    int `json:"proxyBinders"`
+	DeathRecipients int `json:"deathRecipients"`
+	WebViews        int `json:"webViews"`
+}
+
+// ProcessDetail represents detailed process info for MCP interface
+type ProcessDetail struct {
+	PID               int                     `json:"pid"`
+	PackageName       string                  `json:"packageName"`
+	TotalPSSKB        int                     `json:"totalPssKB"`
+	TotalRSSKB        int                     `json:"totalRssKB"`
+	SwapPSSKB         int                     `json:"swapPssKB"`
+	Memory            []ProcessMemoryCategory `json:"memory"`
+	JavaHeapSizeKB    int                     `json:"javaHeapSizeKB"`
+	JavaHeapAllocKB   int                     `json:"javaHeapAllocKB"`
+	JavaHeapFreeKB    int                     `json:"javaHeapFreeKB"`
+	NativeHeapSizeKB  int                     `json:"nativeHeapSizeKB"`
+	NativeHeapAllocKB int                     `json:"nativeHeapAllocKB"`
+	NativeHeapFreeKB  int                     `json:"nativeHeapFreeKB"`
+	Objects           ProcessObjects          `json:"objects"`
+	Threads           int                     `json:"threads"`
+	FDSize            int                     `json:"fdSize"`
+	VmSwapKB          int                     `json:"vmSwapKB"`
+	OomScoreAdj       int                     `json:"oomScoreAdj"`
+	UID               int                     `json:"uid"`
+}
+
+// PerfSampleData is a performance sample snapshot for MCP interface
+type PerfSampleData struct {
+	CPUUsage     float64           `json:"cpuUsage"`
+	CPUApp       float64           `json:"cpuApp"`
+	CPUCores     int               `json:"cpuCores"`
+	CPUFreqMHz   int               `json:"cpuFreqMHz"`
+	CPUTempC     float64           `json:"cpuTempC"`
+	MemTotalMB   int               `json:"memTotalMB"`
+	MemUsedMB    int               `json:"memUsedMB"`
+	MemFreeMB    int               `json:"memFreeMB"`
+	MemUsage     float64           `json:"memUsage"`
+	MemAppMB     int               `json:"memAppMB"`
+	FPS          float64           `json:"fps"`
+	JankCount    int               `json:"jankCount"`
+	NetRxKBps    float64           `json:"netRxKBps"`
+	NetTxKBps    float64           `json:"netTxKBps"`
+	NetRxTotalMB float64           `json:"netRxTotalMB"`
+	NetTxTotalMB float64           `json:"netTxTotalMB"`
+	BatteryLevel int               `json:"batteryLevel"`
+	BatteryTemp  float64           `json:"batteryTemp"`
+	PackageName  string            `json:"packageName,omitempty"`
+	Processes    []ProcessPerfData `json:"processes,omitempty"`
+}
+
 // MCPSessionConfig is a simplified session config for MCP interface
 // This avoids coupling with internal event_types.go definitions
 type MCPSessionConfig struct {
@@ -159,6 +251,13 @@ type GazeApp interface {
 	ExportSessionToPath(sessionID, outputPath string) (string, error)
 	ImportSessionFromPath(inputPath string) (string, error)
 
+	// Performance Monitoring
+	StartPerfMonitor(deviceId string, config PerfMonitorConfig) string
+	StopPerfMonitor(deviceId string) string
+	IsPerfMonitorRunning(deviceId string) bool
+	GetPerfSnapshot(deviceId string, packageName string) (*PerfSampleData, error)
+	GetProcessDetail(deviceId string, pid int) (*ProcessDetail, error)
+
 	// Utility
 	GetAppVersion() string
 }
@@ -222,6 +321,9 @@ func (s *MCPServer) registerTools() {
 
 	// Video Tools
 	s.registerVideoTools()
+
+	// Performance Monitoring Tools
+	s.registerPerfTools()
 }
 
 // registerResources registers all MCP resources
