@@ -526,6 +526,14 @@ export function LoadProtoConfig() {
   return window['go']['main']['App']['LoadProtoConfig']();
 }
 
+export function LoadProtoFromDisk() {
+  return window['go']['main']['App']['LoadProtoFromDisk']();
+}
+
+export function LoadProtoFromURL(arg1) {
+  return window['go']['main']['App']['LoadProtoFromURL'](arg1);
+}
+
 export function LoadScriptTasks() {
   return window['go']['main']['App']['LoadScriptTasks']();
 }

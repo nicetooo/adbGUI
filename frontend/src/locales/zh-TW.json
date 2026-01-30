@@ -746,7 +746,11 @@
     "no_proto_mappings": "尚未定義 URL 對應。將 URL 模式對應到 Protobuf 訊息類型。",
     "message_type": "訊息類型",
     "direction": "方向",
-    "proto_both": "雙向"
+    "proto_both": "雙向",
+    "import_local_file": "匯入檔案",
+    "import_from_url": "匯入 URL",
+    "import": "匯入",
+    "proto_files_imported": "已匯入 {{count}} 個 proto 檔案"
   },
   "batch": {
     "title": "批次操作",
@@ -1237,7 +1241,9 @@
       "video": "影片處理",
       "video_desc": "擷取影片幀、取得中繼資料、工作階段錄製分析",
       "perf": "效能監控",
-      "perf_desc": "啟動/停止效能監控，取得 CPU/記憶體/FPS/網路/電池快照"
+      "perf_desc": "啟動/停止效能監控，取得 CPU/記憶體/FPS/網路/電池快照",
+      "proto": "Protobuf 管理",
+      "proto_desc": "管理 .proto 結構描述檔案和 URL 到訊息類型的對應，用於解碼 protobuf 網路流量"
     },
     "tool": {
       "device_list": "列出所有已連接的 Android 裝置",
@@ -1300,7 +1306,17 @@
       "perf_start": "啟動效能監控（CPU、記憶體、FPS、網路、電池）",
       "perf_stop": "停止裝置上的效能監控",
       "perf_snapshot": "取得一次性效能快照",
-      "perf_process_detail": "取得程序詳細資訊（記憶體分類、物件、執行緒）"
+      "perf_process_detail": "取得程序詳細資訊（記憶體分類、物件、執行緒）",
+      "proto_file_list": "列出所有已載入的 .proto 結構描述檔案",
+      "proto_file_add": "新增 .proto 結構描述檔案用於 protobuf 解碼",
+      "proto_file_update": "更新現有 .proto 檔案的名稱和內容",
+      "proto_file_remove": "刪除 .proto 結構描述檔案",
+      "proto_mapping_list": "列出所有 URL 到 protobuf 訊息類型的對應",
+      "proto_mapping_add": "新增用於解碼的 URL 到 protobuf 訊息類型對應",
+      "proto_mapping_update": "更新現有的 URL 到訊息類型對應",
+      "proto_mapping_remove": "刪除 URL 到訊息類型對應",
+      "proto_message_types": "列出已編譯結構描述中所有可用的 protobuf 訊息類型",
+      "proto_load_url": "從 URL 下載並載入 .proto 檔案，自動解析相依性"
     },
     "resource": {
       "devices": "已連接 Android 裝置列表 (JSON)",

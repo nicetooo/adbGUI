@@ -746,7 +746,11 @@
     "no_proto_mappings": "尚未定义 URL 映射。将 URL 模式映射到 Protobuf 消息类型。",
     "message_type": "消息类型",
     "direction": "方向",
-    "proto_both": "双向"
+    "proto_both": "双向",
+    "import_local_file": "导入文件",
+    "import_from_url": "导入 URL",
+    "import": "导入",
+    "proto_files_imported": "已导入 {{count}} 个 proto 文件"
   },
   "batch": {
     "title": "批量操作",
@@ -1237,7 +1241,9 @@
       "video": "视频处理",
       "video_desc": "提取视频帧、获取元数据、会话录屏分析",
       "perf": "性能监控",
-      "perf_desc": "启动/停止性能监控，获取 CPU/内存/FPS/网络/电池快照"
+      "perf_desc": "启动/停止性能监控，获取 CPU/内存/FPS/网络/电池快照",
+      "proto": "Protobuf 管理",
+      "proto_desc": "管理 .proto 模式文件和 URL 到消息类型的映射，用于解码 protobuf 网络流量"
     },
     "tool": {
       "device_list": "列出所有已连接的 Android 设备",
@@ -1300,7 +1306,17 @@
       "perf_start": "启动性能监控（CPU、内存、FPS、网络、电池）",
       "perf_stop": "停止设备上的性能监控",
       "perf_snapshot": "获取一次性性能快照",
-      "perf_process_detail": "获取进程详细信息（内存分类、对象、线程）"
+      "perf_process_detail": "获取进程详细信息（内存分类、对象、线程）",
+      "proto_file_list": "列出所有已加载的 .proto 模式文件",
+      "proto_file_add": "添加 .proto 模式文件用于 protobuf 解码",
+      "proto_file_update": "更新已有 .proto 文件的名称和内容",
+      "proto_file_remove": "删除 .proto 模式文件",
+      "proto_mapping_list": "列出所有 URL 到 protobuf 消息类型的映射",
+      "proto_mapping_add": "添加 URL 到 protobuf 消息类型的映射",
+      "proto_mapping_update": "更新已有的 URL 到消息类型映射",
+      "proto_mapping_remove": "删除 URL 到消息类型映射",
+      "proto_message_types": "列出已编译模式中所有可用的 protobuf 消息类型",
+      "proto_load_url": "从 URL 下载并加载 .proto 文件，自动解析依赖"
     },
     "resource": {
       "devices": "已连接 Android 设备列表 (JSON)",

@@ -130,6 +130,9 @@ interface ProxyState {
   protoEditMappingModalOpen: boolean;
   editingProtoFile: ProtoFileEntry | null;
   editingProtoMapping: ProtoMapping | null;
+  protoImportLoading: boolean;
+  protoImportURLModalOpen: boolean;
+  protoImportURL: string;
   
   // 操作方法
   addLog: (log: RequestLog) => void;
@@ -192,6 +195,10 @@ interface ProxyState {
   closeProtoEditFileModal: () => void;
   openProtoEditMappingModal: (mapping?: ProtoMapping | null) => void;
   closeProtoEditMappingModal: () => void;
+    setProtoImportLoading: (loading: boolean) => void;
+    openProtoImportURLModal: () => void;
+    closeProtoImportURLModal: () => void;
+    setProtoImportURL: (url: string) => void;
 }
 
 export const useProxyStore = create<ProxyState>()(
@@ -248,6 +255,9 @@ export const useProxyStore = create<ProxyState>()(
     protoEditMappingModalOpen: false,
     editingProtoFile: null,
     editingProtoMapping: null,
+    protoImportLoading: false,
+    protoImportURLModalOpen: false,
+    protoImportURL: 'https://',
     
     // 操作方法
     addLog: (log: RequestLog) => set((state: ProxyState) => {
@@ -375,5 +385,9 @@ export const useProxyStore = create<ProxyState>()(
     closeProtoEditFileModal: () => set({ protoEditFileModalOpen: false, editingProtoFile: null }),
     openProtoEditMappingModal: (mapping) => set({ protoEditMappingModalOpen: true, editingProtoMapping: mapping ?? null }),
     closeProtoEditMappingModal: () => set({ protoEditMappingModalOpen: false, editingProtoMapping: null }),
+    setProtoImportLoading: (loading) => set({ protoImportLoading: loading }),
+    openProtoImportURLModal: () => set({ protoImportURLModalOpen: true, protoImportURL: 'https://' }),
+    closeProtoImportURLModal: () => set({ protoImportURLModalOpen: false, protoImportURL: 'https://' }),
+    setProtoImportURL: (url: string) => set({ protoImportURL: url }),
   }))
 );

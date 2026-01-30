@@ -268,6 +268,10 @@ export function LoadMockRules():Promise<void>;
 
 export function LoadProtoConfig():Promise<void>;
 
+export function LoadProtoFromDisk():Promise<Array<string>>;
+
+export function LoadProtoFromURL(arg1:string):Promise<Array<string>>;
+
 export function LoadScriptTasks():Promise<Array<main.ScriptTask>>;
 
 export function LoadTouchScripts():Promise<Array<main.TouchScript>>;

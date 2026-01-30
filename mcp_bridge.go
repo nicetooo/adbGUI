@@ -922,6 +922,69 @@ func (b *MCPBridge) GetProcessDetail(deviceId string, pid int) (*mcp.ProcessDeta
 	return result, nil
 }
 
+// === Protobuf Management ===
+
+func (b *MCPBridge) AddProtoFile(name, content string) (string, error) {
+	return b.app.AddProtoFile(name, content)
+}
+
+func (b *MCPBridge) UpdateProtoFile(id, name, content string) error {
+	return b.app.UpdateProtoFile(id, name, content)
+}
+
+func (b *MCPBridge) RemoveProtoFile(id string) error {
+	return b.app.RemoveProtoFile(id)
+}
+
+func (b *MCPBridge) GetProtoFiles() []mcp.MCPProtoFile {
+	files := b.app.GetProtoFiles()
+	result := make([]mcp.MCPProtoFile, len(files))
+	for i, f := range files {
+		result[i] = mcp.MCPProtoFile{
+			ID:       f.ID,
+			Name:     f.Name,
+			Content:  f.Content,
+			LoadedAt: f.LoadedAt,
+		}
+	}
+	return result
+}
+
+func (b *MCPBridge) AddProtoMapping(urlPattern, messageType, direction, description string) (string, error) {
+	return b.app.AddProtoMapping(urlPattern, messageType, direction, description)
+}
+
+func (b *MCPBridge) UpdateProtoMapping(id, urlPattern, messageType, direction, description string) error {
+	return b.app.UpdateProtoMapping(id, urlPattern, messageType, direction, description)
+}
+
+func (b *MCPBridge) RemoveProtoMapping(id string) error {
+	return b.app.RemoveProtoMapping(id)
+}
+
+func (b *MCPBridge) GetProtoMappings() []mcp.MCPProtoMapping {
+	mappings := b.app.GetProtoMappings()
+	result := make([]mcp.MCPProtoMapping, len(mappings))
+	for i, m := range mappings {
+		result[i] = mcp.MCPProtoMapping{
+			ID:          m.ID,
+			URLPattern:  m.URLPattern,
+			MessageType: m.MessageType,
+			Direction:   m.Direction,
+			Description: m.Description,
+		}
+	}
+	return result
+}
+
+func (b *MCPBridge) GetProtoMessageTypes() []string {
+	return b.app.GetProtoMessageTypes()
+}
+
+func (b *MCPBridge) LoadProtoFromURL(rawURL string) ([]string, error) {
+	return b.app.LoadProtoFromURL(rawURL)
+}
+
 // StartMCPServer starts the MCP server with the given app
 func StartMCPServer(app *App) {
 	bridge := NewMCPBridge(app)

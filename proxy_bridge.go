@@ -163,7 +163,7 @@ func (a *App) StartProxy(port int) (string, error) {
 		isReqProtobuf := false
 
 		if len(req.RespBodyRaw) > 0 && isProtobufContentType(req.ContentType) {
-			decoded := getProtoDecoder().DecodeBody(req.RespBodyRaw, req.ContentType, req.URL)
+			decoded := getProtoDecoder().DecodeBody(req.RespBodyRaw, req.ContentType, req.URL, "response")
 			if decoded != "" {
 				respBody = decoded
 				isProtobuf = true
@@ -177,7 +177,7 @@ func (a *App) StartProxy(port int) (string, error) {
 				reqContentType = ct[0]
 			}
 			if isProtobufContentType(reqContentType) {
-				decoded := getProtoDecoder().DecodeBody(req.ReqBodyRaw, reqContentType, req.URL)
+				decoded := getProtoDecoder().DecodeBody(req.ReqBodyRaw, reqContentType, req.URL, "request")
 				if decoded != "" {
 					reqBody = decoded
 					isReqProtobuf = true

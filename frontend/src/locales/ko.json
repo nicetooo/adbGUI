@@ -746,7 +746,11 @@
     "no_proto_mappings": "URL 매핑이 정의되지 않았습니다. URL 패턴을 Protobuf 메시지 유형에 매핑하세요.",
     "message_type": "메시지 유형",
     "direction": "방향",
-    "proto_both": "양방향"
+    "proto_both": "양방향",
+    "import_local_file": "파일 가져오기",
+    "import_from_url": "URL에서 가져오기",
+    "import": "가져오기",
+    "proto_files_imported": "{{count}}개의 proto 파일을 가져왔습니다"
   },
   "batch": {
     "title": "일괄 작업",
@@ -1237,7 +1241,9 @@
       "video": "비디오 처리",
       "video_desc": "비디오 프레임 추출, 메타데이터 가져오기, 세션 녹화 분석",
       "perf": "성능 모니터링",
-      "perf_desc": "성능 모니터링 시작/중지, CPU/메모리/FPS/네트워크/배터리 스냅샷 가져오기"
+      "perf_desc": "성능 모니터링 시작/중지, CPU/메모리/FPS/네트워크/배터리 스냅샷 가져오기",
+      "proto": "Protobuf 관리",
+      "proto_desc": ".proto 스키마 파일과 URL-메시지 타입 매핑을 관리하여 protobuf 네트워크 트래픽 디코딩"
     },
     "tool": {
       "device_list": "연결된 모든 Android 기기 목록 표시",
@@ -1300,7 +1306,17 @@
       "perf_start": "성능 모니터링 시작 (CPU, 메모리, FPS, 네트워크, 배터리)",
       "perf_stop": "장치의 성능 모니터링 중지",
       "perf_snapshot": "일회성 성능 스냅샷 가져오기",
-      "perf_process_detail": "프로세스 상세 정보 가져오기 (메모리 분류, 객체, 스레드)"
+      "perf_process_detail": "프로세스 상세 정보 가져오기 (메모리 분류, 객체, 스레드)",
+      "proto_file_list": "로드된 모든 .proto 스키마 파일 목록 표시",
+      "proto_file_add": "protobuf 디코딩용 .proto 스키마 파일 추가",
+      "proto_file_update": "기존 .proto 파일의 이름과 내용 업데이트",
+      "proto_file_remove": ".proto 스키마 파일 삭제",
+      "proto_mapping_list": "모든 URL-protobuf 메시지 타입 매핑 목록 표시",
+      "proto_mapping_add": "디코딩용 URL-protobuf 메시지 타입 매핑 추가",
+      "proto_mapping_update": "기존 URL-메시지 타입 매핑 업데이트",
+      "proto_mapping_remove": "URL-메시지 타입 매핑 삭제",
+      "proto_message_types": "컴파일된 스키마에서 사용 가능한 모든 protobuf 메시지 타입 목록 표시",
+      "proto_load_url": "URL에서 .proto 파일을 다운로드하고 로드 (의존성 자동 해결)"
     },
     "resource": {
       "devices": "연결된 Android 기기 목록 (JSON)",

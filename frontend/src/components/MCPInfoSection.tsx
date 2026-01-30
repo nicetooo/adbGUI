@@ -94,6 +94,16 @@ const TOOL_CATEGORIES = [
     color: "#2f54eb",
     tools: ["perf_start", "perf_stop", "perf_snapshot", "perf_process_detail"],
   },
+  {
+    key: "proto",
+    icon: <CodeOutlined />,
+    color: "#9254de",
+    tools: [
+      "proto_file_list", "proto_file_add", "proto_file_update", "proto_file_remove",
+      "proto_mapping_list", "proto_mapping_add", "proto_mapping_update", "proto_mapping_remove",
+      "proto_message_types", "proto_load_url",
+    ],
+  },
 ];
 
 const RESOURCES = [

@@ -1,13 +1,13 @@
 import React, { useEffect, useCallback } from 'react';
 import { Card, Button, InputNumber, Space, Typography, Tag, Divider, Switch, Tooltip, Radio, Input, Tabs, theme, Form, Table, Popconfirm, Popover, Spin, App, Modal } from 'antd';
-import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, BlockOutlined, SendOutlined, CloseOutlined, PlusOutlined, EditOutlined, CodeOutlined } from '@ant-design/icons';
+import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, BlockOutlined, SendOutlined, CloseOutlined, PlusOutlined, EditOutlined, CodeOutlined, CloudDownloadOutlined, FolderOpenOutlined, LoadingOutlined } from '@ant-design/icons';
 import VirtualList from './VirtualList';
 import DeviceSelector from './DeviceSelector';
 import JsonViewer from './JsonViewer';
 import JsonEditor from './JsonEditor';
 import { useDeviceStore, useProxyStore, RequestLog as StoreRequestLog } from '../stores';
 // @ts-ignore
-import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, RemoveMockRule, GetMockRules, ToggleMockRule, CheckCertTrust, SetupProxyForDevice, CleanupProxyForDevice, GetProtoFiles, AddProtoFile, UpdateProtoFile, RemoveProtoFile, GetProtoMappings, AddProtoMapping, UpdateProtoMapping, RemoveProtoMapping, GetProtoMessageTypes } from '../../wailsjs/go/main/App';
+import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, RemoveMockRule, GetMockRules, ToggleMockRule, CheckCertTrust, SetupProxyForDevice, CleanupProxyForDevice, GetProtoFiles, AddProtoFile, UpdateProtoFile, RemoveProtoFile, GetProtoMappings, AddProtoMapping, UpdateProtoMapping, RemoveProtoMapping, GetProtoMessageTypes, LoadProtoFromURL, LoadProtoFromDisk } from '../../wailsjs/go/main/App';
 // @ts-ignore
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { useTranslation } from 'react-i18next';
@@ -141,6 +141,13 @@ const ProxyView: React.FC = () => {
         closeProtoEditFileModal,
         openProtoEditMappingModal,
         closeProtoEditMappingModal,
+        protoImportLoading,
+        setProtoImportLoading,
+        protoImportURLModalOpen,
+        protoImportURL,
+        openProtoImportURLModal,
+        closeProtoImportURLModal,
+        setProtoImportURL,
     } = useProxyStore();
 
     // Check cert trust status when MITM is enabled and proxy is running
@@ -780,6 +787,43 @@ const ProxyView: React.FC = () => {
             name: file.name,
             content: file.content,
         });
+    };
+
+    const handleImportProtoFromDisk = async () => {
+        try {
+            setProtoImportLoading(true);
+            const ids = await LoadProtoFromDisk();
+            if (ids && ids.length > 0) {
+                message.success(t('proxy.proto_files_imported', { count: ids.length }));
+                loadProtoData();
+            }
+        } catch (err: any) {
+            message.error(String(err));
+        } finally {
+            setProtoImportLoading(false);
+        }
+    };
+
+    const handleImportProtoFromURL = () => {
+        openProtoImportURLModal();
+    };
+
+    const handleConfirmImportProtoFromURL = async () => {
+        const url = protoImportURL;
+        if (!url || url === 'https://') return;
+        try {
+            setProtoImportLoading(true);
+            const ids = await LoadProtoFromURL(url);
+            if (ids && ids.length > 0) {
+                message.success(t('proxy.proto_files_imported', { count: ids.length }));
+                loadProtoData();
+            }
+            closeProtoImportURLModal();
+        } catch (err: any) {
+            message.error(String(err));
+        } finally {
+            setProtoImportLoading(false);
+        }
     };
 
     const handleSaveProtoMapping = async () => {
@@ -1556,9 +1600,17 @@ const ProxyView: React.FC = () => {
                         children: (
                             <div>
                                 <div style={{ marginBottom: 12 }}>
-                                    <Button type="primary" icon={<PlusOutlined />} onClick={() => { protoFileForm.resetFields(); openProtoEditFileModal(null); }}>
-                                        {t('proxy.add_proto_file')}
-                                    </Button>
+                                    <Space wrap>
+                                        <Button type="primary" icon={<PlusOutlined />} onClick={() => { protoFileForm.resetFields(); openProtoEditFileModal(null); }}>
+                                            {t('proxy.add_proto_file')}
+                                        </Button>
+                                        <Button icon={<FolderOpenOutlined />} loading={protoImportLoading} onClick={handleImportProtoFromDisk}>
+                                            {t('proxy.import_local_file')}
+                                        </Button>
+                                        <Button icon={<CloudDownloadOutlined />} loading={protoImportLoading} onClick={handleImportProtoFromURL}>
+                                            {t('proxy.import_from_url')}
+                                        </Button>
+                                    </Space>
                                 </div>
                                 <div style={{ maxHeight: 'calc(100vh - 320px)', overflow: 'auto' }}>
                                     {protoFiles.length === 0 ? (
@@ -1618,7 +1670,7 @@ const ProxyView: React.FC = () => {
                                             columns={[
                                                 { title: t('proxy.url_pattern'), dataIndex: 'urlPattern', ellipsis: true },
                                                 { title: t('proxy.message_type'), dataIndex: 'messageType', ellipsis: true },
-                                                { title: t('proxy.direction'), dataIndex: 'direction', width: 100 },
+                                                { title: t('proxy.direction'), dataIndex: 'direction', width: 100, render: (dir: string) => dir === 'both' ? t('proxy.proto_both') : dir === 'request' ? t('proxy.request') : dir === 'response' ? t('proxy.response') : dir },
                                                 { title: t('proxy.description'), dataIndex: 'description', ellipsis: true },
                                                 {
                                                     title: '',
@@ -1695,15 +1747,17 @@ const ProxyView: React.FC = () => {
                                         trigger="click"
                                         content={
                                             <div style={{ maxHeight: 300, overflow: 'auto' }}>
-                                                {protoMessageTypes.map(t => (
+                                                {protoMessageTypes.map(msgType => (
                                                     <div
-                                                        key={t}
-                                                        style={{ padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontFamily: 'monospace' }}
+                                                        key={msgType}
+                                                        style={{ padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontFamily: 'monospace', borderRadius: 4 }}
+                                                        onMouseEnter={(e) => { (e.target as HTMLElement).style.background = token.colorFillSecondary; }}
+                                                        onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; }}
                                                         onClick={() => {
-                                                            protoMappingForm.setFieldValue('messageType', t);
+                                                            protoMappingForm.setFieldValue('messageType', msgType);
                                                         }}
                                                     >
-                                                        {t}
+                                                        {msgType}
                                                     </div>
                                                 ))}
                                             </div>
@@ -1736,6 +1790,28 @@ const ProxyView: React.FC = () => {
                         </Button>
                     </Space>
                 </Form>
+            </Modal>
+
+            {/* Proto Import URL Modal */}
+            <Modal
+                title={t('proxy.import_from_url')}
+                open={protoImportURLModalOpen}
+                onCancel={closeProtoImportURLModal}
+                onOk={handleConfirmImportProtoFromURL}
+                confirmLoading={protoImportLoading}
+                okText={t('proxy.import')}
+                cancelText={t('common.cancel')}
+                width={500}
+            >
+                <div style={{ marginTop: 16 }}>
+                    <Input
+                        placeholder="https://raw.githubusercontent.com/..."
+                        value={protoImportURL}
+                        onChange={(e) => setProtoImportURL(e.target.value)}
+                        onPressEnter={handleConfirmImportProtoFromURL}
+                        autoFocus
+                    />
+                </div>
             </Modal>
 
         </div>

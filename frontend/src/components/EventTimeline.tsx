@@ -643,8 +643,8 @@ const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => 
           <Descriptions.Item label={t('timeline.protocol')}>
             {data.isHttps ? 'HTTPS' : 'HTTP'}
             {data.isWs && ' (WebSocket)'}
-            {data.isProtobuf && ' '}
-            {data.isProtobuf && <Tag color="geekblue">Protobuf</Tag>}
+            {(data.isProtobuf || data.isReqProtobuf) && ' '}
+            {(data.isProtobuf || data.isReqProtobuf) && <Tag color="geekblue">Protobuf</Tag>}
           </Descriptions.Item>
         </Descriptions>
       ),
@@ -656,8 +656,15 @@ const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => 
     },
     {
       key: 'reqBody',
-      label: t('timeline.request_body'),
-      children: scrollableTab(formatBody(data.requestBody, data.requestHeaders?.['Content-Type'] || data.requestHeaders?.['content-type'])),
+      label: data.isReqProtobuf ? `${t('timeline.request_body')} [PB]` : t('timeline.request_body'),
+      children: scrollableTab(
+        <>
+          {data.isReqProtobuf && (
+            <div style={{ marginBottom: 8 }}><Tag color="geekblue">Protobuf Decoded</Tag></div>
+          )}
+          {formatBody(data.requestBody, data.requestHeaders?.['Content-Type'] || data.requestHeaders?.['content-type'])}
+        </>
+      ),
     },
     {
       key: 'resHeaders',
@@ -667,7 +674,14 @@ const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => 
     {
       key: 'resBody',
       label: data.isProtobuf ? `${t('timeline.response_body')} [PB]` : t('timeline.response_body'),
-      children: scrollableTab(formatBody(data.responseBody, data.contentType)),
+      children: scrollableTab(
+        <>
+          {data.isProtobuf && (
+            <div style={{ marginBottom: 8 }}><Tag color="geekblue">Protobuf Decoded</Tag></div>
+          )}
+          {formatBody(data.responseBody, data.contentType)}
+        </>
+      ),
     },
   ];
 

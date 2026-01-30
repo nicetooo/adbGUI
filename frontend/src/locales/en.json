@@ -746,7 +746,11 @@
     "no_proto_mappings": "No URL mappings defined. Map URL patterns to protobuf message types.",
     "message_type": "Message Type",
     "direction": "Direction",
-    "proto_both": "Both"
+    "proto_both": "Both",
+    "import_local_file": "Import File",
+    "import_from_url": "Import URL",
+    "import": "Import",
+    "proto_files_imported": "{{count}} proto file(s) imported"
   },
   "batch": {
     "title": "Batch Operation",
@@ -1237,7 +1241,9 @@
       "video": "Video Processing",
       "video_desc": "Extract video frames, get metadata, session recording analysis",
       "perf": "Performance Monitoring",
-      "perf_desc": "Start/stop performance monitoring, take snapshots of CPU/Memory/FPS/Network/Battery"
+      "perf_desc": "Start/stop performance monitoring, take snapshots of CPU/Memory/FPS/Network/Battery",
+      "proto": "Protobuf Management",
+      "proto_desc": "Manage .proto schema files and URL-to-message-type mappings for decoding protobuf network traffic"
     },
     "tool": {
       "device_list": "List all connected Android devices",
@@ -1300,7 +1306,17 @@
       "perf_start": "Start performance monitoring (CPU, Memory, FPS, Network, Battery)",
       "perf_stop": "Stop performance monitoring on a device",
       "perf_snapshot": "Take a one-time performance snapshot",
-      "perf_process_detail": "Get detailed process info (memory breakdown, objects, threads)"
+      "perf_process_detail": "Get detailed process info (memory breakdown, objects, threads)",
+      "proto_file_list": "List all loaded .proto schema files",
+      "proto_file_add": "Add a .proto schema file for protobuf decoding",
+      "proto_file_update": "Update an existing .proto file's name and content",
+      "proto_file_remove": "Remove a .proto schema file",
+      "proto_mapping_list": "List all URL-to-protobuf-message-type mappings",
+      "proto_mapping_add": "Add a URL-to-protobuf-message-type mapping for decoding",
+      "proto_mapping_update": "Update an existing URL-to-message-type mapping",
+      "proto_mapping_remove": "Remove a URL-to-message-type mapping",
+      "proto_message_types": "List all available protobuf message types from compiled schemas",
+      "proto_load_url": "Download and load a .proto file from a URL with auto dependency resolution"
     },
     "resource": {
       "devices": "Connected Android devices list (JSON)",

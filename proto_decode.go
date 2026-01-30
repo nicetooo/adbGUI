@@ -10,24 +10,39 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
 )
 
 // ProtobufDecoder handles decoding protobuf binary data with optional schema support.
+// When no explicit URL→message mapping exists, it automatically tries all registered
+// message types and picks the best match using a scoring heuristic.
 type ProtobufDecoder struct {
-	registry *ProtoRegistry
+	registry    *ProtoRegistry
+	autoCache   map[string]string // cacheKey (direction:urlPath) -> matched message type ("" = negative cache)
+	autoCacheMu sync.RWMutex
 }
 
 // NewProtobufDecoder creates a decoder linked to the given registry.
 func NewProtobufDecoder(registry *ProtoRegistry) *ProtobufDecoder {
-	return &ProtobufDecoder{registry: registry}
+	return &ProtobufDecoder{
+		registry:  registry,
+		autoCache: make(map[string]string),
+	}
+}
+
+// ClearAutoCache resets the auto-match cache. Call after proto files are added/removed/recompiled.
+func (d *ProtobufDecoder) ClearAutoCache() {
+	d.autoCacheMu.Lock()
+	d.autoCache = make(map[string]string)
+	d.autoCacheMu.Unlock()
 }
 
 // DecodeBody attempts to decode protobuf binary data.
-// It first tries schema-based decoding if a messageType is provided or matched via URL mapping.
-// Falls back to raw (no-schema) decoding.
+// direction should be "request" or "response" to enable direction-aware mapping.
+// It tries: (1) explicit URL mapping → (2) auto-match cache → (3) auto-match all types → (4) raw decode.
 // Returns a JSON string representation.
-func (d *ProtobufDecoder) DecodeBody(data []byte, contentType, url string) string {
+func (d *ProtobufDecoder) DecodeBody(data []byte, contentType, url, direction string) string {
 	if len(data) == 0 {
 		return ""
 	}
@@ -38,30 +53,22 @@ func (d *ProtobufDecoder) DecodeBody(data []byte, contentType, url string) strin
 		raw = data[5:]
 	}
 
-	// Try schema-based decode via URL mapping
+	// 1. Try explicit URL mapping (direction-aware)
 	if d.registry != nil {
-		msgType := d.registry.FindMessageForURL(url)
+		msgType := d.registry.FindMessageForURL(url, direction)
 		if msgType != "" {
-			desc := d.registry.GetMessageDescriptor(msgType)
-			if desc != nil {
-				msg := dynamicpb.NewMessage(desc)
-				if err := proto.Unmarshal(raw, msg); err == nil {
-					opts := protojson.MarshalOptions{
-						Multiline:       true,
-						Indent:          "  ",
-						UseProtoNames:   true,
-						EmitUnpopulated: true,
-					}
-					jsonBytes, err := opts.Marshal(msg)
-					if err == nil {
-						return string(jsonBytes)
-					}
-				}
+			if result := d.decodeWithType(raw, msgType); result != "" {
+				return result
 			}
 		}
 	}
 
-	// Fallback: raw decode (no schema)
+	// 2. Try auto-match (cached or fresh)
+	if result := d.tryAutoMatch(raw, url, direction); result != "" {
+		return result
+	}
+
+	// 3. Fallback: raw decode (no schema)
 	result := rawDecodeProtobuf(raw)
 	if result == nil {
 		return fmt.Sprintf("[Protobuf: %d bytes, decode failed]", len(data))
@@ -72,6 +79,148 @@ func (d *ProtobufDecoder) DecodeBody(data []byte, contentType, url string) strin
 		return fmt.Sprintf("[Protobuf: %d bytes]", len(data))
 	}
 	return string(jsonBytes)
+}
+
+// decodeWithType decodes raw protobuf bytes using a specific message type name.
+func (d *ProtobufDecoder) decodeWithType(raw []byte, msgType string) string {
+	desc := d.registry.GetMessageDescriptor(msgType)
+	if desc == nil {
+		return ""
+	}
+	msg := dynamicpb.NewMessage(desc)
+	if err := proto.Unmarshal(raw, msg); err != nil {
+		return ""
+	}
+	opts := protojson.MarshalOptions{
+		Multiline:       true,
+		Indent:          "  ",
+		UseProtoNames:   true,
+		EmitUnpopulated: true,
+	}
+	jsonBytes, err := opts.Marshal(msg)
+	if err != nil {
+		return ""
+	}
+	return string(jsonBytes)
+}
+
+// autoCacheKey builds the cache key from direction + URL path (without query string).
+func autoCacheKey(url, direction string) string {
+	path := url
+	if idx := strings.IndexByte(path, '?'); idx != -1 {
+		path = path[:idx]
+	}
+	return direction + ":" + path
+}
+
+// tryAutoMatch attempts auto-matching using cache or brute-force scoring.
+func (d *ProtobufDecoder) tryAutoMatch(raw []byte, url, direction string) string {
+	if d.registry == nil || d.registry.compiler == nil {
+		return ""
+	}
+
+	key := autoCacheKey(url, direction)
+
+	// Check cache first
+	d.autoCacheMu.RLock()
+	cachedType, cached := d.autoCache[key]
+	d.autoCacheMu.RUnlock()
+
+	if cached {
+		if cachedType == "" {
+			return "" // negative cache — previously tried and no match
+		}
+		return d.decodeWithType(raw, cachedType)
+	}
+
+	// Try all known message types and score
+	result, matchedType := d.autoMatchDecode(raw)
+
+	// Cache the result (positive or negative)
+	d.autoCacheMu.Lock()
+	if len(d.autoCache) > 2000 {
+		// Prevent unbounded growth: clear on overflow
+		d.autoCache = make(map[string]string)
+	}
+	d.autoCache[key] = matchedType // "" if no match (negative cache)
+	d.autoCacheMu.Unlock()
+
+	if result != "" {
+		fmt.Printf("[Proto] Auto-matched %s → %s\n", key, matchedType)
+	}
+	return result
+}
+
+// autoMatchDecode tries all compiled message types against the raw data and returns
+// the best-scoring decode result. Returns ("", "") if no good match found.
+func (d *ProtobufDecoder) autoMatchDecode(raw []byte) (string, string) {
+	if len(raw) == 0 {
+		return "", ""
+	}
+
+	allDescs := d.registry.compiler.GetAllDescriptors()
+	if len(allDescs) == 0 {
+		return "", ""
+	}
+
+	type candidate struct {
+		json  string
+		name  string
+		score float64
+	}
+	var best candidate
+
+	for name, desc := range allDescs {
+		msg := dynamicpb.NewMessage(desc)
+		if err := proto.Unmarshal(raw, msg); err != nil {
+			continue
+		}
+
+		// Score: penalize unknown bytes, reward populated known fields
+		unknownLen := len(msg.GetUnknown())
+		if unknownLen > 0 && float64(unknownLen)/float64(len(raw)) > 0.5 {
+			continue // More than half is unknown fields — likely wrong type
+		}
+
+		// Count populated known fields
+		knownFields := 0
+		msg.Range(func(_ protoreflect.FieldDescriptor, _ protoreflect.Value) bool {
+			knownFields++
+			return true
+		})
+		if knownFields == 0 {
+			continue // No known fields populated — useless match
+		}
+
+		// Scoring: 70% byte coverage (fewer unknown = better), 30% field coverage
+		unknownRatio := float64(unknownLen) / float64(len(raw))
+		byteScore := 1.0 - unknownRatio
+		totalFields := desc.Fields().Len()
+		fieldScore := 0.0
+		if totalFields > 0 {
+			fieldScore = float64(knownFields) / float64(totalFields)
+		}
+		score := byteScore*0.7 + fieldScore*0.3
+
+		if score > best.score {
+			opts := protojson.MarshalOptions{
+				Multiline:       true,
+				Indent:          "  ",
+				UseProtoNames:   true,
+				EmitUnpopulated: true,
+			}
+			if jsonBytes, err := opts.Marshal(msg); err == nil {
+				best = candidate{json: string(jsonBytes), name: name, score: score}
+			}
+		}
+	}
+
+	// Minimum quality threshold
+	if best.score < 0.3 {
+		return "", ""
+	}
+
+	return best.json, best.name
 }
 
 // isProtobufContentType checks if the content type indicates protobuf.
@@ -340,14 +489,18 @@ func (r *ProtoRegistry) GetMappings() []*ProtoMapping {
 	return result
 }
 
-// FindMessageForURL looks up the message type for a given URL.
-func (r *ProtoRegistry) FindMessageForURL(url string) string {
+// FindMessageForURL looks up the message type for a given URL and direction.
+// direction should be "request" or "response". Mappings with Direction "both" always match.
+func (r *ProtoRegistry) FindMessageForURL(url, direction string) string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	for _, m := range r.mappings {
 		if matchWildcard(m.URLPattern, url) {
-			return m.MessageType
+			// Check direction: "both" matches everything, otherwise must match exactly
+			if m.Direction == "both" || m.Direction == direction || m.Direction == "" {
+				return m.MessageType
+			}
 		}
 	}
 	return ""

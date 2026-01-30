@@ -117,6 +117,21 @@ type MockGazeApp struct {
 	ImportSessionFromPathResult string
 	ImportSessionFromPathError  error
 
+	// Protobuf Management
+	AddProtoFileResult         string
+	AddProtoFileError          error
+	UpdateProtoFileError       error
+	RemoveProtoFileError       error
+	GetProtoFilesResult        []MCPProtoFile
+	AddProtoMappingResult      string
+	AddProtoMappingError       error
+	UpdateProtoMappingError    error
+	RemoveProtoMappingError    error
+	GetProtoMappingsResult     []MCPProtoMapping
+	GetProtoMessageTypesResult []string
+	LoadProtoFromURLResult     []string
+	LoadProtoFromURLError      error
+
 	// Utility
 	AppVersion string
 }
@@ -565,6 +580,67 @@ func (m *MockGazeApp) GetProcessDetail(deviceId string, pid int) (*ProcessDetail
 		Objects: ProcessObjects{Views: 10, Activities: 1},
 		Threads: 75,
 	}, nil
+}
+
+// === Protobuf Management ===
+
+func (m *MockGazeApp) AddProtoFile(name, content string) (string, error) {
+	m.recordCall("AddProtoFile", name, content)
+	return m.AddProtoFileResult, m.AddProtoFileError
+}
+
+func (m *MockGazeApp) UpdateProtoFile(id, name, content string) error {
+	m.recordCall("UpdateProtoFile", id, name, content)
+	return m.UpdateProtoFileError
+}
+
+func (m *MockGazeApp) RemoveProtoFile(id string) error {
+	m.recordCall("RemoveProtoFile", id)
+	return m.RemoveProtoFileError
+}
+
+func (m *MockGazeApp) GetProtoFiles() []MCPProtoFile {
+	m.recordCall("GetProtoFiles")
+	if m.GetProtoFilesResult != nil {
+		return m.GetProtoFilesResult
+	}
+	return []MCPProtoFile{}
+}
+
+func (m *MockGazeApp) AddProtoMapping(urlPattern, messageType, direction, description string) (string, error) {
+	m.recordCall("AddProtoMapping", urlPattern, messageType, direction, description)
+	return m.AddProtoMappingResult, m.AddProtoMappingError
+}
+
+func (m *MockGazeApp) UpdateProtoMapping(id, urlPattern, messageType, direction, description string) error {
+	m.recordCall("UpdateProtoMapping", id, urlPattern, messageType, direction, description)
+	return m.UpdateProtoMappingError
+}
+
+func (m *MockGazeApp) RemoveProtoMapping(id string) error {
+	m.recordCall("RemoveProtoMapping", id)
+	return m.RemoveProtoMappingError
+}
+
+func (m *MockGazeApp) GetProtoMappings() []MCPProtoMapping {
+	m.recordCall("GetProtoMappings")
+	if m.GetProtoMappingsResult != nil {
+		return m.GetProtoMappingsResult
+	}
+	return []MCPProtoMapping{}
+}
+
+func (m *MockGazeApp) GetProtoMessageTypes() []string {
+	m.recordCall("GetProtoMessageTypes")
+	if m.GetProtoMessageTypesResult != nil {
+		return m.GetProtoMessageTypesResult
+	}
+	return []string{}
+}
+
+func (m *MockGazeApp) LoadProtoFromURL(rawURL string) ([]string, error) {
+	m.recordCall("LoadProtoFromURL", rawURL)
+	return m.LoadProtoFromURLResult, m.LoadProtoFromURLError
 }
 
 // === Utility ===

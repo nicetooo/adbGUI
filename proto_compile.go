@@ -113,6 +113,18 @@ func (c *ProtoCompiler) GetMessageDescriptor(fullName string) protoreflect.Messa
 	return nil
 }
 
+// GetAllDescriptors returns a copy of all compiled message descriptors.
+func (c *ProtoCompiler) GetAllDescriptors() map[string]protoreflect.MessageDescriptor {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	result := make(map[string]protoreflect.MessageDescriptor, len(c.descriptors))
+	for k, v := range c.descriptors {
+		result[k] = v
+	}
+	return result
+}
+
 // GetAllMessageTypes returns all known fully-qualified message type names.
 func (c *ProtoCompiler) GetAllMessageTypes() []string {
 	c.mu.RLock()

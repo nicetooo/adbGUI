@@ -258,8 +258,37 @@ type GazeApp interface {
 	GetPerfSnapshot(deviceId string, packageName string) (*PerfSampleData, error)
 	GetProcessDetail(deviceId string, pid int) (*ProcessDetail, error)
 
+	// Protobuf Management
+	AddProtoFile(name, content string) (string, error)
+	UpdateProtoFile(id, name, content string) error
+	RemoveProtoFile(id string) error
+	GetProtoFiles() []MCPProtoFile
+	AddProtoMapping(urlPattern, messageType, direction, description string) (string, error)
+	UpdateProtoMapping(id, urlPattern, messageType, direction, description string) error
+	RemoveProtoMapping(id string) error
+	GetProtoMappings() []MCPProtoMapping
+	GetProtoMessageTypes() []string
+	LoadProtoFromURL(rawURL string) ([]string, error)
+
 	// Utility
 	GetAppVersion() string
+}
+
+// MCPProtoFile represents a .proto file entry for MCP interface
+type MCPProtoFile struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Content  string `json:"content"`
+	LoadedAt int64  `json:"loadedAt"`
+}
+
+// MCPProtoMapping represents a URL→message type mapping for MCP interface
+type MCPProtoMapping struct {
+	ID          string `json:"id"`
+	URLPattern  string `json:"urlPattern"`
+	MessageType string `json:"messageType"`
+	Direction   string `json:"direction"`
+	Description string `json:"description"`
 }
 
 // MCPServer wraps the MCP server and provides Gaze-specific functionality
@@ -324,6 +353,9 @@ func (s *MCPServer) registerTools() {
 
 	// Performance Monitoring Tools
 	s.registerPerfTools()
+
+	// Protobuf Management Tools
+	s.registerProtoTools()
 }
 
 // registerResources registers all MCP resources
