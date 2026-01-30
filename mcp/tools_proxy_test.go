@@ -56,10 +56,10 @@ func TestHandleProxyStart_DefaultPort(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	// Default port should be 8888
+	// Default port should be 8080
 	lastCall := mock.GetLastCall()
-	if lastCall.Args[0] != 8888 {
-		t.Errorf("Expected default port 8888, got %v", lastCall.Args[0])
+	if lastCall.Args[0] != 8080 {
+		t.Errorf("Expected default port 8080, got %v", lastCall.Args[0])
 	}
 }
 

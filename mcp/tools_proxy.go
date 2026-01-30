@@ -15,7 +15,7 @@ func (s *MCPServer) registerProxyTools() {
 		mcp.NewTool("proxy_start",
 			mcp.WithDescription("Start the HTTP/HTTPS proxy for network interception"),
 			mcp.WithNumber("port",
-				mcp.Description("Port to listen on (default: 8888)"),
+				mcp.Description("Port to listen on (default: 8080)"),
 			),
 		),
 		s.handleProxyStart,
@@ -202,7 +202,7 @@ Examples:
 
 func (s *MCPServer) handleProxyStart(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := request.GetArguments()
-	port := 8888
+	port := 8080
 	if p, ok := args["port"].(float64); ok {
 		port = int(p)
 	}

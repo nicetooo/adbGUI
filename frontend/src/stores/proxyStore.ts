@@ -124,16 +124,8 @@ interface ProxyState {
   mockRules: MockRule[];
   editingMockRule: MockRule | null;
   pendingMockData: PendingMockData | null;
-  /** @deprecated use mockListModalOpen / mockEditModalOpen */
-  mockModalOpen: boolean;
-  
   // 证书状态
   certTrustStatus: string | null;
-  
-  // AI 搜索相关
-  isAIParsing: boolean;
-  aiSearchText: string;
-  aiPopoverOpen: boolean;
   
   // Condition hints from captured request
   mockConditionHints: MockConditionHints | null;
@@ -165,6 +157,7 @@ interface ProxyState {
   setSearchText: (text: string) => void;
   setLatency: (ms: number | null) => void;
   setSpeedLimits: (dl: number | null, ul: number | null) => void;
+  setBypassPatterns: (patterns: string[]) => void;
   addBypassPattern: (pattern: string) => void;
   removeBypassPattern: (pattern: string) => void;
   selectLog: (log: RequestLog | null) => void;
@@ -180,13 +173,10 @@ interface ProxyState {
   closeResendModal: () => void;
   
   // Mock 规则
-  setMockModalOpen: (open: boolean) => void;
   setMockListModalOpen: (open: boolean) => void;
   setMockEditModalOpen: (open: boolean) => void;
   setMockRules: (rules: MockRule[]) => void;
   setEditingMockRule: (rule: MockRule | null) => void;
-  openMockModal: () => void;
-  closeMockModal: () => void;
   openMockListModal: () => void;
   closeMockListModal: () => void;
   openMockEditModal: (rule?: MockRule | null) => void;
@@ -197,11 +187,6 @@ interface ProxyState {
   
   // 证书状态
   setCertTrustStatus: (status: string | null) => void;
-  
-  // AI 搜索
-  setIsAIParsing: (parsing: boolean) => void;
-  setAiSearchText: (text: string) => void;
-  setAiPopoverOpen: (open: boolean) => void;
   
   // Proto management
   setProtoFiles: (files: ProtoFileEntry[]) => void;
@@ -251,18 +236,12 @@ export const useProxyStore = create<ProxyState>()(
     // Mock 规则
     mockListModalOpen: false,
     mockEditModalOpen: false,
-    mockModalOpen: false,
     mockRules: [],
     editingMockRule: null,
     pendingMockData: null,
     
     // 证书状态
     certTrustStatus: null,
-    
-    // AI 搜索
-    isAIParsing: false,
-    aiSearchText: "",
-    aiPopoverOpen: false,
     
     // Condition hints
     mockConditionHints: null,
@@ -325,6 +304,8 @@ export const useProxyStore = create<ProxyState>()(
     
     setSpeedLimits: (dl: number | null, ul: number | null) => set({ dlLimit: dl, ulLimit: ul }),
     
+    setBypassPatterns: (patterns: string[]) => set({ bypassPatterns: patterns }),
+    
     addBypassPattern: (pattern: string) => set((state: ProxyState) => {
       state.bypassPatterns.push(pattern);
     }),
@@ -353,8 +334,6 @@ export const useProxyStore = create<ProxyState>()(
     closeResendModal: () => set({ resendModalOpen: false, resendLoading: false, resendResponse: null }),
     
     // Mock 规则
-    setMockModalOpen: (open: boolean) => set({ mockModalOpen: open }),
-    
     setMockListModalOpen: (open: boolean) => set({ mockListModalOpen: open }),
     
     setMockEditModalOpen: (open: boolean) => set({ mockEditModalOpen: open }),
@@ -362,10 +341,6 @@ export const useProxyStore = create<ProxyState>()(
     setMockRules: (rules: MockRule[]) => set({ mockRules: rules }),
     
     setEditingMockRule: (rule: MockRule | null) => set({ editingMockRule: rule }),
-    
-    openMockModal: () => set({ mockModalOpen: true }),
-    
-    closeMockModal: () => set({ mockModalOpen: false, editingMockRule: null }),
     
     openMockListModal: () => set({ mockListModalOpen: true }),
     
@@ -391,13 +366,6 @@ export const useProxyStore = create<ProxyState>()(
     
     // 证书状态
     setCertTrustStatus: (status: string | null) => set({ certTrustStatus: status }),
-    
-    // AI 搜索
-    setIsAIParsing: (parsing: boolean) => set({ isAIParsing: parsing }),
-    
-    setAiSearchText: (text: string) => set({ aiSearchText: text }),
-    
-    setAiPopoverOpen: (open: boolean) => set({ aiPopoverOpen: open }),
     
     // Proto management
     setProtoFiles: (files: ProtoFileEntry[]) => set({ protoFiles: files }),

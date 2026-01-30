@@ -7,7 +7,7 @@ import JsonViewer from './JsonViewer';
 import JsonEditor from './JsonEditor';
 import { useDeviceStore, useProxyStore, RequestLog as StoreRequestLog } from '../stores';
 // @ts-ignore
-import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, RemoveMockRule, GetMockRules, ToggleMockRule, CheckCertTrust, SetupProxyForDevice, CleanupProxyForDevice, GetProtoFiles, AddProtoFile, UpdateProtoFile, RemoveProtoFile, GetProtoMappings, AddProtoMapping, UpdateProtoMapping, RemoveProtoMapping, GetProtoMessageTypes, LoadProtoFromURL, LoadProtoFromDisk } from '../../wailsjs/go/main/App';
+import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, GetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, UpdateMockRule, RemoveMockRule, GetMockRules, ToggleMockRule, CheckCertTrust, SetupProxyForDevice, CleanupProxyForDevice, GetProtoFiles, AddProtoFile, UpdateProtoFile, RemoveProtoFile, GetProtoMappings, AddProtoMapping, UpdateProtoMapping, RemoveProtoMapping, GetProtoMessageTypes, LoadProtoFromURL, LoadProtoFromDisk } from '../../wailsjs/go/main/App';
 // @ts-ignore
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { useTranslation } from 'react-i18next';
@@ -107,9 +107,6 @@ const ProxyView: React.FC = () => {
         mockRules,
         editingMockRule,
         certTrustStatus,
-        isAIParsing,
-        aiSearchText,
-        aiPopoverOpen,
         setResendModalOpen,
         setResendLoading,
         setResendResponse,
@@ -126,9 +123,6 @@ const ProxyView: React.FC = () => {
         mockConditionHints,
         setMockConditionHints,
         setCertTrustStatus,
-        setIsAIParsing,
-        setAiSearchText,
-        setAiPopoverOpen,
         protoFiles,
         protoMappings,
         protoMessageTypes,
@@ -280,6 +274,12 @@ const ProxyView: React.FC = () => {
         // Initial status check
         GetProxyStatus().then((status: boolean) => setProxyRunning(status));
         GetLocalIP().then((ip: string) => setLocalIP(ip));
+        // Sync bypass patterns from backend (backend has defaults that frontend doesn't know about)
+        GetMITMBypassPatterns().then((patterns: string[]) => {
+            if (patterns && patterns.length > 0) {
+                useProxyStore.getState().setBypassPatterns(patterns);
+            }
+        }).catch(() => {});
 
         // Listen for proxy status changes (e.g. started by session config)
         const handleProxyStatus = (data: { running: boolean; port: number }) => {
@@ -289,13 +289,6 @@ const ProxyView: React.FC = () => {
             }
         };
         EventsOn("proxy-status-changed", handleProxyStatus);
-
-        // Sync settings from backend
-        // Note: These settings are managed by the store and backend
-        // @ts-ignore
-        import('../../wailsjs/go/main/App').then(m => {
-            // Settings are already synced via store
-        });
 
         // Listen for network events from session (unified event source)
         const handleSessionBatch = (events: any[]) => {
@@ -429,52 +422,6 @@ const ProxyView: React.FC = () => {
             ),
         });
     };
-
-    const columns = [
-        {
-            title: t('proxy.col_time'),
-            dataIndex: 'time',
-            key: 'time',
-            width: 100,
-        },
-        {
-            title: t('proxy.col_method'),
-            dataIndex: 'method',
-            key: 'method',
-            width: 100,
-            render: (method: string, record: RequestLog) => {
-                let color = 'default';
-                if (method === 'GET') color = 'green';
-                else if (method === 'POST') color = 'blue';
-                else if (method === 'PUT') color = 'orange';
-                else if (method === 'DELETE') color = 'red';
-                else if (method === 'CONNECT') color = 'purple';
-                else if (method === 'WS') color = 'cyan';
-
-                return (
-                    <Space>
-                        <Tag color={color}>{method}</Tag>
-                        {record.isHttps && <LockOutlined style={{ color: '#52c41a' }} title="HTTPS Tunnel" />}
-                    </Space>
-                );
-            }
-        },
-        {
-            title: t('proxy.col_url'),
-            dataIndex: 'url',
-            key: 'url',
-            ellipsis: true,
-            render: (url: string) => (
-                <Text style={{ fontFamily: "'Fira Code', monospace", fontSize: '13px' }} title={url}>{url}</Text>
-            )
-        },
-        {
-            title: 'Client IP',
-            dataIndex: 'clientIp',
-            key: 'clientIp',
-            width: 140,
-        },
-    ];
 
     const handleWSToggle = async (checked: boolean) => {
         try {
@@ -717,10 +664,11 @@ const ProxyView: React.FC = () => {
             };
 
             if (editingMockRule) {
-                // Update existing - for now just remove and re-add
-                await RemoveMockRule(editingMockRule.id);
+                // Update existing rule (preserves original ID and createdAt)
+                await UpdateMockRule({ ...rule, id: editingMockRule.id, createdAt: editingMockRule.createdAt || 0, enabled: editingMockRule.enabled } as any);
+            } else {
+                await AddMockRule(rule as any);
             }
-            await AddMockRule(rule as any);
 
             message.success(editingMockRule ? t('proxy.mock_rule_updated') : t('proxy.mock_rule_added'));
             mockForm.resetFields();
@@ -1555,7 +1503,7 @@ const ProxyView: React.FC = () => {
                     }}> {t('proxy.add')} </Button>
                 </Space.Compact>
 
-                <div style={{ minHeight: 100, padding: 8, border: '1px solid #f0f0f0', borderRadius: 4, background: '#fafafa' }}>
+                <div style={{ minHeight: 100, padding: 8, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4, background: token.colorFillAlter }}>
                     <Space wrap>
                         {bypassPatterns.map(pat => (
                             <Tag
