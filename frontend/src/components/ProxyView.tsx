@@ -700,8 +700,9 @@ const ProxyView: React.FC = () => {
         }
     };
 
-    // Edit mock rule — open edit modal with prefilled form
+    // Edit mock rule — close list modal first, then open edit modal with prefilled form
     const startEditMockRule = (rule: any) => {
+        closeMockListModal();
         setMockConditionHints(null);
         openMockEditModal(rule);
         mockForm.resetFields();
@@ -1580,7 +1581,7 @@ const ProxyView: React.FC = () => {
                 style={{ top: 32, paddingBottom: 0 }}
             >
                 <div style={{ marginBottom: 12 }}>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => { mockForm.resetFields(); setMockConditionHints(null); openMockEditModal(null); }}>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => { closeMockListModal(); mockForm.resetFields(); setMockConditionHints(null); openMockEditModal(null); }}>
                         {t('proxy.add_mock_rule')}
                     </Button>
                 </div>
