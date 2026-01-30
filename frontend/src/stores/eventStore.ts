@@ -775,10 +775,19 @@ function filterEvents(events: UnifiedEvent[], filter: EventQuery): UnifiedEvent[
     }
     if (filter.searchText) {
       const search = filter.searchText.toLowerCase();
-      if (!event.title.toLowerCase().includes(search) &&
-          !event.summary?.toLowerCase().includes(search)) {
-        return false;
+      // Search in title and summary
+      if (event.title.toLowerCase().includes(search)) return true;
+      if (event.summary?.toLowerCase().includes(search)) return true;
+      // Deep search in event data (when available from live events)
+      if (event.data) {
+        try {
+          const dataStr = typeof event.data === 'string' ? event.data : JSON.stringify(event.data);
+          if (dataStr.toLowerCase().includes(search)) return true;
+        } catch {
+          // ignore serialization errors
+        }
       }
+      return false;
     }
     return true;
   });

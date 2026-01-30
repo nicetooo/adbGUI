@@ -43,12 +43,17 @@ export interface WorkflowRuntimeContext {
   variables: Record<string, string>;
 }
 
+export type WorkflowViewMode = 'canvas' | 'list';
+
 interface WorkflowState {
   // Core data
   workflows: Workflow[];
   selectedWorkflowId: string | null;
   nodes: Node[];
   edges: Edge[];
+  
+  // View mode
+  viewMode: WorkflowViewMode;
   
   // Execution state
   isRunning: boolean;
@@ -139,6 +144,9 @@ interface WorkflowState {
   setAppsLoading: (loading: boolean) => void;
   setNeedsAutoSave: (needs: boolean) => void;
   
+  // View mode
+  setViewMode: (mode: WorkflowViewMode) => void;
+  
   // Export utilities
   exportWorkflow: (id: string) => Workflow | undefined;
 }
@@ -150,6 +158,8 @@ export const useWorkflowStore = create<WorkflowState>()(
     selectedWorkflowId: null,
     nodes: [],
     edges: [],
+    
+    viewMode: 'canvas' as WorkflowViewMode,
     
     isRunning: false,
     runningWorkflowIds: [],
@@ -428,6 +438,9 @@ export const useWorkflowStore = create<WorkflowState>()(
     setAppsLoading: (loading) => set({ appsLoading: loading }),
     
     setNeedsAutoSave: (needs) => set({ needsAutoSave: needs }),
+    
+    // View mode
+    setViewMode: (mode) => set({ viewMode: mode }),
     
     // Export utilities
     exportWorkflow: (id) => {

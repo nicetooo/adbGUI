@@ -778,29 +778,28 @@ func (s *EventStore) QueryEvents(q EventQuery) (*EventQueryResult, error) {
 		whereClause = " WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	// 全文搜索
+	// 全文搜索 (深度搜索: title + summary + event_data.data)
 	if q.SearchText != "" {
 		// 检查是否有 FTS 表
 		var ftsExists int
 		s.db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='events_fts'").Scan(&ftsExists)
-		if ftsExists > 0 {
-			if whereClause == "" {
-				whereClause = " WHERE "
-			} else {
-				whereClause += " AND "
-			}
-			whereClause += "id IN (SELECT id FROM events_fts WHERE events_fts MATCH ?)"
-			args = append(args, q.SearchText)
+
+		searchPattern := "%" + q.SearchText + "%"
+
+		if whereClause == "" {
+			whereClause = " WHERE "
 		} else {
-			// 降级到 LIKE 搜索
-			if whereClause == "" {
-				whereClause = " WHERE "
-			} else {
-				whereClause += " AND "
-			}
-			whereClause += "(title LIKE ? OR summary LIKE ?)"
-			searchPattern := "%" + q.SearchText + "%"
-			args = append(args, searchPattern, searchPattern)
+			whereClause += " AND "
+		}
+
+		if ftsExists > 0 {
+			// FTS5 搜索 title/summary + LIKE 搜索 event_data 详情内容
+			whereClause += "(id IN (SELECT id FROM events_fts WHERE events_fts MATCH ?) OR id IN (SELECT event_id FROM event_data WHERE data LIKE ?))"
+			args = append(args, q.SearchText, searchPattern)
+		} else {
+			// 降级: LIKE 搜索 title/summary + event_data 详情内容
+			whereClause += "(title LIKE ? OR summary LIKE ? OR id IN (SELECT event_id FROM event_data WHERE data LIKE ?))"
+			args = append(args, searchPattern, searchPattern, searchPattern)
 		}
 	}
 

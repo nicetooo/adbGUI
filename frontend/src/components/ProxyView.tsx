@@ -678,14 +678,40 @@ const ProxyView: React.FC = () => {
         if (filterType === "HTTP" && log.isWs) return false;
         if (filterType === "WS" && !log.isWs) return false;
 
-        // Filter by search text
+        // Filter by search text (deep search: URL, method, status, headers, body, response)
         if (searchText) {
             const lowerSearch = searchText.toLowerCase();
-            return (
-                log.url.toLowerCase().includes(lowerSearch) ||
-                log.method.toLowerCase().includes(lowerSearch) ||
-                String(log.statusCode || '').includes(lowerSearch)
-            );
+
+            // Basic fields
+            if (log.url.toLowerCase().includes(lowerSearch)) return true;
+            if (log.method.toLowerCase().includes(lowerSearch)) return true;
+            if (String(log.statusCode || '').includes(lowerSearch)) return true;
+            if ((log.contentType || '').toLowerCase().includes(lowerSearch)) return true;
+            if ((log.clientIp || '').toLowerCase().includes(lowerSearch)) return true;
+
+            // Request headers (key + values)
+            if (log.headers) {
+                for (const [key, values] of Object.entries(log.headers)) {
+                    if (key.toLowerCase().includes(lowerSearch)) return true;
+                    if (values?.some(v => v.toLowerCase().includes(lowerSearch))) return true;
+                }
+            }
+
+            // Response headers (key + values)
+            if (log.respHeaders) {
+                for (const [key, values] of Object.entries(log.respHeaders)) {
+                    if (key.toLowerCase().includes(lowerSearch)) return true;
+                    if (values?.some(v => v.toLowerCase().includes(lowerSearch))) return true;
+                }
+            }
+
+            // Request body
+            if ((log.previewBody || '').toLowerCase().includes(lowerSearch)) return true;
+
+            // Response body
+            if ((log.respBody || '').toLowerCase().includes(lowerSearch)) return true;
+
+            return false;
         }
         return true;
     });

@@ -51,7 +51,6 @@ import {
   ExpandOutlined,
   LockOutlined,
   ForkOutlined,
-  PartitionOutlined,
   PicCenterOutlined,
   PicRightOutlined,
   LoadingOutlined,
@@ -59,6 +58,8 @@ import {
   IdcardOutlined,
   ThunderboltOutlined,
   StepForwardOutlined,
+  UnorderedListOutlined,
+  PartitionOutlined as CanvasOutlined,
 } from "@ant-design/icons";
 import {
   ReactFlow,
@@ -86,7 +87,9 @@ import dagre from 'dagre';
 
 import DeviceSelector from "./DeviceSelector";
 import ElementPicker, { ElementSelector } from "./ElementPicker";
+import WorkflowStepListView from "./WorkflowStepListView";
 import { useDeviceStore, useAutomationStore, useWorkflowStore } from "../stores";
+import type { WorkflowViewMode } from "../stores/workflowStore";
 import type { Workflow, WorkflowStep } from "../types/workflow";
 
 const { Text, Title } = Typography;
@@ -488,6 +491,8 @@ const WorkflowView: React.FC = () => {
     setEditingWorkflowName,
     setNeedsAutoSave,
     setSelectedWorkflow,
+    viewMode,
+    setViewMode,
   } = useWorkflowStore(useShallow(state => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { executionLogs, workflowStepMap, ...rest } = state;
@@ -2079,23 +2084,272 @@ const WorkflowView: React.FC = () => {
     }
   };
 
+  /**
+   * Handles step reordering from the list view.
+   * Rebuilds the success connection chain based on the new order,
+   * preserving branch/error connections unchanged.
+   */
+  const handleStepReorder = useCallback(async (orderedSteps: WorkflowStep[]) => {
+    if (!selectedWorkflow) return;
+
+    // Rebuild successStepId chain for the new linear order.
+    // Branch true/false/error connections and error connections are preserved.
+    const updatedSteps = orderedSteps.map((step, index) => {
+      const nextStep = index < orderedSteps.length - 1 ? orderedSteps[index + 1] : null;
+
+      // For branch nodes, keep existing true/false/error connections; only update successStepId for non-branch
+      if (step.type === 'branch') {
+        return { ...step }; // Branch connections are managed via the canvas
+      }
+
+      return {
+        ...step,
+        connections: {
+          ...step.connections,
+          successStepId: nextStep ? nextStep.id : undefined,
+          // Preserve error connections
+          errorStepId: step.connections?.errorStepId,
+        },
+      };
+    });
+
+    // Also need to include steps from the original workflow that might not be in the linear order
+    // (disconnected nodes, etc.) — just preserve them unchanged
+    const orderedIds = new Set(updatedSteps.map(s => s.id));
+    const extraSteps = selectedWorkflow.steps.filter(s => !orderedIds.has(s.id));
+
+    const allSteps = [...updatedSteps, ...extraSteps];
+
+    // Update workflow with new step order and connections
+    const updatedWorkflow: Workflow = {
+      ...selectedWorkflow,
+      steps: allSteps,
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      await (window as any).go.main.App.SaveWorkflow(updatedWorkflow);
+
+      // Update local state
+      skipNextRenderRef.current = true;
+      updateWorkflow(selectedWorkflow.id, updatedWorkflow);
+      selectWorkflow(updatedWorkflow.id);
+
+      // Rebuild React Flow nodes/edges from the updated workflow
+      // This is needed because the graph connections changed
+      const newNodes = allSteps.map((step, index) => {
+        const stepState = workflowStepMap[selectedWorkflow.id];
+        const isCurrent = stepState?.stepId === step.id && !stepState?.isWaiting;
+        const isWaiting = stepState?.stepId === step.id && stepState?.isWaiting;
+        const waitPhase = stepState?.waitPhase;
+
+        // If step doesn't have layout positions, auto-assign grid positions
+        const posX = step.layout?.posX ?? 250;
+        const posY = step.layout?.posY ?? (index * 120 + 50);
+
+        return {
+          id: step.id,
+          type: 'workflowNode' as const,
+          position: { x: posX, y: posY },
+          data: {
+            step: { ...step, layout: { ...step.layout, posX, posY } },
+            label: step.name || t(`workflow.step_type.${step.type}`),
+            isCurrent,
+            isWaiting,
+            waitingPhase: waitPhase,
+            onExecuteStep: handleExecuteSingleStep,
+            canExecute: !!selectedDevice && !isRunning,
+          },
+        };
+      });
+
+      // Rebuild edges from updated connections
+      const newEdges: any[] = [];
+      allSteps.forEach(step => {
+        const conn = step.connections;
+        const handles = step.layout?.handles;
+
+        if (step.type === 'branch') {
+          if (conn?.trueStepId) {
+            newEdges.push({
+              id: `e-${step.id}-${conn.trueStepId}-true`,
+              source: step.id,
+              target: conn.trueStepId,
+              type: 'smoothstep',
+              sourceHandle: handles?.true?.sourceHandle || 'true',
+              label: t('workflow.branch_true'),
+              style: { stroke: token.colorSuccess },
+              labelStyle: { fill: token.colorSuccess, fontWeight: 700 },
+              markerEnd: { type: MarkerType.ArrowClosed, color: token.colorSuccess },
+            });
+          }
+          if (conn?.falseStepId) {
+            newEdges.push({
+              id: `e-${step.id}-${conn.falseStepId}-false`,
+              source: step.id,
+              target: conn.falseStepId,
+              type: 'smoothstep',
+              sourceHandle: handles?.false?.sourceHandle || 'false',
+              label: t('workflow.branch_false'),
+              style: { stroke: token.colorError },
+              labelStyle: { fill: token.colorError, fontWeight: 700 },
+              markerEnd: { type: MarkerType.ArrowClosed, color: token.colorError },
+            });
+          }
+          if (conn?.errorStepId) {
+            newEdges.push({
+              id: `e-${step.id}-${conn.errorStepId}-error`,
+              source: step.id,
+              target: conn.errorStepId,
+              type: 'smoothstep',
+              sourceHandle: handles?.error?.sourceHandle || 'error',
+              label: t('workflow.error') || 'Error',
+              style: { stroke: token.colorWarning },
+              labelStyle: { fill: token.colorWarning, fontWeight: 700 },
+              markerEnd: { type: MarkerType.ArrowClosed, color: token.colorWarning },
+            });
+          }
+        } else {
+          if (conn?.successStepId) {
+            newEdges.push({
+              id: `e-${step.id}-${conn.successStepId}-success`,
+              source: step.id,
+              target: conn.successStepId,
+              type: 'smoothstep',
+              sourceHandle: handles?.success?.sourceHandle || 'success',
+              label: step.type === 'start' ? undefined : t('workflow.success'),
+              style: step.type === 'start' ? undefined : { stroke: token.colorSuccess },
+              labelStyle: step.type === 'start' ? undefined : { fill: token.colorSuccess, fontWeight: 700 },
+              markerEnd: { type: MarkerType.ArrowClosed, color: step.type === 'start' ? undefined : token.colorSuccess },
+            });
+          }
+          if (conn?.errorStepId) {
+            newEdges.push({
+              id: `e-${step.id}-${conn.errorStepId}-error`,
+              source: step.id,
+              target: conn.errorStepId,
+              type: 'smoothstep',
+              sourceHandle: handles?.error?.sourceHandle || 'error',
+              label: t('workflow.error') || 'Error',
+              style: { stroke: token.colorWarning },
+              labelStyle: { fill: token.colorWarning, fontWeight: 700 },
+              markerEnd: { type: MarkerType.ArrowClosed, color: token.colorWarning },
+            });
+          }
+        }
+      });
+
+      setNodes(newNodes);
+      setEdges(newEdges);
+      message.success(t("workflow.steps_reordered"));
+    } catch (err) {
+      message.error(String(err));
+    }
+  }, [selectedWorkflow, workflowStepMap, t, token, handleExecuteSingleStep, selectedDevice, isRunning, setNodes, setEdges, updateWorkflow, selectWorkflow]);
+
+  /**
+   * Handle step click from list view - open the edit drawer.
+   */
+  const handleListStepClick = useCallback((step: WorkflowStep) => {
+    // Find the corresponding node and simulate a node click
+    const node = nodes.find(n => n.id === step.id);
+    if (node) {
+      // Reuse handleNodeClick logic
+      setEditingNodeId(step.id);
+      const selector = step.element?.selector || step.branch?.selector || step.readToVariable?.selector;
+      const conditionType = step.branch?.condition || 'exists';
+      
+      let value: string | undefined;
+      if (step.app?.packageName) value = step.app.packageName;
+      else if (step.wait?.durationMs) value = String(step.wait.durationMs);
+      else if (step.script?.scriptName) value = step.script.scriptName;
+      else if (step.variable?.value) value = step.variable.value;
+      else if (step.adb?.command) value = step.adb.command;
+      else if (step.workflow?.workflowId) value = step.workflow.workflowId;
+      else if (step.element?.inputText) value = step.element.inputText;
+      else if (step.element?.swipeDir) value = step.element.swipeDir;
+      else if (step.branch?.expectedValue) value = step.branch.expectedValue;
+      else if (step.readToVariable?.defaultValue) value = step.readToVariable.defaultValue;
+      
+      stepForm.resetFields();
+      stepForm.setFieldsValue({
+        type: step.type,
+        name: step.name,
+        selectorType: selector?.type,
+        selectorValue: selector?.value,
+        conditionType,
+        value,
+        timeout: step.common?.timeout,
+        onError: step.common?.onError,
+        loop: step.common?.loop,
+        preWait: step.common?.preWait,
+        postDelay: step.common?.postDelay,
+        swipeDistance: step.element?.swipeDistance || step.swipe?.distance,
+        swipeDuration: step.element?.swipeDuration || step.swipe?.duration,
+        x: step.tap?.x || step.swipe?.x,
+        y: step.tap?.y || step.swipe?.y,
+        x2: step.swipe?.x2,
+        y2: step.swipe?.y2,
+        variableName: step.readToVariable?.variableName || step.variable?.name,
+        attribute: step.readToVariable?.attribute || 'text',
+        regex: step.readToVariable?.regex,
+        defaultValue: step.readToVariable?.defaultValue,
+        sessionName: step.session?.sessionName,
+        logcatEnabled: step.session?.logcatEnabled,
+        logcatPackageName: step.session?.logcatPackageName,
+        logcatPreFilter: step.session?.logcatPreFilter,
+        logcatExcludeFilter: step.session?.logcatExcludeFilter,
+        recordingEnabled: step.session?.recordingEnabled,
+        recordingQuality: step.session?.recordingQuality || 'medium',
+        proxyEnabled: step.session?.proxyEnabled,
+        proxyPort: step.session?.proxyPort || 8080,
+        proxyMitmEnabled: step.session?.proxyMitmEnabled,
+        monitorEnabled: step.session?.monitorEnabled,
+        sessionStatus: step.session?.status || 'completed',
+      });
+      setDrawerVisible(true);
+    }
+  }, [nodes, stepForm, setEditingNodeId, setDrawerVisible]);
+
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "12px 24px", borderBottom: `1px solid ${token.colorBorderSecondary}`, display: "flex", justifyContent: "space-between", alignItems: "center", background: token.colorBgContainer }}>
         <Space>
           <Title level={4} style={{ margin: 0 }}>{t("workflow.title")}</Title>
-          <Tag color="green">Visual Editor</Tag>
+          <Tag color="green">{viewMode === 'canvas' ? t("workflow.visual_editor") : t("workflow.list_editor")}</Tag>
         </Space>
         <Space>
           <DeviceSelector />
           {selectedWorkflow && (
             <>
-              <Tooltip title={t("workflow.auto_layout") + " (Vertical)"}>
-                <Button icon={<PicCenterOutlined />} onClick={() => handleAutoLayout('TB')} />
-              </Tooltip>
-              <Tooltip title={t("workflow.auto_layout") + " (Horizontal)"}>
-                <Button icon={<PicRightOutlined />} onClick={() => handleAutoLayout('LR')} />
-              </Tooltip>
+              {/* View Mode Toggle */}
+              <Button.Group>
+                <Tooltip title={t("workflow.canvas_view")}>
+                  <Button
+                    icon={<CanvasOutlined />}
+                    type={viewMode === 'canvas' ? 'primary' : 'default'}
+                    onClick={() => setViewMode('canvas')}
+                  />
+                </Tooltip>
+                <Tooltip title={t("workflow.list_view")}>
+                  <Button
+                    icon={<UnorderedListOutlined />}
+                    type={viewMode === 'list' ? 'primary' : 'default'}
+                    onClick={() => setViewMode('list')}
+                  />
+                </Tooltip>
+              </Button.Group>
+
+              {viewMode === 'canvas' && (
+                <>
+                  <Tooltip title={t("workflow.auto_layout") + " (Vertical)"}>
+                    <Button icon={<PicCenterOutlined />} onClick={() => handleAutoLayout('TB')} />
+                  </Tooltip>
+                  <Tooltip title={t("workflow.auto_layout") + " (Horizontal)"}>
+                    <Button icon={<PicRightOutlined />} onClick={() => handleAutoLayout('LR')} />
+                  </Tooltip>
+                </>
+              )}
               <Button icon={<SettingOutlined />} onClick={handleOpenVariablesModal}>
                 {t("workflow.variables")}
               </Button>
@@ -2269,6 +2523,15 @@ const WorkflowView: React.FC = () => {
 
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           {selectedWorkflow ? (
+            viewMode === 'list' ? (
+              <WorkflowStepListView
+                workflow={selectedWorkflow}
+                currentStepId={currentStepId}
+                editingNodeId={editingNodeId}
+                onStepClick={handleListStepClick}
+                onReorder={handleStepReorder}
+              />
+            ) : (
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -2512,6 +2775,7 @@ const WorkflowView: React.FC = () => {
                 </Panel>
               )}
             </ReactFlow>
+            )
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: token.colorTextSecondary }}>
               <BranchesOutlined style={{ fontSize: 48, marginBottom: 16 }} />

@@ -47,6 +47,7 @@ import {
   ClockCircleOutlined,
   WarningOutlined,
   BarChartOutlined,
+  LoadingOutlined,
 } from '@ant-design/icons';
 import AssertionsPanel from './AssertionsPanel';
 import SessionStats from './SessionStats';
@@ -1420,7 +1421,7 @@ const EventTimeline = () => {
         {/* Filters */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <Input
-            prefix={<SearchOutlined />}
+            prefix={isLoading && searchText ? <LoadingOutlined spin /> : <SearchOutlined />}
             placeholder={t('timeline.search_placeholder', 'Search events...')}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
