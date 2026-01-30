@@ -803,9 +803,13 @@
     "breakpoint_original_request": "原始請求",
     "create_breakpoint": "建立斷點",
     "tab_req_headers": "請求標頭",
+    "tab_req_query": "查詢參數",
     "tab_req_body": "請求內容",
     "tab_resp_headers": "回應標頭",
-    "tab_resp_body": "回應內容"
+    "tab_resp_body": "回應內容",
+    "breakpoint_query_name": "參數名稱",
+    "breakpoint_query_value": "值",
+    "breakpoint_add_query": "新增參數"
   },
   "batch": {
     "title": "批次操作",

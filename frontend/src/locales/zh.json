@@ -803,9 +803,13 @@
     "breakpoint_original_request": "原始请求",
     "create_breakpoint": "创建断点",
     "tab_req_headers": "请求头",
+    "tab_req_query": "查询参数",
     "tab_req_body": "请求体",
     "tab_resp_headers": "响应头",
-    "tab_resp_body": "响应体"
+    "tab_resp_body": "响应体",
+    "breakpoint_query_name": "参数名",
+    "breakpoint_query_value": "值",
+    "breakpoint_add_query": "添加参数"
   },
   "batch": {
     "title": "批量操作",

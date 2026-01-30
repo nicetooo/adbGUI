@@ -803,9 +803,13 @@
     "breakpoint_original_request": "元のリクエスト",
     "create_breakpoint": "ブレークポイント作成",
     "tab_req_headers": "リクエストヘッダー",
+    "tab_req_query": "クエリ",
     "tab_req_body": "リクエストボディ",
     "tab_resp_headers": "レスポンスヘッダー",
-    "tab_resp_body": "レスポンスボディ"
+    "tab_resp_body": "レスポンスボディ",
+    "breakpoint_query_name": "パラメータ名",
+    "breakpoint_query_value": "値",
+    "breakpoint_add_query": "パラメータ追加"
   },
   "batch": {
     "title": "一括操作",

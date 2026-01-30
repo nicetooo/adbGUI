@@ -133,10 +133,38 @@ export interface BreakpointEditState {
   method: string;
   url: string;
   headers: EditableHeader[];
+  queryParams: EditableHeader[];
   body: string;
   statusCode: number;
   respHeaders: EditableHeader[];
   respBody: string;
+}
+
+// Parse query parameters from a URL string into editable key-value pairs
+export function urlToQueryParams(url: string): EditableHeader[] {
+  try {
+    const qIdx = url.indexOf('?');
+    if (qIdx === -1) return [];
+    const search = url.substring(qIdx + 1);
+    const params = new URLSearchParams(search);
+    const result: EditableHeader[] = [];
+    params.forEach((value, key) => {
+      result.push({ key, value });
+    });
+    return result;
+  } catch {
+    return [];
+  }
+}
+
+// Rebuild URL from base + edited query params
+export function rebuildUrlWithQuery(url: string, queryParams: EditableHeader[]): string {
+  const qIdx = url.indexOf('?');
+  const base = qIdx === -1 ? url : url.substring(0, qIdx);
+  const validParams = queryParams.filter(p => p.key.trim());
+  if (validParams.length === 0) return base;
+  const search = validParams.map(p => `${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`).join('&');
+  return `${base}?${search}`;
 }
 
 // Convert backend headers (Record<string, string[]>) to editable format
@@ -169,7 +197,9 @@ export function buildModifications(
 
   if (bp.phase === 'request') {
     if (edit.method !== bp.method) mods.method = edit.method;
-    if (edit.url !== bp.url) mods.url = edit.url;
+    // Rebuild URL from query params and compare
+    const rebuiltUrl = rebuildUrlWithQuery(edit.url, edit.queryParams);
+    if (rebuiltUrl !== bp.url) mods.url = rebuiltUrl;
     if (edit.body !== (bp.body || '')) mods.body = edit.body;
     // Compare headers
     const origHeaders = headersToEditable(bp.headers);
@@ -551,6 +581,7 @@ export const useProxyStore = create<ProxyState>()(
         method: bp.method,
         url: bp.url,
         headers: headersToEditable(bp.headers),
+        queryParams: urlToQueryParams(bp.url),
         body: bp.body || '',
         statusCode: bp.statusCode || 200,
         respHeaders: headersToEditable(bp.respHeaders),

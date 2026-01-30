@@ -803,9 +803,13 @@
     "breakpoint_original_request": "원본 요청",
     "create_breakpoint": "브레이크포인트 생성",
     "tab_req_headers": "요청 헤더",
+    "tab_req_query": "쿼리",
     "tab_req_body": "요청 본문",
     "tab_resp_headers": "응답 헤더",
-    "tab_resp_body": "응답 본문"
+    "tab_resp_body": "응답 본문",
+    "breakpoint_query_name": "매개변수 이름",
+    "breakpoint_query_value": "값",
+    "breakpoint_add_query": "매개변수 추가"
   },
   "batch": {
     "title": "일괄 작업",

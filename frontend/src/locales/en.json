@@ -803,9 +803,13 @@
     "breakpoint_original_request": "Original Request",
     "create_breakpoint": "Create Breakpoint",
     "tab_req_headers": "Request Headers",
+    "tab_req_query": "Query",
     "tab_req_body": "Request Body",
     "tab_resp_headers": "Response Headers",
-    "tab_resp_body": "Response Body"
+    "tab_resp_body": "Response Body",
+    "breakpoint_query_name": "Parameter name",
+    "breakpoint_query_value": "Value",
+    "breakpoint_add_query": "Add Parameter"
   },
   "batch": {
     "title": "Batch Operation",

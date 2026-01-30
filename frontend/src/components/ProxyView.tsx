@@ -1076,21 +1076,6 @@ const ProxyView: React.FC = () => {
         try {
             await ForwardAllBreakpoints();
             clearPendingBreakpoints();
-            // For phase=both rules: forwarding request-phase breakpoints may trigger
-            // response-phase breakpoints after the server responds (variable latency).
-            // Poll multiple times to auto-forward any new pending breakpoints.
-            const retryDelays = [500, 1500, 3000, 5000];
-            for (const delay of retryDelays) {
-                setTimeout(async () => {
-                    try {
-                        const remaining = await GetPendingBreakpoints();
-                        if (remaining && remaining.length > 0) {
-                            await ForwardAllBreakpoints();
-                            clearPendingBreakpoints();
-                        }
-                    } catch (_) { /* ignore */ }
-                }, delay);
-            }
         } catch (err) {
             message.error(String(err));
         }
@@ -1389,30 +1374,42 @@ const ProxyView: React.FC = () => {
                 {/* Pending breakpoints notification bar */}
                 {pendingBreakpoints.length > 0 && (
                     <div style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '6px 12px', background: token.colorWarningBg,
+                        background: token.colorWarningBg,
                         borderBottom: `1px solid ${token.colorWarningBorder}`,
                         fontSize: 12,
                     }}>
-                        <Space size={8}>
-                            <BugOutlined style={{ color: token.colorWarning }} />
-                            <Text style={{ fontSize: 12 }}>
-                                <strong>{pendingBreakpoints.length}</strong> {t('proxy.pending_breakpoints')}
-                            </Text>
-                            {pendingBreakpoints.map(bp => (
-                                <Tag
-                                    key={bp.id}
-                                    color="orange"
-                                    style={{ cursor: 'pointer', fontSize: 11 }}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 12px' }}>
+                            <Space size={8}>
+                                <BugOutlined style={{ color: token.colorWarning }} />
+                                <Text style={{ fontSize: 12 }}>
+                                    <strong>{pendingBreakpoints.length}</strong> {t('proxy.pending_breakpoints')}
+                                </Text>
+                            </Space>
+                            <Button size="small" type="link" onClick={handleForwardAllBreakpoints} icon={<FastForwardOutlined />}>
+                                {t('proxy.breakpoint_forward_all')}
+                            </Button>
+                        </div>
+                        {pendingBreakpoints.map(bp => (
+                            <div key={bp.id} style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                padding: '2px 12px 2px 32px', gap: 8,
+                            }}>
+                                <div
+                                    style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', color: token.colorLink }}
                                     onClick={() => openBreakpointResolveModal(bp)}
+                                    title={bp.url}
                                 >
-                                    {bp.phase === 'request' ? '→' : '←'} {bp.method} {bp.url.length > 40 ? bp.url.substring(0, 40) + '...' : bp.url}
-                                </Tag>
-                            ))}
-                        </Space>
-                        <Button size="small" type="link" onClick={handleForwardAllBreakpoints} icon={<FastForwardOutlined />}>
-                            {t('proxy.breakpoint_forward_all')}
-                        </Button>
+                                    <Tag color={bp.phase === 'request' ? 'green' : 'orange'} style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>{bp.phase === 'request' ? '→ REQ' : '← RES'}</Tag>
+                                    <Tag style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>{bp.method}</Tag>
+                                    {bp.url.length > 60 ? bp.url.substring(0, 60) + '...' : bp.url}
+                                </div>
+                                <Space size={2}>
+                                    <Button size="small" type="text" icon={<FastForwardOutlined />} onClick={() => handleResolveBreakpoint(bp.id, 'forward')} title={t('proxy.breakpoint_forward')} />
+                                    <Button size="small" type="text" danger icon={<StopOutlined />} onClick={() => handleResolveBreakpoint(bp.id, 'drop')} title={t('proxy.breakpoint_drop')} />
+                                </Space>
+                            </div>
+                        ))}
+                        <div style={{ height: 4 }} />
                     </div>
                 )}
                 {/* Virtual Table Header - Fixed widths */}
@@ -2484,6 +2481,60 @@ const ProxyView: React.FC = () => {
                                                     style={{ marginTop: 4 }}
                                                 >
                                                     {t('proxy.breakpoint_add_header')}
+                                                </Button>
+                                            </div>
+                                        ),
+                                    },
+                                    {
+                                        key: 'reqQuery',
+                                        label: `${t('proxy.tab_req_query')}${breakpointEdit.queryParams.length > 0 ? ` (${breakpointEdit.queryParams.length})` : ''}`,
+                                        children: (
+                                            <div style={{ maxHeight: 280, overflow: 'auto' }}>
+                                                {breakpointEdit.queryParams.map((p: EditableHeader, i: number) => (
+                                                    <Space key={i} style={{ display: 'flex', marginBottom: 4 }} align="start">
+                                                        <Input
+                                                            size="small"
+                                                            placeholder={t('proxy.breakpoint_query_name')}
+                                                            value={p.key}
+                                                            onChange={(e) => {
+                                                                const updated = [...breakpointEdit.queryParams];
+                                                                updated[i] = { ...updated[i], key: e.target.value };
+                                                                updateBreakpointEdit({ queryParams: updated });
+                                                            }}
+                                                            style={{ width: 200, fontFamily: 'monospace', fontSize: 12 }}
+                                                        />
+                                                        <Input
+                                                            size="small"
+                                                            placeholder={t('proxy.breakpoint_query_value')}
+                                                            value={p.value}
+                                                            onChange={(e) => {
+                                                                const updated = [...breakpointEdit.queryParams];
+                                                                updated[i] = { ...updated[i], value: e.target.value };
+                                                                updateBreakpointEdit({ queryParams: updated });
+                                                            }}
+                                                            style={{ flex: 1, fontFamily: 'monospace', fontSize: 12 }}
+                                                        />
+                                                        <Button
+                                                            size="small"
+                                                            icon={<MinusCircleOutlined />}
+                                                            onClick={() => {
+                                                                const updated = breakpointEdit.queryParams.filter((_: EditableHeader, idx: number) => idx !== i);
+                                                                updateBreakpointEdit({ queryParams: updated });
+                                                            }}
+                                                            danger
+                                                        />
+                                                    </Space>
+                                                ))}
+                                                <Button
+                                                    size="small"
+                                                    type="dashed"
+                                                    icon={<PlusOutlined />}
+                                                    onClick={() => {
+                                                        updateBreakpointEdit({ queryParams: [...breakpointEdit.queryParams, { key: '', value: '' }] });
+                                                    }}
+                                                    style={{ marginTop: 4 }}
+                                                >
+                                                    {t('proxy.breakpoint_add_query')}
                                                 </Button>
                                             </div>
                                         ),
