@@ -86,10 +86,13 @@ interface ProxyState {
   resendResponse: any;
   
   // Mock 规则相关
-  mockModalOpen: boolean;
+  mockListModalOpen: boolean;
+  mockEditModalOpen: boolean;
   mockRules: MockRule[];
   editingMockRule: MockRule | null;
   pendingMockData: PendingMockData | null;
+  /** @deprecated use mockListModalOpen / mockEditModalOpen */
+  mockModalOpen: boolean;
   
   // 证书状态
   certTrustStatus: string | null;
@@ -129,10 +132,16 @@ interface ProxyState {
   
   // Mock 规则
   setMockModalOpen: (open: boolean) => void;
+  setMockListModalOpen: (open: boolean) => void;
+  setMockEditModalOpen: (open: boolean) => void;
   setMockRules: (rules: MockRule[]) => void;
   setEditingMockRule: (rule: MockRule | null) => void;
   openMockModal: () => void;
   closeMockModal: () => void;
+  openMockListModal: () => void;
+  closeMockListModal: () => void;
+  openMockEditModal: (rule?: MockRule | null) => void;
+  closeMockEditModal: () => void;
   setPendingMockData: (data: PendingMockData | null) => void;
   openMockWithPrefill: (data: PendingMockData) => void;
   
@@ -175,6 +184,8 @@ export const useProxyStore = create<ProxyState>()(
     resendResponse: null,
     
     // Mock 规则
+    mockListModalOpen: false,
+    mockEditModalOpen: false,
     mockModalOpen: false,
     mockRules: [],
     editingMockRule: null,
@@ -263,6 +274,10 @@ export const useProxyStore = create<ProxyState>()(
     // Mock 规则
     setMockModalOpen: (open: boolean) => set({ mockModalOpen: open }),
     
+    setMockListModalOpen: (open: boolean) => set({ mockListModalOpen: open }),
+    
+    setMockEditModalOpen: (open: boolean) => set({ mockEditModalOpen: open }),
+    
     setMockRules: (rules: MockRule[]) => set({ mockRules: rules }),
     
     setEditingMockRule: (rule: MockRule | null) => set({ editingMockRule: rule }),
@@ -271,11 +286,22 @@ export const useProxyStore = create<ProxyState>()(
     
     closeMockModal: () => set({ mockModalOpen: false, editingMockRule: null }),
     
+    openMockListModal: () => set({ mockListModalOpen: true }),
+    
+    closeMockListModal: () => set({ mockListModalOpen: false }),
+    
+    openMockEditModal: (rule) => set({
+      mockEditModalOpen: true,
+      editingMockRule: rule ?? null,
+    }),
+    
+    closeMockEditModal: () => set({ mockEditModalOpen: false, editingMockRule: null }),
+    
     setPendingMockData: (data: PendingMockData | null) => set({ pendingMockData: data }),
     
     openMockWithPrefill: (data: PendingMockData) => set({
       pendingMockData: data,
-      mockModalOpen: true,
+      mockEditModalOpen: true,
       editingMockRule: null,
     }),
     
