@@ -76,6 +76,7 @@ import {
   isCriticalEvent,
 } from '../stores';
 import SessionConfigModal from './SessionConfigModal';
+import JsonViewer from './JsonViewer';
 
 const { Text, Title } = Typography;
 
@@ -589,52 +590,31 @@ const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => 
   const formatBody = (body: string | null, contentType: string | null) => {
     if (!body) return <Text type="secondary">{t('timeline.no_body')}</Text>;
 
-    // Try to format as JSON if content type suggests it
+    // Try to parse and display as JSON tree if content type suggests it
     if (contentType?.includes('json')) {
       try {
         const parsed = JSON.parse(body);
-        return (
-          <pre style={{
-            background: token.colorBgLayout,
-            padding: 12,
-            borderRadius: 4,
-            overflow: 'auto',
-            maxHeight: 300,
-            fontSize: 11,
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-all',
-            margin: 0,
-          }}>
-            {JSON.stringify(parsed, null, 2)}
-          </pre>
-        );
+        return <JsonViewer data={parsed} fontSize={11} />;
       } catch {
         // Fall through to plain text
       }
     }
 
-    return (
-      <pre style={{
-        background: token.colorBgLayout,
-        padding: 12,
-        borderRadius: 4,
-        overflow: 'auto',
-        maxHeight: 300,
-        fontSize: 11,
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-all',
-        margin: 0,
-      }}>
-        {body}
-      </pre>
-    );
+    return <JsonViewer data={body} fontSize={11} />;
   };
+
+  // Wrapper to make each tab's content scrollable within the constrained height
+  const scrollableTab = (content: React.ReactNode) => (
+    <div style={{ overflow: 'auto', height: '100%', padding: '8px 12px 12px' }}>
+      {content}
+    </div>
+  );
 
   const tabItems = [
     {
       key: 'overview',
       label: t('timeline.overview'),
-      children: (
+      children: scrollableTab(
         <Descriptions column={1} size="small" bordered>
           <Descriptions.Item label={t('timeline.url')}>
             <Text copyable style={{ fontSize: 11, wordBreak: 'break-all' }}>
@@ -666,22 +646,22 @@ const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => 
     {
       key: 'reqHeaders',
       label: t('timeline.request_headers'),
-      children: formatHeaders(data.requestHeaders),
+      children: scrollableTab(formatHeaders(data.requestHeaders)),
     },
     {
       key: 'reqBody',
       label: t('timeline.request_body'),
-      children: formatBody(data.requestBody, data.requestHeaders?.['Content-Type'] || data.requestHeaders?.['content-type']),
+      children: scrollableTab(formatBody(data.requestBody, data.requestHeaders?.['Content-Type'] || data.requestHeaders?.['content-type'])),
     },
     {
       key: 'resHeaders',
       label: t('timeline.response_headers'),
-      children: formatHeaders(data.responseHeaders),
+      children: scrollableTab(formatHeaders(data.responseHeaders)),
     },
     {
       key: 'resBody',
       label: t('timeline.response_body'),
-      children: formatBody(data.responseBody, data.contentType),
+      children: scrollableTab(formatBody(data.responseBody, data.contentType)),
     },
   ];
 
@@ -691,7 +671,9 @@ const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => 
       onChange={setActiveTab}
       size="small"
       items={tabItems}
-      style={{ marginTop: -8 }}
+      style={{ flex: 1, minHeight: 0 }}
+      tabBarStyle={{ flexShrink: 0, margin: 0, paddingLeft: 12, paddingRight: 12 }}
+      className="event-detail-tabs"
     />
   );
 });
@@ -724,39 +706,7 @@ const EventDetail = memo(({ event, onClose }: EventDetailProps) => {
     }
 
     // Generic JSON view for other events
-    try {
-      return (
-        <pre style={{
-          background: token.colorBgLayout,
-          padding: 12,
-          borderRadius: 4,
-          overflow: 'auto',
-          maxHeight: 'calc(100vh - 400px)',
-          fontSize: 11,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-all',
-          margin: 0,
-        }}>
-          {JSON.stringify(data, null, 2)}
-        </pre>
-      );
-    } catch {
-      return (
-        <pre style={{
-          background: token.colorBgLayout,
-          padding: 12,
-          borderRadius: 4,
-          overflow: 'auto',
-          maxHeight: 'calc(100vh - 400px)',
-          fontSize: 11,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-all',
-          margin: 0,
-        }}>
-          {String(event.data)}
-        </pre>
-      );
-    }
+    return <JsonViewer data={data ?? event.data} fontSize={11} />;
   };
 
   // For network events, show a simplified header
@@ -795,36 +745,40 @@ const EventDetail = memo(({ event, onClose }: EventDetailProps) => {
           <CloseOutlined />
         </Button>
       }
-      style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
-      bodyStyle={{ flex: 1, overflow: 'auto', padding: 12 }}
+      style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      styles={{ body: { flex: 1, overflow: 'hidden', padding: 0, display: 'flex', flexDirection: 'column', minHeight: 0 } }}
     >
       {!isNetworkEvent && (
-        <Descriptions column={1} size="small" bordered style={{ marginBottom: 12 }}>
-          <Descriptions.Item label="Time">
-            <Text style={{ fontSize: 11 }}>
-              {formatTimestamp(event.timestamp)} ({formatRelativeTime(event.relativeTime)})
-            </Text>
-          </Descriptions.Item>
-          <Descriptions.Item label="Source">
-            <Tag color={sourceConfig[event.source]?.color} style={{ margin: 0 }}>
-              {sourceConfig[event.source]?.label || event.source}
-            </Tag>
-          </Descriptions.Item>
-          <Descriptions.Item label="Level">
-            <Tag color={levelConfig[event.level]?.color} style={{ margin: 0 }}>
-              {levelConfig[event.level]?.label || event.level}
-            </Tag>
-          </Descriptions.Item>
-          {event.duration && (
-            <Descriptions.Item label="Duration">{event.duration}ms</Descriptions.Item>
-          )}
-        </Descriptions>
+        <div style={{ padding: '12px 12px 0', flexShrink: 0 }}>
+          <Descriptions column={1} size="small" bordered style={{ marginBottom: 12 }}>
+            <Descriptions.Item label="Time">
+              <Text style={{ fontSize: 11 }}>
+                {formatTimestamp(event.timestamp)} ({formatRelativeTime(event.relativeTime)})
+              </Text>
+            </Descriptions.Item>
+            <Descriptions.Item label="Source">
+              <Tag color={sourceConfig[event.source]?.color} style={{ margin: 0 }}>
+                {sourceConfig[event.source]?.label || event.source}
+              </Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="Level">
+              <Tag color={levelConfig[event.level]?.color} style={{ margin: 0 }}>
+                {levelConfig[event.level]?.label || event.level}
+              </Tag>
+            </Descriptions.Item>
+            {event.duration && (
+              <Descriptions.Item label="Duration">{event.duration}ms</Descriptions.Item>
+            )}
+          </Descriptions>
+        </div>
       )}
 
       {isNetworkEvent ? (
-        renderData()
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          {renderData()}
+        </div>
       ) : (
-        <div>
+        <div style={{ flex: 1, overflow: 'auto', padding: '0 12px 12px', minHeight: 0 }}>
           <Text strong style={{ fontSize: 12 }}>Data</Text>
           <div style={{ marginTop: 8 }}>
             {renderData()}
@@ -1353,9 +1307,9 @@ const EventTimeline = () => {
   const activeFilterCount = filterSources.length + filterCategories.length + filterLevels.length;
 
   return (
-    <div style={{ height: '100%', display: 'flex', padding: 16, gap: 16 }}>
+    <div style={{ flex: 1, display: 'flex', padding: 16, gap: 16, overflow: 'hidden', minHeight: 0 }}>
       {/* Main Timeline Area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
         {/* Header */}
         <div style={{ marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -1628,7 +1582,7 @@ const EventTimeline = () => {
         <Card
           size="small"
           style={{ flex: 1, overflow: 'hidden', minWidth: 0, minHeight: 0 }}
-          bodyStyle={{ padding: 0, height: '100%', minHeight: 0 }}
+          styles={{ body: { padding: 0, height: '100%', minHeight: 0 } }}
         >
           <VirtualList
             ref={virtualListRef}
@@ -1658,7 +1612,7 @@ const EventTimeline = () => {
 
         {/* Event Detail Panel */}
         {selectedEventFull && (
-          <div style={{ width: '50%', minWidth: 500, flexShrink: 0 }}>
+          <div style={{ width: '50%', minWidth: 500, flexShrink: 0, overflow: 'hidden', height: '100%' }}>
             <EventDetail
               event={selectedEventFull}
               onClose={() => {

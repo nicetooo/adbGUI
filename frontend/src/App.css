@@ -81,3 +81,32 @@ div[role="button"],
   user-select: text;
   -webkit-user-select: text;
 }
+
+/* Event detail panel - force Tabs to fill available height and scroll content */
+.event-detail-tabs {
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+.event-detail-tabs > div:nth-child(1) {
+  /* Tab nav bar */
+  flex-shrink: 0 !important;
+}
+
+.event-detail-tabs > div:nth-child(2) {
+  /* Tab content holder */
+  flex: 1 !important;
+  overflow: hidden !important;
+  min-height: 0 !important;
+}
+
+.event-detail-tabs > div:nth-child(2) > div {
+  /* Tab content */
+  height: 100% !important;
+}
+
+.event-detail-tabs > div:nth-child(2) > div > div {
+  /* Tab pane */
+  height: 100% !important;
+}

@@ -1,6 +1,7 @@
 import React from "react";
 import { Collapse, Typography, Tag, Space, Table, Button, message, theme } from "antd";
 import { useTranslation } from "react-i18next";
+import CodeBlock from "./CodeBlock";
 import {
   ApiOutlined,
   CopyOutlined,
@@ -138,25 +139,6 @@ const MCPInfoSection: React.FC = () => {
     });
   };
 
-  const codeBlockStyle: React.CSSProperties = {
-    background: token.colorFillQuaternary,
-    border: `1px solid ${token.colorBorderSecondary}`,
-    borderRadius: token.borderRadius,
-    padding: "12px 16px",
-    fontFamily: "monospace",
-    fontSize: 12,
-    lineHeight: 1.6,
-    overflowX: "auto",
-    whiteSpace: "pre",
-    position: "relative",
-  };
-
-  const copyBtnStyle: React.CSSProperties = {
-    position: "absolute",
-    top: 8,
-    right: 8,
-  };
-
   const toolColumns = [
     {
       title: "Tool",
@@ -242,15 +224,15 @@ const MCPInfoSection: React.FC = () => {
                             <Paragraph type="secondary" style={{ fontSize: 12, margin: "4px 0 8px" }}>
                               {t("mcp.setup_claude_desc")}
                             </Paragraph>
-                            <div style={{ ...codeBlockStyle }}>
+                            <div style={{ position: "relative" }}>
                               <Button
                                 type="text"
                                 size="small"
                                 icon={copiedKey === "claude" ? <CheckOutlined style={{ color: "#52c41a" }} /> : <CopyOutlined />}
                                 onClick={() => handleCopy(CLAUDE_DESKTOP_CONFIG, "claude")}
-                                style={copyBtnStyle}
+                                style={{ position: "absolute", top: 4, right: 12, zIndex: 10 }}
                               />
-                              {CLAUDE_DESKTOP_CONFIG}
+                              <CodeBlock code={CLAUDE_DESKTOP_CONFIG} language="json" />
                             </div>
                           </div>
 
@@ -260,15 +242,15 @@ const MCPInfoSection: React.FC = () => {
                             <Paragraph type="secondary" style={{ fontSize: 12, margin: "4px 0 8px" }}>
                               {t("mcp.setup_claude_code_desc")}
                             </Paragraph>
-                            <div style={{ ...codeBlockStyle }}>
+                            <div style={{ position: "relative" }}>
                               <Button
                                 type="text"
                                 size="small"
                                 icon={copiedKey === "claude_code" ? <CheckOutlined style={{ color: "#52c41a" }} /> : <CopyOutlined />}
                                 onClick={() => handleCopy(CLAUDE_CODE_COMMAND, "claude_code")}
-                                style={copyBtnStyle}
+                                style={{ position: "absolute", top: 4, right: 12, zIndex: 10 }}
                               />
-                              {CLAUDE_CODE_COMMAND}
+                              <CodeBlock code={CLAUDE_CODE_COMMAND} language="shell" />
                             </div>
                           </div>
 
@@ -278,15 +260,15 @@ const MCPInfoSection: React.FC = () => {
                             <Paragraph type="secondary" style={{ fontSize: 12, margin: "4px 0 8px" }}>
                               {t("mcp.setup_cursor_desc")}
                             </Paragraph>
-                            <div style={{ ...codeBlockStyle }}>
+                            <div style={{ position: "relative" }}>
                               <Button
                                 type="text"
                                 size="small"
                                 icon={copiedKey === "cursor" ? <CheckOutlined style={{ color: "#52c41a" }} /> : <CopyOutlined />}
                                 onClick={() => handleCopy(CURSOR_CONFIG, "cursor")}
-                                style={copyBtnStyle}
+                                style={{ position: "absolute", top: 4, right: 12, zIndex: 10 }}
                               />
-                              {CURSOR_CONFIG}
+                              <CodeBlock code={CURSOR_CONFIG} language="json" />
                             </div>
                           </div>
 

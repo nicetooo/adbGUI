@@ -3,6 +3,8 @@ import { Card, Button, InputNumber, Space, Typography, Tag, Divider, Switch, Too
 import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, BlockOutlined, SendOutlined, CloseOutlined, PlusOutlined, EditOutlined } from '@ant-design/icons';
 import VirtualList from './VirtualList';
 import DeviceSelector from './DeviceSelector';
+import JsonViewer from './JsonViewer';
+import JsonEditor from './JsonEditor';
 import { useDeviceStore, useProxyStore, RequestLog as StoreRequestLog } from '../stores';
 // @ts-ignore
 import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, RemoveMockRule, GetMockRules, ToggleMockRule, CheckCertTrust, SetupProxyForDevice, CleanupProxyForDevice } from '../../wailsjs/go/main/App';
@@ -1082,26 +1084,7 @@ const ProxyView: React.FC = () => {
                                                     {selectedLog.previewBody && (
                                                         <div>
                                                             <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 'bold', color: token.colorTextSecondary, borderBottom: `1px solid ${token.colorBorderSecondary}`, paddingBottom: 4 }}>{t('proxy.body')}</div>
-                                                            <div style={{ position: 'relative' }}>
-                                                                <pre style={{
-                                                                    padding: '12px',
-                                                                    background: token.colorFillAlter,
-                                                                    border: `1px solid ${token.colorBorderSecondary}`,
-                                                                    borderRadius: '4px',
-                                                                    fontFamily: 'monospace',
-                                                                    fontSize: '12px',
-                                                                    whiteSpace: 'pre-wrap',
-                                                                    overflow: 'auto',
-                                                                    maxHeight: '300px',
-                                                                    margin: 0,
-                                                                    wordBreak: 'break-all'
-                                                                }}>
-                                                                    {formatBody(selectedLog.previewBody)}
-                                                                </pre>
-                                                                <div style={{ position: 'absolute', top: 8, right: 8 }}>
-                                                                    <Text copyable={{ text: formatBody(selectedLog.previewBody) }} />
-                                                                </div>
-                                                            </div>
+                                                            <JsonViewer data={formatBody(selectedLog.previewBody)} fontSize={12} />
                                                         </div>
                                                     )}
                                                     {!selectedLog.previewBody && (!selectedLog.headers || Object.keys(selectedLog.headers).length === 0) && (
@@ -1138,26 +1121,7 @@ const ProxyView: React.FC = () => {
                                                     {selectedLog.respBody && (
                                                         <div>
                                                             <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 'bold', color: token.colorTextSecondary, borderBottom: `1px solid ${token.colorBorderSecondary}`, paddingBottom: 4 }}>{t('proxy.body')}</div>
-                                                            <div style={{ position: 'relative' }}>
-                                                                <pre style={{
-                                                                    padding: '12px',
-                                                                    background: token.colorFillAlter,
-                                                                    border: `1px solid ${token.colorBorderSecondary}`,
-                                                                    borderRadius: '4px',
-                                                                    fontFamily: 'monospace',
-                                                                    fontSize: '12px',
-                                                                    whiteSpace: 'pre-wrap',
-                                                                    overflow: 'auto',
-                                                                    maxHeight: '400px',
-                                                                    margin: 0,
-                                                                    wordBreak: 'break-all'
-                                                                }}>
-                                                                    {formatBody(selectedLog.respBody)}
-                                                                </pre>
-                                                                <div style={{ position: 'absolute', top: 8, right: 8 }}>
-                                                                    <Text copyable={{ text: formatBody(selectedLog.respBody) }} />
-                                                                </div>
-                                                            </div>
+                                                            <JsonViewer data={formatBody(selectedLog.respBody)} fontSize={12} />
                                                         </div>
                                                     )}
                                                     {!selectedLog.respBody && (!selectedLog.respHeaders || Object.keys(selectedLog.respHeaders).length === 0) && (
@@ -1270,7 +1234,7 @@ const ProxyView: React.FC = () => {
                         <Input.TextArea rows={3} placeholder="Header-Name: value" style={{ fontFamily: 'monospace', fontSize: 12 }} />
                     </Form.Item>
                     <Form.Item name="body" label={t('proxy.body')}>
-                        <Input.TextArea rows={4} placeholder="Request body" style={{ fontFamily: 'monospace', fontSize: 12 }} />
+                        <JsonEditor height={120} placeholder="Request body" />
                     </Form.Item>
                 </Form>
 
@@ -1283,9 +1247,9 @@ const ProxyView: React.FC = () => {
                             <Text type="secondary">{formatBytes(resendResponse.bodySize)}</Text>
                             {resendResponse.contentType && <Text type="secondary">{resendResponse.contentType.split(';')[0]}</Text>}
                         </Space>
-                        <pre style={{ flex: 1, overflow: 'auto', padding: 8, margin: 0, background: token.colorBgContainer, borderRadius: 4, fontFamily: 'monospace', fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                            {formatBody(resendResponse.body, resendResponse.contentType)}
-                        </pre>
+                        <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+                            <JsonViewer data={formatBody(resendResponse.body, resendResponse.contentType)} fontSize={12} />
+                        </div>
                     </div>
                 )}
             </Modal>
@@ -1318,7 +1282,7 @@ const ProxyView: React.FC = () => {
                             <Input placeholder="application/json" />
                         </Form.Item>
                         <Form.Item name="body" label={t('proxy.response_body')} style={{ marginBottom: 8 }}>
-                            <Input.TextArea rows={4} placeholder='{"success": true}' style={{ fontFamily: 'monospace', fontSize: 12 }} />
+                            <JsonEditor height={120} placeholder='{"success": true}' />
                         </Form.Item>
                         <Form.Item name="description" label={t('proxy.description')} style={{ marginBottom: 8 }}>
                             <Input placeholder={t('proxy.description')} />
