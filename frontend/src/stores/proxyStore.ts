@@ -167,6 +167,14 @@ export function rebuildUrlWithQuery(url: string, queryParams: EditableHeader[]):
   return `${base}?${search}`;
 }
 
+// Try to pretty-print JSON string, return original if not valid JSON
+export function prettyJson(s: string): string {
+  if (!s) return s;
+  const trimmed = s.trim();
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return s;
+  try { return JSON.stringify(JSON.parse(trimmed), null, 2); } catch { return s; }
+}
+
 // Convert backend headers (Record<string, string[]>) to editable format
 export function headersToEditable(headers: Record<string, string[]> | undefined): EditableHeader[] {
   if (!headers) return [];
@@ -200,7 +208,7 @@ export function buildModifications(
     // Rebuild URL from query params and compare
     const rebuiltUrl = rebuildUrlWithQuery(edit.url, edit.queryParams);
     if (rebuiltUrl !== bp.url) mods.url = rebuiltUrl;
-    if (edit.body !== (bp.body || '')) mods.body = edit.body;
+    if (edit.body !== prettyJson(bp.body || '')) mods.body = edit.body;
     // Compare headers
     const origHeaders = headersToEditable(bp.headers);
     if (JSON.stringify(edit.headers.filter(h => h.key.trim())) !== JSON.stringify(origHeaders)) {
@@ -209,7 +217,7 @@ export function buildModifications(
   } else {
     // Response phase
     if (edit.statusCode !== (bp.statusCode || 200)) mods.statusCode = edit.statusCode;
-    if (edit.respBody !== (bp.respBody || '')) mods.respBody = edit.respBody;
+    if (edit.respBody !== prettyJson(bp.respBody || '')) mods.respBody = edit.respBody;
     // Compare response headers
     const origRespHeaders = headersToEditable(bp.respHeaders);
     if (JSON.stringify(edit.respHeaders.filter(h => h.key.trim())) !== JSON.stringify(origRespHeaders)) {
@@ -582,10 +590,10 @@ export const useProxyStore = create<ProxyState>()(
         url: bp.url,
         headers: headersToEditable(bp.headers),
         queryParams: urlToQueryParams(bp.url),
-        body: bp.body || '',
+        body: prettyJson(bp.body || ''),
         statusCode: bp.statusCode || 200,
         respHeaders: headersToEditable(bp.respHeaders),
-        respBody: bp.respBody || '',
+        respBody: prettyJson(bp.respBody || ''),
       },
     }),
     closeBreakpointResolveModal: () => set({ breakpointResolveModalOpen: false, selectedBreakpoint: null, breakpointEdit: null }),

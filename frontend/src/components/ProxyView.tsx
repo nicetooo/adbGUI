@@ -2548,7 +2548,6 @@ const ProxyView: React.FC = () => {
                                                 onChange={(val) => updateBreakpointEdit({ body: val })}
                                                 height={260}
                                                 language={breakpointEdit.body.trimStart().startsWith('{') || breakpointEdit.body.trimStart().startsWith('[') ? 'json' : 'plaintext'}
-                                                autoFormat={false}
                                             />
                                         ),
                                     },
@@ -2639,7 +2638,6 @@ const ProxyView: React.FC = () => {
                                                 onChange={(val) => updateBreakpointEdit({ respBody: val })}
                                                 height={260}
                                                 language={breakpointEdit.respBody.trimStart().startsWith('{') || breakpointEdit.respBody.trimStart().startsWith('[') ? 'json' : 'plaintext'}
-                                                autoFormat={false}
                                             />
                                         ),
                                     },
