@@ -14,6 +14,10 @@ export function AdbPair(arg1:string,arg2:string):Promise<string>;
 
 export function AddMockRule(arg1:main.MockRule):Promise<string>;
 
+export function AddProtoFile(arg1:string,arg2:string):Promise<string>;
+
+export function AddProtoMapping(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
+
 export function AnalyzeElementSelectors(arg1:string,arg2:number,arg3:number,arg4:time.Time):Promise<Array<main.SelectorSuggestion>>;
 
 export function AssertElementExists(arg1:string,arg2:types.ElementSelector):Promise<boolean>;
@@ -138,6 +142,12 @@ export function GetPerfSnapshot(arg1:string,arg2:string):Promise<main.PerfSample
 
 export function GetProcessDetail(arg1:string,arg2:number):Promise<main.ProcessDetail>;
 
+export function GetProtoFiles():Promise<Array<main.ProtoFileEntry>>;
+
+export function GetProtoMappings():Promise<Array<main.ProtoMapping>>;
+
+export function GetProtoMessageTypes():Promise<Array<string>>;
+
 export function GetProxyDevice():Promise<string>;
 
 export function GetProxySettings():Promise<Record<string, any>>;
@@ -256,6 +266,8 @@ export function ListStoredSessions(arg1:string,arg2:number):Promise<Array<main.D
 
 export function LoadMockRules():Promise<void>;
 
+export function LoadProtoConfig():Promise<void>;
+
 export function LoadScriptTasks():Promise<Array<main.ScriptTask>>;
 
 export function LoadTouchScripts():Promise<Array<main.TouchScript>>;
@@ -313,6 +325,10 @@ export function ReadVideoFileAsDataURL(arg1:string):Promise<string>;
 export function RemoveHistoryDevice(arg1:string):Promise<void>;
 
 export function RemoveMockRule(arg1:string):Promise<void>;
+
+export function RemoveProtoFile(arg1:string):Promise<void>;
+
+export function RemoveProtoMapping(arg1:string):Promise<void>;
 
 export function RenameStoredSession(arg1:string,arg2:string):Promise<void>;
 
@@ -463,6 +479,10 @@ export function TogglePinDevice(arg1:string):Promise<void>;
 export function UninstallApp(arg1:string,arg2:string):Promise<string>;
 
 export function UpdateMockRule(arg1:main.MockRule):Promise<void>;
+
+export function UpdateProtoFile(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function UpdateProtoMapping(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<void>;
 
 export function UpdateStoredAssertionJSON(arg1:string,arg2:string):Promise<void>;
 

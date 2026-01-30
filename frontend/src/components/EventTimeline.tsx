@@ -643,6 +643,8 @@ const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => 
           <Descriptions.Item label={t('timeline.protocol')}>
             {data.isHttps ? 'HTTPS' : 'HTTP'}
             {data.isWs && ' (WebSocket)'}
+            {data.isProtobuf && ' '}
+            {data.isProtobuf && <Tag color="geekblue">Protobuf</Tag>}
           </Descriptions.Item>
         </Descriptions>
       ),
@@ -664,7 +666,7 @@ const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => 
     },
     {
       key: 'resBody',
-      label: t('timeline.response_body'),
+      label: data.isProtobuf ? `${t('timeline.response_body')} [PB]` : t('timeline.response_body'),
       children: scrollableTab(formatBody(data.responseBody, data.contentType)),
     },
   ];

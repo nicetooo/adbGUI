@@ -156,6 +156,35 @@ func (a *App) StartProxy(port int) (string, error) {
 			title = title[:97] + "..."
 		}
 
+		// Decode protobuf binary bodies if applicable
+		respBody := req.RespBody
+		reqBody := req.Body
+		isProtobuf := false
+		isReqProtobuf := false
+
+		if len(req.RespBodyRaw) > 0 && isProtobufContentType(req.ContentType) {
+			decoded := getProtoDecoder().DecodeBody(req.RespBodyRaw, req.ContentType, req.URL)
+			if decoded != "" {
+				respBody = decoded
+				isProtobuf = true
+			}
+		}
+		// Also try decoding request body for protobuf (e.g. gRPC requests)
+		if len(req.ReqBodyRaw) > 0 {
+			// Check request content-type from headers
+			reqContentType := ""
+			if ct, ok := req.Headers["Content-Type"]; ok && len(ct) > 0 {
+				reqContentType = ct[0]
+			}
+			if isProtobufContentType(reqContentType) {
+				decoded := getProtoDecoder().DecodeBody(req.ReqBodyRaw, reqContentType, req.URL)
+				if decoded != "" {
+					reqBody = decoded
+					isReqProtobuf = true
+				}
+			}
+		}
+
 		// Emit directly to EventPipeline (unified storage + frontend broadcast)
 		detail := map[string]interface{}{
 			"id":              req.Id,
@@ -169,10 +198,12 @@ func (a *App) StartProxy(port int) (string, error) {
 			"isWs":            req.IsWs,
 			"clientIp":        req.ClientIP,
 			"requestHeaders":  req.Headers,
-			"requestBody":     req.Body,
+			"requestBody":     reqBody,
 			"responseHeaders": req.RespHeaders,
-			"responseBody":    req.RespBody,
+			"responseBody":    respBody,
 			"mocked":          req.Mocked,
+			"isProtobuf":      isProtobuf,
+			"isReqProtobuf":   isReqProtobuf,
 		}
 
 		dataBytes, err := json.Marshal(detail)

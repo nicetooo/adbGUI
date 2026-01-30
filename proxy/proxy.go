@@ -63,6 +63,17 @@ type ProxyServer struct {
 	mockRules map[string]*MockRule // Mock response rules
 
 	hasDecryptedHTTPS bool // Track if we've seen decrypted HTTPS traffic
+
+	// reqBodyCache stores captured request bodies keyed by request ID.
+	// Written by the request TransparentReadCloser, read by the response one.
+	reqBodyCache   map[string]cachedReqBody
+	reqBodyCacheMu sync.Mutex
+}
+
+// cachedReqBody holds both the display text and raw bytes for a request body.
+type cachedReqBody struct {
+	text     string
+	rawBytes []byte // non-nil when binary data detected
 }
 
 // GetPort returns the port the proxy is running on
@@ -208,6 +219,8 @@ type RequestLog struct {
 	Body          string              `json:"previewBody"` // Request Body
 	RespHeaders   map[string][]string `json:"respHeaders"` // Response Headers
 	RespBody      string              `json:"respBody"`    // Response Body
+	RespBodyRaw   []byte              `json:"-"`           // Raw response body bytes (for binary/protobuf decoding, not serialized)
+	ReqBodyRaw    []byte              `json:"-"`           // Raw request body bytes (for binary/protobuf decoding, not serialized)
 	StatusCode    int                 `json:"statusCode"`
 	ContentType   string              `json:"contentType"`
 	BodySize      int64               `json:"bodySize"`
@@ -230,6 +243,7 @@ func GetProxy() *ProxyServer {
 				"cdn", "static", "img", "image", "video", "asset",
 				"akamai", "byte", "tos-", "mon.", "snssdk",
 			},
+			reqBodyCache: make(map[string]cachedReqBody),
 		}
 	}
 	return currentProxy
@@ -668,6 +682,10 @@ func (p *ProxyServer) Stop() error {
 	if !p.running || p.server == nil {
 		return nil
 	}
+	// Clear request body cache
+	p.reqBodyCacheMu.Lock()
+	p.reqBodyCache = make(map[string]cachedReqBody)
+	p.reqBodyCacheMu.Unlock()
 	return p.server.Shutdown(context.Background())
 }
 
@@ -864,15 +882,17 @@ func (r *TransparentReadCloser) update(done bool) {
 		}
 
 		if r.isReq {
-			// Update Request Body Preview
+			// Store captured request body into cache for the response handler to pick up.
+			// We no longer send a PartialUpdate here; instead the response's final
+			// update will include the request body from the cache.
 			if len(capturedCopy) > 0 {
-				preview := r.p.analyzeBody(capturedCopy, "", "")
-				r.p.OnRequest(RequestLog{
-					Id:            r.id,
-					Body:          preview,
-					BodySize:      size,
-					PartialUpdate: true,
-				})
+				result := r.p.analyzeBodyFull(capturedCopy, "", "")
+				r.p.reqBodyCacheMu.Lock()
+				r.p.reqBodyCache[r.id] = cachedReqBody{
+					text:     result.Text,
+					rawBytes: result.RawBytes, // non-nil for binary (e.g. protobuf)
+				}
+				r.p.reqBodyCacheMu.Unlock()
 			}
 		} else {
 			// For Response:
@@ -894,8 +914,24 @@ func (r *TransparentReadCloser) update(done bool) {
 				if vv, ok := logToSend.RespHeaders["Content-Encoding"]; ok && len(vv) > 0 {
 					encoding = vv[0]
 				}
-				logToSend.RespBody = r.p.analyzeBody(capturedCopy, encoding, logToSend.ContentType)
+				result := r.p.analyzeBodyFull(capturedCopy, encoding, logToSend.ContentType)
+				logToSend.RespBody = result.Text
+				if result.IsBinary {
+					logToSend.RespBodyRaw = result.RawBytes
+				}
 			}
+
+			// Merge cached request body (captured by the request TransparentReadCloser)
+			r.p.reqBodyCacheMu.Lock()
+			if cached, ok := r.p.reqBodyCache[r.id]; ok {
+				logToSend.Body = cached.text
+				if len(cached.rawBytes) > 0 {
+					logToSend.ReqBodyRaw = cached.rawBytes
+				}
+				delete(r.p.reqBodyCache, r.id)
+			}
+			r.p.reqBodyCacheMu.Unlock()
+
 			r.p.OnRequest(logToSend)
 		}
 	}()
@@ -906,10 +942,24 @@ func (r *TransparentReadCloser) Close() error {
 	return r.rc.Close()
 }
 
+// AnalyzedBody holds the result of body analysis.
+type AnalyzedBody struct {
+	Text     string // String representation for display
+	RawBytes []byte // Raw decompressed bytes (set when binary data detected)
+	IsBinary bool   // Whether the data is binary
+}
+
 // analyzeBody handles decompression and string conversion for UI display in a non-interfering way.
 func (p *ProxyServer) analyzeBody(data []byte, encoding string, contentType string) string {
+	result := p.analyzeBodyFull(data, encoding, contentType)
+	return result.Text
+}
+
+// analyzeBodyFull handles decompression and returns both text and raw bytes.
+// Raw bytes are preserved when binary data is detected (e.g. protobuf).
+func (p *ProxyServer) analyzeBodyFull(data []byte, encoding string, contentType string) AnalyzedBody {
 	if len(data) == 0 {
-		return ""
+		return AnalyzedBody{}
 	}
 
 	raw := data
@@ -939,9 +989,15 @@ func (p *ProxyServer) analyzeBody(data []byte, encoding string, contentType stri
 	}
 
 	if isBinary {
-		return fmt.Sprintf("[Binary Data: %d bytes]", len(raw))
+		return AnalyzedBody{
+			Text:     fmt.Sprintf("[Binary Data: %d bytes]", len(raw)),
+			RawBytes: append([]byte(nil), raw...), // copy
+			IsBinary: true,
+		}
 	}
 
 	// 3. String Truncation removed: Send full string to UI as requested
-	return string(raw)
+	return AnalyzedBody{
+		Text: string(raw),
+	}
 }

@@ -1186,6 +1186,44 @@ export namespace main {
 	
 	
 	
+	export class ProtoFileEntry {
+	    id: string;
+	    name: string;
+	    content: string;
+	    loadedAt: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProtoFileEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.content = source["content"];
+	        this.loadedAt = source["loadedAt"];
+	    }
+	}
+	export class ProtoMapping {
+	    id: string;
+	    urlPattern: string;
+	    messageType: string;
+	    direction: string;
+	    description: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProtoMapping(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.urlPattern = source["urlPattern"];
+	        this.messageType = source["messageType"];
+	        this.direction = source["direction"];
+	        this.description = source["description"];
+	    }
+	}
 	
 	
 	export class ScrcpyConfig {

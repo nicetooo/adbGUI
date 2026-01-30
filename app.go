@@ -143,6 +143,7 @@ func (a *App) initCore() {
 	a.initEventSystem()
 	a.StartDeviceMonitor()
 	a.LoadMockRules()
+	a.LoadProtoConfig()
 }
 
 // shutdownCore contains the shared shutdown logic for both GUI and MCP modes.

@@ -1,13 +1,13 @@
 import React, { useEffect, useCallback } from 'react';
 import { Card, Button, InputNumber, Space, Typography, Tag, Divider, Switch, Tooltip, Radio, Input, Tabs, theme, Form, Table, Popconfirm, Popover, Spin, App, Modal } from 'antd';
-import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, BlockOutlined, SendOutlined, CloseOutlined, PlusOutlined, EditOutlined } from '@ant-design/icons';
+import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, BlockOutlined, SendOutlined, CloseOutlined, PlusOutlined, EditOutlined, CodeOutlined } from '@ant-design/icons';
 import VirtualList from './VirtualList';
 import DeviceSelector from './DeviceSelector';
 import JsonViewer from './JsonViewer';
 import JsonEditor from './JsonEditor';
 import { useDeviceStore, useProxyStore, RequestLog as StoreRequestLog } from '../stores';
 // @ts-ignore
-import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, RemoveMockRule, GetMockRules, ToggleMockRule, CheckCertTrust, SetupProxyForDevice, CleanupProxyForDevice } from '../../wailsjs/go/main/App';
+import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, RemoveMockRule, GetMockRules, ToggleMockRule, CheckCertTrust, SetupProxyForDevice, CleanupProxyForDevice, GetProtoFiles, AddProtoFile, UpdateProtoFile, RemoveProtoFile, GetProtoMappings, AddProtoMapping, UpdateProtoMapping, RemoveProtoMapping, GetProtoMessageTypes } from '../../wailsjs/go/main/App';
 // @ts-ignore
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { useTranslation } from 'react-i18next';
@@ -41,6 +41,8 @@ interface RequestLog {
     respBody?: string;
     isWs?: boolean;
     mocked?: boolean;
+    isProtobuf?: boolean;
+    isReqProtobuf?: boolean;
 }
 
 const ProxyView: React.FC = () => {
@@ -89,6 +91,8 @@ const ProxyView: React.FC = () => {
 
     const [resendForm] = Form.useForm();
     const [mockForm] = Form.useForm();
+    const [protoFileForm] = Form.useForm();
+    const [protoMappingForm] = Form.useForm();
 
     // Additional proxy store state
     const {
@@ -120,6 +124,23 @@ const ProxyView: React.FC = () => {
         setIsAIParsing,
         setAiSearchText,
         setAiPopoverOpen,
+        protoFiles,
+        protoMappings,
+        protoMessageTypes,
+        protoListModalOpen,
+        protoEditFileModalOpen,
+        protoEditMappingModalOpen,
+        editingProtoFile,
+        editingProtoMapping,
+        setProtoFiles,
+        setProtoMappings,
+        setProtoMessageTypes,
+        openProtoListModal,
+        closeProtoListModal,
+        openProtoEditFileModal,
+        closeProtoEditFileModal,
+        openProtoEditMappingModal,
+        closeProtoEditMappingModal,
     } = useProxyStore();
 
     // Check cert trust status when MITM is enabled and proxy is running
@@ -247,6 +268,8 @@ const ProxyView: React.FC = () => {
                     respBody: detail.responseBody,
                     isWs: detail.isWs || false,
                     mocked: detail.mocked || false,
+                    isProtobuf: detail.isProtobuf || false,
+                    isReqProtobuf: detail.isReqProtobuf || false,
                 };
 
                 // Use getState() to get current logs (avoid stale closure)
@@ -701,6 +724,114 @@ const ProxyView: React.FC = () => {
         });
     };
 
+    // --- Proto management handlers ---
+    const loadProtoData = async () => {
+        try {
+            const [files, mappings, types] = await Promise.all([
+                GetProtoFiles(),
+                GetProtoMappings(),
+                GetProtoMessageTypes(),
+            ]);
+            setProtoFiles(files || []);
+            setProtoMappings(mappings || []);
+            setProtoMessageTypes(types || []);
+        } catch (err) {
+            console.error('Failed to load proto data:', err);
+        }
+    };
+
+    const handleOpenProtoListModal = () => {
+        loadProtoData();
+        openProtoListModal();
+    };
+
+    const handleSaveProtoFile = async () => {
+        try {
+            const values = await protoFileForm.validateFields();
+            if (editingProtoFile) {
+                await UpdateProtoFile(editingProtoFile.id, values.name, values.content);
+                message.success(t('proxy.proto_file_updated'));
+            } else {
+                await AddProtoFile(values.name, values.content);
+                message.success(t('proxy.proto_file_added'));
+            }
+            protoFileForm.resetFields();
+            closeProtoEditFileModal();
+            loadProtoData();
+        } catch (err: any) {
+            message.error(String(err));
+        }
+    };
+
+    const handleDeleteProtoFile = async (id: string) => {
+        try {
+            await RemoveProtoFile(id);
+            message.success(t('proxy.proto_file_deleted'));
+            loadProtoData();
+        } catch (err) {
+            message.error(String(err));
+        }
+    };
+
+    const startEditProtoFile = (file: any) => {
+        openProtoEditFileModal(file);
+        protoFileForm.resetFields();
+        protoFileForm.setFieldsValue({
+            name: file.name,
+            content: file.content,
+        });
+    };
+
+    const handleSaveProtoMapping = async () => {
+        try {
+            const values = await protoMappingForm.validateFields();
+            if (editingProtoMapping) {
+                await UpdateProtoMapping(
+                    editingProtoMapping.id,
+                    values.urlPattern,
+                    values.messageType,
+                    values.direction || 'response',
+                    values.description || ''
+                );
+                message.success(t('proxy.proto_mapping_updated'));
+            } else {
+                await AddProtoMapping(
+                    values.urlPattern,
+                    values.messageType,
+                    values.direction || 'response',
+                    values.description || ''
+                );
+                message.success(t('proxy.proto_mapping_added'));
+            }
+            protoMappingForm.resetFields();
+            closeProtoEditMappingModal();
+            loadProtoData();
+        } catch (err: any) {
+            message.error(String(err));
+        }
+    };
+
+    const handleDeleteProtoMapping = async (id: string) => {
+        try {
+            await RemoveProtoMapping(id);
+            message.success(t('proxy.proto_mapping_deleted'));
+            loadProtoData();
+        } catch (err) {
+            message.error(String(err));
+        }
+    };
+
+    const startEditProtoMapping = (mapping: any) => {
+        openProtoEditMappingModal(mapping);
+        protoMappingForm.resetFields();
+        protoMappingForm.setFieldsValue({
+            urlPattern: mapping.urlPattern,
+            messageType: mapping.messageType,
+            direction: mapping.direction,
+            description: mapping.description,
+        });
+    };
+
     const filteredLogs = logs.filter(log => {
         // Filter by type (ALL, HTTP, WS)
         if (filterType === "HTTP" && log.isWs) return false;
@@ -832,6 +963,11 @@ const ProxyView: React.FC = () => {
                                     <Button icon={<PlusOutlined />} onClick={() => { mockForm.resetFields(); openMockEditModal(null); }} />
                                 </Tooltip>
                             </Button.Group>
+                            <Tooltip title={t('proxy.proto_management')}>
+                                <Button size="small" icon={<CodeOutlined />} onClick={handleOpenProtoListModal}>
+                                    Proto
+                                </Button>
+                            </Tooltip>
 
                             <Button
                                 type="primary"
@@ -1079,15 +1215,28 @@ const ProxyView: React.FC = () => {
                                         });
                                     }
                                 }
+                                const reqHasHeaders = selectedLog.headers && Object.keys(selectedLog.headers).length > 0;
+                                const respHasHeaders = selectedLog.respHeaders && Object.keys(selectedLog.respHeaders).length > 0;
+                                const headerGrid = (headers: Record<string, string[]>) => (
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px', paddingTop: 8 }}>
+                                        {Object.entries(headers).map(([k, v]) => (
+                                            <React.Fragment key={k}>
+                                                <Text style={{ fontSize: '12px', color: token.colorTextSecondary, textAlign: 'right', fontWeight: 500 }}>{k}:</Text>
+                                                <Text copyable={{ text: (v as string[]).join(', ') }} style={{ fontSize: '12px', fontFamily: 'monospace', wordBreak: 'break-all' }}>{(v as string[]).join(', ')}</Text>
+                                            </React.Fragment>
+                                        ))}
+                                    </div>
+                                );
+
                                 return (
-                                    <Tabs defaultActiveKey="request" size="small" items={[
+                                    <Tabs defaultActiveKey={selectedLog.previewBody ? 'reqBody' : 'reqHeaders'} size="small" items={[
                                         {
-                                            key: 'request',
-                                            label: t('proxy.request'),
+                                            key: 'reqHeaders',
+                                            label: t('proxy.req_headers'),
                                             children: (
-                                                <Space direction="vertical" size="middle" style={{ width: '100%', paddingTop: 8 }}>
+                                                <div style={{ paddingTop: 8 }}>
                                                     {queryParams.length > 0 && (
-                                                        <div>
+                                                        <div style={{ marginBottom: 12 }}>
                                                             <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 'bold', color: token.colorTextSecondary, borderBottom: `1px solid ${token.colorBorderSecondary}`, paddingBottom: 4 }}>{t('proxy.query_params')}</div>
                                                             <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px' }}>
                                                                 {queryParams.map(([k, v], idx) => (
@@ -1099,71 +1248,79 @@ const ProxyView: React.FC = () => {
                                                             </div>
                                                         </div>
                                                     )}
-                                                    {selectedLog.headers && Object.keys(selectedLog.headers).length > 0 && (
-                                                        <div>
-                                                            <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 'bold', color: token.colorTextSecondary, borderBottom: `1px solid ${token.colorBorderSecondary}`, paddingBottom: 4 }}>{t('proxy.headers')}</div>
-                                                            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px' }}>
-                                                                {Object.entries(selectedLog.headers).map(([k, v]) => (
-                                                                    <React.Fragment key={k}>
-                                                                        <Text style={{ fontSize: '12px', color: token.colorTextSecondary, textAlign: 'right', fontWeight: 500 }}>{k}:</Text>
-                                                                        <Text copyable={{ text: (v as string[]).join(', ') }} style={{ fontSize: '12px', fontFamily: 'monospace', wordBreak: 'break-all' }}>{(v as string[]).join(', ')}</Text>
-                                                                    </React.Fragment>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    {selectedLog.previewBody && (
-                                                        <div>
-                                                            <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 'bold', color: token.colorTextSecondary, borderBottom: `1px solid ${token.colorBorderSecondary}`, paddingBottom: 4 }}>{t('proxy.body')}</div>
-                                                            <JsonViewer data={formatBody(selectedLog.previewBody)} fontSize={12} />
-                                                        </div>
-                                                    )}
-                                                    {!selectedLog.previewBody && (!selectedLog.headers || Object.keys(selectedLog.headers).length === 0) && (
+                                                    {reqHasHeaders ? headerGrid(selectedLog.headers as Record<string, string[]>) : (
                                                         <Text type="secondary" style={{ display: 'block', textAlign: 'center', margin: '40px 0' }}>{t('proxy.no_req_data')}</Text>
                                                     )}
-                                                </Space>
+                                                </div>
                                             )
                                         },
                                         {
-                                            key: 'response',
-                                            label: `${t('proxy.response')} ${selectedLog.statusCode ? '(' + selectedLog.statusCode + ')' : ''}`,
-                                            children: selectedLog.statusCode ? (
-                                                <Space direction="vertical" size="middle" style={{ width: '100%', paddingTop: 8 }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                        <Tag color={selectedLog.statusCode >= 400 ? 'error' : 'success'} style={{ fontSize: 14, padding: '2px 8px' }}>
-                                                            {selectedLog.statusCode}
-                                                        </Tag>
-                                                        {selectedLog.mocked && <Tag color="magenta">Mocked</Tag>}
-                                                        {selectedLog.contentType && <Tag>{selectedLog.contentType.split(';')[0]}</Tag>}
-                                                    </div>
-                                                    {selectedLog.respHeaders && Object.keys(selectedLog.respHeaders).length > 0 && (
-                                                        <div>
-                                                            <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 'bold', color: token.colorTextSecondary, borderBottom: `1px solid ${token.colorBorderSecondary}`, paddingBottom: 4 }}>{t('proxy.headers')}</div>
-                                                            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px' }}>
-                                                                {Object.entries(selectedLog.respHeaders).map(([k, v]) => (
-                                                                    <React.Fragment key={k}>
-                                                                        <Text style={{ fontSize: '12px', color: token.colorTextSecondary, textAlign: 'right', fontWeight: 500 }}>{k}:</Text>
-                                                                        <Text copyable={{ text: (v as string[]).join(', ') }} style={{ fontSize: '12px', fontFamily: 'monospace', wordBreak: 'break-all' }}>{(v as string[]).join(', ')}</Text>
-                                                                    </React.Fragment>
-                                                                ))}
+                                            key: 'reqBody',
+                                            label: <span>{t('proxy.req_body')}{selectedLog.isReqProtobuf ? ' [PB]' : ''}</span>,
+                                            children: (
+                                                <div style={{ paddingTop: 8 }}>
+                                                    {selectedLog.isReqProtobuf && (
+                                                        <div style={{ marginBottom: 8 }}><Tag color="geekblue">Protobuf Decoded</Tag></div>
+                                                    )}
+                                                    {selectedLog.previewBody ? (
+                                                        <JsonViewer data={formatBody(selectedLog.previewBody)} fontSize={12} />
+                                                    ) : (
+                                                        <Text type="secondary" style={{ display: 'block', textAlign: 'center', margin: '40px 0' }}>{t('proxy.no_body')}</Text>
+                                                    )}
+                                                </div>
+                                            )
+                                        },
+                                        {
+                                            key: 'respHeaders',
+                                            label: `${t('proxy.resp_headers')} ${selectedLog.statusCode ? '(' + selectedLog.statusCode + ')' : ''}`,
+                                            children: (
+                                                <div style={{ paddingTop: 8 }}>
+                                                    {selectedLog.statusCode ? (
+                                                        <>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                                                                <Tag color={selectedLog.statusCode >= 400 ? 'error' : 'success'} style={{ fontSize: 14, padding: '2px 8px' }}>
+                                                                    {selectedLog.statusCode}
+                                                                </Tag>
+                                                                {selectedLog.mocked && <Tag color="magenta">Mocked</Tag>}
+                                                                {selectedLog.contentType && <Tag>{selectedLog.contentType.split(';')[0]}</Tag>}
                                                             </div>
+                                                            {respHasHeaders ? headerGrid(selectedLog.respHeaders as Record<string, string[]>) : (
+                                                                <Text type="secondary" style={{ display: 'block', textAlign: 'center', margin: '40px 0' }}>{t('proxy.no_resp_data')}</Text>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+                                                            <HourglassOutlined style={{ fontSize: 48, color: token.colorTextDisabled, marginBottom: 16 }} />
+                                                            <br />
+                                                            <Text type="secondary" italic>{t('proxy.waiting_for_response')}</Text>
                                                         </div>
                                                     )}
-                                                    {selectedLog.respBody && (
-                                                        <div>
-                                                            <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 'bold', color: token.colorTextSecondary, borderBottom: `1px solid ${token.colorBorderSecondary}`, paddingBottom: 4 }}>{t('proxy.body')}</div>
-                                                            <JsonViewer data={formatBody(selectedLog.respBody)} fontSize={12} />
+                                                </div>
+                                            )
+                                        },
+                                        {
+                                            key: 'respBody',
+                                            label: <span>{t('proxy.resp_body')}{selectedLog.isProtobuf ? ' [PB]' : ''}</span>,
+                                            children: (
+                                                <div style={{ paddingTop: 8 }}>
+                                                    {selectedLog.statusCode ? (
+                                                        <>
+                                                            {selectedLog.isProtobuf && (
+                                                                <div style={{ marginBottom: 8 }}><Tag color="geekblue">Protobuf Decoded</Tag></div>
+                                                            )}
+                                                            {selectedLog.respBody ? (
+                                                                <JsonViewer data={formatBody(selectedLog.respBody)} fontSize={12} />
+                                                            ) : (
+                                                                <Text type="secondary" style={{ display: 'block', textAlign: 'center', margin: '40px 0' }}>{t('proxy.no_body')}</Text>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+                                                            <HourglassOutlined style={{ fontSize: 48, color: token.colorTextDisabled, marginBottom: 16 }} />
+                                                            <br />
+                                                            <Text type="secondary" italic>{t('proxy.waiting_for_response')}</Text>
                                                         </div>
                                                     )}
-                                                    {!selectedLog.respBody && (!selectedLog.respHeaders || Object.keys(selectedLog.respHeaders).length === 0) && (
-                                                        <Text type="secondary" style={{ display: 'block', textAlign: 'center', margin: '40px 0' }}>{t('proxy.no_resp_data')}</Text>
-                                                    )}
-                                                </Space>
-                                            ) : (
-                                                <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-                                                    <HourglassOutlined style={{ fontSize: 48, color: token.colorTextDisabled, marginBottom: 16 }} />
-                                                    <br />
-                                                    <Text type="secondary" italic>{t('proxy.waiting_for_response')}</Text>
                                                 </div>
                                             )
                                         }
@@ -1377,6 +1534,204 @@ const ProxyView: React.FC = () => {
                             {editingMockRule ? t('common.save') : t('proxy.add_mock_rule')}
                         </Button>
                         <Button onClick={() => { closeMockEditModal(); mockForm.resetFields(); }}>
+                            {t('common.cancel')}
+                        </Button>
+                    </Space>
+                </Form>
+            </Modal>
+
+            {/* Proto Management Modal */}
+            <Modal
+                title={t('proxy.proto_management')}
+                open={protoListModalOpen}
+                onCancel={closeProtoListModal}
+                width={900}
+                footer={null}
+                style={{ top: 32, paddingBottom: 0 }}
+            >
+                <Tabs size="small" items={[
+                    {
+                        key: 'files',
+                        label: t('proxy.proto_files'),
+                        children: (
+                            <div>
+                                <div style={{ marginBottom: 12 }}>
+                                    <Button type="primary" icon={<PlusOutlined />} onClick={() => { protoFileForm.resetFields(); openProtoEditFileModal(null); }}>
+                                        {t('proxy.add_proto_file')}
+                                    </Button>
+                                </div>
+                                <div style={{ maxHeight: 'calc(100vh - 320px)', overflow: 'auto' }}>
+                                    {protoFiles.length === 0 ? (
+                                        <Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: 32 }}>{t('proxy.no_proto_files')}</Text>
+                                    ) : (
+                                        <Table
+                                            dataSource={protoFiles}
+                                            rowKey="id"
+                                            size="small"
+                                            pagination={false}
+                                            columns={[
+                                                { title: t('proxy.proto_file_name'), dataIndex: 'name', ellipsis: true },
+                                                {
+                                                    title: t('proxy.proto_file_size'),
+                                                    dataIndex: 'content',
+                                                    width: 100,
+                                                    render: (content: string) => `${(content || '').length} chars`
+                                                },
+                                                {
+                                                    title: '',
+                                                    width: 100,
+                                                    render: (_: any, record: any) => (
+                                                        <Space size="small">
+                                                            <Button type="text" size="small" icon={<EditOutlined />} onClick={() => startEditProtoFile(record)} />
+                                                            <Popconfirm title={t('common.delete') + '?'} onConfirm={() => handleDeleteProtoFile(record.id)}>
+                                                                <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                                                            </Popconfirm>
+                                                        </Space>
+                                                    )
+                                                }
+                                            ]}
+                                        />
+                                    )}
+                                </div>
+                            </div>
+                        )
+                    },
+                    {
+                        key: 'mappings',
+                        label: t('proxy.proto_mappings'),
+                        children: (
+                            <div>
+                                <div style={{ marginBottom: 12 }}>
+                                    <Button type="primary" icon={<PlusOutlined />} onClick={() => { protoMappingForm.resetFields(); openProtoEditMappingModal(null); }}>
+                                        {t('proxy.add_proto_mapping')}
+                                    </Button>
+                                </div>
+                                <div style={{ maxHeight: 'calc(100vh - 320px)', overflow: 'auto' }}>
+                                    {protoMappings.length === 0 ? (
+                                        <Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: 32 }}>{t('proxy.no_proto_mappings')}</Text>
+                                    ) : (
+                                        <Table
+                                            dataSource={protoMappings}
+                                            rowKey="id"
+                                            size="small"
+                                            pagination={false}
+                                            columns={[
+                                                { title: t('proxy.url_pattern'), dataIndex: 'urlPattern', ellipsis: true },
+                                                { title: t('proxy.message_type'), dataIndex: 'messageType', ellipsis: true },
+                                                { title: t('proxy.direction'), dataIndex: 'direction', width: 100 },
+                                                { title: t('proxy.description'), dataIndex: 'description', ellipsis: true },
+                                                {
+                                                    title: '',
+                                                    width: 100,
+                                                    render: (_: any, record: any) => (
+                                                        <Space size="small">
+                                                            <Button type="text" size="small" icon={<EditOutlined />} onClick={() => startEditProtoMapping(record)} />
+                                                            <Popconfirm title={t('common.delete') + '?'} onConfirm={() => handleDeleteProtoMapping(record.id)}>
+                                                                <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                                                            </Popconfirm>
+                                                        </Space>
+                                                    )
+                                                }
+                                            ]}
+                                        />
+                                    )}
+                                </div>
+                            </div>
+                        )
+                    }
+                ]} />
+            </Modal>
+
+            {/* Proto File Edit Modal */}
+            <Modal
+                title={editingProtoFile ? t('proxy.edit_proto_file') : t('proxy.add_proto_file')}
+                open={protoEditFileModalOpen}
+                onCancel={() => { closeProtoEditFileModal(); protoFileForm.resetFields(); }}
+                width={800}
+                footer={null}
+                style={{ top: 32, paddingBottom: 0 }}
+            >
+                <Form form={protoFileForm} layout="vertical" size="small" style={{ marginTop: 8 }}>
+                    <Form.Item name="name" label={t('proxy.proto_file_name')} rules={[{ required: true }]}>
+                        <Input placeholder="user.proto" />
+                    </Form.Item>
+                    <Form.Item name="content" label={t('proxy.proto_file_content')} rules={[{ required: true }]}>
+                        <Input.TextArea
+                            rows={18}
+                            placeholder={'syntax = "proto3";\n\npackage example;\n\nmessage UserResponse {\n  int32 id = 1;\n  string name = 2;\n  string email = 3;\n}'}
+                            style={{ fontFamily: "'Fira Code', monospace", fontSize: 12 }}
+                        />
+                    </Form.Item>
+                    <Space>
+                        <Button type="primary" onClick={handleSaveProtoFile}>
+                            {editingProtoFile ? t('common.save') : t('proxy.add_proto_file')}
+                        </Button>
+                        <Button onClick={() => { closeProtoEditFileModal(); protoFileForm.resetFields(); }}>
+                            {t('common.cancel')}
+                        </Button>
+                    </Space>
+                </Form>
+            </Modal>
+
+            {/* Proto Mapping Edit Modal */}
+            <Modal
+                title={editingProtoMapping ? t('proxy.edit_proto_mapping') : t('proxy.add_proto_mapping')}
+                open={protoEditMappingModalOpen}
+                onCancel={() => { closeProtoEditMappingModal(); protoMappingForm.resetFields(); }}
+                width={600}
+                footer={null}
+                style={{ top: 32 }}
+            >
+                <Form form={protoMappingForm} layout="vertical" size="small" style={{ marginTop: 8 }}>
+                    <Form.Item name="urlPattern" label={t('proxy.url_pattern')} rules={[{ required: true }]}>
+                        <Input placeholder="*/api/user/*" />
+                    </Form.Item>
+                    <Form.Item name="messageType" label={t('proxy.message_type')} rules={[{ required: true }]}>
+                        {protoMessageTypes.length > 0 ? (
+                            <Input
+                                placeholder="example.UserResponse"
+                                suffix={
+                                    <Popover
+                                        trigger="click"
+                                        content={
+                                            <div style={{ maxHeight: 300, overflow: 'auto' }}>
+                                                {protoMessageTypes.map(t => (
+                                                    <div
+                                                        key={t}
+                                                        style={{ padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontFamily: 'monospace' }}
+                                                        onClick={() => {
+                                                            protoMappingForm.setFieldValue('messageType', t);
+                                                        }}
+                                                    >
+                                                        {t}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        }
+                                    >
+                                        <Button type="text" size="small" style={{ fontSize: 10 }}>types</Button>
+                                    </Popover>
+                                }
+                            />
+                        ) : (
+                            <Input placeholder="example.UserResponse" />
+                        )}
+                    </Form.Item>
+                    <Form.Item name="direction" label={t('proxy.direction')} initialValue="response">
+                        <Radio.Group buttonStyle="solid" size="small">
+                            <Radio.Button value="response">{t('proxy.response')}</Radio.Button>
+                            <Radio.Button value="request">{t('proxy.request')}</Radio.Button>
+                            <Radio.Button value="both">{t('proxy.proto_both')}</Radio.Button>
+                        </Radio.Group>
+                    </Form.Item>
+                    <Form.Item name="description" label={t('proxy.description')}>
+                        <Input placeholder={t('proxy.description')} />
+                    </Form.Item>
+                    <Space>
+                        <Button type="primary" onClick={handleSaveProtoMapping}>
+                            {editingProtoMapping ? t('common.save') : t('proxy.add_proto_mapping')}
+                        </Button>
+                        <Button onClick={() => { closeProtoEditMappingModal(); protoMappingForm.resetFields(); }}>
                             {t('common.cancel')}
                         </Button>
                     </Space>

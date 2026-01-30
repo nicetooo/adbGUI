@@ -18,6 +18,8 @@ export interface RequestLog {
   respBody?: string;
   isWs?: boolean;
   mocked?: boolean;
+  isProtobuf?: boolean;
+  isReqProtobuf?: boolean;
   timestamp?: number;
   duration?: number;
   partialUpdate?: boolean;
@@ -52,6 +54,23 @@ export interface PendingMockData {
   contentType?: string;
   body?: string;
   description?: string;
+}
+
+// Proto file entry
+export interface ProtoFileEntry {
+  id: string;
+  name: string;
+  content: string;
+  loadedAt: number;
+}
+
+// Proto URL→message mapping
+export interface ProtoMapping {
+  id: string;
+  urlPattern: string;
+  messageType: string;
+  direction: string;
+  description: string;
 }
 
 interface ProxyState {
@@ -101,6 +120,16 @@ interface ProxyState {
   isAIParsing: boolean;
   aiSearchText: string;
   aiPopoverOpen: boolean;
+  
+  // Proto management
+  protoFiles: ProtoFileEntry[];
+  protoMappings: ProtoMapping[];
+  protoMessageTypes: string[];
+  protoListModalOpen: boolean;
+  protoEditFileModalOpen: boolean;
+  protoEditMappingModalOpen: boolean;
+  editingProtoFile: ProtoFileEntry | null;
+  editingProtoMapping: ProtoMapping | null;
   
   // 操作方法
   addLog: (log: RequestLog) => void;
@@ -152,6 +181,17 @@ interface ProxyState {
   setIsAIParsing: (parsing: boolean) => void;
   setAiSearchText: (text: string) => void;
   setAiPopoverOpen: (open: boolean) => void;
+  
+  // Proto management
+  setProtoFiles: (files: ProtoFileEntry[]) => void;
+  setProtoMappings: (mappings: ProtoMapping[]) => void;
+  setProtoMessageTypes: (types: string[]) => void;
+  openProtoListModal: () => void;
+  closeProtoListModal: () => void;
+  openProtoEditFileModal: (file?: ProtoFileEntry | null) => void;
+  closeProtoEditFileModal: () => void;
+  openProtoEditMappingModal: (mapping?: ProtoMapping | null) => void;
+  closeProtoEditMappingModal: () => void;
 }
 
 export const useProxyStore = create<ProxyState>()(
@@ -198,6 +238,16 @@ export const useProxyStore = create<ProxyState>()(
     isAIParsing: false,
     aiSearchText: "",
     aiPopoverOpen: false,
+    
+    // Proto management
+    protoFiles: [],
+    protoMappings: [],
+    protoMessageTypes: [],
+    protoListModalOpen: false,
+    protoEditFileModalOpen: false,
+    protoEditMappingModalOpen: false,
+    editingProtoFile: null,
+    editingProtoMapping: null,
     
     // 操作方法
     addLog: (log: RequestLog) => set((state: ProxyState) => {
@@ -314,5 +364,16 @@ export const useProxyStore = create<ProxyState>()(
     setAiSearchText: (text: string) => set({ aiSearchText: text }),
     
     setAiPopoverOpen: (open: boolean) => set({ aiPopoverOpen: open }),
+    
+    // Proto management
+    setProtoFiles: (files: ProtoFileEntry[]) => set({ protoFiles: files }),
+    setProtoMappings: (mappings: ProtoMapping[]) => set({ protoMappings: mappings }),
+    setProtoMessageTypes: (types: string[]) => set({ protoMessageTypes: types }),
+    openProtoListModal: () => set({ protoListModalOpen: true }),
+    closeProtoListModal: () => set({ protoListModalOpen: false }),
+    openProtoEditFileModal: (file) => set({ protoEditFileModalOpen: true, editingProtoFile: file ?? null }),
+    closeProtoEditFileModal: () => set({ protoEditFileModalOpen: false, editingProtoFile: null }),
+    openProtoEditMappingModal: (mapping) => set({ protoEditMappingModalOpen: true, editingProtoMapping: mapping ?? null }),
+    closeProtoEditMappingModal: () => set({ protoEditMappingModalOpen: false, editingProtoMapping: null }),
   }))
 );

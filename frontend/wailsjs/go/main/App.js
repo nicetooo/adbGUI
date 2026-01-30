@@ -18,6 +18,14 @@ export function AddMockRule(arg1) {
   return window['go']['main']['App']['AddMockRule'](arg1);
 }
 
+export function AddProtoFile(arg1, arg2) {
+  return window['go']['main']['App']['AddProtoFile'](arg1, arg2);
+}
+
+export function AddProtoMapping(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['AddProtoMapping'](arg1, arg2, arg3, arg4);
+}
+
 export function AnalyzeElementSelectors(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['AnalyzeElementSelectors'](arg1, arg2, arg3, arg4);
 }
@@ -266,6 +274,18 @@ export function GetProcessDetail(arg1, arg2) {
   return window['go']['main']['App']['GetProcessDetail'](arg1, arg2);
 }
 
+export function GetProtoFiles() {
+  return window['go']['main']['App']['GetProtoFiles']();
+}
+
+export function GetProtoMappings() {
+  return window['go']['main']['App']['GetProtoMappings']();
+}
+
+export function GetProtoMessageTypes() {
+  return window['go']['main']['App']['GetProtoMessageTypes']();
+}
+
 export function GetProxyDevice() {
   return window['go']['main']['App']['GetProxyDevice']();
 }
@@ -502,6 +522,10 @@ export function LoadMockRules() {
   return window['go']['main']['App']['LoadMockRules']();
 }
 
+export function LoadProtoConfig() {
+  return window['go']['main']['App']['LoadProtoConfig']();
+}
+
 export function LoadScriptTasks() {
   return window['go']['main']['App']['LoadScriptTasks']();
 }
@@ -616,6 +640,14 @@ export function RemoveHistoryDevice(arg1) {
 
 export function RemoveMockRule(arg1) {
   return window['go']['main']['App']['RemoveMockRule'](arg1);
+}
+
+export function RemoveProtoFile(arg1) {
+  return window['go']['main']['App']['RemoveProtoFile'](arg1);
+}
+
+export function RemoveProtoMapping(arg1) {
+  return window['go']['main']['App']['RemoveProtoMapping'](arg1);
 }
 
 export function RenameStoredSession(arg1, arg2) {
@@ -916,6 +948,14 @@ export function UninstallApp(arg1, arg2) {
 
 export function UpdateMockRule(arg1) {
   return window['go']['main']['App']['UpdateMockRule'](arg1);
+}
+
+export function UpdateProtoFile(arg1, arg2, arg3) {
+  return window['go']['main']['App']['UpdateProtoFile'](arg1, arg2, arg3);
+}
+
+export function UpdateProtoMapping(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['UpdateProtoMapping'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function UpdateStoredAssertionJSON(arg1, arg2) {
