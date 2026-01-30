@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -488,6 +489,7 @@ type MockRule struct {
 	Delay       int               `json:"delay"`       // Delay in milliseconds before responding
 	Enabled     bool              `json:"enabled"`     // Whether this rule is active
 	Description string            `json:"description"` // Optional description
+	CreatedAt   int64             `json:"createdAt"`   // Unix milliseconds, for stable ordering
 }
 
 var (
@@ -507,6 +509,9 @@ func saveMockRules() error {
 	for _, rule := range mockRules {
 		rules = append(rules, rule)
 	}
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].CreatedAt < rules[j].CreatedAt
+	})
 
 	data, err := json.MarshalIndent(rules, "", "  ")
 	if err != nil {
@@ -561,6 +566,9 @@ func (a *App) AddMockRule(rule MockRule) string {
 	if rule.ID == "" {
 		rule.ID = uuid.New().String()
 	}
+	if rule.CreatedAt == 0 {
+		rule.CreatedAt = time.Now().UnixMilli()
+	}
 	rule.Enabled = true
 	mockRules[rule.ID] = &rule
 
@@ -608,7 +616,7 @@ func (a *App) RemoveMockRule(ruleID string) {
 	saveMockRules()
 }
 
-// GetMockRules returns all mock response rules
+// GetMockRules returns all mock response rules, sorted by creation time (oldest first)
 func (a *App) GetMockRules() []*MockRule {
 	mockRulesMu.RLock()
 	defer mockRulesMu.RUnlock()
@@ -617,6 +625,9 @@ func (a *App) GetMockRules() []*MockRule {
 	for _, rule := range mockRules {
 		rules = append(rules, rule)
 	}
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].CreatedAt < rules[j].CreatedAt
+	})
 	return rules
 }
 

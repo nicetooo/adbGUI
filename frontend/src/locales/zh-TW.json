@@ -247,7 +247,8 @@
     "visualization": "視覺化",
     "stats": "統計",
     "waterfall": "瀑布圖",
-    "lanes": "泳道圖"
+    "lanes": "泳道圖",
+    "mock_request": "Mock 此請求"
   },
   "stats": {
     "total_events": "總事件數",

@@ -247,7 +247,8 @@
     "visualization": "Visualization",
     "stats": "Statistics",
     "waterfall": "Waterfall",
-    "lanes": "Lanes"
+    "lanes": "Lanes",
+    "mock_request": "Mock this request"
   },
   "stats": {
     "total_events": "Total Events",

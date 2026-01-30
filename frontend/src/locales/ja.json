@@ -247,7 +247,8 @@
     "visualization": "可視化",
     "stats": "統計",
     "waterfall": "ウォーターフォール",
-    "lanes": "レーン"
+    "lanes": "レーン",
+    "mock_request": "このリクエストをモック"
   },
   "stats": {
     "total_events": "総イベント数",

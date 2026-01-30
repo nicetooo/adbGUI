@@ -110,6 +110,8 @@ const ProxyView: React.FC = () => {
         setMockRules,
         setEditingMockRule,
         closeMockModal,
+        pendingMockData,
+        setPendingMockData,
         setCertTrustStatus,
         setIsAIParsing,
         setAiSearchText,
@@ -143,6 +145,25 @@ const ProxyView: React.FC = () => {
             return () => clearInterval(interval);
         }
     }, [certTrustStatus, selectedDevice]);
+
+    // Consume pendingMockData from another view (e.g. EventTimeline mock button)
+    useEffect(() => {
+        if (pendingMockData) {
+            setEditingMockRule(null);
+            mockForm.resetFields();
+            mockForm.setFieldsValue({
+                urlPattern: pendingMockData.urlPattern,
+                method: pendingMockData.method,
+                statusCode: pendingMockData.statusCode,
+                contentType: pendingMockData.contentType || 'application/json',
+                body: pendingMockData.body || '',
+                delay: 0,
+                description: pendingMockData.description || '',
+            });
+            setMockModalOpen(true);
+            setPendingMockData(null);
+        }
+    }, [pendingMockData]);
 
     useEffect(() => {
         // Listen for network stats
@@ -597,6 +618,7 @@ const ProxyView: React.FC = () => {
                 delay: values.delay || 0,
                 description: values.description || '',
                 enabled: true,
+                createdAt: editingMockRule?.createdAt || 0,
             };
 
             if (editingMockRule) {
@@ -1259,50 +1281,49 @@ const ProxyView: React.FC = () => {
                 title={t('proxy.mock_rules')}
                 open={mockModalOpen}
                 onCancel={() => { setMockModalOpen(false); setEditingMockRule(null); mockForm.resetFields(); }}
-                width={800}
+                width={900}
                 footer={null}
+                style={{ top: 32, paddingBottom: 0 }}
             >
-                <div style={{ marginBottom: 16 }}>
-                    <Form form={mockForm} layout="vertical" size="small">
-                        <Space wrap style={{ width: '100%' }}>
-                            <Form.Item name="urlPattern" label={t('proxy.url_pattern')} rules={[{ required: true }]} style={{ marginBottom: 8, minWidth: 250 }}>
-                                <Input placeholder="*/api/*" />
-                            </Form.Item>
-                            <Form.Item name="method" label={t('proxy.col_method')} style={{ marginBottom: 8, width: 100 }}>
-                                <Input placeholder="GET" />
-                            </Form.Item>
-                            <Form.Item name="statusCode" label={t('proxy.status_code')} style={{ marginBottom: 8, width: 80 }}>
-                                <InputNumber min={100} max={599} placeholder="200" />
-                            </Form.Item>
-                            <Form.Item name="delay" label={t('proxy.delay_ms')} style={{ marginBottom: 8, width: 80 }}>
-                                <InputNumber min={0} placeholder="0" />
-                            </Form.Item>
-                        </Space>
-                        <Form.Item name="contentType" label="Content-Type" style={{ marginBottom: 8 }}>
-                            <Input placeholder="application/json" />
+                <Form form={mockForm} layout="vertical" size="small">
+                    <Space wrap style={{ width: '100%' }}>
+                        <Form.Item name="urlPattern" label={t('proxy.url_pattern')} rules={[{ required: true }]} style={{ marginBottom: 8, minWidth: 280 }}>
+                            <Input placeholder="*/api/*" />
                         </Form.Item>
-                        <Form.Item name="body" label={t('proxy.response_body')} style={{ marginBottom: 8 }}>
-                            <JsonEditor height={120} placeholder='{"success": true}' />
+                        <Form.Item name="method" label={t('proxy.col_method')} style={{ marginBottom: 8, width: 100 }}>
+                            <Input placeholder="GET" />
                         </Form.Item>
-                        <Form.Item name="description" label={t('proxy.description')} style={{ marginBottom: 8 }}>
-                            <Input placeholder={t('proxy.description')} />
+                        <Form.Item name="statusCode" label={t('proxy.status_code')} style={{ marginBottom: 8, width: 80 }}>
+                            <InputNumber min={100} max={599} placeholder="200" />
                         </Form.Item>
-                        <Button type="primary" icon={<PlusOutlined />} onClick={handleSaveMockRule}>
-                            {editingMockRule ? t('common.save') : t('proxy.add')}
+                        <Form.Item name="delay" label={t('proxy.delay_ms')} style={{ marginBottom: 8, width: 80 }}>
+                            <InputNumber min={0} placeholder="0" />
+                        </Form.Item>
+                    </Space>
+                    <Form.Item name="contentType" label="Content-Type" style={{ marginBottom: 8 }}>
+                        <Input placeholder="application/json" />
+                    </Form.Item>
+                    <Form.Item name="body" label={t('proxy.response_body')} style={{ marginBottom: 8 }}>
+                        <JsonEditor height={'calc(100vh - 580px)'} placeholder='{"success": true}' />
+                    </Form.Item>
+                    <Form.Item name="description" label={t('proxy.description')} style={{ marginBottom: 8 }}>
+                        <Input placeholder={t('proxy.description')} />
+                    </Form.Item>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={handleSaveMockRule}>
+                        {editingMockRule ? t('common.save') : t('proxy.add')}
+                    </Button>
+                    {editingMockRule && (
+                        <Button style={{ marginLeft: 8 }} onClick={() => { setEditingMockRule(null); mockForm.resetFields(); }}>
+                            {t('common.cancel')}
                         </Button>
-                        {editingMockRule && (
-                            <Button style={{ marginLeft: 8 }} onClick={() => { setEditingMockRule(null); mockForm.resetFields(); }}>
-                                {t('common.cancel')}
-                            </Button>
-                        )}
-                    </Form>
-                </div>
+                    )}
+                </Form>
 
                 <Divider style={{ margin: '12px 0' }} />
 
-                <div style={{ maxHeight: 300, overflow: 'auto' }}>
+                <div style={{ maxHeight: 200, overflow: 'auto' }}>
                     {mockRules.length === 0 ? (
-                        <Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: 20 }}>{t('proxy.no_mock_rules')}</Text>
+                        <Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: 16 }}>{t('proxy.no_mock_rules')}</Text>
                     ) : (
                         <Table
                             dataSource={mockRules}

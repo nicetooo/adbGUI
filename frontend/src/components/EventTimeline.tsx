@@ -48,6 +48,7 @@ import {
   WarningOutlined,
   BarChartOutlined,
   LoadingOutlined,
+  BlockOutlined,
 } from '@ant-design/icons';
 import AssertionsPanel from './AssertionsPanel';
 import SessionStats from './SessionStats';
@@ -59,6 +60,8 @@ import {
   useDeviceStore,
   useCurrentBookmarks,
   useEventTimelineStore,
+  useUIStore,
+  VIEW_KEYS,
   type UnifiedEvent,
   type DeviceSession,
   type EventSource,
@@ -75,6 +78,7 @@ import {
   getEventColor,
   isCriticalEvent,
 } from '../stores';
+import { useProxyStore } from '../stores/proxyStore';
 import SessionConfigModal from './SessionConfigModal';
 import JsonViewer from './JsonViewer';
 
@@ -682,6 +686,9 @@ NetworkEventDetail.displayName = 'NetworkEventDetail';
 
 const EventDetail = memo(({ event, onClose }: EventDetailProps) => {
   const { token } = theme.useToken();
+  const { t } = useTranslation();
+  const { setSelectedKey } = useUIStore();
+  const { openMockWithPrefill } = useProxyStore();
 
   if (!event) return null;
 
@@ -696,6 +703,30 @@ const EventDetail = memo(({ event, onClose }: EventDetailProps) => {
 
   const data = getData();
   const isNetworkEvent = event.type === 'network_request' || event.category === 'network';
+
+  const handleMockRequest = () => {
+    if (!data) return;
+
+    // Extract URL pattern (use path with wildcard for query params)
+    let urlPattern = data.url;
+    try {
+      const urlObj = new URL(data.url);
+      urlPattern = `*${urlObj.pathname}*`;
+    } catch {
+      urlPattern = `*${data.url.split('?')[0]}*`;
+    }
+
+    // Pre-fill mock data and navigate to proxy page
+    openMockWithPrefill({
+      urlPattern,
+      method: data.method,
+      statusCode: data.statusCode || 200,
+      contentType: data.contentType?.split(';')[0] || 'application/json',
+      body: data.responseBody || '',
+      description: `Mock for ${data.method} ${urlPattern}`,
+    });
+    setSelectedKey(VIEW_KEYS.PROXY);
+  };
 
   const renderData = () => {
     if (!event.data) return <Text type="secondary">No data</Text>;
@@ -741,9 +772,18 @@ const EventDetail = memo(({ event, onClose }: EventDetailProps) => {
       size="small"
       title={getTitle()}
       extra={
-        <Button type="text" size="small" onClick={onClose}>
-          <CloseOutlined />
-        </Button>
+        <Space size={0}>
+          {isNetworkEvent && data && (
+            <Tooltip title={t('timeline.mock_request')}>
+              <Button type="text" size="small" onClick={handleMockRequest}>
+                <BlockOutlined />
+              </Button>
+            </Tooltip>
+          )}
+          <Button type="text" size="small" onClick={onClose}>
+            <CloseOutlined />
+          </Button>
+        </Space>
       }
       style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
       styles={{ body: { flex: 1, overflow: 'hidden', padding: 0, display: 'flex', flexDirection: 'column', minHeight: 0 } }}

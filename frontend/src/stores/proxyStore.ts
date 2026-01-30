@@ -41,6 +41,17 @@ interface MockRule {
   delay?: number;
   description?: string;
   enabled: boolean;
+  createdAt?: number;
+}
+
+// Data for pre-filling a mock rule from another view (e.g. EventTimeline)
+export interface PendingMockData {
+  urlPattern: string;
+  method?: string;
+  statusCode: number;
+  contentType?: string;
+  body?: string;
+  description?: string;
 }
 
 interface ProxyState {
@@ -78,6 +89,7 @@ interface ProxyState {
   mockModalOpen: boolean;
   mockRules: MockRule[];
   editingMockRule: MockRule | null;
+  pendingMockData: PendingMockData | null;
   
   // 证书状态
   certTrustStatus: string | null;
@@ -121,6 +133,8 @@ interface ProxyState {
   setEditingMockRule: (rule: MockRule | null) => void;
   openMockModal: () => void;
   closeMockModal: () => void;
+  setPendingMockData: (data: PendingMockData | null) => void;
+  openMockWithPrefill: (data: PendingMockData) => void;
   
   // 证书状态
   setCertTrustStatus: (status: string | null) => void;
@@ -164,6 +178,7 @@ export const useProxyStore = create<ProxyState>()(
     mockModalOpen: false,
     mockRules: [],
     editingMockRule: null,
+    pendingMockData: null,
     
     // 证书状态
     certTrustStatus: null,
@@ -255,6 +270,14 @@ export const useProxyStore = create<ProxyState>()(
     openMockModal: () => set({ mockModalOpen: true }),
     
     closeMockModal: () => set({ mockModalOpen: false, editingMockRule: null }),
+    
+    setPendingMockData: (data: PendingMockData | null) => set({ pendingMockData: data }),
+    
+    openMockWithPrefill: (data: PendingMockData) => set({
+      pendingMockData: data,
+      mockModalOpen: true,
+      editingMockRule: null,
+    }),
     
     // 证书状态
     setCertTrustStatus: (status: string | null) => set({ certTrustStatus: status }),

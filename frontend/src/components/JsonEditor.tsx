@@ -89,7 +89,7 @@ const JsonEditor = memo(({
       }}
     >
       <Editor
-        height={typeof height === 'number' ? height : height}
+        height={height}
         language={language}
         theme={isDark ? 'vs-dark' : 'light'}
         value={value}

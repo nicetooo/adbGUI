@@ -247,7 +247,8 @@
     "visualization": "시각화",
     "stats": "통계",
     "waterfall": "워터폴",
-    "lanes": "레인"
+    "lanes": "레인",
+    "mock_request": "이 요청을 Mock"
   },
   "stats": {
     "total_events": "총 이벤트",

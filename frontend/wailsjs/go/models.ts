@@ -930,6 +930,7 @@ export namespace main {
 	    delay: number;
 	    enabled: boolean;
 	    description: string;
+	    createdAt: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new MockRule(source);
@@ -946,6 +947,7 @@ export namespace main {
 	        this.delay = source["delay"];
 	        this.enabled = source["enabled"];
 	        this.description = source["description"];
+	        this.createdAt = source["createdAt"];
 	    }
 	}
 	
