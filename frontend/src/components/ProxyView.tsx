@@ -1375,25 +1375,65 @@ const ProxyView: React.FC = () => {
                                             label: t('proxy.req_headers'),
                                             children: (
                                                 <div style={{ paddingTop: 8 }}>
-                                                    {queryParams.length > 0 && (
-                                                        <div style={{ marginBottom: 12 }}>
-                                                            <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 'bold', color: token.colorTextSecondary, borderBottom: `1px solid ${token.colorBorderSecondary}`, paddingBottom: 4 }}>{t('proxy.query_params')}</div>
-                                                            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px' }}>
-                                                                {queryParams.map(([k, v], idx) => (
-                                                                    <React.Fragment key={idx}>
-                                                                        <Text style={{ fontSize: '12px', color: token.colorTextSecondary, textAlign: 'right', fontWeight: 500 }}>{k}:</Text>
-                                                                        <Text copyable={{ text: v }} style={{ fontSize: '12px', fontFamily: 'monospace', wordBreak: 'break-all', color: token.colorLink }}>{v}</Text>
-                                                                    </React.Fragment>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
                                                     {reqHasHeaders ? headerGrid(selectedLog.headers as Record<string, string[]>) : (
                                                         <Text type="secondary" style={{ display: 'block', textAlign: 'center', margin: '40px 0' }}>{t('proxy.no_req_data')}</Text>
                                                     )}
                                                 </div>
                                             )
                                         },
+                                        ...(queryParams.length > 0 ? [{
+                                            key: 'queryParams',
+                                            label: <span>{t('proxy.query_params_tab')} <Tag style={{ marginLeft: 4, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>{queryParams.length}</Tag></span>,
+                                            children: (
+                                                <div style={{ paddingTop: 8 }}>
+                                                    <div style={{
+                                                        border: `1px solid ${token.colorBorderSecondary}`,
+                                                        borderRadius: 6,
+                                                        overflow: 'hidden',
+                                                    }}>
+                                                        <div style={{
+                                                            display: 'grid',
+                                                            gridTemplateColumns: 'minmax(100px, auto) 1fr',
+                                                            fontSize: 12,
+                                                        }}>
+                                                            <div style={{
+                                                                padding: '6px 12px',
+                                                                fontWeight: 600,
+                                                                color: token.colorTextSecondary,
+                                                                background: token.colorFillAlter,
+                                                                borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                                                                borderRight: `1px solid ${token.colorBorderSecondary}`,
+                                                            }}>{t('proxy.param_name')}</div>
+                                                            <div style={{
+                                                                padding: '6px 12px',
+                                                                fontWeight: 600,
+                                                                color: token.colorTextSecondary,
+                                                                background: token.colorFillAlter,
+                                                                borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                                                            }}>{t('proxy.param_value')}</div>
+                                                            {queryParams.map(([k, v], idx) => (
+                                                                <React.Fragment key={idx}>
+                                                                    <div style={{
+                                                                        padding: '5px 12px',
+                                                                        fontWeight: 500,
+                                                                        color: token.colorText,
+                                                                        borderBottom: idx < queryParams.length - 1 ? `1px solid ${token.colorBorderSecondary}` : 'none',
+                                                                        borderRight: `1px solid ${token.colorBorderSecondary}`,
+                                                                        wordBreak: 'break-all',
+                                                                    }}>{k}</div>
+                                                                    <div style={{
+                                                                        padding: '5px 12px',
+                                                                        borderBottom: idx < queryParams.length - 1 ? `1px solid ${token.colorBorderSecondary}` : 'none',
+                                                                    }}>
+                                                                        <Text copyable={{ text: v }} style={{ fontSize: 12, fontFamily: 'monospace', wordBreak: 'break-all', color: token.colorLink }}>{v}</Text>
+                                                                    </div>
+                                                                </React.Fragment>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )
+                                        }] : []),
                                         {
                                             key: 'reqBody',
                                             label: <span>{t('proxy.req_body')}{selectedLog.isReqProtobuf ? ' [PB]' : ''}</span>,

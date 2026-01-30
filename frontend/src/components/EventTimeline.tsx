@@ -2,7 +2,7 @@
  * EventTimeline - 新事件系统的时间线组件
  * 使用 eventStore 和 SQLite 持久化
  */
-import { useEffect, useRef, useMemo, useCallback, memo } from 'react';
+import { useEffect, useRef, useMemo, useCallback, memo, Fragment } from 'react';
 import {
   Card,
   Tag,
@@ -614,6 +614,21 @@ const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => 
     </div>
   );
 
+  // Parse query params from URL
+  let queryParams: [string, string][] = [];
+  try {
+    const urlObj = new URL(data.url);
+    queryParams = Array.from(urlObj.searchParams.entries());
+  } catch {
+    if (data.url?.includes('?')) {
+      const search = data.url.split('?')[1];
+      queryParams = search.split('&').map((p: string) => {
+        const [k, v] = p.split('=');
+        return [decodeURIComponent(k), decodeURIComponent(v || '')] as [string, string];
+      });
+    }
+  }
+
   const tabItems = [
     {
       key: 'overview',
@@ -654,6 +669,43 @@ const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => 
       label: t('timeline.request_headers'),
       children: scrollableTab(formatHeaders(data.requestHeaders)),
     },
+    ...(queryParams.length > 0 ? [{
+      key: 'queryParams',
+      label: <span>{t('timeline.query_params')} <Tag style={{ marginLeft: 2, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>{queryParams.length}</Tag></span>,
+      children: scrollableTab(
+        <div style={{
+          border: `1px solid ${token.colorBorderSecondary}`,
+          borderRadius: 6,
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(80px, auto) 1fr',
+            fontSize: 11,
+          }}>
+            {queryParams.map(([k, v], idx) => (
+              <Fragment key={idx}>
+                <div style={{
+                  padding: '4px 8px',
+                  fontWeight: 500,
+                  color: token.colorTextSecondary,
+                  background: token.colorFillAlter,
+                  borderBottom: idx < queryParams.length - 1 ? `1px solid ${token.colorBorderSecondary}` : 'none',
+                  borderRight: `1px solid ${token.colorBorderSecondary}`,
+                  wordBreak: 'break-all',
+                }}>{k}</div>
+                <div style={{
+                  padding: '4px 8px',
+                  borderBottom: idx < queryParams.length - 1 ? `1px solid ${token.colorBorderSecondary}` : 'none',
+                }}>
+                  <Text copyable={{ text: v }} style={{ fontSize: 11, fontFamily: 'monospace', wordBreak: 'break-all', color: token.colorLink }}>{v}</Text>
+                </div>
+              </Fragment>
+            ))}
+          </div>
+        </div>
+      ),
+    }] : []),
     {
       key: 'reqBody',
       label: data.isReqProtobuf ? `${t('timeline.request_body')} [PB]` : t('timeline.request_body'),
