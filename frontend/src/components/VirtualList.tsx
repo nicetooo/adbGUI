@@ -334,6 +334,7 @@ function VirtualListInner<T>(
         height: heightStyle,
         overflow: 'auto',
         contain: 'strict',
+        position: 'relative',
         backgroundColor: token.colorBgContainer,
         outline: 'none',
         ...style,
@@ -383,17 +384,24 @@ function VirtualListInner<T>(
       {loading && dataSource.length > 0 && (
         <div
           style={{
-            position: 'absolute',
+            position: 'sticky',
             bottom: 8,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            padding: '4px 12px',
-            backgroundColor: token.colorBgElevated,
-            borderRadius: token.borderRadius,
-            boxShadow: token.boxShadow,
+            display: 'flex',
+            justifyContent: 'center',
+            pointerEvents: 'none',
           }}
         >
-          <Spin size="small" />
+          <div
+            style={{
+              padding: '4px 12px',
+              backgroundColor: token.colorBgElevated,
+              borderRadius: token.borderRadius,
+              boxShadow: token.boxShadow,
+              pointerEvents: 'auto',
+            }}
+          >
+            <Spin size="small" />
+          </div>
         </div>
       )}
     </div>
