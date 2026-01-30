@@ -248,6 +248,7 @@ function App() {
               style={{ backgroundColor: "transparent", borderRight: "none" }}
               items={[
                 { key: VIEW_KEYS.DEVICES, icon: <MobileOutlined />, label: t("menu.devices") },
+                { key: VIEW_KEYS.PERFORMANCE, icon: <LineChartOutlined />, label: t("menu.performance") },
                 { key: VIEW_KEYS.MIRROR, icon: <DesktopOutlined />, label: t("menu.mirror") },
                 { key: VIEW_KEYS.APPS, icon: <AppstoreOutlined />, label: t("menu.apps") },
                 { key: VIEW_KEYS.FILES, icon: <FolderOutlined />, label: t("menu.files") },
@@ -259,7 +260,6 @@ function App() {
                 { key: VIEW_KEYS.WORKFLOW, icon: <BranchesOutlined />, label: t("menu.workflow") },
                 { key: VIEW_KEYS.EVENTS, icon: <DashboardOutlined />, label: t("menu.events") },
                 { key: VIEW_KEYS.SESSIONS, icon: <DatabaseOutlined />, label: t("menu.sessions") },
-                { key: VIEW_KEYS.PERFORMANCE, icon: <LineChartOutlined />, label: t("menu.performance") },
               ]}
             />
           </div>
