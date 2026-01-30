@@ -229,6 +229,19 @@ type GazeApp interface {
 	StartProxy(port int) (string, error)
 	StopProxy() (string, error)
 	GetProxyStatus() bool
+	SetProxyDevice(deviceId string)
+	GetProxyDevice() string
+	SetupProxyForDevice(deviceId string, port int) error
+	CleanupProxyForDevice(deviceId string, port int) error
+	SetProxyMITM(enabled bool)
+	SetProxyWSEnabled(enabled bool)
+	SetProxyLimit(uploadSpeed, downloadSpeed int)
+	SetProxyLatency(latencyMs int)
+	SetMITMBypassPatterns(patterns []string)
+	GetMITMBypassPatterns() []string
+	GetProxySettings() map[string]interface{}
+	InstallProxyCert(deviceId string) (string, error)
+	CheckCertTrust(deviceId string) string
 
 	// Mock Rules
 	AddMockRule(urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, description string, conditions []MCPMockCondition) string

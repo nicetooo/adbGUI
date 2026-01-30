@@ -80,7 +80,7 @@ const TOOL_CATEGORIES = [
     key: "proxy",
     icon: <GlobalOutlined />,
     color: "#faad14",
-    tools: ["proxy_start", "proxy_stop", "proxy_status", "mock_rule_list", "mock_rule_add", "mock_rule_update", "mock_rule_remove", "mock_rule_toggle", "resend_request"],
+    tools: ["proxy_start", "proxy_stop", "proxy_status", "proxy_configure", "proxy_settings", "proxy_device_setup", "proxy_device_cleanup", "proxy_cert_install", "proxy_cert_trust_check", "mock_rule_list", "mock_rule_add", "mock_rule_update", "mock_rule_remove", "mock_rule_toggle", "resend_request"],
   },
   {
     key: "video",

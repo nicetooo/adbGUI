@@ -166,6 +166,127 @@ Example: '[{"type":"header","key":"Authorization","operator":"exists"},{"type":"
 		s.handleMockRuleToggle,
 	)
 
+	// proxy_configure - Configure proxy settings
+	s.server.AddTool(
+		mcp.NewTool("proxy_configure",
+			mcp.WithDescription(`Configure proxy settings. All parameters are optional — only provided settings will be changed.
+
+Settings:
+- mitm: Enable/disable HTTPS MITM decryption
+- ws_enabled: Enable/disable WebSocket pass-through
+- upload_speed: Upload speed limit in KB/s (0 = unlimited)
+- download_speed: Download speed limit in KB/s (0 = unlimited)
+- latency: Artificial latency in milliseconds (0 = no latency)
+- bypass_patterns: JSON array of domain patterns to bypass MITM (replaces existing list)
+
+Examples:
+  Enable MITM: mitm=true
+  Throttle to 100KB/s: upload_speed=100, download_speed=100
+  Add 200ms latency: latency=200
+  Set bypass: bypass_patterns='["cdn","static","*.google.com"]'`),
+			mcp.WithBoolean("mitm",
+				mcp.Description("Enable/disable HTTPS MITM decryption"),
+			),
+			mcp.WithBoolean("ws_enabled",
+				mcp.Description("Enable/disable WebSocket pass-through"),
+			),
+			mcp.WithNumber("upload_speed",
+				mcp.Description("Upload speed limit in KB/s (0 = unlimited)"),
+			),
+			mcp.WithNumber("download_speed",
+				mcp.Description("Download speed limit in KB/s (0 = unlimited)"),
+			),
+			mcp.WithNumber("latency",
+				mcp.Description("Artificial latency in milliseconds (0 = none)"),
+			),
+			mcp.WithString("bypass_patterns",
+				mcp.Description(`JSON array of MITM bypass domain patterns, e.g. '["cdn","*.google.com"]'. Replaces existing list.`),
+			),
+		),
+		s.handleProxyConfigure,
+	)
+
+	// proxy_settings - Get current proxy settings
+	s.server.AddTool(
+		mcp.NewTool("proxy_settings",
+			mcp.WithDescription("Get current proxy settings including MITM state, WebSocket state, bypass patterns, and connected device."),
+		),
+		s.handleProxySettings,
+	)
+
+	// proxy_device_setup - Set up proxy on a device
+	s.server.AddTool(
+		mcp.NewTool("proxy_device_setup",
+			mcp.WithDescription(`Set up the proxy on a connected Android device.
+
+This performs:
+1. Sets the proxy device ID
+2. Creates an adb reverse tunnel (device port -> host proxy port)
+3. Configures the device HTTP proxy settings
+
+The device will route HTTP/HTTPS traffic through the proxy after setup.`),
+			mcp.WithString("device_id",
+				mcp.Required(),
+				mcp.Description("Device serial number"),
+			),
+			mcp.WithNumber("port",
+				mcp.Description("Proxy port (default: 8080)"),
+			),
+		),
+		s.handleProxyDeviceSetup,
+	)
+
+	// proxy_device_cleanup - Remove proxy from device
+	s.server.AddTool(
+		mcp.NewTool("proxy_device_cleanup",
+			mcp.WithDescription(`Remove proxy configuration from an Android device.
+
+This performs:
+1. Removes the adb reverse tunnel
+2. Clears the device HTTP proxy settings
+3. Clears the proxy device ID`),
+			mcp.WithString("device_id",
+				mcp.Required(),
+				mcp.Description("Device serial number"),
+			),
+			mcp.WithNumber("port",
+				mcp.Description("Proxy port used during setup (default: 8080)"),
+			),
+		),
+		s.handleProxyDeviceCleanup,
+	)
+
+	// proxy_cert_install - Push CA certificate to device
+	s.server.AddTool(
+		mcp.NewTool("proxy_cert_install",
+			mcp.WithDescription(`Push the proxy CA certificate to an Android device for HTTPS interception.
+
+Pushes the CA certificate to /sdcard/Download/Gaze-CA.crt.
+After pushing, the user must install it on the device:
+  Settings > Security > Install from storage > Select Gaze-CA.crt`),
+			mcp.WithString("device_id",
+				mcp.Required(),
+				mcp.Description("Device serial number"),
+			),
+		),
+		s.handleProxyCertInstall,
+	)
+
+	// proxy_cert_trust_check - Check certificate trust status
+	s.server.AddTool(
+		mcp.NewTool("proxy_cert_trust_check",
+			mcp.WithDescription(`Check if a device trusts the proxy CA certificate.
+
+Returns "trusted", "untrusted", or "unknown" based on whether
+recent HTTPS traffic has been successfully decrypted.`),
+			mcp.WithString("device_id",
+				mcp.Required(),
+				mcp.Description("Device serial number"),
+			),
+		),
+		s.handleProxyCertTrustCheck,
+	)
+
 	// resend_request - Resend an HTTP request
 	s.server.AddTool(
 		mcp.NewTool("resend_request",
@@ -418,5 +539,149 @@ func (s *MCPServer) handleResendRequest(ctx context.Context, request mcp.CallToo
 	data, _ := json.MarshalIndent(result, "", "  ")
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{mcp.NewTextContent(string(data))},
+	}, nil
+}
+
+// --- Proxy Configuration Handlers ---
+
+func (s *MCPServer) handleProxyConfigure(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	var changes []string
+
+	if mitm, ok := args["mitm"].(bool); ok {
+		s.app.SetProxyMITM(mitm)
+		changes = append(changes, fmt.Sprintf("MITM: %v", mitm))
+	}
+	if ws, ok := args["ws_enabled"].(bool); ok {
+		s.app.SetProxyWSEnabled(ws)
+		changes = append(changes, fmt.Sprintf("WebSocket: %v", ws))
+	}
+
+	ulSet, dlSet := false, false
+	ul, dl := 0, 0
+	if u, ok := args["upload_speed"].(float64); ok {
+		ul = int(u)
+		ulSet = true
+	}
+	if d, ok := args["download_speed"].(float64); ok {
+		dl = int(d)
+		dlSet = true
+	}
+	if ulSet || dlSet {
+		s.app.SetProxyLimit(ul, dl)
+		changes = append(changes, fmt.Sprintf("Speed limit: UL=%dKB/s DL=%dKB/s", ul, dl))
+	}
+
+	if lat, ok := args["latency"].(float64); ok {
+		s.app.SetProxyLatency(int(lat))
+		changes = append(changes, fmt.Sprintf("Latency: %dms", int(lat)))
+	}
+
+	if bp, ok := args["bypass_patterns"].(string); ok && bp != "" {
+		var patterns []string
+		if err := json.Unmarshal([]byte(bp), &patterns); err != nil {
+			return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error parsing bypass_patterns: %v", err))}, IsError: true}, nil
+		}
+		s.app.SetMITMBypassPatterns(patterns)
+		changes = append(changes, fmt.Sprintf("Bypass patterns: %v", patterns))
+	}
+
+	if len(changes) == 0 {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.NewTextContent("No settings changed. Provide at least one parameter.")},
+		}, nil
+	}
+
+	msg := "Proxy settings updated:\n"
+	for _, c := range changes {
+		msg += "  - " + c + "\n"
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(msg)},
+	}, nil
+}
+
+func (s *MCPServer) handleProxySettings(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	settings := s.app.GetProxySettings()
+	settings["running"] = s.app.GetProxyStatus()
+	settings["proxyDevice"] = s.app.GetProxyDevice()
+	settings["bypassPatterns"] = s.app.GetMITMBypassPatterns()
+
+	data, _ := json.MarshalIndent(settings, "", "  ")
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(string(data))},
+	}, nil
+}
+
+func (s *MCPServer) handleProxyDeviceSetup(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	deviceId, _ := args["device_id"].(string)
+	if deviceId == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: device_id is required")}, IsError: true}, nil
+	}
+	port := 8080
+	if p, ok := args["port"].(float64); ok {
+		port = int(p)
+	}
+
+	s.app.SetProxyDevice(deviceId)
+	if err := s.app.SetupProxyForDevice(deviceId, port); err != nil {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error setting up proxy on device: %v", err))}, IsError: true}, nil
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Proxy configured on device %s (port %d).\nadb reverse tunnel created and HTTP proxy settings applied.", deviceId, port))},
+	}, nil
+}
+
+func (s *MCPServer) handleProxyDeviceCleanup(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	deviceId, _ := args["device_id"].(string)
+	if deviceId == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: device_id is required")}, IsError: true}, nil
+	}
+	port := 8080
+	if p, ok := args["port"].(float64); ok {
+		port = int(p)
+	}
+
+	if err := s.app.CleanupProxyForDevice(deviceId, port); err != nil {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error cleaning up proxy: %v", err))}, IsError: true}, nil
+	}
+	s.app.SetProxyDevice("")
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Proxy removed from device %s. Reverse tunnel and HTTP proxy settings cleared.", deviceId))},
+	}, nil
+}
+
+func (s *MCPServer) handleProxyCertInstall(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	deviceId, _ := args["device_id"].(string)
+	if deviceId == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: device_id is required")}, IsError: true}, nil
+	}
+
+	result, err := s.app.InstallProxyCert(deviceId)
+	if err != nil {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error pushing certificate: %v", err))}, IsError: true}, nil
+	}
+
+	msg := fmt.Sprintf("CA certificate pushed to device %s.\nPath: /sdcard/Download/Gaze-CA.crt\n%s\n\nNext steps: Install the certificate on the device via Settings > Security > Install from storage.", deviceId, result)
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(msg)},
+	}, nil
+}
+
+func (s *MCPServer) handleProxyCertTrustCheck(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	deviceId, _ := args["device_id"].(string)
+	if deviceId == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: device_id is required")}, IsError: true}, nil
+	}
+
+	status := s.app.CheckCertTrust(deviceId)
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Certificate trust status for %s: %s", deviceId, status))},
 	}, nil
 }

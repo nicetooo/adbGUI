@@ -727,6 +727,58 @@ func (b *MCPBridge) GetProxyStatus() bool {
 	return b.app.GetProxyStatus()
 }
 
+func (b *MCPBridge) SetProxyDevice(deviceId string) {
+	b.app.SetProxyDevice(deviceId)
+}
+
+func (b *MCPBridge) GetProxyDevice() string {
+	return b.app.GetProxyDevice()
+}
+
+func (b *MCPBridge) SetupProxyForDevice(deviceId string, port int) error {
+	return b.app.SetupProxyForDevice(deviceId, port)
+}
+
+func (b *MCPBridge) CleanupProxyForDevice(deviceId string, port int) error {
+	return b.app.CleanupProxyForDevice(deviceId, port)
+}
+
+func (b *MCPBridge) SetProxyMITM(enabled bool) {
+	b.app.SetProxyMITM(enabled)
+}
+
+func (b *MCPBridge) SetProxyWSEnabled(enabled bool) {
+	b.app.SetProxyWSEnabled(enabled)
+}
+
+func (b *MCPBridge) SetProxyLimit(uploadSpeed, downloadSpeed int) {
+	b.app.SetProxyLimit(uploadSpeed, downloadSpeed)
+}
+
+func (b *MCPBridge) SetProxyLatency(latencyMs int) {
+	b.app.SetProxyLatency(latencyMs)
+}
+
+func (b *MCPBridge) SetMITMBypassPatterns(patterns []string) {
+	b.app.SetMITMBypassPatterns(patterns)
+}
+
+func (b *MCPBridge) GetMITMBypassPatterns() []string {
+	return b.app.GetMITMBypassPatterns()
+}
+
+func (b *MCPBridge) GetProxySettings() map[string]interface{} {
+	return b.app.GetProxySettings()
+}
+
+func (b *MCPBridge) InstallProxyCert(deviceId string) (string, error) {
+	return b.app.InstallProxyCert(deviceId)
+}
+
+func (b *MCPBridge) CheckCertTrust(deviceId string) string {
+	return b.app.CheckCertTrust(deviceId)
+}
+
 func (b *MCPBridge) GetAppVersion() string {
 	return b.app.GetAppVersion()
 }

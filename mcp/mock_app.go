@@ -510,6 +510,67 @@ func (m *MockGazeApp) ResendRequest(method, url string, headers map[string]strin
 	return m.ResendRequestResult, m.ResendRequestError
 }
 
+// === Proxy Configuration ===
+
+func (m *MockGazeApp) SetProxyDevice(deviceId string) {
+	m.recordCall("SetProxyDevice", deviceId)
+}
+
+func (m *MockGazeApp) GetProxyDevice() string {
+	m.recordCall("GetProxyDevice")
+	return ""
+}
+
+func (m *MockGazeApp) SetupProxyForDevice(deviceId string, port int) error {
+	m.recordCall("SetupProxyForDevice", deviceId, port)
+	return nil
+}
+
+func (m *MockGazeApp) CleanupProxyForDevice(deviceId string, port int) error {
+	m.recordCall("CleanupProxyForDevice", deviceId, port)
+	return nil
+}
+
+func (m *MockGazeApp) SetProxyMITM(enabled bool) {
+	m.recordCall("SetProxyMITM", enabled)
+}
+
+func (m *MockGazeApp) SetProxyWSEnabled(enabled bool) {
+	m.recordCall("SetProxyWSEnabled", enabled)
+}
+
+func (m *MockGazeApp) SetProxyLimit(uploadSpeed, downloadSpeed int) {
+	m.recordCall("SetProxyLimit", uploadSpeed, downloadSpeed)
+}
+
+func (m *MockGazeApp) SetProxyLatency(latencyMs int) {
+	m.recordCall("SetProxyLatency", latencyMs)
+}
+
+func (m *MockGazeApp) SetMITMBypassPatterns(patterns []string) {
+	m.recordCall("SetMITMBypassPatterns", patterns)
+}
+
+func (m *MockGazeApp) GetMITMBypassPatterns() []string {
+	m.recordCall("GetMITMBypassPatterns")
+	return nil
+}
+
+func (m *MockGazeApp) GetProxySettings() map[string]interface{} {
+	m.recordCall("GetProxySettings")
+	return map[string]interface{}{"wsEnabled": true, "mitmEnabled": true, "bypassPatterns": []string{}}
+}
+
+func (m *MockGazeApp) InstallProxyCert(deviceId string) (string, error) {
+	m.recordCall("InstallProxyCert", deviceId)
+	return "Certificate pushed", nil
+}
+
+func (m *MockGazeApp) CheckCertTrust(deviceId string) string {
+	m.recordCall("CheckCertTrust", deviceId)
+	return "unknown"
+}
+
 // === Video ===
 
 func (m *MockGazeApp) GetVideoFrame(videoPath string, timeMs int64, width int) (string, error) {
