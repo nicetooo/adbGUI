@@ -368,6 +368,29 @@ docs/sessions/2026-01-30-session-log.md
 
 **这是最重要的开发纪律。** 所有前端变更都必须通过浏览器实际验证，严禁凭猜测修改代码。
 
+#### ⚠️ 前端测试与 MCP 测试严格分离
+
+**前端功能 → 只用 Playwright 验证，禁止用 MCP 工具测试前端。**
+**MCP 功能 → 只用 MCP 工具验证，禁止用 Playwright/浏览器测试 MCP。**
+
+两套测试工具链完全隔离，不得混用：
+
+| 改动类型 | 验证方式 | 禁止使用 |
+|---------|---------|---------|
+| 前端 UI / 组件 / 样式 / 交互 | Playwright (snapshot/screenshot/click) | MCP 工具 (gaze_*) |
+| MCP 工具 / 后端接口 / 设备操作 | MCP 工具 (gaze_*) 直接调用 | Playwright 浏览器 |
+
+```
+❌ 错误: 修改了前端组件，用 MCP gaze_screen_screenshot 去设备上看效果
+✅ 正确: 修改了前端组件，用 Playwright browser_snapshot 在浏览器中验证
+
+❌ 错误: 修改了 MCP 工具逻辑，打开浏览器去 UI 上点击测试
+✅ 正确: 修改了 MCP 工具逻辑，直接调用对应的 MCP 工具函数验证返回结果
+
+❌ 错误: 测试代理功能，一会儿用 Playwright 点 UI，一会儿用 MCP 调接口，混在一起
+✅ 正确: 前端代理页面的 UI 渲染 → Playwright；MCP proxy_* 工具的接口行为 → MCP 调用
+```
+
 #### 核心原则
 
 1. **先看再改**: 修改任何 UI 之前，必须先在浏览器中打开应用，用 Playwright snapshot/screenshot 观察当前实际状态
