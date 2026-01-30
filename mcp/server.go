@@ -230,6 +230,14 @@ type GazeApp interface {
 	StopProxy() (string, error)
 	GetProxyStatus() bool
 
+	// Mock Rules
+	AddMockRule(urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, description string) string
+	UpdateMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, enabled bool, description string) error
+	RemoveMockRule(ruleID string)
+	GetMockRules() []MCPMockRule
+	ToggleMockRule(ruleID string, enabled bool) error
+	ResendRequest(method, url string, headers map[string]string, body string) (map[string]interface{}, error)
+
 	// Video
 	GetVideoFrame(videoPath string, timeMs int64, width int) (string, error)
 	GetVideoMetadata(videoPath string) (*VideoMetadata, error)
@@ -289,6 +297,19 @@ type MCPProtoMapping struct {
 	MessageType string `json:"messageType"`
 	Direction   string `json:"direction"`
 	Description string `json:"description"`
+}
+
+// MCPMockRule represents a mock rule for MCP interface
+type MCPMockRule struct {
+	ID          string            `json:"id"`
+	URLPattern  string            `json:"urlPattern"`
+	Method      string            `json:"method"`
+	StatusCode  int               `json:"statusCode"`
+	Headers     map[string]string `json:"headers"`
+	Body        string            `json:"body"`
+	Delay       int               `json:"delay"`
+	Enabled     bool              `json:"enabled"`
+	Description string            `json:"description"`
 }
 
 // MCPServer wraps the MCP server and provides Gaze-specific functionality

@@ -103,6 +103,14 @@ type MockGazeApp struct {
 	StopProxyError       error
 	GetProxyStatusResult bool
 
+	// Mock Rules
+	AddMockRuleResult   string
+	UpdateMockRuleError error
+	GetMockRulesResult  []MCPMockRule
+	ToggleMockRuleError error
+	ResendRequestResult map[string]interface{}
+	ResendRequestError  error
+
 	// Video
 	GetVideoFrameResult       string
 	GetVideoFrameError        error
@@ -469,6 +477,37 @@ func (m *MockGazeApp) StopProxy() (string, error) {
 func (m *MockGazeApp) GetProxyStatus() bool {
 	m.recordCall("GetProxyStatus")
 	return m.GetProxyStatusResult
+}
+
+// === Mock Rules ===
+
+func (m *MockGazeApp) AddMockRule(urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, description string) string {
+	m.recordCall("AddMockRule", urlPattern, method, statusCode, headers, body, delay, description)
+	return m.AddMockRuleResult
+}
+
+func (m *MockGazeApp) UpdateMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, enabled bool, description string) error {
+	m.recordCall("UpdateMockRule", id, urlPattern, method, statusCode, headers, body, delay, enabled, description)
+	return m.UpdateMockRuleError
+}
+
+func (m *MockGazeApp) RemoveMockRule(ruleID string) {
+	m.recordCall("RemoveMockRule", ruleID)
+}
+
+func (m *MockGazeApp) GetMockRules() []MCPMockRule {
+	m.recordCall("GetMockRules")
+	return m.GetMockRulesResult
+}
+
+func (m *MockGazeApp) ToggleMockRule(ruleID string, enabled bool) error {
+	m.recordCall("ToggleMockRule", ruleID, enabled)
+	return m.ToggleMockRuleError
+}
+
+func (m *MockGazeApp) ResendRequest(method, url string, headers map[string]string, body string) (map[string]interface{}, error) {
+	m.recordCall("ResendRequest", method, url, headers, body)
+	return m.ResendRequestResult, m.ResendRequestError
 }
 
 // === Video ===

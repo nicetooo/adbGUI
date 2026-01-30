@@ -80,7 +80,7 @@ const TOOL_CATEGORIES = [
     key: "proxy",
     icon: <GlobalOutlined />,
     color: "#faad14",
-    tools: ["proxy_start", "proxy_stop", "proxy_status"],
+    tools: ["proxy_start", "proxy_stop", "proxy_status", "mock_rule_list", "mock_rule_add", "mock_rule_update", "mock_rule_remove", "mock_rule_toggle", "resend_request"],
   },
   {
     key: "video",

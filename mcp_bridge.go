@@ -985,6 +985,67 @@ func (b *MCPBridge) LoadProtoFromURL(rawURL string) ([]string, error) {
 	return b.app.LoadProtoFromURL(rawURL)
 }
 
+// === Mock Rules ===
+
+func (b *MCPBridge) AddMockRule(urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, description string) string {
+	rule := MockRule{
+		URLPattern:  urlPattern,
+		Method:      method,
+		StatusCode:  statusCode,
+		Headers:     headers,
+		Body:        body,
+		Delay:       delay,
+		Description: description,
+	}
+	return b.app.AddMockRule(rule)
+}
+
+func (b *MCPBridge) UpdateMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, enabled bool, description string) error {
+	rule := MockRule{
+		ID:          id,
+		URLPattern:  urlPattern,
+		Method:      method,
+		StatusCode:  statusCode,
+		Headers:     headers,
+		Body:        body,
+		Delay:       delay,
+		Enabled:     enabled,
+		Description: description,
+	}
+	return b.app.UpdateMockRule(rule)
+}
+
+func (b *MCPBridge) RemoveMockRule(ruleID string) {
+	b.app.RemoveMockRule(ruleID)
+}
+
+func (b *MCPBridge) GetMockRules() []mcp.MCPMockRule {
+	rules := b.app.GetMockRules()
+	result := make([]mcp.MCPMockRule, len(rules))
+	for i, r := range rules {
+		result[i] = mcp.MCPMockRule{
+			ID:          r.ID,
+			URLPattern:  r.URLPattern,
+			Method:      r.Method,
+			StatusCode:  r.StatusCode,
+			Headers:     r.Headers,
+			Body:        r.Body,
+			Delay:       r.Delay,
+			Enabled:     r.Enabled,
+			Description: r.Description,
+		}
+	}
+	return result
+}
+
+func (b *MCPBridge) ToggleMockRule(ruleID string, enabled bool) error {
+	return b.app.ToggleMockRule(ruleID, enabled)
+}
+
+func (b *MCPBridge) ResendRequest(method, url string, headers map[string]string, body string) (map[string]interface{}, error) {
+	return b.app.ResendRequest(method, url, headers, body)
+}
+
 // StartMCPServer starts the MCP server with the given app
 func StartMCPServer(app *App) {
 	bridge := NewMCPBridge(app)
