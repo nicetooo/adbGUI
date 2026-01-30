@@ -49,6 +49,7 @@ import {
   BarChartOutlined,
   LoadingOutlined,
   BlockOutlined,
+  BugOutlined,
 } from '@ant-design/icons';
 import AssertionsPanel from './AssertionsPanel';
 import SessionStats from './SessionStats';
@@ -756,7 +757,7 @@ const EventDetail = memo(({ event, onClose }: EventDetailProps) => {
   const { token } = theme.useToken();
   const { t } = useTranslation();
   const { setSelectedKey } = useUIStore();
-  const { openMockWithPrefill } = useProxyStore();
+  const { openMockWithPrefill, openBreakpointWithPrefill } = useProxyStore();
 
   if (!event) return null;
 
@@ -792,6 +793,26 @@ const EventDetail = memo(({ event, onClose }: EventDetailProps) => {
       contentType: data.contentType?.split(';')[0] || 'application/json',
       body: data.responseBody || '',
       description: `Mock for ${data.method} ${urlPattern}`,
+    });
+    setSelectedKey(VIEW_KEYS.PROXY);
+  };
+
+  const handleBreakpointRequest = () => {
+    if (!data) return;
+
+    let urlPattern = data.url;
+    try {
+      const urlObj = new URL(data.url);
+      urlPattern = `*${urlObj.pathname}*`;
+    } catch {
+      urlPattern = `*${data.url.split('?')[0]}*`;
+    }
+
+    openBreakpointWithPrefill({
+      urlPattern,
+      method: data.method,
+      phase: 'both',
+      description: `BP for ${data.method} ${urlPattern}`,
     });
     setSelectedKey(VIEW_KEYS.PROXY);
   };
@@ -842,11 +863,18 @@ const EventDetail = memo(({ event, onClose }: EventDetailProps) => {
       extra={
         <Space size={0}>
           {isNetworkEvent && data && (
-            <Tooltip title={t('timeline.mock_request')}>
-              <Button type="text" size="small" onClick={handleMockRequest}>
-                <BlockOutlined />
-              </Button>
-            </Tooltip>
+            <>
+              <Tooltip title={t('timeline.mock_request')}>
+                <Button type="text" size="small" onClick={handleMockRequest}>
+                  <BlockOutlined />
+                </Button>
+              </Tooltip>
+              <Tooltip title={t('proxy.create_breakpoint')}>
+                <Button type="text" size="small" onClick={handleBreakpointRequest}>
+                  <BugOutlined />
+                </Button>
+              </Tooltip>
+            </>
           )}
           <Button type="text" size="small" onClick={onClose}>
             <CloseOutlined />

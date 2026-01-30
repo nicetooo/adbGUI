@@ -6,6 +6,7 @@ import DeviceSelector from './DeviceSelector';
 import JsonViewer from './JsonViewer';
 import JsonEditor from './JsonEditor';
 import { useDeviceStore, useProxyStore, RequestLog as StoreRequestLog } from '../stores';
+import { buildModifications, type EditableHeader } from '../stores/proxyStore';
 // @ts-ignore
 import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, GetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, UpdateMockRule, RemoveMockRule, GetMockRules, ToggleMockRule, CheckCertTrust, SetupProxyForDevice, CleanupProxyForDevice, GetProtoFiles, AddProtoFile, UpdateProtoFile, RemoveProtoFile, GetProtoMappings, AddProtoMapping, UpdateProtoMapping, RemoveProtoMapping, GetProtoMessageTypes, LoadProtoFromURL, LoadProtoFromDisk, AddBreakpointRule, UpdateBreakpointRule, RemoveBreakpointRule, GetBreakpointRules, ToggleBreakpointRule, ResolveBreakpoint, GetPendingBreakpoints, ForwardAllBreakpoints } from '../../wailsjs/go/main/App';
 // @ts-ignore
@@ -154,6 +155,7 @@ const ProxyView: React.FC = () => {
         editingBreakpointRule,
         breakpointResolveModalOpen,
         selectedBreakpoint,
+        breakpointEdit,
         setBreakpointRules,
         openBreakpointListModal,
         closeBreakpointListModal,
@@ -164,6 +166,9 @@ const ProxyView: React.FC = () => {
         clearPendingBreakpoints,
         openBreakpointResolveModal,
         closeBreakpointResolveModal,
+        updateBreakpointEdit,
+        pendingBreakpointData,
+        setPendingBreakpointData,
     } = useProxyStore();
 
     // Watch hidden _conditionHints field stored in the form (survives HMR / store resets)
@@ -263,6 +268,21 @@ const ProxyView: React.FC = () => {
             setPendingMockData(null);
         }
     }, [pendingMockData]);
+
+    // Consume pendingBreakpointData from another view (e.g. EventTimeline BP button)
+    useEffect(() => {
+        if (pendingBreakpointData) {
+            openBreakpointEditModal(null);
+            breakpointForm.resetFields();
+            breakpointForm.setFieldsValue({
+                urlPattern: pendingBreakpointData.urlPattern,
+                method: pendingBreakpointData.method,
+                phase: pendingBreakpointData.phase || 'both',
+                description: pendingBreakpointData.description || '',
+            });
+            setPendingBreakpointData(null);
+        }
+    }, [pendingBreakpointData]);
 
     useEffect(() => {
         // Listen for network stats
@@ -790,6 +810,26 @@ const ProxyView: React.FC = () => {
             delay: 0,
             description: `Mock for ${log.method} ${urlPattern}`,
             _conditionHints: JSON.stringify(hints),
+        });
+    };
+
+    // Create breakpoint rule from captured request
+    const createBreakpointFromRequest = (log: StoreRequestLog) => {
+        let urlPattern = log.url;
+        try {
+            const urlObj = new URL(log.url);
+            urlPattern = `*${urlObj.pathname}*`;
+        } catch (e) {
+            urlPattern = `*${log.url.split('?')[0]}*`;
+        }
+
+        openBreakpointEditModal(null);
+        breakpointForm.resetFields();
+        breakpointForm.setFieldsValue({
+            urlPattern,
+            method: log.method,
+            phase: 'both',
+            description: `BP for ${log.method} ${urlPattern}`,
         });
     };
 
@@ -1469,6 +1509,14 @@ const ProxyView: React.FC = () => {
                                         onClick={() => createMockFromRequest(selectedLog)}
                                     >
                                         Mock
+                                    </Button>
+                                    <Button
+                                        type="text"
+                                        size="small"
+                                        icon={<BugOutlined />}
+                                        onClick={() => createBreakpointFromRequest(selectedLog)}
+                                    >
+                                        BP
                                     </Button>
                                     <Button
                                         type="text"
@@ -2326,83 +2374,243 @@ const ProxyView: React.FC = () => {
                 </Form>
             </Modal>
 
-            {/* === Breakpoint Resolve Modal === */}
+            {/* === Breakpoint Resolve Modal (Editable) === */}
             <Modal
                 open={breakpointResolveModalOpen}
                 onCancel={() => closeBreakpointResolveModal()}
                 title={t('proxy.breakpoint_resolve')}
-                width={800}
+                width={860}
                 footer={
-                    selectedBreakpoint ? (
-                        <Space>
-                            <Text type="secondary" style={{ fontSize: 11 }}>{t('proxy.breakpoint_auto_timeout')}</Text>
-                            <Button onClick={() => handleResolveBreakpoint(selectedBreakpoint.id, 'drop')} danger icon={<StopOutlined />}>
-                                {t('proxy.breakpoint_drop')}
-                            </Button>
-                            <Button type="primary" onClick={() => handleResolveBreakpoint(selectedBreakpoint.id, 'forward')} icon={<FastForwardOutlined />}>
-                                {t('proxy.breakpoint_forward')}
-                            </Button>
-                        </Space>
-                    ) : null
+                    selectedBreakpoint && breakpointEdit ? (() => {
+                        const mods = buildModifications(selectedBreakpoint, breakpointEdit);
+                        const hasChanges = !!mods;
+                        return (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Text type="secondary" style={{ fontSize: 11 }}>{t('proxy.breakpoint_auto_timeout')}</Text>
+                                <Space>
+                                    <Button onClick={() => handleResolveBreakpoint(selectedBreakpoint.id, 'drop')} danger icon={<StopOutlined />}>
+                                        {t('proxy.breakpoint_drop')}
+                                    </Button>
+                                    <Button
+                                        type="primary"
+                                        icon={<FastForwardOutlined />}
+                                        onClick={() => handleResolveBreakpoint(selectedBreakpoint.id, 'forward', mods)}
+                                    >
+                                        {hasChanges ? t('proxy.breakpoint_forward_modified') : t('proxy.breakpoint_forward')}
+                                    </Button>
+                                </Space>
+                            </div>
+                        );
+                    })() : null
                 }
                 style={{ top: 32 }}
             >
-                {selectedBreakpoint && (
+                {selectedBreakpoint && breakpointEdit && (
                     <div>
+                        {/* Phase indicator */}
                         <Space style={{ marginBottom: 12 }}>
                             <Tag color={selectedBreakpoint.phase === 'request' ? 'green' : 'orange'}>
                                 {selectedBreakpoint.phase === 'request' ? t('proxy.breakpoint_request_phase') : t('proxy.breakpoint_response_phase')}
                             </Tag>
-                            <Tag>{selectedBreakpoint.method}</Tag>
                         </Space>
-                        <div style={{ marginBottom: 12, wordBreak: 'break-all', fontSize: 12, fontFamily: 'monospace', padding: '8px 12px', background: token.colorFillAlter, borderRadius: 4 }}>
-                            {selectedBreakpoint.url}
-                        </div>
 
-                        <Tabs size="small" items={[
-                            ...(selectedBreakpoint.headers ? [{
-                                key: 'reqHeaders',
-                                label: t('proxy.tab_req_headers'),
-                                children: (
-                                    <div style={{ maxHeight: 200, overflow: 'auto', fontSize: 12, fontFamily: 'monospace' }}>
-                                        {Object.entries(selectedBreakpoint.headers).map(([k, v]) => (
-                                            <div key={k}><strong>{k}:</strong> {Array.isArray(v) ? v.join(', ') : v}</div>
-                                        ))}
-                                    </div>
-                                ),
-                            }] : []),
-                            ...(selectedBreakpoint.body ? [{
-                                key: 'reqBody',
-                                label: t('proxy.tab_req_body'),
-                                children: (
-                                    <div style={{ maxHeight: 300, overflow: 'auto' }}>
-                                        <JsonViewer data={selectedBreakpoint.body} />
-                                    </div>
-                                ),
-                            }] : []),
-                            ...(selectedBreakpoint.phase === 'response' ? [
-                                ...(selectedBreakpoint.respHeaders ? [{
-                                    key: 'respHeaders',
-                                    label: `${t('proxy.tab_resp_headers')} (${selectedBreakpoint.statusCode})`,
-                                    children: (
-                                        <div style={{ maxHeight: 200, overflow: 'auto', fontSize: 12, fontFamily: 'monospace' }}>
-                                            {Object.entries(selectedBreakpoint.respHeaders).map(([k, v]) => (
-                                                <div key={k}><strong>{k}:</strong> {Array.isArray(v) ? v.join(', ') : v}</div>
-                                            ))}
-                                        </div>
-                                    ),
-                                }] : []),
-                                ...(selectedBreakpoint.respBody ? [{
-                                    key: 'respBody',
-                                    label: t('proxy.tab_resp_body'),
-                                    children: (
-                                        <div style={{ maxHeight: 300, overflow: 'auto' }}>
-                                            <JsonViewer data={selectedBreakpoint.respBody} />
-                                        </div>
-                                    ),
-                                }] : []),
-                            ] : []),
-                        ]} />
+                        {selectedBreakpoint.phase === 'request' ? (
+                            /* ===== REQUEST PHASE EDITING ===== */
+                            <div>
+                                {/* Method + URL row */}
+                                <Space.Compact style={{ width: '100%', marginBottom: 12 }}>
+                                    <Select
+                                        value={breakpointEdit.method}
+                                        onChange={(val) => updateBreakpointEdit({ method: val })}
+                                        style={{ width: 110 }}
+                                        options={['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].map(m => ({ label: m, value: m }))}
+                                    />
+                                    <Input
+                                        value={breakpointEdit.url}
+                                        onChange={(e) => updateBreakpointEdit({ url: e.target.value })}
+                                        style={{ fontFamily: 'monospace', fontSize: 12 }}
+                                        placeholder="URL"
+                                    />
+                                </Space.Compact>
+
+                                <Tabs size="small" items={[
+                                    {
+                                        key: 'reqHeaders',
+                                        label: t('proxy.tab_req_headers'),
+                                        children: (
+                                            <div style={{ maxHeight: 280, overflow: 'auto' }}>
+                                                {breakpointEdit.headers.map((h: EditableHeader, i: number) => (
+                                                    <Space key={i} style={{ display: 'flex', marginBottom: 4 }} align="start">
+                                                        <Input
+                                                            size="small"
+                                                            placeholder={t('proxy.breakpoint_header_name')}
+                                                            value={h.key}
+                                                            onChange={(e) => {
+                                                                const updated = [...breakpointEdit.headers];
+                                                                updated[i] = { ...updated[i], key: e.target.value };
+                                                                updateBreakpointEdit({ headers: updated });
+                                                            }}
+                                                            style={{ width: 200, fontFamily: 'monospace', fontSize: 12 }}
+                                                        />
+                                                        <Input
+                                                            size="small"
+                                                            placeholder={t('proxy.breakpoint_header_value')}
+                                                            value={h.value}
+                                                            onChange={(e) => {
+                                                                const updated = [...breakpointEdit.headers];
+                                                                updated[i] = { ...updated[i], value: e.target.value };
+                                                                updateBreakpointEdit({ headers: updated });
+                                                            }}
+                                                            style={{ flex: 1, fontFamily: 'monospace', fontSize: 12 }}
+                                                        />
+                                                        <Button
+                                                            size="small"
+                                                            icon={<MinusCircleOutlined />}
+                                                            onClick={() => {
+                                                                const updated = breakpointEdit.headers.filter((_: EditableHeader, idx: number) => idx !== i);
+                                                                updateBreakpointEdit({ headers: updated });
+                                                            }}
+                                                            danger
+                                                        />
+                                                    </Space>
+                                                ))}
+                                                <Button
+                                                    size="small"
+                                                    type="dashed"
+                                                    icon={<PlusOutlined />}
+                                                    onClick={() => {
+                                                        updateBreakpointEdit({ headers: [...breakpointEdit.headers, { key: '', value: '' }] });
+                                                    }}
+                                                    style={{ marginTop: 4 }}
+                                                >
+                                                    {t('proxy.breakpoint_add_header')}
+                                                </Button>
+                                            </div>
+                                        ),
+                                    },
+                                    {
+                                        key: 'reqBody',
+                                        label: t('proxy.tab_req_body'),
+                                        children: (
+                                            <JsonEditor
+                                                value={breakpointEdit.body}
+                                                onChange={(val) => updateBreakpointEdit({ body: val })}
+                                                height={260}
+                                                language={breakpointEdit.body.trimStart().startsWith('{') || breakpointEdit.body.trimStart().startsWith('[') ? 'json' : 'plaintext'}
+                                                autoFormat={false}
+                                            />
+                                        ),
+                                    },
+                                ]} />
+                            </div>
+                        ) : (
+                            /* ===== RESPONSE PHASE EDITING ===== */
+                            <div>
+                                {/* URL (read-only reference) */}
+                                <div style={{ marginBottom: 8, wordBreak: 'break-all', fontSize: 12, fontFamily: 'monospace', padding: '6px 12px', background: token.colorFillAlter, borderRadius: 4, color: token.colorTextSecondary }}>
+                                    {selectedBreakpoint.method} {selectedBreakpoint.url}
+                                </div>
+
+                                {/* Status Code */}
+                                <Space style={{ marginBottom: 12 }}>
+                                    <Text style={{ fontSize: 13 }}>{t('proxy.breakpoint_status_code')}:</Text>
+                                    <InputNumber
+                                        size="small"
+                                        value={breakpointEdit.statusCode}
+                                        onChange={(val) => updateBreakpointEdit({ statusCode: val || 200 })}
+                                        min={100}
+                                        max={599}
+                                        style={{ width: 100 }}
+                                    />
+                                </Space>
+
+                                <Tabs size="small" items={[
+                                    {
+                                        key: 'respHeaders',
+                                        label: t('proxy.tab_resp_headers'),
+                                        children: (
+                                            <div style={{ maxHeight: 240, overflow: 'auto' }}>
+                                                {breakpointEdit.respHeaders.map((h: EditableHeader, i: number) => (
+                                                    <Space key={i} style={{ display: 'flex', marginBottom: 4 }} align="start">
+                                                        <Input
+                                                            size="small"
+                                                            placeholder={t('proxy.breakpoint_header_name')}
+                                                            value={h.key}
+                                                            onChange={(e) => {
+                                                                const updated = [...breakpointEdit.respHeaders];
+                                                                updated[i] = { ...updated[i], key: e.target.value };
+                                                                updateBreakpointEdit({ respHeaders: updated });
+                                                            }}
+                                                            style={{ width: 200, fontFamily: 'monospace', fontSize: 12 }}
+                                                        />
+                                                        <Input
+                                                            size="small"
+                                                            placeholder={t('proxy.breakpoint_header_value')}
+                                                            value={h.value}
+                                                            onChange={(e) => {
+                                                                const updated = [...breakpointEdit.respHeaders];
+                                                                updated[i] = { ...updated[i], value: e.target.value };
+                                                                updateBreakpointEdit({ respHeaders: updated });
+                                                            }}
+                                                            style={{ flex: 1, fontFamily: 'monospace', fontSize: 12 }}
+                                                        />
+                                                        <Button
+                                                            size="small"
+                                                            icon={<MinusCircleOutlined />}
+                                                            onClick={() => {
+                                                                const updated = breakpointEdit.respHeaders.filter((_: EditableHeader, idx: number) => idx !== i);
+                                                                updateBreakpointEdit({ respHeaders: updated });
+                                                            }}
+                                                            danger
+                                                        />
+                                                    </Space>
+                                                ))}
+                                                <Button
+                                                    size="small"
+                                                    type="dashed"
+                                                    icon={<PlusOutlined />}
+                                                    onClick={() => {
+                                                        updateBreakpointEdit({ respHeaders: [...breakpointEdit.respHeaders, { key: '', value: '' }] });
+                                                    }}
+                                                    style={{ marginTop: 4 }}
+                                                >
+                                                    {t('proxy.breakpoint_add_header')}
+                                                </Button>
+                                            </div>
+                                        ),
+                                    },
+                                    {
+                                        key: 'respBody',
+                                        label: t('proxy.tab_resp_body'),
+                                        children: (
+                                            <JsonEditor
+                                                value={breakpointEdit.respBody}
+                                                onChange={(val) => updateBreakpointEdit({ respBody: val })}
+                                                height={260}
+                                                language={breakpointEdit.respBody.trimStart().startsWith('{') || breakpointEdit.respBody.trimStart().startsWith('[') ? 'json' : 'plaintext'}
+                                                autoFormat={false}
+                                            />
+                                        ),
+                                    },
+                                    {
+                                        key: 'originalReq',
+                                        label: t('proxy.breakpoint_original_request'),
+                                        children: (
+                                            <div style={{ maxHeight: 280, overflow: 'auto', fontSize: 12, fontFamily: 'monospace' }}>
+                                                {selectedBreakpoint.headers && Object.entries(selectedBreakpoint.headers).map(([k, v]) => (
+                                                    <div key={k}><strong>{k}:</strong> {Array.isArray(v) ? v.join(', ') : v}</div>
+                                                ))}
+                                                {selectedBreakpoint.body && (
+                                                    <div style={{ marginTop: 8, padding: '8px', background: token.colorFillAlter, borderRadius: 4 }}>
+                                                        <JsonViewer data={selectedBreakpoint.body} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ),
+                                    },
+                                ]} />
+                            </div>
+                        )}
                     </div>
                 )}
             </Modal>

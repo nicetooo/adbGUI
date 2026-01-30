@@ -67,8 +67,6 @@ export function DisableApp(arg1:string,arg2:string):Promise<string>;
 
 export function DownloadFile(arg1:string,arg2:string):Promise<string>;
 
-export function ForwardAllBreakpoints():Promise<void>;
-
 export function EmitEvent(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:any):Promise<void>;
 
 export function EnableApp(arg1:string,arg2:string):Promise<string>;
@@ -104,6 +102,8 @@ export function FindElementAtPoint(arg1:main.UINode,arg2:number,arg3:number):Pro
 export function FindElementBySelector(arg1:main.UINode,arg2:types.ElementSelector):Promise<main.UINode>;
 
 export function ForceStopApp(arg1:string,arg2:string):Promise<string>;
+
+export function ForwardAllBreakpoints():Promise<void>;
 
 export function GetAppInfo(arg1:string,arg2:string,arg3:boolean):Promise<main.AppPackage>;
 

@@ -70,6 +70,14 @@ export interface PendingMockData {
   description?: string;
 }
 
+// Data for pre-filling a breakpoint rule from another view (e.g. EventTimeline)
+export interface PendingBreakpointData {
+  urlPattern: string;
+  method?: string;
+  phase?: string;
+  description?: string;
+}
+
 // Proto file entry
 export interface ProtoFileEntry {
   id: string;
@@ -112,6 +120,74 @@ export interface PendingBreakpointItem {
   respHeaders?: Record<string, string[]>;
   respBody?: string;
   createdAt: number;
+}
+
+// Editable header entry for breakpoint editing
+export interface EditableHeader {
+  key: string;
+  value: string;
+}
+
+// Breakpoint editing state (populated when resolve modal opens)
+export interface BreakpointEditState {
+  method: string;
+  url: string;
+  headers: EditableHeader[];
+  body: string;
+  statusCode: number;
+  respHeaders: EditableHeader[];
+  respBody: string;
+}
+
+// Convert backend headers (Record<string, string[]>) to editable format
+export function headersToEditable(headers: Record<string, string[]> | undefined): EditableHeader[] {
+  if (!headers) return [];
+  return Object.entries(headers).map(([key, values]) => ({
+    key,
+    value: Array.isArray(values) ? values.join(', ') : String(values),
+  }));
+}
+
+// Convert editable headers back to modifications format (Record<string, string>)
+export function editableToModHeaders(headers: EditableHeader[]): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const { key, value } of headers) {
+    const trimmedKey = key.trim();
+    if (trimmedKey) {
+      result[trimmedKey] = value;
+    }
+  }
+  return result;
+}
+
+// Build modifications object by comparing edit state with original breakpoint
+export function buildModifications(
+  bp: PendingBreakpointItem,
+  edit: BreakpointEditState
+): Record<string, any> | undefined {
+  const mods: Record<string, any> = {};
+
+  if (bp.phase === 'request') {
+    if (edit.method !== bp.method) mods.method = edit.method;
+    if (edit.url !== bp.url) mods.url = edit.url;
+    if (edit.body !== (bp.body || '')) mods.body = edit.body;
+    // Compare headers
+    const origHeaders = headersToEditable(bp.headers);
+    if (JSON.stringify(edit.headers.filter(h => h.key.trim())) !== JSON.stringify(origHeaders)) {
+      mods.headers = editableToModHeaders(edit.headers);
+    }
+  } else {
+    // Response phase
+    if (edit.statusCode !== (bp.statusCode || 200)) mods.statusCode = edit.statusCode;
+    if (edit.respBody !== (bp.respBody || '')) mods.respBody = edit.respBody;
+    // Compare response headers
+    const origRespHeaders = headersToEditable(bp.respHeaders);
+    if (JSON.stringify(edit.respHeaders.filter(h => h.key.trim())) !== JSON.stringify(origRespHeaders)) {
+      mods.respHeaders = editableToModHeaders(edit.respHeaders);
+    }
+  }
+
+  return Object.keys(mods).length > 0 ? mods : undefined;
 }
 
 interface ProxyState {
@@ -178,6 +254,8 @@ interface ProxyState {
   editingBreakpointRule: BreakpointRuleItem | null;
   breakpointResolveModalOpen: boolean;
   selectedBreakpoint: PendingBreakpointItem | null;
+  breakpointEdit: BreakpointEditState | null;
+  pendingBreakpointData: PendingBreakpointData | null;
   
   // 操作方法
   addLog: (log: RequestLog) => void;
@@ -250,6 +328,9 @@ interface ProxyState {
   clearPendingBreakpoints: () => void;
   openBreakpointResolveModal: (bp: PendingBreakpointItem) => void;
   closeBreakpointResolveModal: () => void;
+  updateBreakpointEdit: (updates: Partial<BreakpointEditState>) => void;
+  setPendingBreakpointData: (data: PendingBreakpointData | null) => void;
+  openBreakpointWithPrefill: (data: PendingBreakpointData) => void;
 }
 
 export const useProxyStore = create<ProxyState>()(
@@ -315,6 +396,8 @@ export const useProxyStore = create<ProxyState>()(
     editingBreakpointRule: null,
     breakpointResolveModalOpen: false,
     selectedBreakpoint: null,
+    breakpointEdit: null,
+    pendingBreakpointData: null,
     
     // 操作方法
     addLog: (log: RequestLog) => set((state: ProxyState) => {
@@ -457,10 +540,34 @@ export const useProxyStore = create<ProxyState>()(
       if (state.selectedBreakpoint?.id === id) {
         state.breakpointResolveModalOpen = false;
         state.selectedBreakpoint = null;
+        state.breakpointEdit = null;
       }
     }),
-    clearPendingBreakpoints: () => set({ pendingBreakpoints: [], breakpointResolveModalOpen: false, selectedBreakpoint: null }),
-    openBreakpointResolveModal: (bp: PendingBreakpointItem) => set({ breakpointResolveModalOpen: true, selectedBreakpoint: bp }),
-    closeBreakpointResolveModal: () => set({ breakpointResolveModalOpen: false, selectedBreakpoint: null }),
+    clearPendingBreakpoints: () => set({ pendingBreakpoints: [], breakpointResolveModalOpen: false, selectedBreakpoint: null, breakpointEdit: null }),
+    openBreakpointResolveModal: (bp: PendingBreakpointItem) => set({
+      breakpointResolveModalOpen: true,
+      selectedBreakpoint: bp,
+      breakpointEdit: {
+        method: bp.method,
+        url: bp.url,
+        headers: headersToEditable(bp.headers),
+        body: bp.body || '',
+        statusCode: bp.statusCode || 200,
+        respHeaders: headersToEditable(bp.respHeaders),
+        respBody: bp.respBody || '',
+      },
+    }),
+    closeBreakpointResolveModal: () => set({ breakpointResolveModalOpen: false, selectedBreakpoint: null, breakpointEdit: null }),
+    updateBreakpointEdit: (updates: Partial<BreakpointEditState>) => set((state: ProxyState) => {
+      if (state.breakpointEdit) {
+        Object.assign(state.breakpointEdit, updates);
+      }
+    }),
+    setPendingBreakpointData: (data: PendingBreakpointData | null) => set({ pendingBreakpointData: data }),
+    openBreakpointWithPrefill: (data: PendingBreakpointData) => set({
+      pendingBreakpointData: data,
+      breakpointEditModalOpen: true,
+      editingBreakpointRule: null,
+    }),
   }))
 );

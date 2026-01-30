@@ -122,10 +122,6 @@ export function DownloadFile(arg1, arg2) {
   return window['go']['main']['App']['DownloadFile'](arg1, arg2);
 }
 
-export function ForwardAllBreakpoints() {
-  return window['go']['main']['App']['ForwardAllBreakpoints']();
-}
-
 export function EmitEvent(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['main']['App']['EmitEvent'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
@@ -196,6 +192,10 @@ export function FindElementBySelector(arg1, arg2) {
 
 export function ForceStopApp(arg1, arg2) {
   return window['go']['main']['App']['ForceStopApp'](arg1, arg2);
+}
+
+export function ForwardAllBreakpoints() {
+  return window['go']['main']['App']['ForwardAllBreakpoints']();
 }
 
 export function GetAppInfo(arg1, arg2, arg3) {
