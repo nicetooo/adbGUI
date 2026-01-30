@@ -309,6 +309,16 @@ var EventRegistry = map[string]EventTypeInfo{
 		Description: "Assertion evaluation result",
 	},
 
+	// === Breakpoint 事件 ===
+	"breakpoint_hit": {
+		Type: "breakpoint_hit", Source: SourceNetwork, Category: CategoryNetwork,
+		Description: "Request/response paused at breakpoint",
+	},
+	"breakpoint_resolved": {
+		Type: "breakpoint_resolved", Source: SourceNetwork, Category: CategoryNetwork,
+		Description: "Breakpoint resolved (forwarded/dropped/modified)",
+	},
+
 	// === System 事件 ===
 	"session_start": {
 		Type: "session_start", Source: SourceSystem, Category: CategoryState,

@@ -7,3 +7,6 @@ frontend/dist
 Gaze
 wails_dev.log
 *.test
+
+# 开发过程文档（规划/Bug/测试/决策等），仅本地使用，禁止提交
+docs/

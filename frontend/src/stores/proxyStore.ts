@@ -87,6 +87,33 @@ export interface ProtoMapping {
   description: string;
 }
 
+// Breakpoint rule
+export interface BreakpointRuleItem {
+  id: string;
+  urlPattern: string;
+  method: string;   // empty = match all
+  phase: string;    // "request", "response", "both"
+  enabled: boolean;
+  description: string;
+  createdAt?: number;
+}
+
+// Pending breakpoint (paused request/response)
+export interface PendingBreakpointItem {
+  id: string;
+  ruleId: string;
+  phase: string;  // "request" or "response"
+  method: string;
+  url: string;
+  headers?: Record<string, string[]>;
+  body?: string;
+  // Response fields (only for response phase)
+  statusCode?: number;
+  respHeaders?: Record<string, string[]>;
+  respBody?: string;
+  createdAt: number;
+}
+
 interface ProxyState {
   // 核心数据
   logs: RequestLog[];
@@ -142,6 +169,15 @@ interface ProxyState {
   protoImportLoading: boolean;
   protoImportURLModalOpen: boolean;
   protoImportURL: string;
+  
+  // Breakpoint
+  breakpointRules: BreakpointRuleItem[];
+  pendingBreakpoints: PendingBreakpointItem[];
+  breakpointListModalOpen: boolean;
+  breakpointEditModalOpen: boolean;
+  editingBreakpointRule: BreakpointRuleItem | null;
+  breakpointResolveModalOpen: boolean;
+  selectedBreakpoint: PendingBreakpointItem | null;
   
   // 操作方法
   addLog: (log: RequestLog) => void;
@@ -202,6 +238,18 @@ interface ProxyState {
     openProtoImportURLModal: () => void;
     closeProtoImportURLModal: () => void;
     setProtoImportURL: (url: string) => void;
+  
+  // Breakpoint
+  setBreakpointRules: (rules: BreakpointRuleItem[]) => void;
+  openBreakpointListModal: () => void;
+  closeBreakpointListModal: () => void;
+  openBreakpointEditModal: (rule?: BreakpointRuleItem | null) => void;
+  closeBreakpointEditModal: () => void;
+  addPendingBreakpoint: (bp: PendingBreakpointItem) => void;
+  removePendingBreakpoint: (id: string) => void;
+  clearPendingBreakpoints: () => void;
+  openBreakpointResolveModal: (bp: PendingBreakpointItem) => void;
+  closeBreakpointResolveModal: () => void;
 }
 
 export const useProxyStore = create<ProxyState>()(
@@ -258,6 +306,15 @@ export const useProxyStore = create<ProxyState>()(
     protoImportLoading: false,
     protoImportURLModalOpen: false,
     protoImportURL: 'https://',
+    
+    // Breakpoint
+    breakpointRules: [],
+    pendingBreakpoints: [],
+    breakpointListModalOpen: false,
+    breakpointEditModalOpen: false,
+    editingBreakpointRule: null,
+    breakpointResolveModalOpen: false,
+    selectedBreakpoint: null,
     
     // 操作方法
     addLog: (log: RequestLog) => set((state: ProxyState) => {
@@ -381,5 +438,29 @@ export const useProxyStore = create<ProxyState>()(
     openProtoImportURLModal: () => set({ protoImportURLModalOpen: true, protoImportURL: 'https://' }),
     closeProtoImportURLModal: () => set({ protoImportURLModalOpen: false, protoImportURL: 'https://' }),
     setProtoImportURL: (url: string) => set({ protoImportURL: url }),
+    
+    // Breakpoint
+    setBreakpointRules: (rules: BreakpointRuleItem[]) => set({ breakpointRules: rules }),
+    openBreakpointListModal: () => set({ breakpointListModalOpen: true }),
+    closeBreakpointListModal: () => set({ breakpointListModalOpen: false }),
+    openBreakpointEditModal: (rule) => set({ breakpointEditModalOpen: true, editingBreakpointRule: rule ?? null }),
+    closeBreakpointEditModal: () => set({ breakpointEditModalOpen: false, editingBreakpointRule: null }),
+    addPendingBreakpoint: (bp: PendingBreakpointItem) => set((state: ProxyState) => {
+      // Avoid duplicates
+      if (!state.pendingBreakpoints.find(p => p.id === bp.id)) {
+        state.pendingBreakpoints.push(bp);
+      }
+    }),
+    removePendingBreakpoint: (id: string) => set((state: ProxyState) => {
+      state.pendingBreakpoints = state.pendingBreakpoints.filter(p => p.id !== id);
+      // Close resolve modal if the resolved breakpoint was selected
+      if (state.selectedBreakpoint?.id === id) {
+        state.breakpointResolveModalOpen = false;
+        state.selectedBreakpoint = null;
+      }
+    }),
+    clearPendingBreakpoints: () => set({ pendingBreakpoints: [], breakpointResolveModalOpen: false, selectedBreakpoint: null }),
+    openBreakpointResolveModal: (bp: PendingBreakpointItem) => set({ breakpointResolveModalOpen: true, selectedBreakpoint: bp }),
+    closeBreakpointResolveModal: () => set({ breakpointResolveModalOpen: false, selectedBreakpoint: null }),
   }))
 );

@@ -239,6 +239,15 @@ func (a *App) StartProxy(port int) (string, error) {
 	}
 	mockRulesMu.RUnlock()
 
+	// Register enabled breakpoint rules with the proxy
+	breakpointRulesMu.RLock()
+	for _, rule := range breakpointRules {
+		if rule.Enabled {
+			proxy.GetProxy().AddBreakpointRule(rule.ID, rule.URLPattern, rule.Method, rule.Phase)
+		}
+	}
+	breakpointRulesMu.RUnlock()
+
 	a.emitProxyStatus(true, port)
 	return "Proxy started successfully", nil
 }
@@ -740,6 +749,251 @@ func (a *App) RemoveMockRule(ruleID string) {
 
 	// Persist to disk
 	saveMockRules()
+}
+
+// ========================================
+// Breakpoint Rules Management
+// ========================================
+
+// BreakpointRule (app-level) extends the proxy BreakpointRule with UI metadata
+type BreakpointRule struct {
+	ID          string `json:"id"`
+	URLPattern  string `json:"urlPattern"`
+	Method      string `json:"method"` // empty = match all
+	Phase       string `json:"phase"`  // "request", "response", "both"
+	Enabled     bool   `json:"enabled"`
+	Description string `json:"description"`
+	CreatedAt   int64  `json:"createdAt"`
+}
+
+var (
+	breakpointRules   = make(map[string]*BreakpointRule)
+	breakpointRulesMu sync.RWMutex
+)
+
+// getBreakpointRulesPath returns the path to the breakpoint rules JSON file
+func getBreakpointRulesPath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".adbGUI", "breakpoint_rules.json")
+}
+
+// saveBreakpointRules saves breakpoint rules to disk
+func saveBreakpointRules() error {
+	rules := make([]*BreakpointRule, 0, len(breakpointRules))
+	for _, rule := range breakpointRules {
+		rules = append(rules, rule)
+	}
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].CreatedAt < rules[j].CreatedAt
+	})
+
+	data, err := json.MarshalIndent(rules, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	path := getBreakpointRulesPath()
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, data, 0644)
+}
+
+// LoadBreakpointRules loads breakpoint rules from disk (called on app startup)
+func (a *App) LoadBreakpointRules() error {
+	breakpointRulesMu.Lock()
+	defer breakpointRulesMu.Unlock()
+
+	path := getBreakpointRulesPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	var rules []*BreakpointRule
+	if err := json.Unmarshal(data, &rules); err != nil {
+		return err
+	}
+
+	breakpointRules = make(map[string]*BreakpointRule)
+	for _, rule := range rules {
+		breakpointRules[rule.ID] = rule
+		// Register enabled rules with proxy if it's running
+		if rule.Enabled && proxy.GetProxy().IsRunning() {
+			proxy.GetProxy().AddBreakpointRule(rule.ID, rule.URLPattern, rule.Method, rule.Phase)
+		}
+	}
+
+	return nil
+}
+
+// AddBreakpointRule adds a new breakpoint rule
+func (a *App) AddBreakpointRule(rule BreakpointRule) string {
+	breakpointRulesMu.Lock()
+	defer breakpointRulesMu.Unlock()
+
+	if rule.ID == "" {
+		rule.ID = uuid.New().String()
+	}
+	if rule.CreatedAt == 0 {
+		rule.CreatedAt = time.Now().UnixMilli()
+	}
+	rule.Enabled = true
+	breakpointRules[rule.ID] = &rule
+
+	// Register with proxy engine
+	proxy.GetProxy().AddBreakpointRule(rule.ID, rule.URLPattern, rule.Method, rule.Phase)
+
+	// Persist to disk
+	saveBreakpointRules()
+
+	return rule.ID
+}
+
+// UpdateBreakpointRule updates an existing breakpoint rule
+func (a *App) UpdateBreakpointRule(rule BreakpointRule) error {
+	breakpointRulesMu.Lock()
+	defer breakpointRulesMu.Unlock()
+
+	if _, exists := breakpointRules[rule.ID]; !exists {
+		return fmt.Errorf("breakpoint rule not found: %s", rule.ID)
+	}
+
+	breakpointRules[rule.ID] = &rule
+
+	// Update in proxy engine
+	proxy.GetProxy().RemoveBreakpointRule(rule.ID)
+	if rule.Enabled {
+		proxy.GetProxy().AddBreakpointRule(rule.ID, rule.URLPattern, rule.Method, rule.Phase)
+	}
+
+	saveBreakpointRules()
+	return nil
+}
+
+// RemoveBreakpointRule removes a breakpoint rule
+func (a *App) RemoveBreakpointRule(ruleID string) {
+	breakpointRulesMu.Lock()
+	defer breakpointRulesMu.Unlock()
+
+	delete(breakpointRules, ruleID)
+	proxy.GetProxy().RemoveBreakpointRule(ruleID)
+
+	saveBreakpointRules()
+}
+
+// GetBreakpointRules returns all breakpoint rules, sorted by creation time
+func (a *App) GetBreakpointRules() []*BreakpointRule {
+	breakpointRulesMu.RLock()
+	defer breakpointRulesMu.RUnlock()
+
+	rules := make([]*BreakpointRule, 0, len(breakpointRules))
+	for _, rule := range breakpointRules {
+		rules = append(rules, rule)
+	}
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].CreatedAt < rules[j].CreatedAt
+	})
+	return rules
+}
+
+// ToggleBreakpointRule enables or disables a breakpoint rule
+func (a *App) ToggleBreakpointRule(ruleID string, enabled bool) error {
+	breakpointRulesMu.Lock()
+	defer breakpointRulesMu.Unlock()
+
+	rule, exists := breakpointRules[ruleID]
+	if !exists {
+		return fmt.Errorf("breakpoint rule not found: %s", ruleID)
+	}
+
+	rule.Enabled = enabled
+
+	if enabled {
+		proxy.GetProxy().AddBreakpointRule(rule.ID, rule.URLPattern, rule.Method, rule.Phase)
+	} else {
+		proxy.GetProxy().RemoveBreakpointRule(rule.ID)
+	}
+
+	saveBreakpointRules()
+	return nil
+}
+
+// ResolveBreakpoint resolves a pending breakpoint with the user's action
+func (a *App) ResolveBreakpoint(breakpointID string, action string, modifications map[string]interface{}) error {
+	resolution := proxy.BreakpointResolution{
+		Action: action,
+	}
+
+	// Parse modifications
+	if modifications != nil {
+		if v, ok := modifications["method"].(string); ok {
+			resolution.ModifiedMethod = v
+		}
+		if v, ok := modifications["url"].(string); ok {
+			resolution.ModifiedURL = v
+		}
+		if v, ok := modifications["body"].(string); ok {
+			resolution.ModifiedBody = v
+		}
+		if v, ok := modifications["headers"].(map[string]interface{}); ok {
+			resolution.ModifiedHeaders = make(map[string]string)
+			for k, val := range v {
+				if s, ok := val.(string); ok {
+					resolution.ModifiedHeaders[k] = s
+				}
+			}
+		}
+		// Response modifications
+		if v, ok := modifications["statusCode"].(float64); ok {
+			resolution.ModifiedStatusCode = int(v)
+		}
+		if v, ok := modifications["respBody"].(string); ok {
+			resolution.ModifiedRespBody = v
+		}
+		if v, ok := modifications["respHeaders"].(map[string]interface{}); ok {
+			resolution.ModifiedRespHeaders = make(map[string]string)
+			for k, val := range v {
+				if s, ok := val.(string); ok {
+					resolution.ModifiedRespHeaders[k] = s
+				}
+			}
+		}
+	}
+
+	return proxy.GetProxy().ResolveBreakpoint(breakpointID, resolution)
+}
+
+// GetPendingBreakpoints returns all pending (paused) breakpoints
+func (a *App) GetPendingBreakpoints() []proxy.PendingBreakpointInfo {
+	return proxy.GetProxy().GetPendingBreakpoints()
+}
+
+// ForwardAllBreakpoints forwards all pending breakpoints immediately
+func (a *App) ForwardAllBreakpoints() {
+	proxy.GetProxy().ForwardAllBreakpoints()
+}
+
+// SetupBreakpointCallbacks registers Wails event callbacks for breakpoint notifications
+func (a *App) SetupBreakpointCallbacks() {
+	proxy.GetProxy().SetBreakpointHitCallback(func(info proxy.PendingBreakpointInfo) {
+		if a.ctx != nil && !a.mcpMode {
+			wailsRuntime.EventsEmit(a.ctx, "breakpoint-hit", info)
+		}
+	})
+	proxy.GetProxy().SetBreakpointResolvedCallback(func(id string, reason string) {
+		if a.ctx != nil && !a.mcpMode {
+			wailsRuntime.EventsEmit(a.ctx, "breakpoint-resolved", map[string]string{
+				"id":     id,
+				"reason": reason,
+			})
+		}
+	})
 }
 
 // GetMockRules returns all mock response rules, sorted by creation time (oldest first)

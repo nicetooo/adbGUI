@@ -4,6 +4,7 @@ import {main} from '../models';
 import {time} from '../models';
 import {types} from '../models';
 import {context} from '../models';
+import {proxy} from '../models';
 import {http} from '../models';
 
 export function AdbConnect(arg1:string):Promise<string>;
@@ -11,6 +12,8 @@ export function AdbConnect(arg1:string):Promise<string>;
 export function AdbDisconnect(arg1:string):Promise<string>;
 
 export function AdbPair(arg1:string,arg2:string):Promise<string>;
+
+export function AddBreakpointRule(arg1:main.BreakpointRule):Promise<string>;
 
 export function AddMockRule(arg1:main.MockRule):Promise<string>;
 
@@ -64,6 +67,8 @@ export function DisableApp(arg1:string,arg2:string):Promise<string>;
 
 export function DownloadFile(arg1:string,arg2:string):Promise<string>;
 
+export function ForwardAllBreakpoints():Promise<void>;
+
 export function EmitEvent(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:any):Promise<void>;
 
 export function EnableApp(arg1:string,arg2:string):Promise<string>;
@@ -106,6 +111,8 @@ export function GetAppVersion():Promise<string>;
 
 export function GetBackendLogs():Promise<Array<string>>;
 
+export function GetBreakpointRules():Promise<Array<main.BreakpointRule>>;
+
 export function GetDeviceActiveSession(arg1:string):Promise<main.DeviceSession>;
 
 export function GetDeviceIP(arg1:string):Promise<string>;
@@ -135,6 +142,8 @@ export function GetLogFilePath():Promise<string>;
 export function GetMITMBypassPatterns():Promise<Array<string>>;
 
 export function GetMockRules():Promise<Array<main.MockRule>>;
+
+export function GetPendingBreakpoints():Promise<Array<proxy.PendingBreakpointInfo>>;
 
 export function GetPerfMonitorConfig(arg1:string):Promise<main.PerfMonitorConfig>;
 
@@ -264,6 +273,8 @@ export function ListStoredAssertions(arg1:string,arg2:string,arg3:boolean,arg4:n
 
 export function ListStoredSessions(arg1:string,arg2:number):Promise<Array<main.DeviceSession>>;
 
+export function LoadBreakpointRules():Promise<void>;
+
 export function LoadMockRules():Promise<void>;
 
 export function LoadProtoConfig():Promise<void>;
@@ -326,6 +337,8 @@ export function ReadRecentLogs(arg1:number):Promise<Array<string>>;
 
 export function ReadVideoFileAsDataURL(arg1:string):Promise<string>;
 
+export function RemoveBreakpointRule(arg1:string):Promise<void>;
+
 export function RemoveHistoryDevice(arg1:string):Promise<void>;
 
 export function RemoveMockRule(arg1:string):Promise<void>;
@@ -339,6 +352,8 @@ export function RenameStoredSession(arg1:string,arg2:string):Promise<void>;
 export function RenameTouchScript(arg1:string,arg2:string):Promise<void>;
 
 export function ResendRequest(arg1:string,arg2:string,arg3:Record<string, string>,arg4:string):Promise<Record<string, any>>;
+
+export function ResolveBreakpoint(arg1:string,arg2:string,arg3:Record<string, any>):Promise<void>;
 
 export function RestartAdbServer():Promise<string>;
 
@@ -395,6 +410,8 @@ export function SetProxyLimit(arg1:number,arg2:number):Promise<void>;
 export function SetProxyMITM(arg1:boolean):Promise<void>;
 
 export function SetProxyWSEnabled(arg1:boolean):Promise<void>;
+
+export function SetupBreakpointCallbacks():Promise<void>;
 
 export function SetupProxyForDevice(arg1:string,arg2:number):Promise<void>;
 
@@ -476,11 +493,15 @@ export function TakeScreenshot(arg1:string,arg2:string):Promise<string>;
 
 export function TapAtCoordinates(arg1:string,arg2:number,arg3:number):Promise<void>;
 
+export function ToggleBreakpointRule(arg1:string,arg2:boolean):Promise<void>;
+
 export function ToggleMockRule(arg1:string,arg2:boolean):Promise<void>;
 
 export function TogglePinDevice(arg1:string):Promise<void>;
 
 export function UninstallApp(arg1:string,arg2:string):Promise<string>;
+
+export function UpdateBreakpointRule(arg1:main.BreakpointRule):Promise<void>;
 
 export function UpdateMockRule(arg1:main.MockRule):Promise<void>;
 

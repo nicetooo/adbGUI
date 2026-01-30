@@ -287,6 +287,175 @@ recent HTTPS traffic has been successfully decrypted.`),
 		s.handleProxyCertTrustCheck,
 	)
 
+	// breakpoint_rule_add - Add a breakpoint rule
+	s.server.AddTool(
+		mcp.NewTool("breakpoint_rule_add",
+			mcp.WithDescription(`Add a new breakpoint rule for intercepting HTTP requests/responses.
+
+When the proxy intercepts a request or response matching the rule, it pauses execution
+and waits for manual resolution (forward, drop, or modify). This is useful for debugging
+API calls, testing error scenarios, or modifying requests/responses on the fly.
+
+URL patterns support * wildcard (same as mock rules):
+  - "*/api/users*" matches any URL containing /api/users
+  - "https://example.com/api/*" matches paths under /api/
+  - "*" matches all URLs
+
+Phase options:
+  - "request": pause before the request is sent to the server
+  - "response": pause after receiving the response before forwarding to client
+  - "both": pause at both request and response phases
+
+Examples:
+  Intercept login requests: url_pattern="*/api/login", method="POST", phase="request"
+  Intercept all API responses: url_pattern="*/api/*", phase="response"
+  Intercept everything: url_pattern="*", phase="both"`),
+			mcp.WithString("url_pattern",
+				mcp.Required(),
+				mcp.Description("URL wildcard pattern to match (e.g., '*/api/users*')"),
+			),
+			mcp.WithString("method",
+				mcp.Description("HTTP method to match (empty = match all). e.g., 'GET', 'POST'"),
+			),
+			mcp.WithString("phase",
+				mcp.Required(),
+				mcp.Description("When to intercept: 'request', 'response', or 'both'"),
+			),
+			mcp.WithString("description",
+				mcp.Description("Optional description of what this breakpoint rule does"),
+			),
+		),
+		s.handleBreakpointRuleAdd,
+	)
+
+	// breakpoint_rule_remove - Remove a breakpoint rule
+	s.server.AddTool(
+		mcp.NewTool("breakpoint_rule_remove",
+			mcp.WithDescription("Remove a breakpoint rule by ID. Any pending breakpoints from this rule will continue to wait for resolution."),
+			mcp.WithString("id",
+				mcp.Required(),
+				mcp.Description("ID of the breakpoint rule to remove"),
+			),
+		),
+		s.handleBreakpointRuleRemove,
+	)
+
+	// breakpoint_rule_list - List all breakpoint rules
+	s.server.AddTool(
+		mcp.NewTool("breakpoint_rule_list",
+			mcp.WithDescription(`List all breakpoint rules.
+
+Returns all configured breakpoint rules with their URL patterns, methods, phases,
+enabled states, and descriptions. Rules are sorted by creation time.`),
+		),
+		s.handleBreakpointRuleList,
+	)
+
+	// breakpoint_rule_toggle - Enable/disable a breakpoint rule
+	s.server.AddTool(
+		mcp.NewTool("breakpoint_rule_toggle",
+			mcp.WithDescription("Enable or disable a breakpoint rule without removing it. Disabled rules will not intercept any requests."),
+			mcp.WithString("id",
+				mcp.Required(),
+				mcp.Description("ID of the breakpoint rule to toggle"),
+			),
+			mcp.WithBoolean("enabled",
+				mcp.Required(),
+				mcp.Description("Whether to enable (true) or disable (false) the rule"),
+			),
+		),
+		s.handleBreakpointRuleToggle,
+	)
+
+	// breakpoint_resolve - Resolve a pending breakpoint
+	s.server.AddTool(
+		mcp.NewTool("breakpoint_resolve",
+			mcp.WithDescription(`Resolve a pending (paused) breakpoint with an action.
+
+Actions:
+  - "forward": continue with the original (or modified) request/response
+  - "drop": abort the request entirely
+
+Optional modifications (JSON object) can be provided to alter the request or response before forwarding:
+  Request phase: {"method":"POST", "url":"...", "headers":{"Key":"Value"}, "body":"..."}
+  Response phase: {"statusCode":200, "respHeaders":{"Key":"Value"}, "respBody":"..."}
+
+Example:
+  Forward with modified header: action="forward", modifications_json='{"headers":{"Authorization":"Bearer new-token"}}'
+  Drop request: action="drop"`),
+			mcp.WithString("id",
+				mcp.Required(),
+				mcp.Description("ID of the pending breakpoint to resolve"),
+			),
+			mcp.WithString("action",
+				mcp.Required(),
+				mcp.Description("Action to take: 'forward' or 'drop'"),
+			),
+			mcp.WithString("modifications_json",
+				mcp.Description(`Optional JSON object with modifications to apply before forwarding.
+Request phase keys: "method", "url", "headers" (object), "body"
+Response phase keys: "statusCode" (number), "respHeaders" (object), "respBody"`),
+			),
+		),
+		s.handleBreakpointResolve,
+	)
+
+	// breakpoint_pending_list - List pending breakpoints
+	s.server.AddTool(
+		mcp.NewTool("breakpoint_pending_list",
+			mcp.WithDescription(`List all pending (paused) breakpoints waiting for resolution.
+
+Returns details about each paused request/response including the method, URL, headers,
+body, and for response-phase breakpoints also the status code and response body.
+Each pending breakpoint has an ID that can be used with breakpoint_resolve.
+
+Pending breakpoints will auto-forward after 120 seconds if not resolved.
+Maximum 20 concurrent pending breakpoints are allowed.`),
+		),
+		s.handleBreakpointPendingList,
+	)
+
+	// breakpoint_rule_update - Update an existing breakpoint rule
+	s.server.AddTool(
+		mcp.NewTool("breakpoint_rule_update",
+			mcp.WithDescription("Update an existing breakpoint rule. All fields are replaced with the new values."),
+			mcp.WithString("id",
+				mcp.Required(),
+				mcp.Description("ID of the breakpoint rule to update"),
+			),
+			mcp.WithString("url_pattern",
+				mcp.Required(),
+				mcp.Description("URL wildcard pattern to match (e.g., '*/api/users*')"),
+			),
+			mcp.WithString("phase",
+				mcp.Required(),
+				mcp.Description("When to intercept: 'request', 'response', or 'both'"),
+			),
+			mcp.WithString("method",
+				mcp.Description("HTTP method to match (empty = match all). e.g., 'GET', 'POST'"),
+			),
+			mcp.WithBoolean("enabled",
+				mcp.Description("Whether this rule is active (default: true)"),
+			),
+			mcp.WithString("description",
+				mcp.Description("Optional description of what this breakpoint rule does"),
+			),
+		),
+		s.handleBreakpointRuleUpdate,
+	)
+
+	// breakpoint_forward_all - Forward all pending breakpoints
+	s.server.AddTool(
+		mcp.NewTool("breakpoint_forward_all",
+			mcp.WithDescription(`Forward all pending (paused) breakpoints immediately.
+
+Resolves every currently pending breakpoint with the "forward" action,
+allowing all paused requests/responses to continue to their destination.
+This is equivalent to clicking "Forward All" in the UI.`),
+		),
+		s.handleBreakpointForwardAll,
+	)
+
 	// resend_request - Resend an HTTP request
 	s.server.AddTool(
 		mcp.NewTool("resend_request",
@@ -508,6 +677,186 @@ func (s *MCPServer) handleMockRuleToggle(ctx context.Context, request mcp.CallTo
 	}
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Mock rule %s: %s", state, id))},
+	}, nil
+}
+
+// --- Breakpoint Rule Handlers ---
+
+func (s *MCPServer) handleBreakpointRuleAdd(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+
+	urlPattern, _ := args["url_pattern"].(string)
+	if urlPattern == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: url_pattern is required")}, IsError: true}, nil
+	}
+	phase, _ := args["phase"].(string)
+	if phase == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: phase is required (request, response, or both)")}, IsError: true}, nil
+	}
+	if phase != "request" && phase != "response" && phase != "both" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: phase must be 'request', 'response', or 'both'")}, IsError: true}, nil
+	}
+
+	method, _ := args["method"].(string)
+	description, _ := args["description"].(string)
+
+	id := s.app.AddBreakpointRule(urlPattern, method, phase, description)
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Breakpoint rule added successfully.\nID: %s\nPattern: %s\nPhase: %s", id, urlPattern, phase))},
+	}, nil
+}
+
+func (s *MCPServer) handleBreakpointRuleRemove(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	id, _ := args["id"].(string)
+	if id == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: id is required")}, IsError: true}, nil
+	}
+
+	s.app.RemoveBreakpointRule(id)
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Breakpoint rule removed: %s", id))},
+	}, nil
+}
+
+func (s *MCPServer) handleBreakpointRuleList(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	rules := s.app.GetBreakpointRules()
+
+	if len(rules) == 0 {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.NewTextContent("No breakpoint rules configured.")},
+		}, nil
+	}
+
+	data, _ := json.MarshalIndent(rules, "", "  ")
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Breakpoint rules (%d):\n%s", len(rules), string(data)))},
+	}, nil
+}
+
+func (s *MCPServer) handleBreakpointRuleToggle(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	id, _ := args["id"].(string)
+	if id == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: id is required")}, IsError: true}, nil
+	}
+	enabled, _ := args["enabled"].(bool)
+
+	if err := s.app.ToggleBreakpointRule(id, enabled); err != nil {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error: %v", err))}, IsError: true}, nil
+	}
+
+	state := "disabled"
+	if enabled {
+		state = "enabled"
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Breakpoint rule %s: %s", state, id))},
+	}, nil
+}
+
+func (s *MCPServer) handleBreakpointResolve(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+
+	id, _ := args["id"].(string)
+	if id == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: id is required")}, IsError: true}, nil
+	}
+	action, _ := args["action"].(string)
+	if action == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: action is required (forward or drop)")}, IsError: true}, nil
+	}
+	if action != "forward" && action != "drop" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: action must be 'forward' or 'drop'")}, IsError: true}, nil
+	}
+
+	var modifications map[string]interface{}
+	if mj, ok := args["modifications_json"].(string); ok && mj != "" {
+		if err := json.Unmarshal([]byte(mj), &modifications); err != nil {
+			return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error parsing modifications_json: %v", err))}, IsError: true}, nil
+		}
+	}
+
+	if err := s.app.ResolveBreakpoint(id, action, modifications); err != nil {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error: %v", err))}, IsError: true}, nil
+	}
+
+	msg := fmt.Sprintf("Breakpoint resolved: %s (action: %s)", id, action)
+	if modifications != nil {
+		modData, _ := json.Marshal(modifications)
+		msg += fmt.Sprintf("\nModifications: %s", string(modData))
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(msg)},
+	}, nil
+}
+
+func (s *MCPServer) handleBreakpointPendingList(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	pending := s.app.GetPendingBreakpoints()
+
+	if len(pending) == 0 {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.NewTextContent("No pending breakpoints.")},
+		}, nil
+	}
+
+	data, _ := json.MarshalIndent(pending, "", "  ")
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Pending breakpoints (%d):\n%s", len(pending), string(data)))},
+	}, nil
+}
+
+func (s *MCPServer) handleBreakpointRuleUpdate(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+
+	id, _ := args["id"].(string)
+	if id == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: id is required")}, IsError: true}, nil
+	}
+	urlPattern, _ := args["url_pattern"].(string)
+	if urlPattern == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: url_pattern is required")}, IsError: true}, nil
+	}
+	phase, _ := args["phase"].(string)
+	if phase == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: phase is required (request, response, or both)")}, IsError: true}, nil
+	}
+	if phase != "request" && phase != "response" && phase != "both" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: phase must be 'request', 'response', or 'both'")}, IsError: true}, nil
+	}
+
+	method, _ := args["method"].(string)
+	description, _ := args["description"].(string)
+	enabled := true
+	if e, ok := args["enabled"].(bool); ok {
+		enabled = e
+	}
+
+	if err := s.app.UpdateBreakpointRule(id, urlPattern, method, phase, enabled, description); err != nil {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error: %v", err))}, IsError: true}, nil
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Breakpoint rule updated: %s\nPattern: %s\nPhase: %s\nEnabled: %v", id, urlPattern, phase, enabled))},
+	}, nil
+}
+
+func (s *MCPServer) handleBreakpointForwardAll(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	pending := s.app.GetPendingBreakpoints()
+	count := len(pending)
+
+	s.app.ForwardAllBreakpoints()
+
+	if count == 0 {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.NewTextContent("No pending breakpoints to forward.")},
+		}, nil
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Forwarded %d pending breakpoint(s).", count))},
 	}, nil
 }
 

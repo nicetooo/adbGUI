@@ -251,6 +251,16 @@ type GazeApp interface {
 	ToggleMockRule(ruleID string, enabled bool) error
 	ResendRequest(method, url string, headers map[string]string, body string) (map[string]interface{}, error)
 
+	// Breakpoint Rules
+	AddBreakpointRule(urlPattern, method, phase, description string) string
+	UpdateBreakpointRule(id, urlPattern, method, phase string, enabled bool, description string) error
+	RemoveBreakpointRule(ruleID string)
+	GetBreakpointRules() []MCPBreakpointRule
+	ToggleBreakpointRule(ruleID string, enabled bool) error
+	ResolveBreakpoint(breakpointID string, action string, modifications map[string]interface{}) error
+	GetPendingBreakpoints() []MCPPendingBreakpointInfo
+	ForwardAllBreakpoints()
+
 	// Video
 	GetVideoFrame(videoPath string, timeMs int64, width int) (string, error)
 	GetVideoMetadata(videoPath string) (*VideoMetadata, error)
@@ -332,6 +342,37 @@ type MCPMockRule struct {
 	Enabled     bool               `json:"enabled"`
 	Description string             `json:"description"`
 	Conditions  []MCPMockCondition `json:"conditions,omitempty"`
+}
+
+// MCPBreakpointRule represents a breakpoint rule for MCP interface
+type MCPBreakpointRule struct {
+	ID          string `json:"id"`
+	URLPattern  string `json:"urlPattern"`
+	Method      string `json:"method"` // empty = match all
+	Phase       string `json:"phase"`  // "request", "response", "both"
+	Enabled     bool   `json:"enabled"`
+	Description string `json:"description"`
+	CreatedAt   int64  `json:"createdAt"`
+}
+
+// MCPPendingBreakpointInfo represents a pending breakpoint for MCP interface
+type MCPPendingBreakpointInfo struct {
+	ID     string `json:"id"`
+	RuleID string `json:"ruleId"`
+	Phase  string `json:"phase"` // "request" or "response"
+
+	// Request info
+	Method  string              `json:"method"`
+	URL     string              `json:"url"`
+	Headers map[string][]string `json:"headers,omitempty"`
+	Body    string              `json:"body,omitempty"`
+
+	// Response info (only for response phase)
+	StatusCode  int                 `json:"statusCode,omitempty"`
+	RespHeaders map[string][]string `json:"respHeaders,omitempty"`
+	RespBody    string              `json:"respBody,omitempty"`
+
+	CreatedAt int64 `json:"createdAt"` // unix ms
 }
 
 // MCPServer wraps the MCP server and provides Gaze-specific functionality

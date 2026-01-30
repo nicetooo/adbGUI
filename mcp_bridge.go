@@ -1135,6 +1135,94 @@ func (b *MCPBridge) ResendRequest(method, url string, headers map[string]string,
 	return b.app.ResendRequest(method, url, headers, body)
 }
 
+// === Breakpoint Rules ===
+
+func (b *MCPBridge) AddBreakpointRule(urlPattern, method, phase, description string) string {
+	rule := BreakpointRule{
+		URLPattern:  urlPattern,
+		Method:      method,
+		Phase:       phase,
+		Description: description,
+	}
+	return b.app.AddBreakpointRule(rule)
+}
+
+func (b *MCPBridge) UpdateBreakpointRule(id, urlPattern, method, phase string, enabled bool, description string) error {
+	// We need to preserve CreatedAt from the existing rule
+	existing := b.app.GetBreakpointRules()
+	var createdAt int64
+	for _, r := range existing {
+		if r.ID == id {
+			createdAt = r.CreatedAt
+			break
+		}
+	}
+	rule := BreakpointRule{
+		ID:          id,
+		URLPattern:  urlPattern,
+		Method:      method,
+		Phase:       phase,
+		Enabled:     enabled,
+		Description: description,
+		CreatedAt:   createdAt,
+	}
+	return b.app.UpdateBreakpointRule(rule)
+}
+
+func (b *MCPBridge) RemoveBreakpointRule(ruleID string) {
+	b.app.RemoveBreakpointRule(ruleID)
+}
+
+func (b *MCPBridge) GetBreakpointRules() []mcp.MCPBreakpointRule {
+	rules := b.app.GetBreakpointRules()
+	result := make([]mcp.MCPBreakpointRule, len(rules))
+	for i, r := range rules {
+		result[i] = mcp.MCPBreakpointRule{
+			ID:          r.ID,
+			URLPattern:  r.URLPattern,
+			Method:      r.Method,
+			Phase:       r.Phase,
+			Enabled:     r.Enabled,
+			Description: r.Description,
+			CreatedAt:   r.CreatedAt,
+		}
+	}
+	return result
+}
+
+func (b *MCPBridge) ToggleBreakpointRule(ruleID string, enabled bool) error {
+	return b.app.ToggleBreakpointRule(ruleID, enabled)
+}
+
+func (b *MCPBridge) ResolveBreakpoint(breakpointID string, action string, modifications map[string]interface{}) error {
+	return b.app.ResolveBreakpoint(breakpointID, action, modifications)
+}
+
+func (b *MCPBridge) GetPendingBreakpoints() []mcp.MCPPendingBreakpointInfo {
+	pending := b.app.GetPendingBreakpoints()
+	result := make([]mcp.MCPPendingBreakpointInfo, len(pending))
+	for i, p := range pending {
+		result[i] = mcp.MCPPendingBreakpointInfo{
+			ID:          p.ID,
+			RuleID:      p.RuleID,
+			Phase:       p.Phase,
+			Method:      p.Method,
+			URL:         p.URL,
+			Headers:     p.Headers,
+			Body:        p.Body,
+			StatusCode:  p.StatusCode,
+			RespHeaders: p.RespHeaders,
+			RespBody:    p.RespBody,
+			CreatedAt:   p.CreatedAt,
+		}
+	}
+	return result
+}
+
+func (b *MCPBridge) ForwardAllBreakpoints() {
+	b.app.ForwardAllBreakpoints()
+}
+
 // StartMCPServer starts the MCP server with the given app
 func StartMCPServer(app *App) {
 	bridge := NewMCPBridge(app)

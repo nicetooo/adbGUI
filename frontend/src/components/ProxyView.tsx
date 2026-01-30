@@ -1,13 +1,13 @@
 import React, { useEffect, useCallback, useMemo } from 'react';
 import { Card, Button, InputNumber, Space, Typography, Tag, Divider, Switch, Tooltip, Radio, Input, Tabs, theme, Form, Table, Popconfirm, Popover, Spin, App, Modal, Select, AutoComplete } from 'antd';
-import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, BlockOutlined, SendOutlined, CloseOutlined, PlusOutlined, EditOutlined, CodeOutlined, CloudDownloadOutlined, FolderOpenOutlined, LoadingOutlined, MinusCircleOutlined } from '@ant-design/icons';
+import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, BlockOutlined, SendOutlined, CloseOutlined, PlusOutlined, EditOutlined, CodeOutlined, CloudDownloadOutlined, FolderOpenOutlined, LoadingOutlined, MinusCircleOutlined, BugOutlined, FastForwardOutlined, StopOutlined } from '@ant-design/icons';
 import VirtualList from './VirtualList';
 import DeviceSelector from './DeviceSelector';
 import JsonViewer from './JsonViewer';
 import JsonEditor from './JsonEditor';
 import { useDeviceStore, useProxyStore, RequestLog as StoreRequestLog } from '../stores';
 // @ts-ignore
-import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, GetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, UpdateMockRule, RemoveMockRule, GetMockRules, ToggleMockRule, CheckCertTrust, SetupProxyForDevice, CleanupProxyForDevice, GetProtoFiles, AddProtoFile, UpdateProtoFile, RemoveProtoFile, GetProtoMappings, AddProtoMapping, UpdateProtoMapping, RemoveProtoMapping, GetProtoMessageTypes, LoadProtoFromURL, LoadProtoFromDisk } from '../../wailsjs/go/main/App';
+import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, GetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, UpdateMockRule, RemoveMockRule, GetMockRules, ToggleMockRule, CheckCertTrust, SetupProxyForDevice, CleanupProxyForDevice, GetProtoFiles, AddProtoFile, UpdateProtoFile, RemoveProtoFile, GetProtoMappings, AddProtoMapping, UpdateProtoMapping, RemoveProtoMapping, GetProtoMessageTypes, LoadProtoFromURL, LoadProtoFromDisk, AddBreakpointRule, UpdateBreakpointRule, RemoveBreakpointRule, GetBreakpointRules, ToggleBreakpointRule, ResolveBreakpoint, GetPendingBreakpoints, ForwardAllBreakpoints } from '../../wailsjs/go/main/App';
 // @ts-ignore
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { useTranslation } from 'react-i18next';
@@ -147,6 +147,23 @@ const ProxyView: React.FC = () => {
         openProtoImportURLModal,
         closeProtoImportURLModal,
         setProtoImportURL,
+        breakpointRules,
+        pendingBreakpoints,
+        breakpointListModalOpen,
+        breakpointEditModalOpen,
+        editingBreakpointRule,
+        breakpointResolveModalOpen,
+        selectedBreakpoint,
+        setBreakpointRules,
+        openBreakpointListModal,
+        closeBreakpointListModal,
+        openBreakpointEditModal,
+        closeBreakpointEditModal,
+        addPendingBreakpoint,
+        removePendingBreakpoint,
+        clearPendingBreakpoints,
+        openBreakpointResolveModal,
+        closeBreakpointResolveModal,
     } = useProxyStore();
 
     // Watch hidden _conditionHints field stored in the form (survives HMR / store resets)
@@ -921,6 +938,149 @@ const ProxyView: React.FC = () => {
         });
     };
 
+    // --- Breakpoint handlers ---
+    const [breakpointForm] = Form.useForm();
+
+    const loadBreakpointRules = async () => {
+        try {
+            const rules = await GetBreakpointRules();
+            setBreakpointRules(rules || []);
+        } catch (err) {
+            console.error('Failed to load breakpoint rules:', err);
+        }
+    };
+
+    const handleOpenBreakpointListModal = async () => {
+        await loadBreakpointRules();
+        openBreakpointListModal();
+    };
+
+    const handleSaveBreakpointRule = async () => {
+        try {
+            const values = await breakpointForm.validateFields();
+            if (editingBreakpointRule) {
+                await UpdateBreakpointRule({
+                    ...editingBreakpointRule,
+                    urlPattern: values.urlPattern,
+                    method: values.method || '',
+                    phase: values.phase,
+                    description: values.description || '',
+                    createdAt: editingBreakpointRule.createdAt || Date.now(),
+                });
+                message.success(t('proxy.breakpoint_rules') + ' updated');
+            } else {
+                await AddBreakpointRule({
+                    id: '',
+                    urlPattern: values.urlPattern,
+                    method: values.method || '',
+                    phase: values.phase,
+                    enabled: true,
+                    description: values.description || '',
+                    createdAt: Date.now(),
+                });
+                message.success(t('proxy.breakpoint_rules') + ' added');
+            }
+            breakpointForm.resetFields();
+            closeBreakpointEditModal();
+            loadBreakpointRules();
+        } catch (err: any) {
+            if (err?.errorFields) return; // validation error
+            message.error(String(err));
+        }
+    };
+
+    const handleDeleteBreakpointRule = async (ruleId: string) => {
+        try {
+            await RemoveBreakpointRule(ruleId);
+            loadBreakpointRules();
+        } catch (err) {
+            message.error(String(err));
+        }
+    };
+
+    const handleToggleBreakpointRule = async (ruleId: string, enabled: boolean) => {
+        try {
+            await ToggleBreakpointRule(ruleId, enabled);
+            loadBreakpointRules();
+        } catch (err) {
+            message.error(String(err));
+        }
+    };
+
+    const startEditBreakpointRule = (rule: any) => {
+        closeBreakpointListModal();
+        openBreakpointEditModal(rule);
+        breakpointForm.resetFields();
+        breakpointForm.setFieldsValue({
+            urlPattern: rule.urlPattern,
+            method: rule.method,
+            phase: rule.phase,
+            description: rule.description,
+        });
+    };
+
+    const handleResolveBreakpoint = async (bpId: string, action: string, modifications?: Record<string, any>) => {
+        try {
+            await ResolveBreakpoint(bpId, action, modifications || {});
+            removePendingBreakpoint(bpId);
+            closeBreakpointResolveModal();
+        } catch (err) {
+            // If breakpoint not found (e.g. already timed out), clean up the stale entry
+            removePendingBreakpoint(bpId);
+            closeBreakpointResolveModal();
+            message.warning(String(err));
+        }
+    };
+
+    const handleForwardAllBreakpoints = async () => {
+        try {
+            await ForwardAllBreakpoints();
+            clearPendingBreakpoints();
+            // For phase=both rules: forwarding request-phase breakpoints may trigger
+            // response-phase breakpoints after the server responds (variable latency).
+            // Poll multiple times to auto-forward any new pending breakpoints.
+            const retryDelays = [500, 1500, 3000, 5000];
+            for (const delay of retryDelays) {
+                setTimeout(async () => {
+                    try {
+                        const remaining = await GetPendingBreakpoints();
+                        if (remaining && remaining.length > 0) {
+                            await ForwardAllBreakpoints();
+                            clearPendingBreakpoints();
+                        }
+                    } catch (_) { /* ignore */ }
+                }, delay);
+            }
+        } catch (err) {
+            message.error(String(err));
+        }
+    };
+
+    // Listen for breakpoint-hit events
+    useEffect(() => {
+        const onHit = (info: any) => {
+            addPendingBreakpoint(info);
+        };
+        EventsOn('breakpoint-hit', onHit);
+        return () => { EventsOff('breakpoint-hit'); };
+    }, [addPendingBreakpoint]);
+
+    // Listen for breakpoint-resolved events (timeout or backend cleanup)
+    useEffect(() => {
+        const onResolved = (data: any) => {
+            if (data?.id) {
+                removePendingBreakpoint(data.id);
+            }
+        };
+        EventsOn('breakpoint-resolved', onResolved);
+        return () => { EventsOff('breakpoint-resolved'); };
+    }, [removePendingBreakpoint]);
+
+    // Load breakpoint rules on mount
+    useEffect(() => {
+        loadBreakpointRules();
+    }, []);
+
     const filteredLogs = logs.filter(log => {
         // Filter by type (ALL, HTTP, WS)
         if (filterType === "HTTP" && log.isWs) return false;
@@ -1052,6 +1212,21 @@ const ProxyView: React.FC = () => {
                                     <Button icon={<PlusOutlined />} onClick={() => { mockForm.resetFields(); setMockConditionHints(null); openMockEditModal(null); }} />
                                 </Tooltip>
                             </Button.Group>
+                            <Button.Group size="small">
+                                <Tooltip title={t('proxy.breakpoint_rules')}>
+                                    <Button icon={<BugOutlined />} onClick={handleOpenBreakpointListModal}>
+                                        BP
+                                        {pendingBreakpoints.length > 0 && (
+                                            <Tag color="red" style={{ marginLeft: 4, padding: '0 4px', fontSize: 11, lineHeight: '18px', borderRadius: 9 }}>
+                                                {pendingBreakpoints.length}
+                                            </Tag>
+                                        )}
+                                    </Button>
+                                </Tooltip>
+                                <Tooltip title={t('proxy.add_breakpoint_rule')}>
+                                    <Button icon={<PlusOutlined />} onClick={() => { breakpointForm.resetFields(); openBreakpointEditModal(null); }} />
+                                </Tooltip>
+                            </Button.Group>
                             <Tooltip title={t('proxy.proto_management')}>
                                 <Button size="small" icon={<CodeOutlined />} onClick={handleOpenProtoListModal}>
                                     Proto
@@ -1171,6 +1346,35 @@ const ProxyView: React.FC = () => {
                         </div>
                     }
                 >
+                {/* Pending breakpoints notification bar */}
+                {pendingBreakpoints.length > 0 && (
+                    <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '6px 12px', background: token.colorWarningBg,
+                        borderBottom: `1px solid ${token.colorWarningBorder}`,
+                        fontSize: 12,
+                    }}>
+                        <Space size={8}>
+                            <BugOutlined style={{ color: token.colorWarning }} />
+                            <Text style={{ fontSize: 12 }}>
+                                <strong>{pendingBreakpoints.length}</strong> {t('proxy.pending_breakpoints')}
+                            </Text>
+                            {pendingBreakpoints.map(bp => (
+                                <Tag
+                                    key={bp.id}
+                                    color="orange"
+                                    style={{ cursor: 'pointer', fontSize: 11 }}
+                                    onClick={() => openBreakpointResolveModal(bp)}
+                                >
+                                    {bp.phase === 'request' ? '→' : '←'} {bp.method} {bp.url.length > 40 ? bp.url.substring(0, 40) + '...' : bp.url}
+                                </Tag>
+                            ))}
+                        </Space>
+                        <Button size="small" type="link" onClick={handleForwardAllBreakpoints} icon={<FastForwardOutlined />}>
+                            {t('proxy.breakpoint_forward_all')}
+                        </Button>
+                    </div>
+                )}
                 {/* Virtual Table Header - Fixed widths */}
                 <div style={{ display: 'grid', gridTemplateColumns: '80px 70px 80px 1fr 80px 80px', padding: '8px 12px', background: token.colorFillAlter, borderBottom: `1px solid ${token.colorBorderSecondary}`, fontWeight: 'bold', fontSize: '12px', color: token.colorTextSecondary }}>
                     <div>{t('proxy.col_time')}</div>
@@ -2016,6 +2220,191 @@ const ProxyView: React.FC = () => {
                         autoFocus
                     />
                 </div>
+            </Modal>
+
+            {/* === Breakpoint Rules List Modal === */}
+            <Modal
+                open={breakpointListModalOpen}
+                onCancel={closeBreakpointListModal}
+                title={t('proxy.breakpoint_rules')}
+                width={700}
+                footer={null}
+                style={{ top: 32 }}
+            >
+                <div style={{ marginBottom: 12 }}>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => { closeBreakpointListModal(); breakpointForm.resetFields(); openBreakpointEditModal(null); }}>
+                        {t('proxy.add_breakpoint_rule')}
+                    </Button>
+                </div>
+                {breakpointRules.length === 0 ? (
+                    <Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: 32 }}>{t('proxy.no_breakpoint_rules')}</Text>
+                ) : (
+                    <Table
+                        dataSource={breakpointRules}
+                        rowKey="id"
+                        size="small"
+                        pagination={false}
+                        columns={[
+                            { title: t('proxy.breakpoint_url_pattern'), dataIndex: 'urlPattern', key: 'urlPattern', ellipsis: true },
+                            { title: t('proxy.breakpoint_method'), dataIndex: 'method', key: 'method', width: 80, render: (v: string) => v || '*' },
+                            { title: t('proxy.breakpoint_phase'), dataIndex: 'phase', key: 'phase', width: 100, render: (v: string) => (
+                                <Tag color={v === 'both' ? 'blue' : v === 'request' ? 'green' : 'orange'}>
+                                    {v === 'request' ? t('proxy.breakpoint_phase_request') : v === 'response' ? t('proxy.breakpoint_phase_response') : t('proxy.breakpoint_phase_both')}
+                                </Tag>
+                            )},
+                            { title: t('proxy.breakpoint_enabled'), key: 'enabled', width: 70, render: (_: any, record: any) => (
+                                <Switch size="small" checked={record.enabled} onChange={(checked) => handleToggleBreakpointRule(record.id, checked)} />
+                            )},
+                            { key: 'actions', width: 80, render: (_: any, record: any) => (
+                                <Space size={4}>
+                                    <Button type="link" size="small" icon={<EditOutlined />} onClick={() => startEditBreakpointRule(record)} />
+                                    <Popconfirm title="Delete?" onConfirm={() => handleDeleteBreakpointRule(record.id)}>
+                                        <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+                                    </Popconfirm>
+                                </Space>
+                            )},
+                        ]}
+                    />
+                )}
+                {/* Pending breakpoints section */}
+                {pendingBreakpoints.length > 0 && (
+                    <>
+                        <Divider style={{ margin: '12px 0' }} />
+                        <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Text strong>{t('proxy.pending_breakpoints')} ({pendingBreakpoints.length})</Text>
+                            <Button size="small" onClick={handleForwardAllBreakpoints} icon={<FastForwardOutlined />}>{t('proxy.breakpoint_forward_all')}</Button>
+                        </div>
+                        {pendingBreakpoints.map(bp => (
+                            <div key={bp.id} style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                padding: '6px 8px', marginBottom: 4,
+                                background: token.colorWarningBg, borderRadius: 4,
+                                border: `1px solid ${token.colorWarningBorder}`,
+                            }}>
+                                <Space size={8}>
+                                    <Tag color={bp.phase === 'request' ? 'green' : 'orange'}>{bp.phase}</Tag>
+                                    <Tag>{bp.method}</Tag>
+                                    <Text style={{ fontSize: 12 }} ellipsis>{bp.url.length > 50 ? bp.url.substring(0, 50) + '...' : bp.url}</Text>
+                                </Space>
+                                <Space size={4}>
+                                    <Button size="small" type="primary" onClick={() => openBreakpointResolveModal(bp)}>{t('proxy.breakpoint_resolve')}</Button>
+                                    <Button size="small" onClick={() => handleResolveBreakpoint(bp.id, 'forward')}>{t('proxy.breakpoint_forward')}</Button>
+                                    <Button size="small" danger onClick={() => handleResolveBreakpoint(bp.id, 'drop')}>{t('proxy.breakpoint_drop')}</Button>
+                                </Space>
+                            </div>
+                        ))}
+                    </>
+                )}
+            </Modal>
+
+            {/* === Breakpoint Rule Edit Modal === */}
+            <Modal
+                open={breakpointEditModalOpen}
+                onCancel={closeBreakpointEditModal}
+                title={editingBreakpointRule ? t('proxy.edit_breakpoint_rule') : t('proxy.add_breakpoint_rule')}
+                width={500}
+                onOk={handleSaveBreakpointRule}
+                okText={editingBreakpointRule ? t('proxy.edit_breakpoint_rule') : t('proxy.add_breakpoint_rule')}
+            >
+                <Form form={breakpointForm} layout="vertical" initialValues={{ phase: 'both' }}>
+                    <Form.Item name="urlPattern" label={t('proxy.breakpoint_url_pattern')} rules={[{ required: true }]}>
+                        <Input placeholder="*/api/*" />
+                    </Form.Item>
+                    <Form.Item name="method" label={t('proxy.breakpoint_method')}>
+                        <Input placeholder="GET (empty = all)" />
+                    </Form.Item>
+                    <Form.Item name="phase" label={t('proxy.breakpoint_phase')} rules={[{ required: true }]}>
+                        <Radio.Group>
+                            <Radio value="request">{t('proxy.breakpoint_phase_request')}</Radio>
+                            <Radio value="response">{t('proxy.breakpoint_phase_response')}</Radio>
+                            <Radio value="both">{t('proxy.breakpoint_phase_both')}</Radio>
+                        </Radio.Group>
+                    </Form.Item>
+                    <Form.Item name="description" label={t('proxy.breakpoint_description')}>
+                        <Input placeholder="Optional description" />
+                    </Form.Item>
+                </Form>
+            </Modal>
+
+            {/* === Breakpoint Resolve Modal === */}
+            <Modal
+                open={breakpointResolveModalOpen}
+                onCancel={() => closeBreakpointResolveModal()}
+                title={t('proxy.breakpoint_resolve')}
+                width={800}
+                footer={
+                    selectedBreakpoint ? (
+                        <Space>
+                            <Text type="secondary" style={{ fontSize: 11 }}>{t('proxy.breakpoint_auto_timeout')}</Text>
+                            <Button onClick={() => handleResolveBreakpoint(selectedBreakpoint.id, 'drop')} danger icon={<StopOutlined />}>
+                                {t('proxy.breakpoint_drop')}
+                            </Button>
+                            <Button type="primary" onClick={() => handleResolveBreakpoint(selectedBreakpoint.id, 'forward')} icon={<FastForwardOutlined />}>
+                                {t('proxy.breakpoint_forward')}
+                            </Button>
+                        </Space>
+                    ) : null
+                }
+                style={{ top: 32 }}
+            >
+                {selectedBreakpoint && (
+                    <div>
+                        <Space style={{ marginBottom: 12 }}>
+                            <Tag color={selectedBreakpoint.phase === 'request' ? 'green' : 'orange'}>
+                                {selectedBreakpoint.phase === 'request' ? t('proxy.breakpoint_request_phase') : t('proxy.breakpoint_response_phase')}
+                            </Tag>
+                            <Tag>{selectedBreakpoint.method}</Tag>
+                        </Space>
+                        <div style={{ marginBottom: 12, wordBreak: 'break-all', fontSize: 12, fontFamily: 'monospace', padding: '8px 12px', background: token.colorFillAlter, borderRadius: 4 }}>
+                            {selectedBreakpoint.url}
+                        </div>
+
+                        <Tabs size="small" items={[
+                            ...(selectedBreakpoint.headers ? [{
+                                key: 'reqHeaders',
+                                label: t('proxy.tab_req_headers'),
+                                children: (
+                                    <div style={{ maxHeight: 200, overflow: 'auto', fontSize: 12, fontFamily: 'monospace' }}>
+                                        {Object.entries(selectedBreakpoint.headers).map(([k, v]) => (
+                                            <div key={k}><strong>{k}:</strong> {Array.isArray(v) ? v.join(', ') : v}</div>
+                                        ))}
+                                    </div>
+                                ),
+                            }] : []),
+                            ...(selectedBreakpoint.body ? [{
+                                key: 'reqBody',
+                                label: t('proxy.tab_req_body'),
+                                children: (
+                                    <div style={{ maxHeight: 300, overflow: 'auto' }}>
+                                        <JsonViewer data={selectedBreakpoint.body} />
+                                    </div>
+                                ),
+                            }] : []),
+                            ...(selectedBreakpoint.phase === 'response' ? [
+                                ...(selectedBreakpoint.respHeaders ? [{
+                                    key: 'respHeaders',
+                                    label: `${t('proxy.tab_resp_headers')} (${selectedBreakpoint.statusCode})`,
+                                    children: (
+                                        <div style={{ maxHeight: 200, overflow: 'auto', fontSize: 12, fontFamily: 'monospace' }}>
+                                            {Object.entries(selectedBreakpoint.respHeaders).map(([k, v]) => (
+                                                <div key={k}><strong>{k}:</strong> {Array.isArray(v) ? v.join(', ') : v}</div>
+                                            ))}
+                                        </div>
+                                    ),
+                                }] : []),
+                                ...(selectedBreakpoint.respBody ? [{
+                                    key: 'respBody',
+                                    label: t('proxy.tab_resp_body'),
+                                    children: (
+                                        <div style={{ maxHeight: 300, overflow: 'auto' }}>
+                                            <JsonViewer data={selectedBreakpoint.respBody} />
+                                        </div>
+                                    ),
+                                }] : []),
+                            ] : []),
+                        ]} />
+                    </div>
+                )}
             </Modal>
 
         </div>

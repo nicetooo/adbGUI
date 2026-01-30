@@ -471,6 +471,30 @@ export namespace main {
 	        this.createdAt = source["createdAt"];
 	    }
 	}
+	export class BreakpointRule {
+	    id: string;
+	    urlPattern: string;
+	    method: string;
+	    phase: string;
+	    enabled: boolean;
+	    description: string;
+	    createdAt: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new BreakpointRule(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.urlPattern = source["urlPattern"];
+	        this.method = source["method"];
+	        this.phase = source["phase"];
+	        this.enabled = source["enabled"];
+	        this.description = source["description"];
+	        this.createdAt = source["createdAt"];
+	    }
+	}
 	
 	export class Device {
 	    id: string;
@@ -1920,6 +1944,43 @@ export namespace pkix {
 		    }
 		    return a;
 		}
+	}
+
+}
+
+export namespace proxy {
+	
+	export class PendingBreakpointInfo {
+	    id: string;
+	    ruleId: string;
+	    phase: string;
+	    method: string;
+	    url: string;
+	    headers?: Record<string, Array<string>>;
+	    body?: string;
+	    statusCode?: number;
+	    respHeaders?: Record<string, Array<string>>;
+	    respBody?: string;
+	    createdAt: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new PendingBreakpointInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.ruleId = source["ruleId"];
+	        this.phase = source["phase"];
+	        this.method = source["method"];
+	        this.url = source["url"];
+	        this.headers = source["headers"];
+	        this.body = source["body"];
+	        this.statusCode = source["statusCode"];
+	        this.respHeaders = source["respHeaders"];
+	        this.respBody = source["respBody"];
+	        this.createdAt = source["createdAt"];
+	    }
 	}
 
 }

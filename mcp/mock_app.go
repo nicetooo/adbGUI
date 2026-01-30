@@ -125,6 +125,14 @@ type MockGazeApp struct {
 	ImportSessionFromPathResult string
 	ImportSessionFromPathError  error
 
+	// Breakpoint Rules
+	AddBreakpointRuleResult     string
+	UpdateBreakpointRuleError   error
+	GetBreakpointRulesResult    []MCPBreakpointRule
+	ToggleBreakpointRuleError   error
+	ResolveBreakpointError      error
+	GetPendingBreakpointsResult []MCPPendingBreakpointInfo
+
 	// Protobuf Management
 	AddProtoFileResult         string
 	AddProtoFileError          error
@@ -508,6 +516,52 @@ func (m *MockGazeApp) ToggleMockRule(ruleID string, enabled bool) error {
 func (m *MockGazeApp) ResendRequest(method, url string, headers map[string]string, body string) (map[string]interface{}, error) {
 	m.recordCall("ResendRequest", method, url, headers, body)
 	return m.ResendRequestResult, m.ResendRequestError
+}
+
+// === Breakpoint Rules ===
+
+func (m *MockGazeApp) AddBreakpointRule(urlPattern, method, phase, description string) string {
+	m.recordCall("AddBreakpointRule", urlPattern, method, phase, description)
+	return m.AddBreakpointRuleResult
+}
+
+func (m *MockGazeApp) UpdateBreakpointRule(id, urlPattern, method, phase string, enabled bool, description string) error {
+	m.recordCall("UpdateBreakpointRule", id, urlPattern, method, phase, enabled, description)
+	return m.UpdateBreakpointRuleError
+}
+
+func (m *MockGazeApp) RemoveBreakpointRule(ruleID string) {
+	m.recordCall("RemoveBreakpointRule", ruleID)
+}
+
+func (m *MockGazeApp) GetBreakpointRules() []MCPBreakpointRule {
+	m.recordCall("GetBreakpointRules")
+	if m.GetBreakpointRulesResult != nil {
+		return m.GetBreakpointRulesResult
+	}
+	return []MCPBreakpointRule{}
+}
+
+func (m *MockGazeApp) ToggleBreakpointRule(ruleID string, enabled bool) error {
+	m.recordCall("ToggleBreakpointRule", ruleID, enabled)
+	return m.ToggleBreakpointRuleError
+}
+
+func (m *MockGazeApp) ResolveBreakpoint(breakpointID string, action string, modifications map[string]interface{}) error {
+	m.recordCall("ResolveBreakpoint", breakpointID, action, modifications)
+	return m.ResolveBreakpointError
+}
+
+func (m *MockGazeApp) GetPendingBreakpoints() []MCPPendingBreakpointInfo {
+	m.recordCall("GetPendingBreakpoints")
+	if m.GetPendingBreakpointsResult != nil {
+		return m.GetPendingBreakpointsResult
+	}
+	return []MCPPendingBreakpointInfo{}
+}
+
+func (m *MockGazeApp) ForwardAllBreakpoints() {
+	m.recordCall("ForwardAllBreakpoints")
 }
 
 // === Proxy Configuration ===

@@ -14,6 +14,10 @@ export function AdbPair(arg1, arg2) {
   return window['go']['main']['App']['AdbPair'](arg1, arg2);
 }
 
+export function AddBreakpointRule(arg1) {
+  return window['go']['main']['App']['AddBreakpointRule'](arg1);
+}
+
 export function AddMockRule(arg1) {
   return window['go']['main']['App']['AddMockRule'](arg1);
 }
@@ -118,6 +122,10 @@ export function DownloadFile(arg1, arg2) {
   return window['go']['main']['App']['DownloadFile'](arg1, arg2);
 }
 
+export function ForwardAllBreakpoints() {
+  return window['go']['main']['App']['ForwardAllBreakpoints']();
+}
+
 export function EmitEvent(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['main']['App']['EmitEvent'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
@@ -202,6 +210,10 @@ export function GetBackendLogs() {
   return window['go']['main']['App']['GetBackendLogs']();
 }
 
+export function GetBreakpointRules() {
+  return window['go']['main']['App']['GetBreakpointRules']();
+}
+
 export function GetDeviceActiveSession(arg1) {
   return window['go']['main']['App']['GetDeviceActiveSession'](arg1);
 }
@@ -260,6 +272,10 @@ export function GetMITMBypassPatterns() {
 
 export function GetMockRules() {
   return window['go']['main']['App']['GetMockRules']();
+}
+
+export function GetPendingBreakpoints() {
+  return window['go']['main']['App']['GetPendingBreakpoints']();
 }
 
 export function GetPerfMonitorConfig(arg1) {
@@ -518,6 +534,10 @@ export function ListStoredSessions(arg1, arg2) {
   return window['go']['main']['App']['ListStoredSessions'](arg1, arg2);
 }
 
+export function LoadBreakpointRules() {
+  return window['go']['main']['App']['LoadBreakpointRules']();
+}
+
 export function LoadMockRules() {
   return window['go']['main']['App']['LoadMockRules']();
 }
@@ -642,6 +662,10 @@ export function ReadVideoFileAsDataURL(arg1) {
   return window['go']['main']['App']['ReadVideoFileAsDataURL'](arg1);
 }
 
+export function RemoveBreakpointRule(arg1) {
+  return window['go']['main']['App']['RemoveBreakpointRule'](arg1);
+}
+
 export function RemoveHistoryDevice(arg1) {
   return window['go']['main']['App']['RemoveHistoryDevice'](arg1);
 }
@@ -668,6 +692,10 @@ export function RenameTouchScript(arg1, arg2) {
 
 export function ResendRequest(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ResendRequest'](arg1, arg2, arg3, arg4);
+}
+
+export function ResolveBreakpoint(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ResolveBreakpoint'](arg1, arg2, arg3);
 }
 
 export function RestartAdbServer() {
@@ -780,6 +808,10 @@ export function SetProxyMITM(arg1) {
 
 export function SetProxyWSEnabled(arg1) {
   return window['go']['main']['App']['SetProxyWSEnabled'](arg1);
+}
+
+export function SetupBreakpointCallbacks() {
+  return window['go']['main']['App']['SetupBreakpointCallbacks']();
 }
 
 export function SetupProxyForDevice(arg1, arg2) {
@@ -942,6 +974,10 @@ export function TapAtCoordinates(arg1, arg2, arg3) {
   return window['go']['main']['App']['TapAtCoordinates'](arg1, arg2, arg3);
 }
 
+export function ToggleBreakpointRule(arg1, arg2) {
+  return window['go']['main']['App']['ToggleBreakpointRule'](arg1, arg2);
+}
+
 export function ToggleMockRule(arg1, arg2) {
   return window['go']['main']['App']['ToggleMockRule'](arg1, arg2);
 }
@@ -952,6 +988,10 @@ export function TogglePinDevice(arg1) {
 
 export function UninstallApp(arg1, arg2) {
   return window['go']['main']['App']['UninstallApp'](arg1, arg2);
+}
+
+export function UpdateBreakpointRule(arg1) {
+  return window['go']['main']['App']['UpdateBreakpointRule'](arg1);
 }
 
 export function UpdateMockRule(arg1) {

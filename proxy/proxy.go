@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -74,6 +75,9 @@ type ProxyServer struct {
 	mockRules map[string]*MockRule // Mock response rules
 
 	hasDecryptedHTTPS bool // Track if we've seen decrypted HTTPS traffic
+
+	// Breakpoint interception
+	bp breakpointState
 
 	// reqBodyCache stores captured request bodies keyed by request ID.
 	// Written by the request TransparentReadCloser, read by the response one.
@@ -531,6 +535,76 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 			return r, mockResp
 		}
 
+		// Check for breakpoint rules (request phase)
+		if p.hasBreakpointRules() && p.pendingBreakpointCount() < maxPendingBreakpoints {
+			// Ensure we have the body for display
+			var bpReqBody []byte
+			if mockBodyBytes != nil {
+				bpReqBody = mockBodyBytes
+			} else if r.Body != nil && r.Body != http.NoBody {
+				bpReqBody, _ = io.ReadAll(r.Body)
+				r.Body = io.NopCloser(bytes.NewReader(bpReqBody))
+			}
+
+			if bpRule := p.matchBreakpointRule(r, "request"); bpRule != nil {
+				bpID := fmt.Sprintf("bp-%d-%d", ctx.Session, time.Now().UnixNano())
+				bp := &pendingBreakpoint{
+					Info: PendingBreakpointInfo{
+						ID:        bpID,
+						RuleID:    bpRule.ID,
+						Phase:     "request",
+						Method:    r.Method,
+						URL:       r.URL.String(),
+						Headers:   copyHeader(r.Header),
+						Body:      string(bpReqBody),
+						CreatedAt: time.Now().UnixMilli(),
+					},
+					Ch: make(chan BreakpointResolution, 1),
+				}
+
+				p.addPendingBreakpoint(bp)
+				p.notifyBreakpointHit(bp.Info)
+				p.debugLog("  -> BREAKPOINT HIT (request phase, rule: %s)", bpRule.ID)
+
+				// Block until user resolves or timeout
+				select {
+				case resolution := <-bp.Ch:
+					p.removePendingBreakpoint(bpID)
+					if resolution.Action == "drop" {
+						p.debugLog("  -> BREAKPOINT DROPPED")
+						// Mark as dropped so response handler skips breakpoint matching
+						ctx.UserData = id + "|bp-dropped"
+						return r, goproxy.NewResponse(r, goproxy.ContentTypeText, http.StatusBadGateway, "Dropped by breakpoint")
+					}
+					// Apply modifications
+					if resolution.ModifiedURL != "" {
+						if parsed, err := url.Parse(resolution.ModifiedURL); err == nil {
+							r.URL = parsed
+							r.Host = parsed.Host
+						}
+					}
+					if resolution.ModifiedMethod != "" {
+						r.Method = resolution.ModifiedMethod
+					}
+					if resolution.ModifiedHeaders != nil {
+						for k, v := range resolution.ModifiedHeaders {
+							r.Header.Set(k, v)
+						}
+					}
+					if resolution.ModifiedBody != "" {
+						r.Body = io.NopCloser(strings.NewReader(resolution.ModifiedBody))
+						r.ContentLength = int64(len(resolution.ModifiedBody))
+					}
+					p.debugLog("  -> BREAKPOINT FORWARDED")
+
+				case <-time.After(breakpointTimeout):
+					p.removePendingBreakpoint(bpID)
+					p.notifyBreakpointResolved(bpID, "timeout")
+					p.debugLog("  -> BREAKPOINT TIMEOUT (auto-forward)")
+				}
+			}
+		}
+
 		return r, nil
 	})
 
@@ -539,9 +613,14 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 		userData, _ := ctx.UserData.(string)
 		id := userData
 		mocked := false
+		bpDropped := false
 		if strings.HasSuffix(userData, "|mocked") {
 			id = strings.TrimSuffix(userData, "|mocked")
 			mocked = true
+		}
+		if strings.HasSuffix(userData, "|bp-dropped") {
+			id = strings.TrimSuffix(userData, "|bp-dropped")
+			bpDropped = true
 		}
 		if id == "" {
 			id = fmt.Sprintf("%d-%d", ctx.Session, time.Now().UnixNano())
@@ -577,7 +656,124 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 		downLimiter := p.downLimiter
 		p.mu.Unlock()
 
-		if resp.Body != nil {
+		// Check for response breakpoint (before TransparentReadCloser wrapping)
+		// Skip if request was dropped by a breakpoint (bpDropped) to avoid phantom response breakpoints
+		breakpointed := false
+		if !mocked && !bpDropped && !isWS && req != nil && req.Method != "CONNECT" &&
+			p.hasBreakpointRules() && p.pendingBreakpointCount() < maxPendingBreakpoints {
+
+			if bpRule := p.matchBreakpointRule(req, "response"); bpRule != nil {
+				breakpointed = true
+
+				// Read full response body for display
+				var respBodyBytes []byte
+				if resp.Body != nil {
+					respBodyBytes, _ = io.ReadAll(resp.Body)
+					resp.Body.Close()
+				}
+
+				// Analyze body for display
+				respBodyText := ""
+				if len(respBodyBytes) > 0 {
+					encoding := ""
+					if vv, ok := resp.Header["Content-Encoding"]; ok && len(vv) > 0 {
+						encoding = vv[0]
+					}
+					respBodyText = p.analyzeBody(respBodyBytes, encoding, resp.Header.Get("Content-Type"))
+				}
+
+				// Get cached request body
+				reqBodyText := ""
+				p.reqBodyCacheMu.Lock()
+				if cached, ok := p.reqBodyCache[id]; ok {
+					reqBodyText = cached.text
+				}
+				p.reqBodyCacheMu.Unlock()
+
+				bpID := fmt.Sprintf("bp-%d-%d", ctx.Session, time.Now().UnixNano())
+				bp := &pendingBreakpoint{
+					Info: PendingBreakpointInfo{
+						ID:          bpID,
+						RuleID:      bpRule.ID,
+						Phase:       "response",
+						Method:      req.Method,
+						URL:         req.URL.String(),
+						Headers:     copyHeader(req.Header),
+						Body:        reqBodyText,
+						StatusCode:  resp.StatusCode,
+						RespHeaders: copyHeader(resp.Header),
+						RespBody:    respBodyText,
+						CreatedAt:   time.Now().UnixMilli(),
+					},
+					Ch: make(chan BreakpointResolution, 1),
+				}
+
+				p.addPendingBreakpoint(bp)
+				p.notifyBreakpointHit(bp.Info)
+				p.debugLog("  -> BREAKPOINT HIT (response phase, rule: %s)", bpRule.ID)
+
+				// Block until user resolves or timeout
+				resolvedBody := string(respBodyBytes)
+				select {
+				case resolution := <-bp.Ch:
+					p.removePendingBreakpoint(bpID)
+					if resolution.Action == "drop" {
+						resp.StatusCode = 502
+						resp.Status = "502 Bad Gateway"
+						resolvedBody = "Dropped by breakpoint"
+					} else {
+						if resolution.ModifiedStatusCode > 0 {
+							resp.StatusCode = resolution.ModifiedStatusCode
+							resp.Status = fmt.Sprintf("%d %s", resolution.ModifiedStatusCode, http.StatusText(resolution.ModifiedStatusCode))
+						}
+						if resolution.ModifiedRespHeaders != nil {
+							for k, v := range resolution.ModifiedRespHeaders {
+								resp.Header.Set(k, v)
+							}
+						}
+						if resolution.ModifiedRespBody != "" {
+							resolvedBody = resolution.ModifiedRespBody
+						}
+					}
+					p.debugLog("  -> BREAKPOINT RESOLVED (%s)", resolution.Action)
+
+				case <-time.After(breakpointTimeout):
+					p.removePendingBreakpoint(bpID)
+					p.notifyBreakpointResolved(bpID, "timeout")
+					p.debugLog("  -> BREAKPOINT TIMEOUT (auto-forward)")
+				}
+
+				// Set the resolved body
+				resp.Body = io.NopCloser(strings.NewReader(resolvedBody))
+				resp.ContentLength = int64(len(resolvedBody))
+
+				// Send complete log via OnRequest (TransparentReadCloser won't run)
+				go func() {
+					if p.OnRequest == nil {
+						return
+					}
+					logToSend := log
+					logToSend.BodySize = int64(len(resolvedBody))
+					logToSend.RespBody = resolvedBody
+					logToSend.Mocked = mocked
+
+					// Merge cached request body
+					p.reqBodyCacheMu.Lock()
+					if cached, ok := p.reqBodyCache[id]; ok {
+						logToSend.Body = cached.text
+						if len(cached.rawBytes) > 0 {
+							logToSend.ReqBodyRaw = cached.rawBytes
+						}
+						delete(p.reqBodyCache, id)
+					}
+					p.reqBodyCacheMu.Unlock()
+
+					p.OnRequest(logToSend)
+				}()
+			}
+		}
+
+		if !breakpointed && resp.Body != nil {
 			rc := resp.Body
 
 			// 2. Universal Transparent Mirroring
@@ -787,6 +983,9 @@ func (p *ProxyServer) logRequest(id string, r *http.Request, resp *http.Response
 }
 
 func (p *ProxyServer) Stop() error {
+	// Forward all pending breakpoints first (unblock waiting goroutines)
+	p.ForwardAllBreakpoints()
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if !p.running || p.server == nil {
