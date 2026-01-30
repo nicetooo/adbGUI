@@ -1126,6 +1126,7 @@
     "pre_wait": "Wait Before",
     "post_delay": "Wait After",
     "waiting": "Waiting...",
+    "convert": "Convert",
     "converted_suffix": " (Converted)",
     "converted_desc": "Converted from recording on {{date}}",
     "branch_true": "True",
