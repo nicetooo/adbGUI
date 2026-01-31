@@ -297,6 +297,7 @@ interface ProxyState {
   resendModalOpen: boolean;
   resendLoading: boolean;
   resendResponse: any;
+  resendMode: 'compose' | 'resend';
   
   // Mock 规则相关
   mockListModalOpen: boolean;
@@ -380,7 +381,8 @@ interface ProxyState {
   setResendModalOpen: (open: boolean) => void;
   setResendLoading: (loading: boolean) => void;
   setResendResponse: (response: any) => void;
-  openResendModal: () => void;
+  setResendMode: (mode: 'compose' | 'resend') => void;
+  openResendModal: (mode?: 'compose' | 'resend') => void;
   closeResendModal: () => void;
   
   // Mock 规则
@@ -481,6 +483,7 @@ export const useProxyStore = create<ProxyState>()(
     resendModalOpen: false,
     resendLoading: false,
     resendResponse: null,
+    resendMode: 'compose' as const,
     
     // Mock 规则
     mockListModalOpen: false,
@@ -609,7 +612,9 @@ export const useProxyStore = create<ProxyState>()(
     
     setResendResponse: (response: any) => set({ resendResponse: response }),
     
-    openResendModal: () => set({ resendModalOpen: true, resendResponse: null }),
+    setResendMode: (mode: 'compose' | 'resend') => set({ resendMode: mode }),
+    
+    openResendModal: (mode: 'compose' | 'resend' = 'compose') => set({ resendModalOpen: true, resendResponse: null, resendMode: mode }),
     
     closeResendModal: () => set({ resendModalOpen: false, resendLoading: false, resendResponse: null }),
     

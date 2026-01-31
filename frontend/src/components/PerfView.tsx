@@ -352,12 +352,12 @@ function PerfView() {
     }
   }, [selectedDevice, selectedPid]);
 
-  const sample = latestSample;
-  const processes = sample?.processes || [];
+  const sample = latestSample!;
+  const processes = latestSample?.processes || [];
 
   // Alert states
-  const cpuAlert = hasData && sample.cpuUsage > cpuAlertThreshold;
-  const memAlert = hasData && sample.memUsage > memAlertThreshold;
+  const cpuAlert = hasData && latestSample != null && latestSample.cpuUsage > cpuAlertThreshold;
+  const memAlert = hasData && latestSample != null && latestSample.memUsage > memAlertThreshold;
 
   // Process table columns
   const processColumns: ColumnsType<ProcessPerfData> = [

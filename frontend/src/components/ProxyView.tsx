@@ -16,6 +16,28 @@ import { generateCode, type CodeLanguage } from '../utils/codeGenerators';
 
 const { Title, Text } = Typography;
 
+// HTTP Method → color mapping (Postman-style)
+const METHOD_COLORS: Record<string, string> = {
+    GET: '#52c41a',     // green
+    POST: '#1677ff',    // blue
+    PUT: '#fa8c16',     // orange
+    DELETE: '#f5222d',  // red
+    PATCH: '#722ed1',   // purple
+    HEAD: '#8c8c8c',    // grey
+    OPTIONS: '#8c8c8c', // grey
+};
+
+const getMethodColor = (method: string): string => METHOD_COLORS[method?.toUpperCase()] || '#8c8c8c';
+
+// Status code → Ant Design Tag color
+const getStatusColor = (code: number): string => {
+    if (code >= 500) return 'red';
+    if (code >= 400) return 'orange';
+    if (code >= 300) return 'blue';
+    if (code >= 200) return 'success';
+    return 'default';
+};
+
 interface NetworkStats {
     rxSpeed: number;
     txSpeed: number;
@@ -108,6 +130,7 @@ const ProxyView: React.FC = () => {
         resendModalOpen,
         resendLoading,
         resendResponse,
+        resendMode,
         mockListModalOpen,
         mockEditModalOpen,
         mockRules,
@@ -116,6 +139,7 @@ const ProxyView: React.FC = () => {
         setResendModalOpen,
         setResendLoading,
         setResendResponse,
+        openResendModal,
         closeResendModal,
         setMockRules,
         setEditingMockRule,
@@ -658,9 +682,21 @@ const ProxyView: React.FC = () => {
             headers: headersStr,
             body: log.previewBody || '',
         });
-        setResendResponse(null);
-        setResendModalOpen(true);
+        openResendModal('resend');
     };
+
+    // Ctrl/Cmd+Enter keyboard shortcut to send request
+    useEffect(() => {
+        if (!resendModalOpen) return;
+        const handler = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault();
+                handleResend();
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [resendModalOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Handle resend request
     const handleResend = async () => {
@@ -1699,7 +1735,7 @@ const ProxyView: React.FC = () => {
                                 value={searchText}
                                 onChange={e => setSearchText(e.target.value)}
                             />
-                            <Button size="small" type="link" onClick={() => { resendForm.setFieldsValue({ method: 'GET', url: '', headers: '', body: '' }); setResendResponse(null); setResendModalOpen(true); }} icon={<SendOutlined />} style={{ padding: 0 }}>{t('proxy.compose_request')}</Button>
+                            <Button size="small" type="link" onClick={() => { resendForm.setFieldsValue({ method: 'GET', url: '', headers: '', body: '' }); openResendModal('compose'); }} icon={<SendOutlined />} style={{ padding: 0 }}>{t('proxy.compose_request')}</Button>
                             <Button size="small" type="link" onClick={handleExportHAR} icon={<DownloadOutlined />} style={{ padding: 0 }} disabled={logs.length === 0}>{t('proxy.export_har')}</Button>
                             <Button size="small" type="link" onClick={() => { clearLogs(); clearWSMessages(); setDiffBaseLog(null); }} icon={<DeleteOutlined />} style={{ padding: 0 }}>{t('proxy.clear_logs')}</Button>
                         </div>
@@ -1790,11 +1826,11 @@ const ProxyView: React.FC = () => {
                                 ) : record.isWs ? (
                                     <Tag color="cyan" style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>WS</Tag>
                                 ) : (
-                                    <Tag color={record.statusCode && record.statusCode >= 400 ? 'red' : record.method === 'GET' ? 'green' : record.method === 'POST' ? 'blue' : 'default'} style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>{record.method}</Tag>
+                                    <Tag style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center', color: getMethodColor(record.method), borderColor: getMethodColor(record.method), background: `${getMethodColor(record.method)}10` }}>{record.method}</Tag>
                                 )}
                             </div>
                             <div>
-                                <Tag color={record.statusCode && record.statusCode >= 400 ? 'red' : record.statusCode && record.statusCode >= 300 ? 'orange' : 'success'} style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>{record.statusCode || '-'}</Tag>
+                                <Tag color={record.statusCode ? getStatusColor(record.statusCode) : 'default'} style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>{record.statusCode || '-'}</Tag>
                                 {record.mocked && <Tag color="magenta" style={{ marginLeft: 2, transform: 'scale(0.7)', transformOrigin: 'left center' }}>M</Tag>}
                             </div>
                             <div title={record.url} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: token.colorLink }}>
@@ -1884,7 +1920,7 @@ const ProxyView: React.FC = () => {
                     >
                         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
                             <div style={{ wordBreak: 'break-all', fontFamily: 'monospace', background: token.colorFillTertiary, padding: 8, borderRadius: 4, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                                <Tag color={selectedLog.method === 'GET' ? 'green' : 'blue'} style={{ flexShrink: 0 }}>{selectedLog.method}</Tag>
+                                <Tag style={{ flexShrink: 0, color: getMethodColor(selectedLog.method), borderColor: getMethodColor(selectedLog.method), background: `${getMethodColor(selectedLog.method)}10` }}>{selectedLog.method}</Tag>
                                 <Text copyable={{ text: selectedLog.url }} style={{ fontFamily: 'monospace', fontSize: '13px', flex: 1, wordBreak: 'break-all' }}>{selectedLog.url}</Text>
                             </div>
 
@@ -2190,46 +2226,144 @@ const ProxyView: React.FC = () => {
 
             {/* Resend Request Modal */}
             <Modal
-                title={t('proxy.resend_request')}
+                title={<Space size={8}>
+                    <SendOutlined />
+                    {resendMode === 'compose' ? t('proxy.compose_request') : t('proxy.resend_request')}
+                    <Text type="secondary" style={{ fontSize: 11, fontWeight: 400 }}>⌘/Ctrl+Enter {t('proxy.to_send')}</Text>
+                </Space>}
                 open={resendModalOpen}
-                onCancel={() => setResendModalOpen(false)}
-                width="50%"
-                styles={{ body: { height: '70vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}
+                onCancel={closeResendModal}
+                width={720}
+                style={{ top: 40 }}
+                styles={{ body: { maxHeight: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px 0 0' } }}
                 footer={[
-                    <Button key="cancel" onClick={() => setResendModalOpen(false)}>{t('common.cancel')}</Button>,
+                    <Button key="cancel" onClick={closeResendModal}>{t('common.cancel')}</Button>,
                     <Button key="send" type="primary" loading={resendLoading} onClick={handleResend} icon={<SendOutlined />}>
-                        {t('proxy.resend')}
+                        {t('proxy.send')}
                     </Button>
                 ]}
             >
-                <Form form={resendForm} layout="vertical" style={{ marginTop: 16, flexShrink: 0 }}>
+                {/* Request Form */}
+                <Form form={resendForm} layout="vertical" style={{ flexShrink: 0 }}>
+                    {/* Method + URL row */}
                     <Space.Compact style={{ width: '100%' }}>
                         <Form.Item name="method" noStyle>
-                            <Input style={{ width: 100 }} />
+                            <Select
+                                style={{ width: 110 }}
+                                options={['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'].map(m => ({
+                                    label: <span style={{ color: getMethodColor(m), fontWeight: 600 }}>{m}</span>,
+                                    value: m,
+                                }))}
+                            />
                         </Form.Item>
-                        <Form.Item name="url" noStyle rules={[{ required: true }]}>
-                            <Input style={{ flex: 1 }} placeholder="URL" />
+                        <Form.Item name="url" noStyle rules={[{ required: true, message: t('proxy.url_required') }]}>
+                            <Input style={{ flex: 1 }} placeholder="https://api.example.com/path" autoComplete="off" />
                         </Form.Item>
                     </Space.Compact>
-                    <Form.Item name="headers" label={t('proxy.headers')} style={{ marginTop: 16 }}>
-                        <Input.TextArea rows={3} placeholder="Header-Name: value" style={{ fontFamily: 'monospace', fontSize: 12 }} />
-                    </Form.Item>
-                    <Form.Item name="body" label={t('proxy.body')}>
-                        <JsonEditor height={120} placeholder="Request body" />
-                    </Form.Item>
+
+                    {/* Request Tabs: Headers / Body */}
+                    <Tabs
+                        size="small"
+                        style={{ marginTop: 8 }}
+                        destroyOnHidden={false}
+                        items={[
+                            {
+                                key: 'headers',
+                                label: t('proxy.headers'),
+                                forceRender: true,
+                                children: (
+                                    <Form.Item name="headers" noStyle>
+                                        <Input.TextArea
+                                            rows={3}
+                                            placeholder={"Content-Type: application/json\nAuthorization: Bearer token"}
+                                            style={{ fontFamily: '"SF Mono", Menlo, monospace', fontSize: 12 }}
+                                            autoSize={{ minRows: 2, maxRows: 6 }}
+                                        />
+                                    </Form.Item>
+                                ),
+                            },
+                            {
+                                key: 'body',
+                                label: t('proxy.body'),
+                                forceRender: true,
+                                children: (
+                                    <Form.Item name="body" noStyle>
+                                        <JsonEditor autoHeight minHeight={120} maxHeight={280} placeholder='{"key": "value"}' />
+                                    </Form.Item>
+                                ),
+                            },
+                        ]}
+                    />
                 </Form>
 
+                {/* Response area */}
                 {resendResponse && (
-                    <div style={{ flex: 1, marginTop: 16, padding: 12, background: token.colorFillAlter, borderRadius: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
-                        <Space style={{ marginBottom: 8, flexShrink: 0 }}>
-                            <Tag color={resendResponse.statusCode >= 400 ? 'error' : 'success'}>{resendResponse.statusCode}</Tag>
-                            {resendResponse.mocked && <Tag color="magenta">Mocked</Tag>}
-                            <Text type="secondary">{resendResponse.duration}ms</Text>
-                            <Text type="secondary">{formatBytes(resendResponse.bodySize)}</Text>
-                            {resendResponse.contentType && <Text type="secondary">{resendResponse.contentType.split(';')[0]}</Text>}
-                        </Space>
-                        <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
-                            <JsonViewer data={formatBody(resendResponse.body, resendResponse.contentType)} fontSize={12} />
+                    <div style={{ flex: 1, marginTop: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 120, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 8 }}>
+                        {/* Response status bar */}
+                        <div style={{ padding: '6px 12px', borderBottom: `1px solid ${token.colorBorderSecondary}`, background: token.colorFillAlter, borderRadius: '8px 8px 0 0', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Space size={8} wrap>
+                                <Tag color={getStatusColor(resendResponse.statusCode)} style={{ margin: 0 }}>
+                                    {resendResponse.statusCode} {resendResponse.status?.replace(/^\d+\s*/, '')}
+                                </Tag>
+                                {resendResponse.mocked && <Tag color="magenta" style={{ margin: 0 }}>Mocked</Tag>}
+                            </Space>
+                            <Space size={12}>
+                                <Text type="secondary" style={{ fontSize: 12 }}>{resendResponse.duration}ms</Text>
+                                <Text type="secondary" style={{ fontSize: 12 }}>{formatBytes(resendResponse.bodySize)}</Text>
+                                {resendResponse.contentType && <Text type="secondary" style={{ fontSize: 12 }}>{resendResponse.contentType.split(';')[0]}</Text>}
+                            </Space>
+                        </div>
+
+                        {/* Response Tabs: Headers / Body (same order as request) */}
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+                            <Tabs
+                                size="small"
+                                style={{ flex: 1, padding: '0 12px' }}
+                                items={[
+                                    {
+                                        key: 'headers',
+                                        label: `${t('proxy.headers')}${resendResponse.headers ? ` (${Object.keys(resendResponse.headers).length})` : ''}`,
+                                        children: (
+                                            <div style={{ overflow: 'auto', maxHeight: 'calc(100vh - 460px)' }}>
+                                                {resendResponse.headers && Object.keys(resendResponse.headers).length > 0 ? (
+                                                    <table style={{ width: '100%', fontSize: 12, fontFamily: '"SF Mono", Menlo, monospace', borderCollapse: 'collapse' }}>
+                                                        <tbody>
+                                                            {Object.entries(resendResponse.headers as Record<string, string>).map(([key, val]) => (
+                                                                <tr key={key} style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
+                                                                    <td style={{ padding: '4px 8px 4px 0', fontWeight: 600, whiteSpace: 'nowrap', verticalAlign: 'top', color: token.colorTextSecondary }}>{key}</td>
+                                                                    <td style={{ padding: '4px 0', wordBreak: 'break-all' }}>{val}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                ) : (
+                                                    <Text type="secondary">{t('proxy.no_headers')}</Text>
+                                                )}
+                                            </div>
+                                        ),
+                                    },
+                                    {
+                                        key: 'body',
+                                        label: t('proxy.body'),
+                                        children: (
+                                            <div style={{ overflow: 'auto', maxHeight: 'calc(100vh - 460px)' }}>
+                                                {resendResponse.contentType?.includes('json') || (resendResponse.body?.trim().startsWith('{') || resendResponse.body?.trim().startsWith('[')) ? (
+                                                    <JsonEditor
+                                                        value={formatBody(resendResponse.body, resendResponse.contentType)}
+                                                        readOnly
+                                                        height={Math.min(Math.max((resendResponse.body?.split('\n').length || 1) * 19 + 16, 80), 360)}
+                                                        language="json"
+                                                    />
+                                                ) : (
+                                                    <pre style={{ margin: 0, padding: 8, fontSize: 12, fontFamily: '"SF Mono", Menlo, monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all', background: token.colorFillQuaternary, borderRadius: 6, minHeight: 60 }}>
+                                                        {resendResponse.body || t('proxy.empty_body')}
+                                                    </pre>
+                                                )}
+                                            </div>
+                                        ),
+                                    },
+                                ]}
+                            />
                         </div>
                     </div>
                 )}
@@ -3357,7 +3491,7 @@ const ProxyView: React.FC = () => {
                                 <div style={{ background: token.colorFillTertiary, padding: '8px 12px', borderRadius: 6 }}>
                                     <Text type="secondary" style={{ fontSize: 11 }}>{t('proxy.diff_request_a')}</Text>
                                     <div style={{ fontFamily: 'monospace', fontSize: 12, marginTop: 4 }}>
-                                        <Tag color={diffBaseLog.method === 'GET' ? 'green' : 'blue'} style={{ fontSize: 11 }}>{diffBaseLog.method}</Tag>
+                                        <Tag style={{ fontSize: 11, color: getMethodColor(diffBaseLog.method), borderColor: getMethodColor(diffBaseLog.method), background: `${getMethodColor(diffBaseLog.method)}10` }}>{diffBaseLog.method}</Tag>
                                         {diffBaseLog.statusCode && <Tag style={{ fontSize: 11 }}>{diffBaseLog.statusCode}</Tag>}
                                         <div style={{ marginTop: 4, wordBreak: 'break-all', color: token.colorTextSecondary }}>{diffBaseLog.url}</div>
                                     </div>
@@ -3365,7 +3499,7 @@ const ProxyView: React.FC = () => {
                                 <div style={{ background: token.colorFillTertiary, padding: '8px 12px', borderRadius: 6 }}>
                                     <Text type="secondary" style={{ fontSize: 11 }}>{t('proxy.diff_request_b')}</Text>
                                     <div style={{ fontFamily: 'monospace', fontSize: 12, marginTop: 4 }}>
-                                        <Tag color={diffTargetLog.method === 'GET' ? 'green' : 'blue'} style={{ fontSize: 11 }}>{diffTargetLog.method}</Tag>
+                                        <Tag style={{ fontSize: 11, color: getMethodColor(diffTargetLog.method), borderColor: getMethodColor(diffTargetLog.method), background: `${getMethodColor(diffTargetLog.method)}10` }}>{diffTargetLog.method}</Tag>
                                         {diffTargetLog.statusCode && <Tag style={{ fontSize: 11 }}>{diffTargetLog.statusCode}</Tag>}
                                         <div style={{ marginTop: 4, wordBreak: 'break-all', color: token.colorTextSecondary }}>{diffTargetLog.url}</div>
                                     </div>

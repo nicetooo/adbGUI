@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef } from 'react';
+import { memo, useCallback, useRef, useState, useEffect } from 'react';
 import Editor, { type OnMount, type OnChange } from '@monaco-editor/react';
 import { Spin } from 'antd';
 import { useTheme } from '../ThemeContext';
@@ -8,7 +8,7 @@ interface JsonEditorProps {
   value?: string;
   /** Change callback - receives the raw string */
   onChange?: (value: string) => void;
-  /** Height in px or CSS string (default: 200) */
+  /** Height in px or CSS string (default: 200). Ignored when autoHeight is true. */
   height?: number | string;
   /** Whether the editor is read-only (default: false) */
   readOnly?: boolean;
@@ -24,7 +24,16 @@ interface JsonEditorProps {
   lineNumbers?: boolean;
   /** Whether to auto-format on mount (default: true) */
   autoFormat?: boolean;
+  /** Auto-adjust height based on content (default: false) */
+  autoHeight?: boolean;
+  /** Minimum height in px when autoHeight is enabled (default: 120) */
+  minHeight?: number;
+  /** Maximum height in px when autoHeight is enabled (default: 360) */
+  maxHeight?: number;
 }
+
+const LINE_HEIGHT = 19; // Monaco default line height for fontSize 12
+const PADDING = 16; // top + bottom padding (8 + 8)
 
 /**
  * Unified JSON/Code editor component wrapping Monaco Editor.
@@ -34,6 +43,7 @@ interface JsonEditorProps {
  * Usage:
  *   <JsonEditor value={jsonStr} onChange={setJsonStr} height={200} />
  *   <JsonEditor value={code} readOnly language="plaintext" height={300} />
+ *   <JsonEditor value={jsonStr} onChange={setJsonStr} autoHeight minHeight={120} maxHeight={400} />
  */
 const JsonEditor = memo(({
   value = '',
@@ -46,9 +56,30 @@ const JsonEditor = memo(({
   minimap = false,
   lineNumbers = false,
   autoFormat = true,
+  autoHeight = false,
+  minHeight = 120,
+  maxHeight = 360,
 }: JsonEditorProps) => {
   const { isDark } = useTheme();
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
+  const [computedHeight, setComputedHeight] = useState<number>(
+    autoHeight ? Math.max(minHeight, PADDING + LINE_HEIGHT * 3) : 0
+  );
+
+  // Compute height from content line count
+  const updateHeight = useCallback(() => {
+    if (!autoHeight || !editorRef.current) return;
+    const model = editorRef.current.getModel();
+    if (!model) return;
+    const lineCount = model.getLineCount();
+    const contentHeight = lineCount * LINE_HEIGHT + PADDING;
+    setComputedHeight(Math.min(Math.max(contentHeight, minHeight), maxHeight));
+  }, [autoHeight, minHeight, maxHeight]);
+
+  // Re-compute when value prop changes (covers external updates)
+  useEffect(() => {
+    if (autoHeight) updateHeight();
+  }, [value, autoHeight, updateHeight]);
 
   const handleMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
@@ -73,11 +104,19 @@ const JsonEditor = memo(({
         editor.getAction('editor.action.formatDocument')?.run();
       }, 100);
     }
-  }, [autoFormat, value, language]);
+
+    // Listen for content changes to update height
+    if (autoHeight) {
+      updateHeight();
+      editor.onDidChangeModelContent(() => updateHeight());
+    }
+  }, [autoFormat, value, language, autoHeight, updateHeight]);
 
   const handleChange: OnChange = useCallback((val) => {
     onChange?.(val || '');
   }, [onChange]);
+
+  const effectiveHeight = autoHeight ? computedHeight : height;
 
   return (
     <div
@@ -86,10 +125,11 @@ const JsonEditor = memo(({
         borderRadius: 6,
         overflow: 'hidden',
         position: 'relative',
+        transition: autoHeight ? 'height 0.15s ease' : undefined,
       }}
     >
       <Editor
-        height={height}
+        height={effectiveHeight}
         language={language}
         theme={isDark ? 'vs-dark' : 'light'}
         value={value}

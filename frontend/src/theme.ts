@@ -163,7 +163,6 @@ export const getTheme = (mode: 'light' | 'dark'): ThemeConfig => {
       Message: {
         borderRadiusLG: 8,
         contentPadding: '8px 12px',
-        contentBg: isDark ? 'rgba(60, 60, 60, 0.9)' : 'rgba(40, 40, 40, 0.85)',
       },
       Notification: {
         width: 360,
