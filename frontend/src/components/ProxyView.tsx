@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useMemo } from 'react';
-import { Card, Button, InputNumber, Space, Typography, Tag, Divider, Switch, Tooltip, Radio, Input, Tabs, theme, Form, Table, Popconfirm, Popover, Spin, App, Modal, Select, AutoComplete } from 'antd';
+import { Card, Button, InputNumber, Space, Typography, Tag, Divider, Switch, Tooltip, Radio, Input, Tabs, theme, Form, Table, Popconfirm, Popover, Spin, App, Modal, Select, AutoComplete, Dropdown } from 'antd';
 import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, BlockOutlined, SendOutlined, CloseOutlined, PlusOutlined, EditOutlined, CodeOutlined, CloudDownloadOutlined, FolderOpenOutlined, LoadingOutlined, MinusCircleOutlined, BugOutlined, FastForwardOutlined, StopOutlined, SwapOutlined } from '@ant-design/icons';
 import VirtualList from './VirtualList';
 import DeviceSelector from './DeviceSelector';
@@ -12,6 +12,7 @@ import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, Start
 // @ts-ignore
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { useTranslation } from 'react-i18next';
+import { generateCode, type CodeLanguage } from '../utils/codeGenerators';
 
 const { Title, Text } = Typography;
 
@@ -625,42 +626,22 @@ const ProxyView: React.FC = () => {
         return body;
     };
 
-    // Generate cURL command from request
-    const generateCurl = (log: StoreRequestLog): string => {
-        const parts: string[] = ['curl'];
-
-        // Method
-        if (log.method !== 'GET') {
-            parts.push(`-X ${log.method}`);
-        }
-
-        // Headers
-        if (log.headers) {
-            for (const [key, values] of Object.entries(log.headers)) {
-                // Skip pseudo-headers and host (included in URL)
-                if (key.startsWith(':') || key.toLowerCase() === 'host') continue;
-                for (const value of values) {
-                    parts.push(`-H '${key}: ${value.replace(/'/g, "'\\''")}'`);
-                }
-            }
-        }
-
-        // Body
-        if (log.previewBody && ['POST', 'PUT', 'PATCH'].includes(log.method)) {
-            const escaped = log.previewBody.replace(/'/g, "'\\''");
-            parts.push(`-d '${escaped}'`);
-        }
-
-        // URL (quoted)
-        parts.push(`'${log.url}'`);
-
-        return parts.join(' \\\n  ');
-    };
-
-    const handleCopyCurl = (log: StoreRequestLog) => {
-        const curl = generateCurl(log);
-        navigator.clipboard.writeText(curl).then(() => {
-            message.success(t('proxy.copied_curl'));
+    // Generate code in selected language and copy to clipboard
+    const handleCopyCode = (log: StoreRequestLog, lang: CodeLanguage) => {
+        const code = generateCode(lang, {
+            method: log.method,
+            url: log.url,
+            headers: log.headers,
+            body: log.previewBody,
+        });
+        const langLabels: Record<CodeLanguage, string> = {
+            curl: 'cURL',
+            fetch: 'JavaScript',
+            python: 'Python',
+            go: 'Go',
+        };
+        navigator.clipboard.writeText(code).then(() => {
+            message.success(t('proxy.copied_code', { lang: langLabels[lang] }));
         }).catch(() => {
             message.error(t('proxy.copy_failed'));
         });
@@ -1838,14 +1819,25 @@ const ProxyView: React.FC = () => {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <Text strong>{t('proxy.details')}</Text>
                                 <Space size="small">
-                                    <Button
-                                        type="text"
-                                        size="small"
-                                        icon={<CopyOutlined />}
-                                        onClick={() => handleCopyCurl(selectedLog)}
+                                    <Dropdown
+                                        menu={{
+                                            items: [
+                                                { key: 'curl', label: 'cURL' },
+                                                { key: 'fetch', label: 'JavaScript (Fetch)' },
+                                                { key: 'python', label: 'Python (requests)' },
+                                                { key: 'go', label: 'Go (net/http)' },
+                                            ],
+                                            onClick: ({ key }) => handleCopyCode(selectedLog, key as CodeLanguage),
+                                        }}
                                     >
-                                        cURL
-                                    </Button>
+                                        <Button
+                                            type="text"
+                                            size="small"
+                                            icon={<CodeOutlined />}
+                                        >
+                                            {t('proxy.copy_code')}
+                                        </Button>
+                                    </Dropdown>
                                     <Button
                                         type="text"
                                         size="small"
@@ -2097,15 +2089,26 @@ const ProxyView: React.FC = () => {
                                                                         <Tag style={{ fontSize: 10, lineHeight: '18px', padding: '0 4px', flexShrink: 0 }}>
                                                                             {msg.typeName}
                                                                         </Tag>
+                                                                        {msg.isProtobuf && (
+                                                                            <Tag color="purple" style={{ fontSize: 10, lineHeight: '18px', padding: '0 4px', flexShrink: 0 }}>
+                                                                                Protobuf
+                                                                            </Tag>
+                                                                        )}
                                                                         <Text type="secondary" style={{ fontSize: 11, flexShrink: 0 }}>
                                                                             {new Date(msg.timestamp).toLocaleTimeString()}
                                                                         </Text>
                                                                         <Text style={{ fontSize: 11, color: token.colorTextSecondary, flexShrink: 0 }}>
                                                                             {msg.payloadSize}B
                                                                         </Text>
-                                                                        <div style={{ flex: 1, overflow: 'hidden', fontFamily: 'monospace', fontSize: 11, whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                                                                            {msg.payload}
-                                                                        </div>
+                                                                        {msg.isProtobuf ? (
+                                                                            <div style={{ flex: 1, overflow: 'hidden', fontFamily: 'monospace', fontSize: 11, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                                                                {(() => { try { return JSON.stringify(JSON.parse(msg.payload), null, 2); } catch { return msg.payload; } })()}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div style={{ flex: 1, overflow: 'hidden', fontFamily: 'monospace', fontSize: 11, whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                                                                                {msg.payload}
+                                                                            </div>
+                                                                        )}
                                                                     </div>
                                                                 ))}
                                                             </div>

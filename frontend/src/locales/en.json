@@ -711,6 +711,8 @@
     "har_exported": "Exported {{count}} requests as HAR",
     "no_logs_to_export": "No requests to export",
     "copied_curl": "cURL command copied",
+    "copy_code": "Code",
+    "copied_code": "{{lang}} code copied",
     "copy_failed": "Failed to copy",
     "resend": "Resend",
     "resend_request": "Resend Request",

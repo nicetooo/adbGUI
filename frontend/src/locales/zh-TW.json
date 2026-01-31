@@ -711,6 +711,8 @@
     "har_exported": "已匯出 {{count}} 條請求為 HAR 格式",
     "no_logs_to_export": "沒有可匯出的請求",
     "copied_curl": "已複製 cURL 命令",
+    "copy_code": "程式碼",
+    "copied_code": "已複製 {{lang}} 程式碼",
     "copy_failed": "複製失敗",
     "resend": "重新發送",
     "resend_request": "重新發送請求",

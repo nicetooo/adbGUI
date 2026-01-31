@@ -33,6 +33,7 @@ export interface WSMessage {
   payload: string;
   payloadSize: number;
   isBinary: boolean;
+  isProtobuf?: boolean;
   timestamp: number;
 }
 

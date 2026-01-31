@@ -30,6 +30,8 @@ type WSMessage struct {
 	PayloadSize  int    `json:"payloadSize"`
 	IsBinary     bool   `json:"isBinary"`
 	Timestamp    int64  `json:"timestamp"`
+	URL          string `json:"url,omitempty"` // WebSocket connection URL (from upgrade request)
+	RawPayload   []byte `json:"-"`             // Raw binary payload for protobuf decoding (not serialized)
 }
 
 // wsFrameParser parses WebSocket frames from a byte stream
@@ -37,6 +39,7 @@ type wsFrameParser struct {
 	buf          []byte
 	connectionID string
 	direction    string
+	url          string // WebSocket connection URL
 	onMessage    func(msg WSMessage)
 
 	// For fragmented messages
@@ -44,10 +47,11 @@ type wsFrameParser struct {
 	fragmentType WSMessageType
 }
 
-func newWSFrameParser(connID, direction string, onMessage func(WSMessage)) *wsFrameParser {
+func newWSFrameParser(connID, direction, url string, onMessage func(WSMessage)) *wsFrameParser {
 	return &wsFrameParser{
 		connectionID: connID,
 		direction:    direction,
+		url:          url,
 		onMessage:    onMessage,
 	}
 }
@@ -178,7 +182,7 @@ func (p *wsFrameParser) emitMessage(msgType WSMessageType, payload []byte) {
 		}
 	}
 
-	p.onMessage(WSMessage{
+	msg := WSMessage{
 		ConnectionID: p.connectionID,
 		Direction:    p.direction,
 		Type:         int(msgType),
@@ -187,7 +191,15 @@ func (p *wsFrameParser) emitMessage(msgType WSMessageType, payload []byte) {
 		PayloadSize:  len(payload),
 		IsBinary:     isBinary,
 		Timestamp:    time.Now().UnixMilli(),
-	})
+		URL:          p.url,
+	}
+	// Preserve raw bytes for binary frames (needed for protobuf decoding)
+	if isBinary && len(payload) > 0 {
+		raw := make([]byte, len(payload))
+		copy(raw, payload)
+		msg.RawPayload = raw
+	}
+	p.onMessage(msg)
 }
 
 // WSInterceptor wraps a ReadWriteCloser to capture WebSocket frames.
@@ -200,11 +212,12 @@ type WSInterceptor struct {
 }
 
 // NewWSInterceptor wraps a server connection to capture WS frames in both directions.
-func NewWSInterceptor(inner io.ReadWriteCloser, connID string, onMessage func(WSMessage)) *WSInterceptor {
+// url is the WebSocket connection URL (from the HTTP upgrade request).
+func NewWSInterceptor(inner io.ReadWriteCloser, connID, url string, onMessage func(WSMessage)) *WSInterceptor {
 	return &WSInterceptor{
 		inner:       inner,
-		readParser:  newWSFrameParser(connID, "receive", onMessage),
-		writeParser: newWSFrameParser(connID, "send", onMessage),
+		readParser:  newWSFrameParser(connID, "receive", url, onMessage),
+		writeParser: newWSFrameParser(connID, "send", url, onMessage),
 	}
 }
 

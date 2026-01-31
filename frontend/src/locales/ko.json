@@ -711,6 +711,8 @@
     "har_exported": "{{count}}개 요청을 HAR 형식으로 내보냈습니다",
     "no_logs_to_export": "내보낼 요청이 없습니다",
     "copied_curl": "cURL 명령이 복사되었습니다",
+    "copy_code": "코드",
+    "copied_code": "{{lang}} 코드가 복사되었습니다",
     "copy_failed": "복사 실패",
     "resend": "재전송",
     "resend_request": "요청 재전송",

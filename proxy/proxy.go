@@ -1131,9 +1131,13 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 		// Intercept WebSocket frames for inspection
 		if isWS && resp.Body != nil && p.OnWSMessage != nil {
 			if rwc, ok := resp.Body.(io.ReadWriteCloser); ok {
-				interceptor := NewWSInterceptor(rwc, id, p.OnWSMessage)
+				wsURL := ""
+				if req != nil && req.URL != nil {
+					wsURL = req.URL.String()
+				}
+				interceptor := NewWSInterceptor(rwc, id, wsURL, p.OnWSMessage)
 				resp.Body = interceptor
-				p.debugLog("  -> WS frame interceptor installed for %s", id)
+				p.debugLog("  -> WS frame interceptor installed for %s (url=%s)", id, wsURL)
 			}
 		}
 

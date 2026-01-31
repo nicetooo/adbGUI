@@ -232,6 +232,22 @@ func (a *App) StartProxy(port int) (string, error) {
 		deviceId := proxyDeviceId
 		proxyDeviceMu.RUnlock()
 
+		// Try protobuf decoding for binary WS frames
+		payload := msg.Payload
+		isProtobuf := false
+		if msg.IsBinary && len(msg.RawPayload) > 0 && msg.URL != "" {
+			// Map WS direction to proto direction: "send" → "request", "receive" → "response"
+			protoDirection := "response"
+			if msg.Direction == "send" {
+				protoDirection = "request"
+			}
+			decoded := getProtoDecoder().DecodeBody(msg.RawPayload, "", msg.URL, protoDirection)
+			if decoded != "" {
+				payload = decoded
+				isProtobuf = true
+			}
+		}
+
 		// Emit WS message to frontend via Wails event
 		if a.ctx != nil {
 			wailsRuntime.EventsEmit(a.ctx, "proxy-ws-message", map[string]interface{}{
@@ -239,9 +255,10 @@ func (a *App) StartProxy(port int) (string, error) {
 				"direction":    msg.Direction,
 				"type":         msg.Type,
 				"typeName":     msg.TypeName,
-				"payload":      msg.Payload,
+				"payload":      payload,
 				"payloadSize":  msg.PayloadSize,
 				"isBinary":     msg.IsBinary,
+				"isProtobuf":   isProtobuf,
 				"timestamp":    msg.Timestamp,
 			})
 		}
@@ -252,9 +269,10 @@ func (a *App) StartProxy(port int) (string, error) {
 			"direction":    msg.Direction,
 			"type":         msg.Type,
 			"typeName":     msg.TypeName,
-			"payload":      msg.Payload,
+			"payload":      payload,
 			"payloadSize":  msg.PayloadSize,
 			"isBinary":     msg.IsBinary,
+			"isProtobuf":   isProtobuf,
 		}
 		dataBytes, _ := json.Marshal(detail)
 		a.eventPipeline.Emit(UnifiedEvent{

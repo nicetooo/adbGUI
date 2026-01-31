@@ -711,6 +711,8 @@
     "har_exported": "{{count}} 件のリクエストをHAR形式でエクスポートしました",
     "no_logs_to_export": "エクスポートするリクエストがありません",
     "copied_curl": "cURL コマンドをコピーしました",
+    "copy_code": "コード",
+    "copied_code": "{{lang}} コードをコピーしました",
     "copy_failed": "コピーに失敗しました",
     "resend": "再送信",
     "resend_request": "リクエストを再送信",

@@ -59,7 +59,7 @@ func buildWSFrame(fin bool, opcode byte, masked bool, payload []byte) []byte {
 
 func TestWSFrameParser_TextFrame(t *testing.T) {
 	var received []WSMessage
-	parser := newWSFrameParser("conn1", "receive", func(msg WSMessage) {
+	parser := newWSFrameParser("conn1", "receive", "", func(msg WSMessage) {
 		received = append(received, msg)
 	})
 
@@ -88,7 +88,7 @@ func TestWSFrameParser_TextFrame(t *testing.T) {
 
 func TestWSFrameParser_BinaryFrame(t *testing.T) {
 	var received []WSMessage
-	parser := newWSFrameParser("conn1", "receive", func(msg WSMessage) {
+	parser := newWSFrameParser("conn1", "receive", "", func(msg WSMessage) {
 		received = append(received, msg)
 	})
 
@@ -111,7 +111,7 @@ func TestWSFrameParser_BinaryFrame(t *testing.T) {
 
 func TestWSFrameParser_MaskedFrame(t *testing.T) {
 	var received []WSMessage
-	parser := newWSFrameParser("conn1", "send", func(msg WSMessage) {
+	parser := newWSFrameParser("conn1", "send", "", func(msg WSMessage) {
 		received = append(received, msg)
 	})
 
@@ -129,7 +129,7 @@ func TestWSFrameParser_MaskedFrame(t *testing.T) {
 
 func TestWSFrameParser_ControlFrames(t *testing.T) {
 	var received []WSMessage
-	parser := newWSFrameParser("conn1", "receive", func(msg WSMessage) {
+	parser := newWSFrameParser("conn1", "receive", "", func(msg WSMessage) {
 		received = append(received, msg)
 	})
 
@@ -156,7 +156,7 @@ func TestWSFrameParser_ControlFrames(t *testing.T) {
 
 func TestWSFrameParser_FragmentedMessage(t *testing.T) {
 	var received []WSMessage
-	parser := newWSFrameParser("conn1", "receive", func(msg WSMessage) {
+	parser := newWSFrameParser("conn1", "receive", "", func(msg WSMessage) {
 		received = append(received, msg)
 	})
 
@@ -181,7 +181,7 @@ func TestWSFrameParser_FragmentedMessage(t *testing.T) {
 
 func TestWSFrameParser_MultipleFrames(t *testing.T) {
 	var received []WSMessage
-	parser := newWSFrameParser("conn1", "receive", func(msg WSMessage) {
+	parser := newWSFrameParser("conn1", "receive", "", func(msg WSMessage) {
 		received = append(received, msg)
 	})
 
@@ -203,7 +203,7 @@ func TestWSFrameParser_MultipleFrames(t *testing.T) {
 
 func TestWSFrameParser_PartialFrame(t *testing.T) {
 	var received []WSMessage
-	parser := newWSFrameParser("conn1", "receive", func(msg WSMessage) {
+	parser := newWSFrameParser("conn1", "receive", "", func(msg WSMessage) {
 		received = append(received, msg)
 	})
 
@@ -228,7 +228,7 @@ func TestWSFrameParser_PartialFrame(t *testing.T) {
 
 func TestWSFrameParser_ExtendedPayloadLength16(t *testing.T) {
 	var received []WSMessage
-	parser := newWSFrameParser("conn1", "receive", func(msg WSMessage) {
+	parser := newWSFrameParser("conn1", "receive", "", func(msg WSMessage) {
 		received = append(received, msg)
 	})
 
@@ -250,14 +250,14 @@ func TestWSFrameParser_ExtendedPayloadLength16(t *testing.T) {
 
 func TestWSFrameParser_NilCallback(t *testing.T) {
 	// Should not panic with nil callback
-	parser := newWSFrameParser("conn1", "receive", nil)
+	parser := newWSFrameParser("conn1", "receive", "", nil)
 	frame := buildWSFrame(true, 1, false, []byte("test"))
 	parser.feed(frame) // should not panic
 }
 
 func TestWSFrameParser_OversizedFrame(t *testing.T) {
 	var received []WSMessage
-	parser := newWSFrameParser("conn1", "receive", func(msg WSMessage) {
+	parser := newWSFrameParser("conn1", "receive", "", func(msg WSMessage) {
 		received = append(received, msg)
 	})
 
@@ -270,6 +270,64 @@ func TestWSFrameParser_OversizedFrame(t *testing.T) {
 
 	if len(received) != 0 {
 		t.Error("Oversized frame should be rejected")
+	}
+}
+
+// ==================== New Protobuf-related tests ====================
+
+func TestWSFrameParser_BinaryFramePreservesRawPayload(t *testing.T) {
+	var received []WSMessage
+	parser := newWSFrameParser("conn1", "receive", "", func(msg WSMessage) {
+		received = append(received, msg)
+	})
+
+	payload := []byte{0x08, 0x96, 0x01, 0x12, 0x05, 0x68, 0x65, 0x6c, 0x6c, 0x6f}
+	frame := buildWSFrame(true, 2, false, payload)
+	parser.feed(frame)
+
+	if len(received) != 1 {
+		t.Fatalf("Expected 1 message, got %d", len(received))
+	}
+	if received[0].RawPayload == nil {
+		t.Fatal("Binary frame should have RawPayload set")
+	}
+	if !bytes.Equal(received[0].RawPayload, payload) {
+		t.Errorf("RawPayload mismatch: got %v, want %v", received[0].RawPayload, payload)
+	}
+}
+
+func TestWSFrameParser_TextFrameNoRawPayload(t *testing.T) {
+	var received []WSMessage
+	parser := newWSFrameParser("conn1", "receive", "", func(msg WSMessage) {
+		received = append(received, msg)
+	})
+
+	frame := buildWSFrame(true, 1, false, []byte("text message"))
+	parser.feed(frame)
+
+	if len(received) != 1 {
+		t.Fatalf("Expected 1 message, got %d", len(received))
+	}
+	if received[0].RawPayload != nil {
+		t.Errorf("Text frame should not have RawPayload, got %v", received[0].RawPayload)
+	}
+}
+
+func TestWSFrameParser_URLPropagation(t *testing.T) {
+	testURL := "wss://example.com/ws/chat"
+	var received []WSMessage
+	parser := newWSFrameParser("conn1", "receive", testURL, func(msg WSMessage) {
+		received = append(received, msg)
+	})
+
+	frame := buildWSFrame(true, 1, false, []byte("hello"))
+	parser.feed(frame)
+
+	if len(received) != 1 {
+		t.Fatalf("Expected 1 message, got %d", len(received))
+	}
+	if received[0].URL != testURL {
+		t.Errorf("Expected URL %q, got %q", testURL, received[0].URL)
 	}
 }
 
@@ -307,7 +365,7 @@ func TestWSInterceptor_ReadCapture(t *testing.T) {
 
 	var mu sync.Mutex
 	var received []WSMessage
-	interceptor := NewWSInterceptor(inner, "conn1", func(msg WSMessage) {
+	interceptor := NewWSInterceptor(inner, "conn1", "", func(msg WSMessage) {
 		mu.Lock()
 		received = append(received, msg)
 		mu.Unlock()
@@ -343,7 +401,7 @@ func TestWSInterceptor_WriteCapture(t *testing.T) {
 
 	var mu sync.Mutex
 	var received []WSMessage
-	interceptor := NewWSInterceptor(inner, "conn2", func(msg WSMessage) {
+	interceptor := NewWSInterceptor(inner, "conn2", "", func(msg WSMessage) {
 		mu.Lock()
 		received = append(received, msg)
 		mu.Unlock()
@@ -376,7 +434,7 @@ func TestWSInterceptor_WriteCapture(t *testing.T) {
 
 func TestWSInterceptor_Close(t *testing.T) {
 	inner := newMockRWC(nil)
-	interceptor := NewWSInterceptor(inner, "conn1", nil)
+	interceptor := NewWSInterceptor(inner, "conn1", "", nil)
 	interceptor.Close()
 	if !inner.closed {
 		t.Error("Close should propagate to inner")
