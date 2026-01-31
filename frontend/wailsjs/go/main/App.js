@@ -18,6 +18,10 @@ export function AddBreakpointRule(arg1) {
   return window['go']['main']['App']['AddBreakpointRule'](arg1);
 }
 
+export function AddMapRemoteRule(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['AddMapRemoteRule'](arg1, arg2, arg3, arg4);
+}
+
 export function AddMockRule(arg1) {
   return window['go']['main']['App']['AddMockRule'](arg1);
 }
@@ -28,6 +32,10 @@ export function AddProtoFile(arg1, arg2) {
 
 export function AddProtoMapping(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['AddProtoMapping'](arg1, arg2, arg3, arg4);
+}
+
+export function AddRewriteRule(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
+  return window['go']['main']['App']['AddRewriteRule'](arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
 }
 
 export function AnalyzeElementSelectors(arg1, arg2, arg3, arg4) {
@@ -166,6 +174,10 @@ export function ExportAPK(arg1, arg2) {
   return window['go']['main']['App']['ExportAPK'](arg1, arg2);
 }
 
+export function ExportMockRules() {
+  return window['go']['main']['App']['ExportMockRules']();
+}
+
 export function ExportSession(arg1) {
   return window['go']['main']['App']['ExportSession'](arg1);
 }
@@ -270,6 +282,10 @@ export function GetMITMBypassPatterns() {
   return window['go']['main']['App']['GetMITMBypassPatterns']();
 }
 
+export function GetMapRemoteRules() {
+  return window['go']['main']['App']['GetMapRemoteRules']();
+}
+
 export function GetMockRules() {
   return window['go']['main']['App']['GetMockRules']();
 }
@@ -324,6 +340,10 @@ export function GetRecordingEventCount(arg1) {
 
 export function GetRecordingsDir() {
   return window['go']['main']['App']['GetRecordingsDir']();
+}
+
+export function GetRewriteRules() {
+  return window['go']['main']['App']['GetRewriteRules']();
 }
 
 export function GetSessionBookmarks(arg1) {
@@ -408,6 +428,10 @@ export function GetWorkflow(arg1) {
 
 export function GetWorkflowExecutionResult(arg1) {
   return window['go']['main']['App']['GetWorkflowExecutionResult'](arg1);
+}
+
+export function ImportMockRules(arg1) {
+  return window['go']['main']['App']['ImportMockRules'](arg1);
 }
 
 export function ImportSession() {
@@ -538,6 +562,10 @@ export function LoadBreakpointRules() {
   return window['go']['main']['App']['LoadBreakpointRules']();
 }
 
+export function LoadMapRemoteRules() {
+  return window['go']['main']['App']['LoadMapRemoteRules']();
+}
+
 export function LoadMockRules() {
   return window['go']['main']['App']['LoadMockRules']();
 }
@@ -552,6 +580,10 @@ export function LoadProtoFromDisk() {
 
 export function LoadProtoFromURL(arg1) {
   return window['go']['main']['App']['LoadProtoFromURL'](arg1);
+}
+
+export function LoadRewriteRules() {
+  return window['go']['main']['App']['LoadRewriteRules']();
 }
 
 export function LoadScriptTasks() {
@@ -670,6 +702,10 @@ export function RemoveHistoryDevice(arg1) {
   return window['go']['main']['App']['RemoveHistoryDevice'](arg1);
 }
 
+export function RemoveMapRemoteRule(arg1) {
+  return window['go']['main']['App']['RemoveMapRemoteRule'](arg1);
+}
+
 export function RemoveMockRule(arg1) {
   return window['go']['main']['App']['RemoveMockRule'](arg1);
 }
@@ -680,6 +716,10 @@ export function RemoveProtoFile(arg1) {
 
 export function RemoveProtoMapping(arg1) {
   return window['go']['main']['App']['RemoveProtoMapping'](arg1);
+}
+
+export function RemoveRewriteRule(arg1) {
+  return window['go']['main']['App']['RemoveRewriteRule'](arg1);
 }
 
 export function RenameStoredSession(arg1, arg2) {
@@ -978,6 +1018,10 @@ export function ToggleBreakpointRule(arg1, arg2) {
   return window['go']['main']['App']['ToggleBreakpointRule'](arg1, arg2);
 }
 
+export function ToggleMapRemoteRule(arg1, arg2) {
+  return window['go']['main']['App']['ToggleMapRemoteRule'](arg1, arg2);
+}
+
 export function ToggleMockRule(arg1, arg2) {
   return window['go']['main']['App']['ToggleMockRule'](arg1, arg2);
 }
@@ -986,12 +1030,20 @@ export function TogglePinDevice(arg1) {
   return window['go']['main']['App']['TogglePinDevice'](arg1);
 }
 
+export function ToggleRewriteRule(arg1, arg2) {
+  return window['go']['main']['App']['ToggleRewriteRule'](arg1, arg2);
+}
+
 export function UninstallApp(arg1, arg2) {
   return window['go']['main']['App']['UninstallApp'](arg1, arg2);
 }
 
 export function UpdateBreakpointRule(arg1) {
   return window['go']['main']['App']['UpdateBreakpointRule'](arg1);
+}
+
+export function UpdateMapRemoteRule(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['main']['App']['UpdateMapRemoteRule'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
 export function UpdateMockRule(arg1) {
@@ -1004,6 +1056,10 @@ export function UpdateProtoFile(arg1, arg2, arg3) {
 
 export function UpdateProtoMapping(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['UpdateProtoMapping'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function UpdateRewriteRule(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10) {
+  return window['go']['main']['App']['UpdateRewriteRule'](arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10);
 }
 
 export function UpdateStoredAssertionJSON(arg1, arg2) {

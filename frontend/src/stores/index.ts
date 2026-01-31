@@ -15,7 +15,7 @@ export { useEventStore, useCurrentBookmarks } from './eventStore';
 
 // New stores
 export { useProxyStore } from './proxyStore';
-export type { RequestLog, NetworkStats } from './proxyStore';
+export type { RequestLog, NetworkStats, WSMessage } from './proxyStore';
 export { useWorkflowStore } from './workflowStore';
 export type { WorkflowStep, Workflow } from './workflowStore';
 export { useUIInspectorStore } from './uiInspectorStore';

@@ -5,6 +5,7 @@ go 1.23.0
 toolchain go1.24.12
 
 require (
+	github.com/andybalholm/brotli v1.2.0
 	github.com/bufbuild/protocompile v0.14.1
 	github.com/elazarl/goproxy v1.7.2
 	github.com/energye/systray v0.0.0-00010101000000-000000000000

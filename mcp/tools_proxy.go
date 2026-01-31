@@ -88,6 +88,9 @@ Examples:
 			mcp.WithString("description",
 				mcp.Description("Optional description of what this mock rule does"),
 			),
+			mcp.WithString("body_file",
+				mcp.Description("Path to a local file to use as response body (Map Local). When set, file content is used instead of 'body' field. The file is read on each request."),
+			),
 			mcp.WithString("conditions_json",
 				mcp.Description(`Optional JSON array of match conditions (AND logic). Each condition:
   {"type":"header|query|body", "key":"header-name or param-name", "operator":"equals|contains|regex|exists|not_exists", "value":"expected"}
@@ -131,6 +134,9 @@ Example: '[{"type":"header","key":"Authorization","operator":"exists"},{"type":"
 			mcp.WithString("description",
 				mcp.Description("Optional description"),
 			),
+			mcp.WithString("body_file",
+				mcp.Description("Path to a local file to use as response body (Map Local). When set, file content is used instead of 'body' field."),
+			),
 			mcp.WithString("conditions_json",
 				mcp.Description(`Optional JSON array of match conditions (AND logic). Same format as mock_rule_add.`),
 			),
@@ -164,6 +170,26 @@ Example: '[{"type":"header","key":"Authorization","operator":"exists"},{"type":"
 			),
 		),
 		s.handleMockRuleToggle,
+	)
+
+	// mock_rule_export - Export all mock rules as JSON
+	s.server.AddTool(
+		mcp.NewTool("mock_rule_export",
+			mcp.WithDescription("Export all mock rules as a JSON string. Useful for sharing rules across teams or backing up configurations."),
+		),
+		s.handleMockRuleExport,
+	)
+
+	// mock_rule_import - Import mock rules from JSON
+	s.server.AddTool(
+		mcp.NewTool("mock_rule_import",
+			mcp.WithDescription("Import mock rules from a JSON string. Rules are merged with existing rules (new IDs are generated to avoid conflicts). Invalid rules (missing urlPattern or statusCode) are skipped."),
+			mcp.WithString("json",
+				mcp.Required(),
+				mcp.Description("JSON array of mock rules to import"),
+			),
+		),
+		s.handleMockRuleImport,
 	)
 
 	// proxy_configure - Configure proxy settings
@@ -456,6 +482,255 @@ This is equivalent to clicking "Forward All" in the UI.`),
 		s.handleBreakpointForwardAll,
 	)
 
+	// --- Map Remote Rules ---
+
+	// map_remote_add - Add a map remote rule
+	s.server.AddTool(
+		mcp.NewTool("map_remote_add",
+			mcp.WithDescription(`Add a new URL redirect (Map Remote) rule.
+
+When the proxy intercepts a request matching the source URL pattern, it rewrites
+the URL to the target before forwarding. This is useful for redirecting API calls
+to a different server, staging environment, or local development server.
+
+URL patterns support * wildcard:
+  - "*/api/v1/*" matches any URL containing /api/v1/
+  - "https://prod.example.com/*" matches all paths on prod
+  - "*" matches all URLs
+
+The target URL can also contain * as a placeholder for the matched wildcard portion.
+
+Examples:
+  Redirect API to staging: source="https://prod.example.com/api/*", target="https://staging.example.com/api/*"
+  Redirect to localhost:   source="*/api/*", target="http://localhost:3000/api/*"`),
+			mcp.WithString("source_pattern",
+				mcp.Required(),
+				mcp.Description("Source URL wildcard pattern to match (e.g., '*/api/v1/*')"),
+			),
+			mcp.WithString("target_url",
+				mcp.Required(),
+				mcp.Description("Target URL to redirect to (e.g., 'http://localhost:3000/api/*')"),
+			),
+			mcp.WithString("method",
+				mcp.Description("HTTP method to match (empty = match all). e.g., 'GET', 'POST'"),
+			),
+			mcp.WithString("description",
+				mcp.Description("Optional description of what this rule does"),
+			),
+		),
+		s.handleMapRemoteAdd,
+	)
+
+	// map_remote_update - Update a map remote rule
+	s.server.AddTool(
+		mcp.NewTool("map_remote_update",
+			mcp.WithDescription("Update an existing map remote rule. All fields are replaced with the new values."),
+			mcp.WithString("id",
+				mcp.Required(),
+				mcp.Description("ID of the map remote rule to update"),
+			),
+			mcp.WithString("source_pattern",
+				mcp.Required(),
+				mcp.Description("Source URL wildcard pattern to match"),
+			),
+			mcp.WithString("target_url",
+				mcp.Required(),
+				mcp.Description("Target URL to redirect to"),
+			),
+			mcp.WithString("method",
+				mcp.Description("HTTP method to match (empty = match all)"),
+			),
+			mcp.WithBoolean("enabled",
+				mcp.Description("Whether this rule is active (default: true)"),
+			),
+			mcp.WithString("description",
+				mcp.Description("Optional description"),
+			),
+		),
+		s.handleMapRemoteUpdate,
+	)
+
+	// map_remote_remove - Remove a map remote rule
+	s.server.AddTool(
+		mcp.NewTool("map_remote_remove",
+			mcp.WithDescription("Remove a map remote rule by ID."),
+			mcp.WithString("id",
+				mcp.Required(),
+				mcp.Description("ID of the map remote rule to remove"),
+			),
+		),
+		s.handleMapRemoteRemove,
+	)
+
+	// map_remote_list - List all map remote rules
+	s.server.AddTool(
+		mcp.NewTool("map_remote_list",
+			mcp.WithDescription(`List all URL redirect (Map Remote) rules.
+
+Returns all configured map remote rules with their source patterns, target URLs,
+methods, enabled states, and descriptions. Rules are sorted by creation time.`),
+		),
+		s.handleMapRemoteList,
+	)
+
+	// map_remote_toggle - Enable/disable a map remote rule
+	s.server.AddTool(
+		mcp.NewTool("map_remote_toggle",
+			mcp.WithDescription("Enable or disable a map remote rule without removing it."),
+			mcp.WithString("id",
+				mcp.Required(),
+				mcp.Description("ID of the map remote rule to toggle"),
+			),
+			mcp.WithBoolean("enabled",
+				mcp.Required(),
+				mcp.Description("Whether to enable (true) or disable (false) the rule"),
+			),
+		),
+		s.handleMapRemoteToggle,
+	)
+
+	// --- Auto Rewrite Rules ---
+
+	// rewrite_rule_add - Add a rewrite rule
+	s.server.AddTool(
+		mcp.NewTool("rewrite_rule_add",
+			mcp.WithDescription(`Add a new auto-rewrite rule for modifying request/response headers or body.
+
+When the proxy intercepts a request/response matching the URL pattern,
+it applies regex find-and-replace on the specified target (header or body)
+without requiring manual breakpoint intervention.
+
+URL patterns support * wildcard (same as mock rules).
+
+Phase options:
+  - "request": rewrite before sending to server
+  - "response": rewrite before forwarding to client
+  - "both": rewrite at both phases
+
+Target options:
+  - "header": rewrite a specific header value (specify header_name)
+  - "body": rewrite the request/response body content
+
+Examples:
+  Remove server header: url_pattern="*", phase="response", target="header", header_name="Server", match=".*", replace=""
+  Replace API key in body: url_pattern="*/api/*", phase="request", target="body", match="old-key-123", replace="new-key-456"
+  Modify JSON field: url_pattern="*/api/users*", phase="response", target="body", match="\"role\":\"guest\"", replace="\"role\":\"admin\""`),
+			mcp.WithString("url_pattern",
+				mcp.Required(),
+				mcp.Description("URL wildcard pattern to match (e.g., '*/api/*')"),
+			),
+			mcp.WithString("phase",
+				mcp.Required(),
+				mcp.Description("When to rewrite: 'request', 'response', or 'both'"),
+			),
+			mcp.WithString("target",
+				mcp.Required(),
+				mcp.Description("What to rewrite: 'header' or 'body'"),
+			),
+			mcp.WithString("match",
+				mcp.Required(),
+				mcp.Description("Regex pattern to find (e.g., 'old-value')"),
+			),
+			mcp.WithString("replace",
+				mcp.Required(),
+				mcp.Description("Replacement string (supports $1, $2 for capture groups)"),
+			),
+			mcp.WithString("method",
+				mcp.Description("HTTP method to match (empty = match all)"),
+			),
+			mcp.WithString("header_name",
+				mcp.Description("Header name to rewrite (required when target is 'header')"),
+			),
+			mcp.WithString("description",
+				mcp.Description("Optional description of what this rewrite rule does"),
+			),
+		),
+		s.handleRewriteRuleAdd,
+	)
+
+	// rewrite_rule_update - Update a rewrite rule
+	s.server.AddTool(
+		mcp.NewTool("rewrite_rule_update",
+			mcp.WithDescription("Update an existing rewrite rule. All fields are replaced with the new values."),
+			mcp.WithString("id",
+				mcp.Required(),
+				mcp.Description("ID of the rewrite rule to update"),
+			),
+			mcp.WithString("url_pattern",
+				mcp.Required(),
+				mcp.Description("URL wildcard pattern to match"),
+			),
+			mcp.WithString("phase",
+				mcp.Required(),
+				mcp.Description("When to rewrite: 'request', 'response', or 'both'"),
+			),
+			mcp.WithString("target",
+				mcp.Required(),
+				mcp.Description("What to rewrite: 'header' or 'body'"),
+			),
+			mcp.WithString("match",
+				mcp.Required(),
+				mcp.Description("Regex pattern to find"),
+			),
+			mcp.WithString("replace",
+				mcp.Required(),
+				mcp.Description("Replacement string"),
+			),
+			mcp.WithString("method",
+				mcp.Description("HTTP method to match (empty = match all)"),
+			),
+			mcp.WithString("header_name",
+				mcp.Description("Header name to rewrite (required when target is 'header')"),
+			),
+			mcp.WithBoolean("enabled",
+				mcp.Description("Whether this rule is active (default: true)"),
+			),
+			mcp.WithString("description",
+				mcp.Description("Optional description"),
+			),
+		),
+		s.handleRewriteRuleUpdate,
+	)
+
+	// rewrite_rule_remove - Remove a rewrite rule
+	s.server.AddTool(
+		mcp.NewTool("rewrite_rule_remove",
+			mcp.WithDescription("Remove a rewrite rule by ID."),
+			mcp.WithString("id",
+				mcp.Required(),
+				mcp.Description("ID of the rewrite rule to remove"),
+			),
+		),
+		s.handleRewriteRuleRemove,
+	)
+
+	// rewrite_rule_list - List all rewrite rules
+	s.server.AddTool(
+		mcp.NewTool("rewrite_rule_list",
+			mcp.WithDescription(`List all auto-rewrite rules.
+
+Returns all configured rewrite rules with their URL patterns, phases, targets,
+match/replace patterns, enabled states, and descriptions.`),
+		),
+		s.handleRewriteRuleList,
+	)
+
+	// rewrite_rule_toggle - Enable/disable a rewrite rule
+	s.server.AddTool(
+		mcp.NewTool("rewrite_rule_toggle",
+			mcp.WithDescription("Enable or disable a rewrite rule without removing it."),
+			mcp.WithString("id",
+				mcp.Required(),
+				mcp.Description("ID of the rewrite rule to toggle"),
+			),
+			mcp.WithBoolean("enabled",
+				mcp.Required(),
+				mcp.Description("Whether to enable (true) or disable (false) the rule"),
+			),
+		),
+		s.handleRewriteRuleToggle,
+	)
+
 	// resend_request - Resend an HTTP request
 	s.server.AddTool(
 		mcp.NewTool("resend_request",
@@ -567,6 +842,7 @@ func (s *MCPServer) handleMockRuleAdd(ctx context.Context, request mcp.CallToolR
 
 	method, _ := args["method"].(string)
 	body, _ := args["body"].(string)
+	bodyFile, _ := args["body_file"].(string)
 	description, _ := args["description"].(string)
 	delay := 0
 	if d, ok := args["delay"].(float64); ok {
@@ -587,7 +863,7 @@ func (s *MCPServer) handleMockRuleAdd(ctx context.Context, request mcp.CallToolR
 		}
 	}
 
-	id := s.app.AddMockRule(urlPattern, method, statusCode, headers, body, delay, description, conditions)
+	id := s.app.AddMockRule(urlPattern, method, statusCode, headers, body, bodyFile, delay, description, conditions)
 
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Mock rule added successfully.\nID: %s\nPattern: %s\nStatus: %d", id, urlPattern, statusCode))},
@@ -612,6 +888,7 @@ func (s *MCPServer) handleMockRuleUpdate(ctx context.Context, request mcp.CallTo
 
 	method, _ := args["method"].(string)
 	body, _ := args["body"].(string)
+	bodyFile, _ := args["body_file"].(string)
 	description, _ := args["description"].(string)
 	delay := 0
 	if d, ok := args["delay"].(float64); ok {
@@ -636,7 +913,7 @@ func (s *MCPServer) handleMockRuleUpdate(ctx context.Context, request mcp.CallTo
 		}
 	}
 
-	if err := s.app.UpdateMockRule(id, urlPattern, method, statusCode, headers, body, delay, enabled, description, conditions); err != nil {
+	if err := s.app.UpdateMockRule(id, urlPattern, method, statusCode, headers, body, bodyFile, delay, enabled, description, conditions); err != nil {
 		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error: %v", err))}, IsError: true}, nil
 	}
 
@@ -677,6 +954,32 @@ func (s *MCPServer) handleMockRuleToggle(ctx context.Context, request mcp.CallTo
 	}
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Mock rule %s: %s", state, id))},
+	}, nil
+}
+
+func (s *MCPServer) handleMockRuleExport(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	jsonStr, err := s.app.ExportMockRules()
+	if err != nil {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error: %v", err))}, IsError: true}, nil
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(jsonStr)},
+	}, nil
+}
+
+func (s *MCPServer) handleMockRuleImport(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	jsonStr, _ := args["json"].(string)
+	if jsonStr == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: json is required")}, IsError: true}, nil
+	}
+
+	count, err := s.app.ImportMockRules(jsonStr)
+	if err != nil {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error: %v", err))}, IsError: true}, nil
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Successfully imported %d mock rules", count))},
 	}, nil
 }
 
@@ -857,6 +1160,226 @@ func (s *MCPServer) handleBreakpointForwardAll(ctx context.Context, request mcp.
 
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Forwarded %d pending breakpoint(s).", count))},
+	}, nil
+}
+
+// --- Map Remote Rule Handlers ---
+
+func (s *MCPServer) handleMapRemoteAdd(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+
+	sourcePattern, _ := args["source_pattern"].(string)
+	if sourcePattern == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: source_pattern is required")}, IsError: true}, nil
+	}
+	targetURL, _ := args["target_url"].(string)
+	if targetURL == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: target_url is required")}, IsError: true}, nil
+	}
+	method, _ := args["method"].(string)
+	description, _ := args["description"].(string)
+
+	id := s.app.AddMapRemoteRule(sourcePattern, targetURL, method, description)
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Map remote rule added successfully.\nID: %s\nSource: %s\nTarget: %s", id, sourcePattern, targetURL))},
+	}, nil
+}
+
+func (s *MCPServer) handleMapRemoteUpdate(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+
+	id, _ := args["id"].(string)
+	if id == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: id is required")}, IsError: true}, nil
+	}
+	sourcePattern, _ := args["source_pattern"].(string)
+	if sourcePattern == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: source_pattern is required")}, IsError: true}, nil
+	}
+	targetURL, _ := args["target_url"].(string)
+	if targetURL == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: target_url is required")}, IsError: true}, nil
+	}
+	method, _ := args["method"].(string)
+	description, _ := args["description"].(string)
+	enabled := true
+	if e, ok := args["enabled"].(bool); ok {
+		enabled = e
+	}
+
+	if err := s.app.UpdateMapRemoteRule(id, sourcePattern, targetURL, method, enabled, description); err != nil {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error: %v", err))}, IsError: true}, nil
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Map remote rule updated: %s\nSource: %s → Target: %s", id, sourcePattern, targetURL))},
+	}, nil
+}
+
+func (s *MCPServer) handleMapRemoteRemove(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	id, _ := args["id"].(string)
+	if id == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: id is required")}, IsError: true}, nil
+	}
+
+	s.app.RemoveMapRemoteRule(id)
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Map remote rule removed: %s", id))},
+	}, nil
+}
+
+func (s *MCPServer) handleMapRemoteList(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	rules := s.app.GetMapRemoteRules()
+
+	if len(rules) == 0 {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.NewTextContent("No map remote rules configured.")},
+		}, nil
+	}
+
+	data, _ := json.MarshalIndent(rules, "", "  ")
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Map remote rules (%d):\n%s", len(rules), string(data)))},
+	}, nil
+}
+
+func (s *MCPServer) handleMapRemoteToggle(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	id, _ := args["id"].(string)
+	if id == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: id is required")}, IsError: true}, nil
+	}
+	enabled, _ := args["enabled"].(bool)
+
+	if err := s.app.ToggleMapRemoteRule(id, enabled); err != nil {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error: %v", err))}, IsError: true}, nil
+	}
+
+	state := "disabled"
+	if enabled {
+		state = "enabled"
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Map remote rule %s: %s", state, id))},
+	}, nil
+}
+
+// === Rewrite Rule Handlers ===
+
+func (s *MCPServer) handleRewriteRuleAdd(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+
+	urlPattern, _ := args["url_pattern"].(string)
+	if urlPattern == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: url_pattern is required")}, IsError: true}, nil
+	}
+	phase, _ := args["phase"].(string)
+	if phase == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: phase is required")}, IsError: true}, nil
+	}
+	target, _ := args["target"].(string)
+	if target == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: target is required")}, IsError: true}, nil
+	}
+	match, _ := args["match"].(string)
+	if match == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: match is required")}, IsError: true}, nil
+	}
+	replace, _ := args["replace"].(string)
+	method, _ := args["method"].(string)
+	headerName, _ := args["header_name"].(string)
+	description, _ := args["description"].(string)
+
+	id := s.app.AddRewriteRule(urlPattern, method, phase, target, headerName, match, replace, description)
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Rewrite rule added.\nID: %s\nPattern: %s\nPhase: %s\nTarget: %s\nMatch: %s\nReplace: %s", id, urlPattern, phase, target, match, replace))},
+	}, nil
+}
+
+func (s *MCPServer) handleRewriteRuleUpdate(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+
+	id, _ := args["id"].(string)
+	if id == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: id is required")}, IsError: true}, nil
+	}
+	urlPattern, _ := args["url_pattern"].(string)
+	if urlPattern == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: url_pattern is required")}, IsError: true}, nil
+	}
+	phase, _ := args["phase"].(string)
+	if phase == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: phase is required")}, IsError: true}, nil
+	}
+	target, _ := args["target"].(string)
+	if target == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: target is required")}, IsError: true}, nil
+	}
+	match, _ := args["match"].(string)
+	if match == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: match is required")}, IsError: true}, nil
+	}
+	replace, _ := args["replace"].(string)
+	method, _ := args["method"].(string)
+	headerName, _ := args["header_name"].(string)
+	description, _ := args["description"].(string)
+	enabled := true
+	if e, ok := args["enabled"].(bool); ok {
+		enabled = e
+	}
+
+	if err := s.app.UpdateRewriteRule(id, urlPattern, method, phase, target, headerName, match, replace, enabled, description); err != nil {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error: %v", err))}, IsError: true}, nil
+	}
+
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Rewrite rule updated: %s", id))},
+	}, nil
+}
+
+func (s *MCPServer) handleRewriteRuleRemove(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	id, _ := args["id"].(string)
+	if id == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: id is required")}, IsError: true}, nil
+	}
+	s.app.RemoveRewriteRule(id)
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Rewrite rule removed: %s", id))},
+	}, nil
+}
+
+func (s *MCPServer) handleRewriteRuleList(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	rules := s.app.GetRewriteRules()
+	data, err := json.MarshalIndent(rules, "", "  ")
+	if err != nil {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error: %v", err))}, IsError: true}, nil
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(string(data))},
+	}, nil
+}
+
+func (s *MCPServer) handleRewriteRuleToggle(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	id, _ := args["id"].(string)
+	if id == "" {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent("Error: id is required")}, IsError: true}, nil
+	}
+	enabled, _ := args["enabled"].(bool)
+	if err := s.app.ToggleRewriteRule(id, enabled); err != nil {
+		return &mcp.CallToolResult{Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error: %v", err))}, IsError: true}, nil
+	}
+	state := "disabled"
+	if enabled {
+		state = "enabled"
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Rewrite rule %s: %s", state, id))},
 	}, nil
 }
 

@@ -944,6 +944,30 @@ export namespace main {
 	    }
 	}
 	
+	export class MapRemoteRule {
+	    id: string;
+	    sourcePattern: string;
+	    targetUrl: string;
+	    method: string;
+	    enabled: boolean;
+	    description: string;
+	    createdAt: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new MapRemoteRule(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.sourcePattern = source["sourcePattern"];
+	        this.targetUrl = source["targetUrl"];
+	        this.method = source["method"];
+	        this.enabled = source["enabled"];
+	        this.description = source["description"];
+	        this.createdAt = source["createdAt"];
+	    }
+	}
 	export class MockCondition {
 	    type: string;
 	    key: string;
@@ -969,6 +993,7 @@ export namespace main {
 	    statusCode: number;
 	    headers: Record<string, string>;
 	    body: string;
+	    bodyFile: string;
 	    delay: number;
 	    enabled: boolean;
 	    description: string;
@@ -987,6 +1012,7 @@ export namespace main {
 	        this.statusCode = source["statusCode"];
 	        this.headers = source["headers"];
 	        this.body = source["body"];
+	        this.bodyFile = source["bodyFile"];
 	        this.delay = source["delay"];
 	        this.enabled = source["enabled"];
 	        this.description = source["description"];
@@ -1288,6 +1314,38 @@ export namespace main {
 	}
 	
 	
+	export class RewriteRule {
+	    id: string;
+	    urlPattern: string;
+	    method: string;
+	    phase: string;
+	    target: string;
+	    headerName: string;
+	    match: string;
+	    replace: string;
+	    enabled: boolean;
+	    description: string;
+	    createdAt: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new RewriteRule(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.urlPattern = source["urlPattern"];
+	        this.method = source["method"];
+	        this.phase = source["phase"];
+	        this.target = source["target"];
+	        this.headerName = source["headerName"];
+	        this.match = source["match"];
+	        this.replace = source["replace"];
+	        this.enabled = source["enabled"];
+	        this.description = source["description"];
+	        this.createdAt = source["createdAt"];
+	    }
+	}
 	export class ScrcpyConfig {
 	    maxSize: number;
 	    bitRate: number;

@@ -144,6 +144,8 @@ func (a *App) initCore() {
 	a.StartDeviceMonitor()
 	a.LoadMockRules()
 	a.LoadBreakpointRules()
+	a.LoadMapRemoteRules()
+	a.LoadRewriteRules()
 	a.LoadProtoConfig()
 	a.SetupBreakpointCallbacks()
 }

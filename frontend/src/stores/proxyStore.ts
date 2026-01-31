@@ -25,6 +25,17 @@ export interface RequestLog {
   partialUpdate?: boolean;
 }
 
+export interface WSMessage {
+  connectionId: string;
+  direction: string; // "send" | "receive"
+  type: number;
+  typeName: string;
+  payload: string;
+  payloadSize: number;
+  isBinary: boolean;
+  timestamp: number;
+}
+
 export interface NetworkStats {
   rxSpeed: number;
   txSpeed: number;
@@ -53,6 +64,7 @@ interface MockRule {
   statusCode: number;
   headers: Record<string, string>;
   body: string;
+  bodyFile?: string;
   delay?: number;
   description?: string;
   enabled: boolean;
@@ -93,6 +105,32 @@ export interface ProtoMapping {
   messageType: string;
   direction: string;
   description: string;
+}
+
+// Map Remote rule
+export interface MapRemoteRule {
+  id: string;
+  sourcePattern: string;
+  targetURL: string;
+  method: string;
+  enabled: boolean;
+  description: string;
+  createdAt?: number;
+}
+
+// Auto Rewrite rule
+export interface RewriteRule {
+  id: string;
+  urlPattern: string;
+  method: string;
+  phase: string;      // "request", "response", "both"
+  target: string;     // "header" or "body"
+  headerName: string; // header name when target is "header"
+  match: string;      // regex pattern
+  replace: string;    // replacement string
+  enabled: boolean;
+  description: string;
+  createdAt?: number;
 }
 
 // Breakpoint rule
@@ -284,6 +322,26 @@ interface ProxyState {
   protoImportURLModalOpen: boolean;
   protoImportURL: string;
   
+  // Map Remote
+  mapRemoteRules: MapRemoteRule[];
+  mapRemoteListModalOpen: boolean;
+  mapRemoteEditModalOpen: boolean;
+  editingMapRemoteRule: MapRemoteRule | null;
+  
+  // Rewrite
+  rewriteRules: RewriteRule[];
+  rewriteListModalOpen: boolean;
+  rewriteEditModalOpen: boolean;
+  editingRewriteRule: RewriteRule | null;
+
+  // Diff
+  diffBaseLog: RequestLog | null;
+  diffTargetLog: RequestLog | null;
+  diffModalOpen: boolean;
+
+  // WebSocket Messages
+  wsMessages: Record<string, WSMessage[]>; // keyed by connectionId
+
   // Breakpoint
   breakpointRules: BreakpointRuleItem[];
   pendingBreakpoints: PendingBreakpointItem[];
@@ -355,6 +413,29 @@ interface ProxyState {
     closeProtoImportURLModal: () => void;
     setProtoImportURL: (url: string) => void;
   
+  // Map Remote
+  setMapRemoteRules: (rules: MapRemoteRule[]) => void;
+  openMapRemoteListModal: () => void;
+  closeMapRemoteListModal: () => void;
+  openMapRemoteEditModal: (rule?: MapRemoteRule | null) => void;
+  closeMapRemoteEditModal: () => void;
+  
+  // Rewrite
+  setRewriteRules: (rules: RewriteRule[]) => void;
+  openRewriteListModal: () => void;
+  closeRewriteListModal: () => void;
+  openRewriteEditModal: (rule?: RewriteRule | null) => void;
+  closeRewriteEditModal: () => void;
+
+  // Diff
+  setDiffBaseLog: (log: RequestLog | null) => void;
+  openDiffModal: (base: RequestLog, target: RequestLog) => void;
+  closeDiffModal: () => void;
+
+  // WebSocket Messages
+  addWSMessage: (msg: WSMessage) => void;
+  clearWSMessages: (connectionId?: string) => void;
+
   // Breakpoint
   setBreakpointRules: (rules: BreakpointRuleItem[]) => void;
   openBreakpointListModal: () => void;
@@ -426,6 +507,26 @@ export const useProxyStore = create<ProxyState>()(
     protoImportURLModalOpen: false,
     protoImportURL: 'https://',
     
+    // Map Remote
+    mapRemoteRules: [],
+    mapRemoteListModalOpen: false,
+    mapRemoteEditModalOpen: false,
+    editingMapRemoteRule: null,
+    
+    // Rewrite
+    rewriteRules: [],
+    rewriteListModalOpen: false,
+    rewriteEditModalOpen: false,
+    editingRewriteRule: null,
+
+    // Diff
+    diffBaseLog: null,
+    diffTargetLog: null,
+    diffModalOpen: false,
+
+    // WebSocket Messages
+    wsMessages: {},
+
     // Breakpoint
     breakpointRules: [],
     pendingBreakpoints: [],
@@ -560,6 +661,44 @@ export const useProxyStore = create<ProxyState>()(
     closeProtoImportURLModal: () => set({ protoImportURLModalOpen: false, protoImportURL: 'https://' }),
     setProtoImportURL: (url: string) => set({ protoImportURL: url }),
     
+    // Map Remote
+    setMapRemoteRules: (rules: MapRemoteRule[]) => set({ mapRemoteRules: rules }),
+    openMapRemoteListModal: () => set({ mapRemoteListModalOpen: true }),
+    closeMapRemoteListModal: () => set({ mapRemoteListModalOpen: false }),
+    openMapRemoteEditModal: (rule) => set({ mapRemoteEditModalOpen: true, editingMapRemoteRule: rule ?? null }),
+    closeMapRemoteEditModal: () => set({ mapRemoteEditModalOpen: false, editingMapRemoteRule: null }),
+    
+    // Rewrite
+    setRewriteRules: (rules: RewriteRule[]) => set({ rewriteRules: rules }),
+    openRewriteListModal: () => set({ rewriteListModalOpen: true }),
+    closeRewriteListModal: () => set({ rewriteListModalOpen: false }),
+    openRewriteEditModal: (rule) => set({ rewriteEditModalOpen: true, editingRewriteRule: rule ?? null }),
+    closeRewriteEditModal: () => set({ rewriteEditModalOpen: false, editingRewriteRule: null }),
+
+    // Diff
+    setDiffBaseLog: (log: RequestLog | null) => set({ diffBaseLog: log }),
+    openDiffModal: (base: RequestLog, target: RequestLog) => set({ diffModalOpen: true, diffBaseLog: base, diffTargetLog: target }),
+    closeDiffModal: () => set({ diffModalOpen: false, diffBaseLog: null, diffTargetLog: null }),
+
+    // WebSocket Messages
+    addWSMessage: (msg: WSMessage) => set((state: ProxyState) => {
+      if (!state.wsMessages[msg.connectionId]) {
+        state.wsMessages[msg.connectionId] = [];
+      }
+      state.wsMessages[msg.connectionId].push(msg);
+      // Limit per connection to prevent memory bloat
+      if (state.wsMessages[msg.connectionId].length > 1000) {
+        state.wsMessages[msg.connectionId] = state.wsMessages[msg.connectionId].slice(-500);
+      }
+    }),
+    clearWSMessages: (connectionId?: string) => set((state: ProxyState) => {
+      if (connectionId) {
+        delete state.wsMessages[connectionId];
+      } else {
+        state.wsMessages = {};
+      }
+    }),
+
     // Breakpoint
     setBreakpointRules: (rules: BreakpointRuleItem[]) => set({ breakpointRules: rules }),
     openBreakpointListModal: () => set({ breakpointListModalOpen: true }),

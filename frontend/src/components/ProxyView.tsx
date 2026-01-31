@@ -1,14 +1,14 @@
 import React, { useEffect, useCallback, useMemo } from 'react';
 import { Card, Button, InputNumber, Space, Typography, Tag, Divider, Switch, Tooltip, Radio, Input, Tabs, theme, Form, Table, Popconfirm, Popover, Spin, App, Modal, Select, AutoComplete } from 'antd';
-import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, BlockOutlined, SendOutlined, CloseOutlined, PlusOutlined, EditOutlined, CodeOutlined, CloudDownloadOutlined, FolderOpenOutlined, LoadingOutlined, MinusCircleOutlined, BugOutlined, FastForwardOutlined, StopOutlined } from '@ant-design/icons';
+import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, BlockOutlined, SendOutlined, CloseOutlined, PlusOutlined, EditOutlined, CodeOutlined, CloudDownloadOutlined, FolderOpenOutlined, LoadingOutlined, MinusCircleOutlined, BugOutlined, FastForwardOutlined, StopOutlined, SwapOutlined } from '@ant-design/icons';
 import VirtualList from './VirtualList';
 import DeviceSelector from './DeviceSelector';
 import JsonViewer from './JsonViewer';
 import JsonEditor from './JsonEditor';
-import { useDeviceStore, useProxyStore, RequestLog as StoreRequestLog } from '../stores';
+import { useDeviceStore, useProxyStore, RequestLog as StoreRequestLog, WSMessage } from '../stores';
 import { buildModifications, type EditableHeader } from '../stores/proxyStore';
 // @ts-ignore
-import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, GetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, UpdateMockRule, RemoveMockRule, GetMockRules, ToggleMockRule, CheckCertTrust, SetupProxyForDevice, CleanupProxyForDevice, GetProtoFiles, AddProtoFile, UpdateProtoFile, RemoveProtoFile, GetProtoMappings, AddProtoMapping, UpdateProtoMapping, RemoveProtoMapping, GetProtoMessageTypes, LoadProtoFromURL, LoadProtoFromDisk, AddBreakpointRule, UpdateBreakpointRule, RemoveBreakpointRule, GetBreakpointRules, ToggleBreakpointRule, ResolveBreakpoint, GetPendingBreakpoints, ForwardAllBreakpoints } from '../../wailsjs/go/main/App';
+import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, GetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, UpdateMockRule, RemoveMockRule, GetMockRules, ToggleMockRule, ExportMockRules, ImportMockRules, CheckCertTrust, SetupProxyForDevice, CleanupProxyForDevice, GetProtoFiles, AddProtoFile, UpdateProtoFile, RemoveProtoFile, GetProtoMappings, AddProtoMapping, UpdateProtoMapping, RemoveProtoMapping, GetProtoMessageTypes, LoadProtoFromURL, LoadProtoFromDisk, AddBreakpointRule, UpdateBreakpointRule, RemoveBreakpointRule, GetBreakpointRules, ToggleBreakpointRule, ResolveBreakpoint, GetPendingBreakpoints, ForwardAllBreakpoints, AddMapRemoteRule, UpdateMapRemoteRule, RemoveMapRemoteRule, GetMapRemoteRules, ToggleMapRemoteRule, AddRewriteRule, UpdateRewriteRule, RemoveRewriteRule, GetRewriteRules, ToggleRewriteRule } from '../../wailsjs/go/main/App';
 // @ts-ignore
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import { useTranslation } from 'react-i18next';
@@ -44,6 +44,8 @@ interface RequestLog {
     mocked?: boolean;
     isProtobuf?: boolean;
     isReqProtobuf?: boolean;
+    timestamp?: number;
+    duration?: number;
 }
 
 const ProxyView: React.FC = () => {
@@ -92,6 +94,8 @@ const ProxyView: React.FC = () => {
 
     const [resendForm] = Form.useForm();
     const [mockForm] = Form.useForm();
+    const [mapRemoteForm] = Form.useForm();
+    const [rewriteForm] = Form.useForm();
     const [protoFileForm] = Form.useForm();
     const [protoMappingForm] = Form.useForm();
 
@@ -169,6 +173,33 @@ const ProxyView: React.FC = () => {
         updateBreakpointEdit,
         pendingBreakpointData,
         setPendingBreakpointData,
+        mapRemoteRules,
+        mapRemoteListModalOpen,
+        mapRemoteEditModalOpen,
+        editingMapRemoteRule,
+        setMapRemoteRules,
+        openMapRemoteListModal,
+        closeMapRemoteListModal,
+        openMapRemoteEditModal,
+        closeMapRemoteEditModal,
+        rewriteRules,
+        rewriteListModalOpen,
+        rewriteEditModalOpen,
+        editingRewriteRule,
+        setRewriteRules,
+        openRewriteListModal,
+        closeRewriteListModal,
+        openRewriteEditModal,
+        closeRewriteEditModal,
+        diffBaseLog,
+        diffModalOpen,
+        diffTargetLog,
+        setDiffBaseLog,
+        openDiffModal,
+        closeDiffModal,
+        wsMessages,
+        addWSMessage,
+        clearWSMessages,
     } = useProxyStore();
 
     // Watch hidden _conditionHints field stored in the form (survives HMR / store resets)
@@ -363,6 +394,8 @@ const ProxyView: React.FC = () => {
                     mocked: detail.mocked || false,
                     isProtobuf: detail.isProtobuf || false,
                     isReqProtobuf: detail.isReqProtobuf || false,
+                    duration: detail.duration,
+                    timestamp: event.timestamp,
                 };
 
                 // Use getState() to get current logs (avoid stale closure)
@@ -378,9 +411,16 @@ const ProxyView: React.FC = () => {
 
         EventsOn("session-events-batch", handleSessionBatch);
 
+        // Listen for WebSocket frame messages
+        const handleWSMessage = (msg: any) => {
+            useProxyStore.getState().addWSMessage(msg as WSMessage);
+        };
+        EventsOn("proxy-ws-message", handleWSMessage);
+
         return () => {
             EventsOff("session-events-batch");
             EventsOff("proxy-status-changed");
+            EventsOff("proxy-ws-message");
         };
     }, []);
 
@@ -557,6 +597,14 @@ const ProxyView: React.FC = () => {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
+    const formatMs = (ms?: number) => {
+        if (ms === undefined || ms === null) return '-';
+        if (ms < 1) return '<1ms';
+        if (ms < 1000) return Math.round(ms) + 'ms';
+        if (ms < 10000) return (ms / 1000).toFixed(1) + 's';
+        return Math.round(ms / 1000) + 's';
+    };
+
     const formatBody = (body: string, contentType?: string) => {
         if (!body) return "";
         const trimmed = body.trim();
@@ -693,6 +741,7 @@ const ProxyView: React.FC = () => {
                 statusCode: values.statusCode || 200,
                 headers: { 'Content-Type': values.contentType || 'application/json' },
                 body: values.body || '',
+                bodyFile: values.bodyFile || '',
                 delay: values.delay || 0,
                 description: values.description || '',
                 enabled: true,
@@ -737,6 +786,297 @@ const ProxyView: React.FC = () => {
         }
     };
 
+    const handleExportMockRules = async () => {
+        try {
+            const jsonStr = await ExportMockRules();
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'mock-rules.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            message.success(t('proxy.mock_exported'));
+        } catch (err) {
+            message.error(String(err));
+        }
+    };
+
+    const handleImportMockRules = async () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = async (e: any) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            try {
+                const text = await file.text();
+                const count = await ImportMockRules(text);
+                message.success(t('proxy.mock_imported', { count }));
+                loadMockRules();
+            } catch (err) {
+                message.error(String(err));
+            }
+        };
+        input.click();
+    };
+
+    // ========================================
+    // Map Remote Rules
+    // ========================================
+
+    const loadMapRemoteRules = async () => {
+        try {
+            const rules = await GetMapRemoteRules();
+            setMapRemoteRules((rules || []) as any);
+        } catch (err) {
+            console.error('Failed to load map remote rules:', err);
+        }
+    };
+
+    const handleOpenMapRemoteListModal = () => {
+        loadMapRemoteRules();
+        openMapRemoteListModal();
+    };
+
+    const handleSaveMapRemoteRule = async () => {
+        try {
+            const values = await mapRemoteForm.validateFields();
+            if (editingMapRemoteRule) {
+                await UpdateMapRemoteRule(
+                    editingMapRemoteRule.id,
+                    values.sourcePattern,
+                    values.targetURL,
+                    values.method || '',
+                    editingMapRemoteRule.enabled,
+                    values.description || ''
+                );
+            } else {
+                await AddMapRemoteRule(
+                    values.sourcePattern,
+                    values.targetURL,
+                    values.method || '',
+                    values.description || ''
+                );
+            }
+            message.success(editingMapRemoteRule ? t('proxy.map_remote_updated') : t('proxy.map_remote_added'));
+            mapRemoteForm.resetFields();
+            closeMapRemoteEditModal();
+            loadMapRemoteRules();
+        } catch (err: any) {
+            message.error(String(err));
+        }
+    };
+
+    const handleDeleteMapRemoteRule = async (id: string) => {
+        try {
+            await RemoveMapRemoteRule(id);
+            message.success(t('proxy.map_remote_deleted'));
+            loadMapRemoteRules();
+        } catch (err) {
+            message.error(String(err));
+        }
+    };
+
+    const handleToggleMapRemoteRule = async (id: string, enabled: boolean) => {
+        try {
+            await ToggleMapRemoteRule(id, enabled);
+            loadMapRemoteRules();
+        } catch (err) {
+            message.error(String(err));
+        }
+    };
+
+    // ========================================
+    // Rewrite Rules
+    // ========================================
+
+    const loadRewriteRules = async () => {
+        try {
+            const rules = await GetRewriteRules();
+            setRewriteRules((rules || []) as any);
+        } catch (err) {
+            console.error('Failed to load rewrite rules:', err);
+        }
+    };
+
+    const handleOpenRewriteListModal = () => {
+        loadRewriteRules();
+        openRewriteListModal();
+    };
+
+    const handleSaveRewriteRule = async () => {
+        try {
+            const values = await rewriteForm.validateFields();
+            if (editingRewriteRule) {
+                await UpdateRewriteRule(
+                    editingRewriteRule.id,
+                    values.urlPattern,
+                    values.method || '',
+                    values.phase,
+                    values.target,
+                    values.headerName || '',
+                    values.match,
+                    values.replace || '',
+                    editingRewriteRule.enabled,
+                    values.description || ''
+                );
+            } else {
+                await AddRewriteRule(
+                    values.urlPattern,
+                    values.method || '',
+                    values.phase,
+                    values.target,
+                    values.headerName || '',
+                    values.match,
+                    values.replace || '',
+                    values.description || ''
+                );
+            }
+            message.success(editingRewriteRule ? t('proxy.rewrite_rule_updated') : t('proxy.rewrite_rule_added'));
+            rewriteForm.resetFields();
+            closeRewriteEditModal();
+            loadRewriteRules();
+        } catch (err: any) {
+            message.error(String(err));
+        }
+    };
+
+    const handleDeleteRewriteRule = async (id: string) => {
+        try {
+            await RemoveRewriteRule(id);
+            message.success(t('proxy.rewrite_rule_deleted'));
+            loadRewriteRules();
+        } catch (err) {
+            message.error(String(err));
+        }
+    };
+
+    const handleToggleRewriteRule = async (id: string, enabled: boolean) => {
+        try {
+            await ToggleRewriteRule(id, enabled);
+            loadRewriteRules();
+        } catch (err) {
+            message.error(String(err));
+        }
+    };
+
+    const startEditRewriteRule = (rule: any) => {
+        closeRewriteListModal();
+        openRewriteEditModal(rule);
+        rewriteForm.resetFields();
+        rewriteForm.setFieldsValue({
+            urlPattern: rule.urlPattern,
+            method: rule.method,
+            phase: rule.phase,
+            target: rule.target,
+            headerName: rule.headerName,
+            match: rule.match,
+            replace: rule.replace,
+            description: rule.description,
+        });
+    };
+
+    // Diff: mark current request as base for comparison
+    const handleMarkForDiff = useCallback((log: StoreRequestLog) => {
+        if (diffBaseLog && diffBaseLog.id !== log.id) {
+            // We already have a base, this becomes the target — open diff modal
+            openDiffModal(diffBaseLog, log);
+        } else {
+            // Mark as base
+            setDiffBaseLog(log);
+            message.info(t('proxy.diff_base_marked'));
+        }
+    }, [diffBaseLog, openDiffModal, setDiffBaseLog, message, t]);
+
+    // Export captured requests as HAR 1.2 format
+    const handleExportHAR = () => {
+        const currentLogs = useProxyStore.getState().logs;
+        if (currentLogs.length === 0) {
+            message.warning(t('proxy.no_logs_to_export'));
+            return;
+        }
+
+        const entries = currentLogs.filter(log => log.method !== 'CONNECT' && !log.isWs).map(log => {
+            const reqHeaders = log.headers
+                ? Object.entries(log.headers).flatMap(([name, values]) =>
+                    (values || []).map(value => ({ name, value }))
+                )
+                : [];
+
+            const resHeaders = log.respHeaders
+                ? Object.entries(log.respHeaders).flatMap(([name, values]) =>
+                    (values || []).map(value => ({ name, value }))
+                )
+                : [];
+
+            // Parse URL for query string
+            let queryString: { name: string; value: string }[] = [];
+            try {
+                const u = new URL(log.url);
+                u.searchParams.forEach((value, name) => queryString.push({ name, value }));
+            } catch { /* ignore */ }
+
+            const reqBodySize = log.body ? new Blob([log.body]).size : 0;
+            const reqMimeType = reqHeaders.find(h => h.name.toLowerCase() === 'content-type')?.value || '';
+            const resMimeType = log.contentType || '';
+
+            return {
+                startedDateTime: log.timestamp ? new Date(log.timestamp).toISOString() : new Date().toISOString(),
+                time: log.duration || 0,
+                request: {
+                    method: log.method,
+                    url: log.url,
+                    httpVersion: 'HTTP/1.1',
+                    cookies: [],
+                    headers: reqHeaders,
+                    queryString,
+                    postData: log.body ? { mimeType: reqMimeType, text: log.body } : undefined,
+                    headersSize: -1,
+                    bodySize: reqBodySize,
+                },
+                response: {
+                    status: log.statusCode || 0,
+                    statusText: '',
+                    httpVersion: 'HTTP/1.1',
+                    cookies: [],
+                    headers: resHeaders,
+                    content: {
+                        size: log.bodySize || 0,
+                        mimeType: resMimeType,
+                        text: log.respBody || '',
+                    },
+                    redirectURL: '',
+                    headersSize: -1,
+                    bodySize: log.bodySize || -1,
+                },
+                cache: {},
+                timings: {
+                    send: 0,
+                    wait: log.duration || 0,
+                    receive: 0,
+                },
+            };
+        });
+
+        const har = {
+            log: {
+                version: '1.2',
+                creator: { name: 'Gaze', version: '1.0' },
+                entries,
+            },
+        };
+
+        const blob = new Blob([JSON.stringify(har, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `gaze-capture-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')}.har`;
+        a.click();
+        URL.revokeObjectURL(url);
+        message.success(t('proxy.har_exported', { count: entries.length }));
+    };
+
     // Edit mock rule — close list modal first, then open edit modal with prefilled form
     const startEditMockRule = (rule: any) => {
         closeMockListModal();
@@ -749,6 +1089,7 @@ const ProxyView: React.FC = () => {
             statusCode: rule.statusCode,
             contentType: rule.headers?.['Content-Type'] || 'application/json',
             body: rule.body,
+            bodyFile: rule.bodyFile || '',
             delay: rule.delay,
             description: rule.description,
             conditions: rule.conditions || [],
@@ -1252,6 +1593,16 @@ const ProxyView: React.FC = () => {
                                     <Button icon={<PlusOutlined />} onClick={() => { breakpointForm.resetFields(); openBreakpointEditModal(null); }} />
                                 </Tooltip>
                             </Button.Group>
+                            <Tooltip title={t('proxy.map_remote_rules')}>
+                                <Button size="small" icon={<SwapOutlined />} onClick={handleOpenMapRemoteListModal}>
+                                    {t('proxy.map_remote')}
+                                </Button>
+                            </Tooltip>
+                            <Tooltip title={t('proxy.rewrite_rules')}>
+                                <Button size="small" icon={<EditOutlined />} onClick={handleOpenRewriteListModal}>
+                                    {t('proxy.rewrite')}
+                                </Button>
+                            </Tooltip>
                             <Tooltip title={t('proxy.proto_management')}>
                                 <Button size="small" icon={<CodeOutlined />} onClick={handleOpenProtoListModal}>
                                     Proto
@@ -1367,7 +1718,9 @@ const ProxyView: React.FC = () => {
                                 value={searchText}
                                 onChange={e => setSearchText(e.target.value)}
                             />
-                            <Button size="small" type="link" onClick={() => clearLogs()} icon={<DeleteOutlined />} style={{ padding: 0 }}>{t('proxy.clear_logs')}</Button>
+                            <Button size="small" type="link" onClick={() => { resendForm.setFieldsValue({ method: 'GET', url: '', headers: '', body: '' }); setResendResponse(null); setResendModalOpen(true); }} icon={<SendOutlined />} style={{ padding: 0 }}>{t('proxy.compose_request')}</Button>
+                            <Button size="small" type="link" onClick={handleExportHAR} icon={<DownloadOutlined />} style={{ padding: 0 }} disabled={logs.length === 0}>{t('proxy.export_har')}</Button>
+                            <Button size="small" type="link" onClick={() => { clearLogs(); clearWSMessages(); setDiffBaseLog(null); }} icon={<DeleteOutlined />} style={{ padding: 0 }}>{t('proxy.clear_logs')}</Button>
                         </div>
                     }
                 >
@@ -1413,13 +1766,14 @@ const ProxyView: React.FC = () => {
                     </div>
                 )}
                 {/* Virtual Table Header - Fixed widths */}
-                <div style={{ display: 'grid', gridTemplateColumns: '80px 70px 80px 1fr 80px 80px', padding: '8px 12px', background: token.colorFillAlter, borderBottom: `1px solid ${token.colorBorderSecondary}`, fontWeight: 'bold', fontSize: '12px', color: token.colorTextSecondary }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '80px 70px 80px 1fr 80px 64px 72px', padding: '8px 12px', background: token.colorFillAlter, borderBottom: `1px solid ${token.colorBorderSecondary}`, fontWeight: 'bold', fontSize: '12px', color: token.colorTextSecondary }}>
                     <div>{t('proxy.col_time')}</div>
                     <div>{t('proxy.col_method')}</div>
                     <div>{t('proxy.col_stat')}</div>
                     <div>{t('proxy.col_url')}</div>
                     <div>{t('proxy.col_type')}</div>
                     <div>{t('proxy.col_size')}</div>
+                    <div>{t('proxy.col_duration')}</div>
                 </div>
 
                 <VirtualList
@@ -1435,7 +1789,7 @@ const ProxyView: React.FC = () => {
                         <div
                             style={{
                                 display: 'grid',
-                                gridTemplateColumns: '80px 70px 80px 1fr 80px 80px',
+                                gridTemplateColumns: '80px 70px 80px 1fr 80px 64px 72px',
                                 padding: '6px 12px',
                                 fontSize: '12px',
                                 alignItems: 'center',
@@ -1468,6 +1822,7 @@ const ProxyView: React.FC = () => {
                             </div>
                             <div style={{ color: '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{record.contentType?.split(';')[0].split('/')[1] || '-'}</div>
                             <div style={{ fontFamily: 'monospace', color: '#666' }}>{formatBytes(record.bodySize || 0)}</div>
+                            <div style={{ fontFamily: 'monospace', color: record.duration && record.duration > 3000 ? '#ff4d4f' : record.duration && record.duration > 1000 ? '#faad14' : '#666' }}>{formatMs(record.duration)}</div>
                         </div>
                     )}
                 />
@@ -1515,6 +1870,16 @@ const ProxyView: React.FC = () => {
                                     >
                                         BP
                                     </Button>
+                                    <Tooltip title={diffBaseLog ? t('proxy.diff_compare') : t('proxy.diff_mark')}>
+                                        <Button
+                                            type={diffBaseLog && diffBaseLog.id !== selectedLog.id ? "primary" : "text"}
+                                            size="small"
+                                            icon={<SwapOutlined />}
+                                            onClick={() => handleMarkForDiff(selectedLog as any)}
+                                        >
+                                            Diff
+                                        </Button>
+                                    </Tooltip>
                                     <Button
                                         type="text"
                                         size="small"
@@ -1701,7 +2066,54 @@ const ProxyView: React.FC = () => {
                                                     )}
                                                 </div>
                                             )
-                                        }
+                                        },
+                                        ...(selectedLog.isWs ? [{
+                                            key: 'wsMessages',
+                                            label: <span>{t('proxy.ws_messages')} {(wsMessages[selectedLog.id] || []).length > 0 && <Tag color="cyan" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', marginLeft: 4 }}>{(wsMessages[selectedLog.id] || []).length}</Tag>}</span>,
+                                            children: (() => {
+                                                const msgs = wsMessages[selectedLog.id] || [];
+                                                return (
+                                                    <div style={{ paddingTop: 8 }}>
+                                                        {msgs.length === 0 ? (
+                                                            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                                                                <ApiOutlined style={{ fontSize: 48, color: token.colorTextDisabled, marginBottom: 16 }} />
+                                                                <br />
+                                                                <Text type="secondary" italic>{t('proxy.ws_no_messages')}</Text>
+                                                            </div>
+                                                        ) : (
+                                                            <div style={{ maxHeight: 400, overflow: 'auto' }}>
+                                                                {msgs.map((msg, idx) => (
+                                                                    <div key={idx} style={{
+                                                                        display: 'flex',
+                                                                        gap: 8,
+                                                                        padding: '6px 8px',
+                                                                        borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                                                                        background: msg.direction === 'send' ? 'rgba(82,196,26,0.04)' : 'rgba(24,144,255,0.04)',
+                                                                        fontSize: 12,
+                                                                    }}>
+                                                                        <Tag color={msg.direction === 'send' ? 'green' : 'blue'} style={{ fontSize: 10, lineHeight: '18px', padding: '0 4px', flexShrink: 0 }}>
+                                                                            {msg.direction === 'send' ? '↑' : '↓'}
+                                                                        </Tag>
+                                                                        <Tag style={{ fontSize: 10, lineHeight: '18px', padding: '0 4px', flexShrink: 0 }}>
+                                                                            {msg.typeName}
+                                                                        </Tag>
+                                                                        <Text type="secondary" style={{ fontSize: 11, flexShrink: 0 }}>
+                                                                            {new Date(msg.timestamp).toLocaleTimeString()}
+                                                                        </Text>
+                                                                        <Text style={{ fontSize: 11, color: token.colorTextSecondary, flexShrink: 0 }}>
+                                                                            {msg.payloadSize}B
+                                                                        </Text>
+                                                                        <div style={{ flex: 1, overflow: 'hidden', fontFamily: 'monospace', fontSize: 11, whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                                                                            {msg.payload}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()
+                                        }] : [])
                                     ]} />
                                 );
                             })()}
@@ -1829,9 +2241,15 @@ const ProxyView: React.FC = () => {
                 footer={null}
                 style={{ top: 32, paddingBottom: 0 }}
             >
-                <div style={{ marginBottom: 12 }}>
+                <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
                     <Button type="primary" icon={<PlusOutlined />} onClick={() => { closeMockListModal(); mockForm.resetFields(); setMockConditionHints(null); openMockEditModal(null); }}>
                         {t('proxy.add_mock_rule')}
+                    </Button>
+                    <Button icon={<DownloadOutlined />} onClick={handleExportMockRules} disabled={mockRules.length === 0}>
+                        {t('proxy.mock_export')}
+                    </Button>
+                    <Button icon={<CloudDownloadOutlined />} onClick={handleImportMockRules}>
+                        {t('proxy.mock_import')}
                     </Button>
                 </div>
                 <div style={{ maxHeight: 'calc(100vh - 220px)', overflow: 'auto' }}>
@@ -1904,6 +2322,11 @@ const ProxyView: React.FC = () => {
                     </Form.Item>
                     <Form.Item name="body" label={t('proxy.response_body')} style={{ marginBottom: 8 }}>
                         <JsonEditor height={'calc(100vh - 560px)'} placeholder='{"success": true}' />
+                    </Form.Item>
+                    <Form.Item name="bodyFile" label={t('proxy.body_file')} style={{ marginBottom: 8 }}
+                        tooltip={t('proxy.body_file_tooltip')}
+                    >
+                        <Input placeholder="/path/to/response.json" allowClear />
                     </Form.Item>
                     <Form.Item name="description" label={t('proxy.description')} style={{ marginBottom: 12 }}>
                         <Input placeholder={t('proxy.description')} />
@@ -2662,6 +3085,297 @@ const ProxyView: React.FC = () => {
                         )}
                     </div>
                 )}
+            </Modal>
+
+            {/* === Map Remote Rules List Modal === */}
+            <Modal
+                open={mapRemoteListModalOpen}
+                onCancel={closeMapRemoteListModal}
+                title={t('proxy.map_remote_rules')}
+                width={700}
+                footer={null}
+                style={{ top: 32 }}
+            >
+                <div style={{ marginBottom: 12 }}>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => { closeMapRemoteListModal(); mapRemoteForm.resetFields(); openMapRemoteEditModal(null); }}>
+                        {t('proxy.add_map_remote_rule')}
+                    </Button>
+                </div>
+                {mapRemoteRules.length === 0 ? (
+                    <Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: 32 }}>{t('proxy.no_map_remote_rules')}</Text>
+                ) : (
+                    <Table
+                        dataSource={mapRemoteRules}
+                        rowKey="id"
+                        size="small"
+                        pagination={false}
+                        columns={[
+                            { title: t('proxy.map_remote_source'), dataIndex: 'sourcePattern', key: 'sourcePattern', ellipsis: true },
+                            { title: t('proxy.map_remote_target'), dataIndex: 'targetURL', key: 'targetURL', ellipsis: true },
+                            { title: t('proxy.breakpoint_method'), dataIndex: 'method', key: 'method', width: 80, render: (v: string) => v || '*' },
+                            { title: t('proxy.breakpoint_enabled'), key: 'enabled', width: 70, render: (_: any, record: any) => (
+                                <Switch size="small" checked={record.enabled} onChange={(checked) => handleToggleMapRemoteRule(record.id, checked)} />
+                            )},
+                            { key: 'actions', width: 80, render: (_: any, record: any) => (
+                                <Space size={4}>
+                                    <Button type="link" size="small" icon={<EditOutlined />} onClick={() => {
+                                        closeMapRemoteListModal();
+                                        mapRemoteForm.setFieldsValue({
+                                            sourcePattern: record.sourcePattern,
+                                            targetURL: record.targetURL,
+                                            method: record.method,
+                                            description: record.description,
+                                        });
+                                        openMapRemoteEditModal(record);
+                                    }} />
+                                    <Popconfirm title="Delete?" onConfirm={() => handleDeleteMapRemoteRule(record.id)}>
+                                        <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+                                    </Popconfirm>
+                                </Space>
+                            )},
+                        ]}
+                    />
+                )}
+            </Modal>
+
+            {/* === Map Remote Rule Edit Modal === */}
+            <Modal
+                open={mapRemoteEditModalOpen}
+                onCancel={closeMapRemoteEditModal}
+                title={editingMapRemoteRule ? t('proxy.edit_map_remote_rule') : t('proxy.add_map_remote_rule')}
+                width={500}
+                onOk={handleSaveMapRemoteRule}
+                okText={editingMapRemoteRule ? t('proxy.edit_map_remote_rule') : t('proxy.add_map_remote_rule')}
+            >
+                <Form form={mapRemoteForm} layout="vertical">
+                    <Form.Item name="sourcePattern" label={t('proxy.map_remote_source')} rules={[{ required: true }]}>
+                        <Input placeholder="*/api/v1/*" />
+                    </Form.Item>
+                    <Form.Item name="targetURL" label={t('proxy.map_remote_target')} rules={[{ required: true }]}>
+                        <Input placeholder="http://localhost:3000/api/v1/*" />
+                    </Form.Item>
+                    <Form.Item name="method" label={t('proxy.breakpoint_method')}>
+                        <Input placeholder="GET (empty = all)" />
+                    </Form.Item>
+                    <Form.Item name="description" label={t('proxy.breakpoint_description')}>
+                        <Input placeholder="Optional description" />
+                    </Form.Item>
+                </Form>
+            </Modal>
+
+            {/* === Rewrite Rules List Modal === */}
+            <Modal
+                title={t('proxy.rewrite_rules')}
+                open={rewriteListModalOpen}
+                onCancel={closeRewriteListModal}
+                width={900}
+                footer={null}
+            >
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => { closeRewriteListModal(); rewriteForm.resetFields(); openRewriteEditModal(null); }}>
+                        {t('proxy.add_rewrite_rule')}
+                    </Button>
+                </div>
+                {rewriteRules.length === 0 ? (
+                    <Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: 32 }}>{t('proxy.no_rewrite_rules')}</Text>
+                ) : (
+                    <Table
+                        dataSource={rewriteRules}
+                        rowKey="id"
+                        size="small"
+                        pagination={false}
+                        scroll={{ y: 400 }}
+                        columns={[
+                            { title: t('proxy.url_pattern'), dataIndex: 'urlPattern', key: 'urlPattern', ellipsis: true, width: 160 },
+                            { title: t('proxy.rewrite_phase'), dataIndex: 'phase', key: 'phase', width: 80 },
+                            { title: t('proxy.rewrite_target'), dataIndex: 'target', key: 'target', width: 70 },
+                            { title: t('proxy.rewrite_match'), dataIndex: 'match', key: 'match', ellipsis: true, width: 140 },
+                            { title: t('proxy.rewrite_replace'), dataIndex: 'replace', key: 'replace', ellipsis: true, width: 140 },
+                            { title: t('proxy.description'), dataIndex: 'description', key: 'description', ellipsis: true },
+                            { title: t('proxy.mock_enabled'), key: 'enabled', width: 70, render: (_: any, record: any) => (
+                                <Switch size="small" checked={record.enabled} onChange={(checked) => handleToggleRewriteRule(record.id, checked)} />
+                            )},
+                            { title: '', key: 'actions', width: 70, render: (_: any, record: any) => (
+                                <Space size={4}>
+                                    <Button type="link" size="small" icon={<EditOutlined />} onClick={() => startEditRewriteRule(record)} />
+                                    <Popconfirm title="Delete?" onConfirm={() => handleDeleteRewriteRule(record.id)}>
+                                        <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+                                    </Popconfirm>
+                                </Space>
+                            )},
+                        ]}
+                    />
+                )}
+            </Modal>
+
+            {/* === Rewrite Rule Edit Modal === */}
+            <Modal
+                open={rewriteEditModalOpen}
+                onCancel={() => { closeRewriteEditModal(); rewriteForm.resetFields(); }}
+                title={editingRewriteRule ? t('proxy.edit_rewrite_rule') : t('proxy.add_rewrite_rule')}
+                width={600}
+                onOk={handleSaveRewriteRule}
+                okText={editingRewriteRule ? t('common.save') : t('proxy.add_rewrite_rule')}
+            >
+                <Form form={rewriteForm} layout="vertical" size="small">
+                    <Form.Item name="urlPattern" label={t('proxy.url_pattern')} rules={[{ required: true }]}>
+                        <Input placeholder="*/api/*" />
+                    </Form.Item>
+                    <Space wrap style={{ width: '100%' }}>
+                        <Form.Item name="method" label={t('proxy.col_method')} style={{ width: 100 }}>
+                            <Input placeholder="GET" />
+                        </Form.Item>
+                        <Form.Item name="phase" label={t('proxy.rewrite_phase')} rules={[{ required: true }]} style={{ width: 130 }}>
+                            <Select placeholder="Phase">
+                                <Select.Option value="request">{t('proxy.phase_request')}</Select.Option>
+                                <Select.Option value="response">{t('proxy.phase_response')}</Select.Option>
+                                <Select.Option value="both">{t('proxy.phase_both')}</Select.Option>
+                            </Select>
+                        </Form.Item>
+                        <Form.Item name="target" label={t('proxy.rewrite_target')} rules={[{ required: true }]} style={{ width: 130 }}>
+                            <Select placeholder="Target">
+                                <Select.Option value="body">{t('proxy.rewrite_target_body')}</Select.Option>
+                                <Select.Option value="header">{t('proxy.rewrite_target_header')}</Select.Option>
+                            </Select>
+                        </Form.Item>
+                    </Space>
+                    <Form.Item noStyle shouldUpdate={(prev, cur) => prev.target !== cur.target}>
+                        {({ getFieldValue }) => getFieldValue('target') === 'header' ? (
+                            <Form.Item name="headerName" label={t('proxy.rewrite_header_name')} rules={[{ required: true }]}>
+                                <Input placeholder="Content-Type" />
+                            </Form.Item>
+                        ) : null}
+                    </Form.Item>
+                    <Form.Item name="match" label={t('proxy.rewrite_match')} rules={[{ required: true }]}
+                        tooltip={t('proxy.rewrite_match_tooltip')}
+                    >
+                        <Input placeholder="old-value|regex-pattern" style={{ fontFamily: 'monospace' }} />
+                    </Form.Item>
+                    <Form.Item name="replace" label={t('proxy.rewrite_replace')}
+                        tooltip={t('proxy.rewrite_replace_tooltip')}
+                    >
+                        <Input placeholder="new-value ($1 for groups)" style={{ fontFamily: 'monospace' }} />
+                    </Form.Item>
+                    <Form.Item name="description" label={t('proxy.description')}>
+                        <Input placeholder={t('proxy.description')} />
+                    </Form.Item>
+                </Form>
+            </Modal>
+
+            {/* Diff Modal */}
+            <Modal
+                open={diffModalOpen}
+                onCancel={closeDiffModal}
+                title={t('proxy.diff_title')}
+                width={1100}
+                footer={null}
+                styles={{ body: { maxHeight: '70vh', overflow: 'auto' } }}
+            >
+                {diffBaseLog && diffTargetLog && (() => {
+                    const formatHeaders = (headers?: Record<string, string[]>) => {
+                        if (!headers) return '';
+                        return Object.entries(headers).map(([k, v]) => `${k}: ${(v || []).join(', ')}`).sort().join('\n');
+                    };
+                    const formatBody = (body?: string) => {
+                        if (!body) return '';
+                        try { return JSON.stringify(JSON.parse(body), null, 2); } catch { return body; }
+                    };
+                    const parseQuery = (url: string) => {
+                        try {
+                            const u = new URL(url);
+                            return Array.from(u.searchParams.entries()).map(([k, v]) => `${k}=${v}`).join('\n');
+                        } catch { return ''; }
+                    };
+
+                    // Simple line diff
+                    const diffLines = (a: string, b: string): Array<{ left: string; right: string; type: 'same' | 'changed' | 'added' | 'removed' }> => {
+                        const linesA = a.split('\n');
+                        const linesB = b.split('\n');
+                        const result: Array<{ left: string; right: string; type: 'same' | 'changed' | 'added' | 'removed' }> = [];
+                        const maxLen = Math.max(linesA.length, linesB.length);
+                        for (let i = 0; i < maxLen; i++) {
+                            const la = i < linesA.length ? linesA[i] : undefined;
+                            const lb = i < linesB.length ? linesB[i] : undefined;
+                            if (la !== undefined && lb !== undefined) {
+                                result.push({ left: la, right: lb, type: la === lb ? 'same' : 'changed' });
+                            } else if (la !== undefined) {
+                                result.push({ left: la, right: '', type: 'removed' });
+                            } else {
+                                result.push({ left: '', right: lb!, type: 'added' });
+                            }
+                        }
+                        return result;
+                    };
+
+                    const DiffBlock = ({ title, leftVal, rightVal }: { title: string; leftVal: string; rightVal: string }) => {
+                        if (!leftVal && !rightVal) return null;
+                        const lines = diffLines(leftVal, rightVal);
+                        const hasDiff = lines.some(l => l.type !== 'same');
+                        return (
+                            <div style={{ marginBottom: 16 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                    <Text strong style={{ fontSize: 13 }}>{title}</Text>
+                                    {!hasDiff && <Tag color="green" style={{ fontSize: 11 }}>{t('proxy.diff_identical')}</Tag>}
+                                    {hasDiff && <Tag color="orange" style={{ fontSize: 11 }}>{t('proxy.diff_different')}</Tag>}
+                                </div>
+                                {hasDiff && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, fontFamily: 'monospace', fontSize: 12, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4, overflow: 'hidden' }}>
+                                        {lines.map((line, idx) => (
+                                            <React.Fragment key={idx}>
+                                                <div style={{
+                                                    padding: '2px 8px',
+                                                    background: line.type === 'removed' ? 'rgba(255,77,79,0.12)' : line.type === 'changed' ? 'rgba(250,173,20,0.08)' : token.colorFillQuaternary,
+                                                    borderBottom: idx < lines.length - 1 ? `1px solid ${token.colorBorderSecondary}` : 'none',
+                                                    whiteSpace: 'pre-wrap',
+                                                    wordBreak: 'break-all',
+                                                    minHeight: 22,
+                                                }}>{line.left}</div>
+                                                <div style={{
+                                                    padding: '2px 8px',
+                                                    background: line.type === 'added' ? 'rgba(82,196,26,0.12)' : line.type === 'changed' ? 'rgba(250,173,20,0.08)' : token.colorFillQuaternary,
+                                                    borderBottom: idx < lines.length - 1 ? `1px solid ${token.colorBorderSecondary}` : 'none',
+                                                    borderLeft: `1px solid ${token.colorBorderSecondary}`,
+                                                    whiteSpace: 'pre-wrap',
+                                                    wordBreak: 'break-all',
+                                                    minHeight: 22,
+                                                }}>{line.right}</div>
+                                            </React.Fragment>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    };
+
+                    return (
+                        <div>
+                            {/* Column headers */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                                <div style={{ background: token.colorFillTertiary, padding: '8px 12px', borderRadius: 6 }}>
+                                    <Text type="secondary" style={{ fontSize: 11 }}>{t('proxy.diff_request_a')}</Text>
+                                    <div style={{ fontFamily: 'monospace', fontSize: 12, marginTop: 4 }}>
+                                        <Tag color={diffBaseLog.method === 'GET' ? 'green' : 'blue'} style={{ fontSize: 11 }}>{diffBaseLog.method}</Tag>
+                                        {diffBaseLog.statusCode && <Tag style={{ fontSize: 11 }}>{diffBaseLog.statusCode}</Tag>}
+                                        <div style={{ marginTop: 4, wordBreak: 'break-all', color: token.colorTextSecondary }}>{diffBaseLog.url}</div>
+                                    </div>
+                                </div>
+                                <div style={{ background: token.colorFillTertiary, padding: '8px 12px', borderRadius: 6 }}>
+                                    <Text type="secondary" style={{ fontSize: 11 }}>{t('proxy.diff_request_b')}</Text>
+                                    <div style={{ fontFamily: 'monospace', fontSize: 12, marginTop: 4 }}>
+                                        <Tag color={diffTargetLog.method === 'GET' ? 'green' : 'blue'} style={{ fontSize: 11 }}>{diffTargetLog.method}</Tag>
+                                        {diffTargetLog.statusCode && <Tag style={{ fontSize: 11 }}>{diffTargetLog.statusCode}</Tag>}
+                                        <div style={{ marginTop: 4, wordBreak: 'break-all', color: token.colorTextSecondary }}>{diffTargetLog.url}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <DiffBlock title={t('proxy.diff_query_params')} leftVal={parseQuery(diffBaseLog.url)} rightVal={parseQuery(diffTargetLog.url)} />
+                            <DiffBlock title={t('proxy.diff_req_headers')} leftVal={formatHeaders(diffBaseLog.headers)} rightVal={formatHeaders(diffTargetLog.headers)} />
+                            <DiffBlock title={t('proxy.diff_req_body')} leftVal={formatBody(diffBaseLog.body)} rightVal={formatBody(diffTargetLog.body)} />
+                            <DiffBlock title={t('proxy.diff_resp_headers')} leftVal={formatHeaders(diffBaseLog.respHeaders)} rightVal={formatHeaders(diffTargetLog.respHeaders)} />
+                            <DiffBlock title={t('proxy.diff_resp_body')} leftVal={formatBody(diffBaseLog.respBody)} rightVal={formatBody(diffTargetLog.respBody)} />
+                        </div>
+                    );
+                })()}
             </Modal>
 
         </div>

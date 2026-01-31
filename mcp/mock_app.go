@@ -489,13 +489,13 @@ func (m *MockGazeApp) GetProxyStatus() bool {
 
 // === Mock Rules ===
 
-func (m *MockGazeApp) AddMockRule(urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, description string, conditions []MCPMockCondition) string {
-	m.recordCall("AddMockRule", urlPattern, method, statusCode, headers, body, delay, description, conditions)
+func (m *MockGazeApp) AddMockRule(urlPattern, method string, statusCode int, headers map[string]string, body, bodyFile string, delay int, description string, conditions []MCPMockCondition) string {
+	m.recordCall("AddMockRule", urlPattern, method, statusCode, headers, body, bodyFile, delay, description, conditions)
 	return m.AddMockRuleResult
 }
 
-func (m *MockGazeApp) UpdateMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, enabled bool, description string, conditions []MCPMockCondition) error {
-	m.recordCall("UpdateMockRule", id, urlPattern, method, statusCode, headers, body, delay, enabled, description, conditions)
+func (m *MockGazeApp) UpdateMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body, bodyFile string, delay int, enabled bool, description string, conditions []MCPMockCondition) error {
+	m.recordCall("UpdateMockRule", id, urlPattern, method, statusCode, headers, body, bodyFile, delay, enabled, description, conditions)
 	return m.UpdateMockRuleError
 }
 
@@ -513,9 +513,71 @@ func (m *MockGazeApp) ToggleMockRule(ruleID string, enabled bool) error {
 	return m.ToggleMockRuleError
 }
 
+func (m *MockGazeApp) ExportMockRules() (string, error) {
+	m.recordCall("ExportMockRules")
+	return "[]", nil
+}
+
+func (m *MockGazeApp) ImportMockRules(jsonStr string) (int, error) {
+	m.recordCall("ImportMockRules", jsonStr)
+	return 0, nil
+}
+
 func (m *MockGazeApp) ResendRequest(method, url string, headers map[string]string, body string) (map[string]interface{}, error) {
 	m.recordCall("ResendRequest", method, url, headers, body)
 	return m.ResendRequestResult, m.ResendRequestError
+}
+
+// === Map Remote Rules ===
+
+func (m *MockGazeApp) AddMapRemoteRule(sourcePattern, targetURL, method, description string) string {
+	m.recordCall("AddMapRemoteRule", sourcePattern, targetURL, method, description)
+	return "map-test-id"
+}
+
+func (m *MockGazeApp) UpdateMapRemoteRule(id, sourcePattern, targetURL, method string, enabled bool, description string) error {
+	m.recordCall("UpdateMapRemoteRule", id, sourcePattern, targetURL, method, enabled, description)
+	return nil
+}
+
+func (m *MockGazeApp) RemoveMapRemoteRule(ruleID string) {
+	m.recordCall("RemoveMapRemoteRule", ruleID)
+}
+
+func (m *MockGazeApp) GetMapRemoteRules() []MCPMapRemoteRule {
+	m.recordCall("GetMapRemoteRules")
+	return []MCPMapRemoteRule{}
+}
+
+func (m *MockGazeApp) ToggleMapRemoteRule(ruleID string, enabled bool) error {
+	m.recordCall("ToggleMapRemoteRule", ruleID, enabled)
+	return nil
+}
+
+// === Rewrite Rules ===
+
+func (m *MockGazeApp) AddRewriteRule(urlPattern, method, phase, target, headerName, match, replace, description string) string {
+	m.recordCall("AddRewriteRule", urlPattern, method, phase, target, headerName, match, replace, description)
+	return "rw-test-id"
+}
+
+func (m *MockGazeApp) UpdateRewriteRule(id, urlPattern, method, phase, target, headerName, match, replace string, enabled bool, description string) error {
+	m.recordCall("UpdateRewriteRule", id, urlPattern, method, phase, target, headerName, match, replace, enabled, description)
+	return nil
+}
+
+func (m *MockGazeApp) RemoveRewriteRule(ruleID string) {
+	m.recordCall("RemoveRewriteRule", ruleID)
+}
+
+func (m *MockGazeApp) GetRewriteRules() []MCPRewriteRule {
+	m.recordCall("GetRewriteRules")
+	return []MCPRewriteRule{}
+}
+
+func (m *MockGazeApp) ToggleRewriteRule(ruleID string, enabled bool) error {
+	m.recordCall("ToggleRewriteRule", ruleID, enabled)
+	return nil
 }
 
 // === Breakpoint Rules ===

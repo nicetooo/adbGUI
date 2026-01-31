@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"compress/flate"
 	"compress/gzip"
 	"context"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/andybalholm/brotli"
 	"github.com/elazarl/goproxy"
 	"golang.org/x/time/rate"
 )
@@ -50,8 +52,31 @@ type MockRule struct {
 	StatusCode int
 	Headers    map[string]string
 	Body       string
+	BodyFile   string // Path to local file for response body (overrides Body if set)
 	Delay      int
 	Conditions []MockCondition // Additional match conditions (AND logic)
+}
+
+// MapRemoteRule defines a URL rewriting rule
+type MapRemoteRule struct {
+	ID            string
+	SourcePattern string // URL wildcard pattern to match (e.g., "*api.prod.com/*")
+	TargetURL     string // Target URL prefix (e.g., "https://api.staging.com/")
+	Method        string // HTTP method to match (empty = all)
+	Enabled       bool
+}
+
+// RewriteRule defines an auto-rewrite rule for request/response modification
+type RewriteRule struct {
+	ID         string
+	URLPattern string // URL wildcard pattern to match
+	Method     string // HTTP method to match (empty = all)
+	Phase      string // "request", "response", or "both"
+	Target     string // "header" or "body"
+	HeaderName string // Header name when Target is "header" (empty for body)
+	Match      string // Regex pattern to find
+	Replace    string // Replacement string (supports $1, $2 etc.)
+	Enabled    bool
 }
 
 // ProxyServer handles the HTTP/HTTPS logic using goproxy
@@ -63,6 +88,7 @@ type ProxyServer struct {
 	running            bool
 	port               int
 	OnRequest          func(RequestLog) // Callback for request logging
+	OnWSMessage        func(WSMessage)  // Callback for WebSocket messages
 	mitmEnabled        bool             // HTTPS Decrypt
 	wsEnabled          bool             // WebSocket support
 	mitmBypassPatterns []string
@@ -72,7 +98,9 @@ type ProxyServer struct {
 	downLimiter *rate.Limiter
 	latency     time.Duration // Artificial latency
 
-	mockRules map[string]*MockRule // Mock response rules
+	mockRules      map[string]*MockRule      // Mock response rules
+	mapRemoteRules map[string]*MapRemoteRule // URL rewriting rules
+	rewriteRules   map[string]*RewriteRule   // Auto rewrite rules
 
 	hasDecryptedHTTPS bool // Track if we've seen decrypted HTTPS traffic
 
@@ -106,10 +134,10 @@ func (p *ProxyServer) SetLatency(latencyMs int) {
 }
 
 // AddMockRule adds a mock response rule
-func (p *ProxyServer) AddMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, conditions []MockCondition) {
+func (p *ProxyServer) AddMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body, bodyFile string, delay int, conditions []MockCondition) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	fmt.Fprintf(os.Stderr, "[MOCK DEBUG] AddMockRule: id=%s pattern=%s method=%s status=%d conditions=%d\n", id, urlPattern, method, statusCode, len(conditions))
+	fmt.Fprintf(os.Stderr, "[MOCK DEBUG] AddMockRule: id=%s pattern=%s method=%s status=%d bodyFile=%q conditions=%d\n", id, urlPattern, method, statusCode, bodyFile, len(conditions))
 	if p.mockRules == nil {
 		p.mockRules = make(map[string]*MockRule)
 	}
@@ -120,6 +148,7 @@ func (p *ProxyServer) AddMockRule(id, urlPattern, method string, statusCode int,
 		StatusCode: statusCode,
 		Headers:    headers,
 		Body:       body,
+		BodyFile:   bodyFile,
 		Delay:      delay,
 		Conditions: conditions,
 	}
@@ -132,6 +161,188 @@ func (p *ProxyServer) RemoveMockRule(id string) {
 	if p.mockRules != nil {
 		delete(p.mockRules, id)
 	}
+}
+
+// AddMapRemoteRule adds or updates a URL rewriting rule
+func (p *ProxyServer) AddMapRemoteRule(id, sourcePattern, targetURL, method string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.mapRemoteRules == nil {
+		p.mapRemoteRules = make(map[string]*MapRemoteRule)
+	}
+	p.mapRemoteRules[id] = &MapRemoteRule{
+		ID:            id,
+		SourcePattern: sourcePattern,
+		TargetURL:     targetURL,
+		Method:        method,
+		Enabled:       true,
+	}
+}
+
+// RemoveMapRemoteRule removes a URL rewriting rule
+func (p *ProxyServer) RemoveMapRemoteRule(id string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.mapRemoteRules != nil {
+		delete(p.mapRemoteRules, id)
+	}
+}
+
+// matchMapRemoteRule checks if a request matches any map remote rule.
+// Returns the rewritten URL or empty string if no match.
+func (p *ProxyServer) matchMapRemoteRule(method, requestURL string) string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	for _, rule := range p.mapRemoteRules {
+		if !rule.Enabled {
+			continue
+		}
+		if rule.Method != "" && !strings.EqualFold(rule.Method, method) {
+			continue
+		}
+		if MatchPattern(rule.SourcePattern, requestURL) {
+			// Simple replacement: replace matched prefix with target
+			// If source has trailing *, capture what's after the fixed part and append to target
+			return applyMapRemote(rule.SourcePattern, rule.TargetURL, requestURL)
+		}
+	}
+	return ""
+}
+
+// applyMapRemote applies URL rewriting based on source pattern and target URL.
+// Supports wildcard (*) substitution: the part matched by the last * in source
+// is appended to the target URL.
+func applyMapRemote(sourcePattern, targetURL, requestURL string) string {
+	// If no wildcard in source, just return target as-is
+	if !strings.Contains(sourcePattern, "*") {
+		return targetURL
+	}
+
+	// Find the fixed prefix before the last * in source pattern
+	lastStar := strings.LastIndex(sourcePattern, "*")
+	prefix := sourcePattern[:lastStar]
+	// Remove leading * characters from prefix for matching
+	prefix = strings.TrimLeft(prefix, "*")
+
+	// Find where the prefix appears in the request URL
+	idx := strings.Index(requestURL, prefix)
+	if idx < 0 {
+		return targetURL
+	}
+
+	// The "tail" is everything after the prefix in the request URL
+	tail := requestURL[idx+len(prefix):]
+
+	// If target ends with *, replace it with the tail
+	if strings.HasSuffix(targetURL, "*") {
+		return targetURL[:len(targetURL)-1] + tail
+	}
+
+	// If target ends with /, append the tail
+	if strings.HasSuffix(targetURL, "/") {
+		return targetURL + tail
+	}
+
+	// Otherwise just return target
+	return targetURL
+}
+
+// AddRewriteRule adds or updates an auto rewrite rule
+func (p *ProxyServer) AddRewriteRule(id, urlPattern, method, phase, target, headerName, match, replace string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.rewriteRules == nil {
+		p.rewriteRules = make(map[string]*RewriteRule)
+	}
+	p.rewriteRules[id] = &RewriteRule{
+		ID:         id,
+		URLPattern: urlPattern,
+		Method:     method,
+		Phase:      phase,
+		Target:     target,
+		HeaderName: headerName,
+		Match:      match,
+		Replace:    replace,
+		Enabled:    true,
+	}
+}
+
+// RemoveRewriteRule removes an auto rewrite rule
+func (p *ProxyServer) RemoveRewriteRule(id string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.rewriteRules != nil {
+		delete(p.rewriteRules, id)
+	}
+}
+
+// applyRewriteRules applies matching rewrite rules to headers or body content.
+// phase should be "request" or "response".
+// Returns the (possibly modified) body and a map of header modifications.
+func (p *ProxyServer) applyRewriteRules(method, requestURL, phase string, headers http.Header, body []byte) ([]byte, map[string]string) {
+	p.mu.Lock()
+	rules := make([]*RewriteRule, 0, len(p.rewriteRules))
+	for _, rule := range p.rewriteRules {
+		rules = append(rules, rule)
+	}
+	p.mu.Unlock()
+
+	modifiedBody := body
+	headerMods := map[string]string{}
+
+	for _, rule := range rules {
+		if !rule.Enabled {
+			continue
+		}
+		if rule.Phase != "both" && rule.Phase != phase {
+			continue
+		}
+		if rule.Method != "" && !strings.EqualFold(rule.Method, method) {
+			continue
+		}
+		if !MatchPattern(requestURL, rule.URLPattern) {
+			continue
+		}
+
+		re, err := regexp.Compile(rule.Match)
+		if err != nil {
+			continue // skip invalid regex
+		}
+
+		if rule.Target == "header" {
+			// Rewrite specific header
+			if rule.HeaderName != "" {
+				val := headers.Get(rule.HeaderName)
+				if val != "" {
+					newVal := re.ReplaceAllString(val, rule.Replace)
+					if newVal != val {
+						headerMods[rule.HeaderName] = newVal
+					}
+				}
+			}
+		} else {
+			// Rewrite body
+			if len(modifiedBody) > 0 {
+				newBody := re.ReplaceAll(modifiedBody, []byte(rule.Replace))
+				modifiedBody = newBody
+			}
+		}
+	}
+
+	return modifiedBody, headerMods
+}
+
+// hasRewriteRules checks if there are any enabled rewrite rules for the given phase.
+func (p *ProxyServer) hasRewriteRules(phase string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, rule := range p.rewriteRules {
+		if rule.Enabled && (rule.Phase == "both" || rule.Phase == phase) {
+			return true
+		}
+	}
+	return false
 }
 
 // matchMockRule checks if a request matches any mock rule and returns it.
@@ -490,6 +701,32 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 			}
 		}
 
+		// Check for Map Remote (URL rewriting) rules
+		if newURL := p.matchMapRemoteRule(r.Method, r.URL.String()); newURL != "" {
+			p.debugLog("  -> MAP REMOTE: %s -> %s", r.URL.String(), newURL)
+			parsedURL, err := url.Parse(newURL)
+			if err == nil {
+				r.URL = parsedURL
+				r.Host = parsedURL.Host
+			}
+		}
+
+		// Apply auto rewrite rules (request phase)
+		if p.hasRewriteRules("request") {
+			var reqBody []byte
+			if r.Body != nil && r.Body != http.NoBody {
+				reqBody, _ = io.ReadAll(r.Body)
+			}
+			newBody, headerMods := p.applyRewriteRules(r.Method, r.URL.String(), "request", r.Header, reqBody)
+			for k, v := range headerMods {
+				r.Header.Set(k, v)
+			}
+			if len(reqBody) > 0 {
+				r.Body = io.NopCloser(bytes.NewReader(newBody))
+				r.ContentLength = int64(len(newBody))
+			}
+		}
+
 		// Read request body for condition matching (only if needed)
 		var mockBodyBytes []byte
 		if p.hasBodyConditions() && r.Body != nil && r.Body != http.NoBody {
@@ -510,6 +747,20 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 				time.Sleep(time.Duration(mockRule.Delay) * time.Millisecond)
 			}
 
+			// Determine response body: from file or inline
+			var mockBody string
+			if mockRule.BodyFile != "" {
+				fileData, err := os.ReadFile(mockRule.BodyFile)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "[MOCK DEBUG] Failed to read body file %s: %v, falling back to inline body\n", mockRule.BodyFile, err)
+					mockBody = mockRule.Body
+				} else {
+					mockBody = string(fileData)
+				}
+			} else {
+				mockBody = mockRule.Body
+			}
+
 			// Create mock response
 			mockResp := &http.Response{
 				StatusCode: mockRule.StatusCode,
@@ -518,7 +769,7 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 				ProtoMajor: 1,
 				ProtoMinor: 1,
 				Header:     make(http.Header),
-				Body:       io.NopCloser(strings.NewReader(mockRule.Body)),
+				Body:       io.NopCloser(strings.NewReader(mockBody)),
 				Request:    r,
 			}
 
@@ -529,7 +780,7 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 
 			// Set Content-Length if not set
 			if mockResp.Header.Get("Content-Length") == "" {
-				mockResp.Header.Set("Content-Length", fmt.Sprintf("%d", len(mockRule.Body)))
+				mockResp.Header.Set("Content-Length", fmt.Sprintf("%d", len(mockBody)))
 			}
 
 			return r, mockResp
@@ -773,6 +1024,26 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 			}
 		}
 
+		// Apply auto rewrite rules (response phase)
+		if !breakpointed && !mocked && req != nil && p.hasRewriteRules("response") {
+			if resp.Body != nil && resp.Body != http.NoBody {
+				respBodyBytes, _ := io.ReadAll(resp.Body)
+				resp.Body.Close()
+				newBody, headerMods := p.applyRewriteRules(req.Method, req.URL.String(), "response", resp.Header, respBodyBytes)
+				for k, v := range headerMods {
+					resp.Header.Set(k, v)
+				}
+				resp.Body = io.NopCloser(bytes.NewReader(newBody))
+				resp.ContentLength = int64(len(newBody))
+			} else {
+				// No body, just rewrite headers
+				_, headerMods := p.applyRewriteRules(req.Method, req.URL.String(), "response", resp.Header, nil)
+				for k, v := range headerMods {
+					resp.Header.Set(k, v)
+				}
+			}
+		}
+
 		if !breakpointed && resp.Body != nil {
 			rc := resp.Body
 
@@ -809,6 +1080,15 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 				}
 			}
 			resp.Body = rc
+		}
+
+		// Intercept WebSocket frames for inspection
+		if isWS && resp.Body != nil && p.OnWSMessage != nil {
+			if rwc, ok := resp.Body.(io.ReadWriteCloser); ok {
+				interceptor := NewWSInterceptor(rwc, id, p.OnWSMessage)
+				resp.Body = interceptor
+				p.debugLog("  -> WS frame interceptor installed for %s", id)
+			}
 		}
 
 		return resp
@@ -1282,6 +1562,19 @@ func (p *ProxyServer) analyzeBodyFull(data []byte, encoding string, contentType 
 			}
 			gr.Close()
 		}
+	} else if strings.Contains(encoding, "br") {
+		br := brotli.NewReader(bytes.NewReader(data))
+		decompressed, err := io.ReadAll(br)
+		if err == nil {
+			raw = decompressed
+		}
+	} else if strings.Contains(encoding, "deflate") {
+		fr := flate.NewReader(bytes.NewReader(data))
+		decompressed, err := io.ReadAll(fr)
+		if err == nil {
+			raw = decompressed
+		}
+		fr.Close()
 	}
 
 	// 2. Binary Detection

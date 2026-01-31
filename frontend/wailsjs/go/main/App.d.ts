@@ -15,11 +15,15 @@ export function AdbPair(arg1:string,arg2:string):Promise<string>;
 
 export function AddBreakpointRule(arg1:main.BreakpointRule):Promise<string>;
 
+export function AddMapRemoteRule(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
+
 export function AddMockRule(arg1:main.MockRule):Promise<string>;
 
 export function AddProtoFile(arg1:string,arg2:string):Promise<string>;
 
 export function AddProtoMapping(arg1:string,arg2:string,arg3:string,arg4:string):Promise<string>;
+
+export function AddRewriteRule(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:string,arg8:string):Promise<string>;
 
 export function AnalyzeElementSelectors(arg1:string,arg2:number,arg3:number,arg4:time.Time):Promise<Array<main.SelectorSuggestion>>;
 
@@ -89,6 +93,8 @@ export function ExecuteStoredAssertionInSession(arg1:string,arg2:string,arg3:str
 
 export function ExportAPK(arg1:string,arg2:string):Promise<string>;
 
+export function ExportMockRules():Promise<string>;
+
 export function ExportSession(arg1:string):Promise<string>;
 
 export function ExportSessionToPath(arg1:string,arg2:string):Promise<string>;
@@ -141,6 +147,8 @@ export function GetLogFilePath():Promise<string>;
 
 export function GetMITMBypassPatterns():Promise<Array<string>>;
 
+export function GetMapRemoteRules():Promise<Array<main.MapRemoteRule>>;
+
 export function GetMockRules():Promise<Array<main.MockRule>>;
 
 export function GetPendingBreakpoints():Promise<Array<proxy.PendingBreakpointInfo>>;
@@ -168,6 +176,8 @@ export function GetRecentSessionEvents(arg1:string,arg2:number):Promise<Array<ma
 export function GetRecordingEventCount(arg1:string):Promise<number>;
 
 export function GetRecordingsDir():Promise<string>;
+
+export function GetRewriteRules():Promise<Array<main.RewriteRule>>;
 
 export function GetSessionBookmarks(arg1:string):Promise<Array<main.Bookmark>>;
 
@@ -210,6 +220,8 @@ export function GetVideoThumbnails(arg1:string,arg2:number,arg3:number):Promise<
 export function GetWorkflow(arg1:string):Promise<types.Workflow>;
 
 export function GetWorkflowExecutionResult(arg1:string):Promise<types.WorkflowExecutionResult>;
+
+export function ImportMockRules(arg1:string):Promise<number>;
 
 export function ImportSession():Promise<string>;
 
@@ -275,6 +287,8 @@ export function ListStoredSessions(arg1:string,arg2:number):Promise<Array<main.D
 
 export function LoadBreakpointRules():Promise<void>;
 
+export function LoadMapRemoteRules():Promise<void>;
+
 export function LoadMockRules():Promise<void>;
 
 export function LoadProtoConfig():Promise<void>;
@@ -282,6 +296,8 @@ export function LoadProtoConfig():Promise<void>;
 export function LoadProtoFromDisk():Promise<Array<string>>;
 
 export function LoadProtoFromURL(arg1:string):Promise<Array<string>>;
+
+export function LoadRewriteRules():Promise<void>;
 
 export function LoadScriptTasks():Promise<Array<main.ScriptTask>>;
 
@@ -341,11 +357,15 @@ export function RemoveBreakpointRule(arg1:string):Promise<void>;
 
 export function RemoveHistoryDevice(arg1:string):Promise<void>;
 
+export function RemoveMapRemoteRule(arg1:string):Promise<void>;
+
 export function RemoveMockRule(arg1:string):Promise<void>;
 
 export function RemoveProtoFile(arg1:string):Promise<void>;
 
 export function RemoveProtoMapping(arg1:string):Promise<void>;
+
+export function RemoveRewriteRule(arg1:string):Promise<void>;
 
 export function RenameStoredSession(arg1:string,arg2:string):Promise<void>;
 
@@ -495,19 +515,27 @@ export function TapAtCoordinates(arg1:string,arg2:number,arg3:number):Promise<vo
 
 export function ToggleBreakpointRule(arg1:string,arg2:boolean):Promise<void>;
 
+export function ToggleMapRemoteRule(arg1:string,arg2:boolean):Promise<void>;
+
 export function ToggleMockRule(arg1:string,arg2:boolean):Promise<void>;
 
 export function TogglePinDevice(arg1:string):Promise<void>;
 
+export function ToggleRewriteRule(arg1:string,arg2:boolean):Promise<void>;
+
 export function UninstallApp(arg1:string,arg2:string):Promise<string>;
 
 export function UpdateBreakpointRule(arg1:main.BreakpointRule):Promise<void>;
+
+export function UpdateMapRemoteRule(arg1:string,arg2:string,arg3:string,arg4:string,arg5:boolean,arg6:string):Promise<void>;
 
 export function UpdateMockRule(arg1:main.MockRule):Promise<void>;
 
 export function UpdateProtoFile(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function UpdateProtoMapping(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<void>;
+
+export function UpdateRewriteRule(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string,arg7:string,arg8:string,arg9:boolean,arg10:string):Promise<void>;
 
 export function UpdateStoredAssertionJSON(arg1:string,arg2:string):Promise<void>;
 

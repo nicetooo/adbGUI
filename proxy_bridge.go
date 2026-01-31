@@ -230,11 +230,55 @@ func (a *App) StartProxy(port int) (string, error) {
 		return "", err
 	}
 
+	// Set WebSocket message callback
+	proxy.GetProxy().OnWSMessage = func(msg proxy.WSMessage) {
+		proxyDeviceMu.RLock()
+		deviceId := proxyDeviceId
+		proxyDeviceMu.RUnlock()
+
+		// Emit WS message to frontend via Wails event
+		if a.ctx != nil {
+			wailsRuntime.EventsEmit(a.ctx, "proxy-ws-message", map[string]interface{}{
+				"connectionId": msg.ConnectionID,
+				"direction":    msg.Direction,
+				"type":         msg.Type,
+				"typeName":     msg.TypeName,
+				"payload":      msg.Payload,
+				"payloadSize":  msg.PayloadSize,
+				"isBinary":     msg.IsBinary,
+				"timestamp":    msg.Timestamp,
+			})
+		}
+
+		// Also emit as event pipeline event for session recording
+		detail := map[string]interface{}{
+			"connectionId": msg.ConnectionID,
+			"direction":    msg.Direction,
+			"type":         msg.Type,
+			"typeName":     msg.TypeName,
+			"payload":      msg.Payload,
+			"payloadSize":  msg.PayloadSize,
+			"isBinary":     msg.IsBinary,
+		}
+		dataBytes, _ := json.Marshal(detail)
+		a.eventPipeline.Emit(UnifiedEvent{
+			ID:        uuid.New().String(),
+			DeviceID:  deviceId,
+			Timestamp: msg.Timestamp,
+			Source:    SourceNetwork,
+			Category:  CategoryNetwork,
+			Type:      "websocket_message",
+			Level:     LevelDebug,
+			Title:     fmt.Sprintf("WS %s: %s (%d bytes)", msg.Direction, msg.TypeName, msg.PayloadSize),
+			Data:      dataBytes,
+		})
+	}
+
 	// Register enabled mock rules with the proxy
 	mockRulesMu.RLock()
 	for _, rule := range mockRules {
 		if rule.Enabled {
-			proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay, toProxyConditions(rule.Conditions))
+			proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.BodyFile, rule.Delay, toProxyConditions(rule.Conditions))
 		}
 	}
 	mockRulesMu.RUnlock()
@@ -247,6 +291,24 @@ func (a *App) StartProxy(port int) (string, error) {
 		}
 	}
 	breakpointRulesMu.RUnlock()
+
+	// Register enabled map remote rules with the proxy
+	mapRemoteRulesMu.RLock()
+	for _, rule := range mapRemoteRules {
+		if rule.Enabled {
+			proxy.GetProxy().AddMapRemoteRule(rule.ID, rule.SourcePattern, rule.TargetURL, rule.Method)
+		}
+	}
+	mapRemoteRulesMu.RUnlock()
+
+	// Register enabled rewrite rules with the proxy
+	rewriteRulesMu.RLock()
+	for _, rule := range rewriteRules {
+		if rule.Enabled {
+			proxy.GetProxy().AddRewriteRule(rule.ID, rule.URLPattern, rule.Method, rule.Phase, rule.Target, rule.HeaderName, rule.Match, rule.Replace)
+		}
+	}
+	rewriteRulesMu.RUnlock()
 
 	a.emitProxyStatus(true, port)
 	return "Proxy started successfully", nil
@@ -603,6 +665,7 @@ type MockRule struct {
 	StatusCode  int               `json:"statusCode"`  // Response status code
 	Headers     map[string]string `json:"headers"`     // Response headers
 	Body        string            `json:"body"`        // Response body
+	BodyFile    string            `json:"bodyFile"`    // Path to local file for response body (overrides Body if set)
 	Delay       int               `json:"delay"`       // Delay in milliseconds before responding
 	Enabled     bool              `json:"enabled"`     // Whether this rule is active
 	Description string            `json:"description"` // Optional description
@@ -686,7 +749,7 @@ func (a *App) LoadMockRules() error {
 		mockRules[rule.ID] = rule
 		// Register enabled rules with proxy if it's running
 		if rule.Enabled && proxy.GetProxy().IsRunning() {
-			proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay, toProxyConditions(rule.Conditions))
+			proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.BodyFile, rule.Delay, toProxyConditions(rule.Conditions))
 		}
 	}
 
@@ -708,7 +771,7 @@ func (a *App) AddMockRule(rule MockRule) string {
 	mockRules[rule.ID] = &rule
 
 	// Register with proxy
-	proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay, toProxyConditions(rule.Conditions))
+	proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.BodyFile, rule.Delay, toProxyConditions(rule.Conditions))
 
 	// Persist to disk
 	saveMockRules()
@@ -730,7 +793,7 @@ func (a *App) UpdateMockRule(rule MockRule) error {
 	// Update in proxy
 	proxy.GetProxy().RemoveMockRule(rule.ID)
 	if rule.Enabled {
-		proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay, toProxyConditions(rule.Conditions))
+		proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.BodyFile, rule.Delay, toProxyConditions(rule.Conditions))
 	}
 
 	// Persist to disk
@@ -749,6 +812,385 @@ func (a *App) RemoveMockRule(ruleID string) {
 
 	// Persist to disk
 	saveMockRules()
+}
+
+// ========================================
+// Auto Rewrite Rules Management
+// ========================================
+
+// RewriteRule (app-level) defines an auto-rewrite rule
+type RewriteRule struct {
+	ID          string `json:"id"`
+	URLPattern  string `json:"urlPattern"`
+	Method      string `json:"method"`     // empty = match all
+	Phase       string `json:"phase"`      // "request", "response", or "both"
+	Target      string `json:"target"`     // "header" or "body"
+	HeaderName  string `json:"headerName"` // header name when target is "header"
+	Match       string `json:"match"`      // regex pattern
+	Replace     string `json:"replace"`    // replacement string
+	Enabled     bool   `json:"enabled"`
+	Description string `json:"description"`
+	CreatedAt   int64  `json:"createdAt"`
+}
+
+var (
+	rewriteRules   = make(map[string]*RewriteRule)
+	rewriteRulesMu sync.RWMutex
+)
+
+func getRewriteRulesPath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".adbGUI", "rewrite_rules.json")
+}
+
+func saveRewriteRules() error {
+	rules := make([]*RewriteRule, 0, len(rewriteRules))
+	for _, rule := range rewriteRules {
+		rules = append(rules, rule)
+	}
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].CreatedAt < rules[j].CreatedAt
+	})
+
+	data, err := json.MarshalIndent(rules, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	path := getRewriteRulesPath()
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
+}
+
+// LoadRewriteRules loads rewrite rules from disk (called on app startup)
+func (a *App) LoadRewriteRules() error {
+	rewriteRulesMu.Lock()
+	defer rewriteRulesMu.Unlock()
+
+	path := getRewriteRulesPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil // file not found is ok
+	}
+
+	var rules []*RewriteRule
+	if err := json.Unmarshal(data, &rules); err != nil {
+		return err
+	}
+	rewriteRules = make(map[string]*RewriteRule)
+	for _, rule := range rules {
+		rewriteRules[rule.ID] = rule
+	}
+	return nil
+}
+
+func (a *App) AddRewriteRule(urlPattern, method, phase, target, headerName, match, replace, description string) string {
+	rewriteRulesMu.Lock()
+	defer rewriteRulesMu.Unlock()
+
+	rule := RewriteRule{
+		ID:          fmt.Sprintf("rw-%d", time.Now().UnixNano()),
+		URLPattern:  urlPattern,
+		Method:      method,
+		Phase:       phase,
+		Target:      target,
+		HeaderName:  headerName,
+		Match:       match,
+		Replace:     replace,
+		Enabled:     true,
+		Description: description,
+		CreatedAt:   time.Now().UnixMilli(),
+	}
+	rewriteRules[rule.ID] = &rule
+
+	proxy.GetProxy().AddRewriteRule(rule.ID, rule.URLPattern, rule.Method, rule.Phase, rule.Target, rule.HeaderName, rule.Match, rule.Replace)
+	saveRewriteRules()
+	return rule.ID
+}
+
+func (a *App) UpdateRewriteRule(id, urlPattern, method, phase, target, headerName, match, replace string, enabled bool, description string) error {
+	rewriteRulesMu.Lock()
+	defer rewriteRulesMu.Unlock()
+
+	rule, exists := rewriteRules[id]
+	if !exists {
+		return fmt.Errorf("rule not found: %s", id)
+	}
+
+	rule.URLPattern = urlPattern
+	rule.Method = method
+	rule.Phase = phase
+	rule.Target = target
+	rule.HeaderName = headerName
+	rule.Match = match
+	rule.Replace = replace
+	rule.Enabled = enabled
+	rule.Description = description
+
+	proxy.GetProxy().RemoveRewriteRule(id)
+	if enabled {
+		proxy.GetProxy().AddRewriteRule(id, urlPattern, method, phase, target, headerName, match, replace)
+	}
+
+	saveRewriteRules()
+	return nil
+}
+
+func (a *App) RemoveRewriteRule(ruleID string) {
+	rewriteRulesMu.Lock()
+	defer rewriteRulesMu.Unlock()
+
+	delete(rewriteRules, ruleID)
+	proxy.GetProxy().RemoveRewriteRule(ruleID)
+	saveRewriteRules()
+}
+
+func (a *App) GetRewriteRules() []*RewriteRule {
+	rewriteRulesMu.RLock()
+	defer rewriteRulesMu.RUnlock()
+
+	rules := make([]*RewriteRule, 0, len(rewriteRules))
+	for _, rule := range rewriteRules {
+		rules = append(rules, rule)
+	}
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].CreatedAt < rules[j].CreatedAt
+	})
+	return rules
+}
+
+func (a *App) ToggleRewriteRule(ruleID string, enabled bool) error {
+	rewriteRulesMu.Lock()
+	defer rewriteRulesMu.Unlock()
+
+	rule, exists := rewriteRules[ruleID]
+	if !exists {
+		return fmt.Errorf("rule not found: %s", ruleID)
+	}
+
+	rule.Enabled = enabled
+	if enabled {
+		proxy.GetProxy().AddRewriteRule(rule.ID, rule.URLPattern, rule.Method, rule.Phase, rule.Target, rule.HeaderName, rule.Match, rule.Replace)
+	} else {
+		proxy.GetProxy().RemoveRewriteRule(rule.ID)
+	}
+
+	saveRewriteRules()
+	return nil
+}
+
+// ExportMockRules returns all mock rules as a JSON string for export
+func (a *App) ExportMockRules() (string, error) {
+	mockRulesMu.RLock()
+	defer mockRulesMu.RUnlock()
+
+	rules := make([]*MockRule, 0, len(mockRules))
+	for _, rule := range mockRules {
+		rules = append(rules, rule)
+	}
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].CreatedAt < rules[j].CreatedAt
+	})
+
+	data, err := json.MarshalIndent(rules, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal mock rules: %w", err)
+	}
+	return string(data), nil
+}
+
+// ImportMockRules imports mock rules from a JSON string, merging with existing rules
+func (a *App) ImportMockRules(jsonStr string) (int, error) {
+	var imported []*MockRule
+	if err := json.Unmarshal([]byte(jsonStr), &imported); err != nil {
+		return 0, fmt.Errorf("invalid JSON format: %w", err)
+	}
+
+	mockRulesMu.Lock()
+	defer mockRulesMu.Unlock()
+
+	added := 0
+	for _, rule := range imported {
+		if rule.URLPattern == "" || rule.StatusCode == 0 {
+			continue // skip invalid rules
+		}
+		// Generate new ID to avoid conflicts
+		rule.ID = fmt.Sprintf("mock-%d-%d", time.Now().UnixNano(), added)
+		rule.CreatedAt = time.Now().UnixMilli()
+		mockRules[rule.ID] = rule
+		added++
+
+		// Register with proxy if enabled and proxy is running
+		if rule.Enabled {
+			proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.BodyFile, rule.Delay, toProxyConditions(rule.Conditions))
+		}
+	}
+
+	if added > 0 {
+		saveMockRules()
+	}
+
+	return added, nil
+}
+
+// ========================================
+// Map Remote Rules Management
+// ========================================
+
+// MapRemoteRule (app-level) defines a URL rewriting rule
+type MapRemoteRule struct {
+	ID            string `json:"id"`
+	SourcePattern string `json:"sourcePattern"` // URL wildcard pattern to match
+	TargetURL     string `json:"targetUrl"`     // Target URL to redirect to
+	Method        string `json:"method"`        // HTTP method to match (empty = all)
+	Enabled       bool   `json:"enabled"`
+	Description   string `json:"description"`
+	CreatedAt     int64  `json:"createdAt"`
+}
+
+var (
+	mapRemoteRules   = make(map[string]*MapRemoteRule)
+	mapRemoteRulesMu sync.RWMutex
+)
+
+func getMapRemoteRulesPath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".adbGUI", "map_remote_rules.json")
+}
+
+func saveMapRemoteRules() error {
+	rules := make([]*MapRemoteRule, 0, len(mapRemoteRules))
+	for _, rule := range mapRemoteRules {
+		rules = append(rules, rule)
+	}
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].CreatedAt < rules[j].CreatedAt
+	})
+	data, err := json.MarshalIndent(rules, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(getMapRemoteRulesPath(), data, 0644)
+}
+
+// LoadMapRemoteRules loads map remote rules from disk (called on app startup)
+func (a *App) LoadMapRemoteRules() error {
+	mapRemoteRulesMu.Lock()
+	defer mapRemoteRulesMu.Unlock()
+
+	path := getMapRemoteRulesPath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	var rules []*MapRemoteRule
+	if err := json.Unmarshal(data, &rules); err != nil {
+		return err
+	}
+	mapRemoteRules = make(map[string]*MapRemoteRule)
+	for _, rule := range rules {
+		mapRemoteRules[rule.ID] = rule
+		// Register enabled rules with proxy if it's running
+		if rule.Enabled && proxy.GetProxy().IsRunning() {
+			proxy.GetProxy().AddMapRemoteRule(rule.ID, rule.SourcePattern, rule.TargetURL, rule.Method)
+		}
+	}
+	return nil
+}
+
+func (a *App) AddMapRemoteRule(sourcePattern, targetURL, method, description string) string {
+	mapRemoteRulesMu.Lock()
+	defer mapRemoteRulesMu.Unlock()
+
+	rule := MapRemoteRule{
+		ID:            fmt.Sprintf("map-%d", time.Now().UnixNano()),
+		SourcePattern: sourcePattern,
+		TargetURL:     targetURL,
+		Method:        method,
+		Enabled:       true,
+		Description:   description,
+		CreatedAt:     time.Now().UnixMilli(),
+	}
+	mapRemoteRules[rule.ID] = &rule
+
+	proxy.GetProxy().AddMapRemoteRule(rule.ID, rule.SourcePattern, rule.TargetURL, rule.Method)
+	saveMapRemoteRules()
+
+	return rule.ID
+}
+
+func (a *App) UpdateMapRemoteRule(id, sourcePattern, targetURL, method string, enabled bool, description string) error {
+	mapRemoteRulesMu.Lock()
+	defer mapRemoteRulesMu.Unlock()
+
+	rule, exists := mapRemoteRules[id]
+	if !exists {
+		return fmt.Errorf("rule not found: %s", id)
+	}
+
+	rule.SourcePattern = sourcePattern
+	rule.TargetURL = targetURL
+	rule.Method = method
+	rule.Enabled = enabled
+	rule.Description = description
+
+	// Update proxy
+	proxy.GetProxy().RemoveMapRemoteRule(id)
+	if enabled {
+		proxy.GetProxy().AddMapRemoteRule(id, sourcePattern, targetURL, method)
+	}
+
+	saveMapRemoteRules()
+	return nil
+}
+
+func (a *App) RemoveMapRemoteRule(ruleID string) {
+	mapRemoteRulesMu.Lock()
+	defer mapRemoteRulesMu.Unlock()
+
+	delete(mapRemoteRules, ruleID)
+	proxy.GetProxy().RemoveMapRemoteRule(ruleID)
+	saveMapRemoteRules()
+}
+
+func (a *App) GetMapRemoteRules() []*MapRemoteRule {
+	mapRemoteRulesMu.RLock()
+	defer mapRemoteRulesMu.RUnlock()
+
+	rules := make([]*MapRemoteRule, 0, len(mapRemoteRules))
+	for _, rule := range mapRemoteRules {
+		rules = append(rules, rule)
+	}
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].CreatedAt < rules[j].CreatedAt
+	})
+	return rules
+}
+
+func (a *App) ToggleMapRemoteRule(ruleID string, enabled bool) error {
+	mapRemoteRulesMu.Lock()
+	defer mapRemoteRulesMu.Unlock()
+
+	rule, exists := mapRemoteRules[ruleID]
+	if !exists {
+		return fmt.Errorf("rule not found: %s", ruleID)
+	}
+
+	rule.Enabled = enabled
+	if enabled {
+		proxy.GetProxy().AddMapRemoteRule(rule.ID, rule.SourcePattern, rule.TargetURL, rule.Method)
+	} else {
+		proxy.GetProxy().RemoveMapRemoteRule(rule.ID)
+	}
+
+	saveMapRemoteRules()
+	return nil
 }
 
 // ========================================
@@ -1024,7 +1466,7 @@ func (a *App) ToggleMockRule(ruleID string, enabled bool) error {
 	rule.Enabled = enabled
 
 	if enabled {
-		proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.Delay, toProxyConditions(rule.Conditions))
+		proxy.GetProxy().AddMockRule(rule.ID, rule.URLPattern, rule.Method, rule.StatusCode, rule.Headers, rule.Body, rule.BodyFile, rule.Delay, toProxyConditions(rule.Conditions))
 	} else {
 		proxy.GetProxy().RemoveMockRule(rule.ID)
 	}

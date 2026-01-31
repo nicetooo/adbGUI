@@ -244,12 +244,28 @@ type GazeApp interface {
 	CheckCertTrust(deviceId string) string
 
 	// Mock Rules
-	AddMockRule(urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, description string, conditions []MCPMockCondition) string
-	UpdateMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, enabled bool, description string, conditions []MCPMockCondition) error
+	AddMockRule(urlPattern, method string, statusCode int, headers map[string]string, body, bodyFile string, delay int, description string, conditions []MCPMockCondition) string
+	UpdateMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body, bodyFile string, delay int, enabled bool, description string, conditions []MCPMockCondition) error
 	RemoveMockRule(ruleID string)
 	GetMockRules() []MCPMockRule
 	ToggleMockRule(ruleID string, enabled bool) error
+	ExportMockRules() (string, error)
+	ImportMockRules(jsonStr string) (int, error)
 	ResendRequest(method, url string, headers map[string]string, body string) (map[string]interface{}, error)
+
+	// Map Remote Rules
+	AddMapRemoteRule(sourcePattern, targetURL, method, description string) string
+	UpdateMapRemoteRule(id, sourcePattern, targetURL, method string, enabled bool, description string) error
+	RemoveMapRemoteRule(ruleID string)
+	GetMapRemoteRules() []MCPMapRemoteRule
+	ToggleMapRemoteRule(ruleID string, enabled bool) error
+
+	// Rewrite Rules
+	AddRewriteRule(urlPattern, method, phase, target, headerName, match, replace, description string) string
+	UpdateRewriteRule(id, urlPattern, method, phase, target, headerName, match, replace string, enabled bool, description string) error
+	RemoveRewriteRule(ruleID string)
+	GetRewriteRules() []MCPRewriteRule
+	ToggleRewriteRule(ruleID string, enabled bool) error
 
 	// Breakpoint Rules
 	AddBreakpointRule(urlPattern, method, phase, description string) string
@@ -322,6 +338,32 @@ type MCPProtoMapping struct {
 	Description string `json:"description"`
 }
 
+// MCPMapRemoteRule represents a map remote rule for MCP interface
+type MCPMapRemoteRule struct {
+	ID            string `json:"id"`
+	SourcePattern string `json:"sourcePattern"`
+	TargetURL     string `json:"targetURL"`
+	Method        string `json:"method"`
+	Enabled       bool   `json:"enabled"`
+	Description   string `json:"description"`
+	CreatedAt     int64  `json:"createdAt"`
+}
+
+// MCPRewriteRule represents a rewrite rule for MCP interface
+type MCPRewriteRule struct {
+	ID          string `json:"id"`
+	URLPattern  string `json:"urlPattern"`
+	Method      string `json:"method"`
+	Phase       string `json:"phase"`      // "request", "response", "both"
+	Target      string `json:"target"`     // "header" or "body"
+	HeaderName  string `json:"headerName"` // header name (when target is "header")
+	Match       string `json:"match"`      // regex pattern
+	Replace     string `json:"replace"`    // replacement string
+	Enabled     bool   `json:"enabled"`
+	Description string `json:"description"`
+	CreatedAt   int64  `json:"createdAt"`
+}
+
 // MCPMockCondition represents a conditional match for mock rules
 type MCPMockCondition struct {
 	Type     string `json:"type"`     // "header", "query", "body"
@@ -338,6 +380,7 @@ type MCPMockRule struct {
 	StatusCode  int                `json:"statusCode"`
 	Headers     map[string]string  `json:"headers"`
 	Body        string             `json:"body"`
+	BodyFile    string             `json:"bodyFile,omitempty"`
 	Delay       int                `json:"delay"`
 	Enabled     bool               `json:"enabled"`
 	Description string             `json:"description"`

@@ -1039,13 +1039,14 @@ func (b *MCPBridge) LoadProtoFromURL(rawURL string) ([]string, error) {
 
 // === Mock Rules ===
 
-func (b *MCPBridge) AddMockRule(urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, description string, conditions []mcp.MCPMockCondition) string {
+func (b *MCPBridge) AddMockRule(urlPattern, method string, statusCode int, headers map[string]string, body, bodyFile string, delay int, description string, conditions []mcp.MCPMockCondition) string {
 	rule := MockRule{
 		URLPattern:  urlPattern,
 		Method:      method,
 		StatusCode:  statusCode,
 		Headers:     headers,
 		Body:        body,
+		BodyFile:    bodyFile,
 		Delay:       delay,
 		Description: description,
 		Conditions:  fromMCPConditions(conditions),
@@ -1053,7 +1054,7 @@ func (b *MCPBridge) AddMockRule(urlPattern, method string, statusCode int, heade
 	return b.app.AddMockRule(rule)
 }
 
-func (b *MCPBridge) UpdateMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body string, delay int, enabled bool, description string, conditions []mcp.MCPMockCondition) error {
+func (b *MCPBridge) UpdateMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body, bodyFile string, delay int, enabled bool, description string, conditions []mcp.MCPMockCondition) error {
 	rule := MockRule{
 		ID:          id,
 		URLPattern:  urlPattern,
@@ -1061,6 +1062,7 @@ func (b *MCPBridge) UpdateMockRule(id, urlPattern, method string, statusCode int
 		StatusCode:  statusCode,
 		Headers:     headers,
 		Body:        body,
+		BodyFile:    bodyFile,
 		Delay:       delay,
 		Enabled:     enabled,
 		Description: description,
@@ -1084,6 +1086,7 @@ func (b *MCPBridge) GetMockRules() []mcp.MCPMockRule {
 			StatusCode:  r.StatusCode,
 			Headers:     r.Headers,
 			Body:        r.Body,
+			BodyFile:    r.BodyFile,
 			Delay:       r.Delay,
 			Enabled:     r.Enabled,
 			Description: r.Description,
@@ -1129,6 +1132,14 @@ func fromMCPConditions(conditions []mcp.MCPMockCondition) []MockCondition {
 
 func (b *MCPBridge) ToggleMockRule(ruleID string, enabled bool) error {
 	return b.app.ToggleMockRule(ruleID, enabled)
+}
+
+func (b *MCPBridge) ExportMockRules() (string, error) {
+	return b.app.ExportMockRules()
+}
+
+func (b *MCPBridge) ImportMockRules(jsonStr string) (int, error) {
+	return b.app.ImportMockRules(jsonStr)
 }
 
 func (b *MCPBridge) ResendRequest(method, url string, headers map[string]string, body string) (map[string]interface{}, error) {
@@ -1221,6 +1232,80 @@ func (b *MCPBridge) GetPendingBreakpoints() []mcp.MCPPendingBreakpointInfo {
 
 func (b *MCPBridge) ForwardAllBreakpoints() {
 	b.app.ForwardAllBreakpoints()
+}
+
+// --- Map Remote Rules Bridge ---
+
+func (b *MCPBridge) AddMapRemoteRule(sourcePattern, targetURL, method, description string) string {
+	return b.app.AddMapRemoteRule(sourcePattern, targetURL, method, description)
+}
+
+func (b *MCPBridge) UpdateMapRemoteRule(id, sourcePattern, targetURL, method string, enabled bool, description string) error {
+	return b.app.UpdateMapRemoteRule(id, sourcePattern, targetURL, method, enabled, description)
+}
+
+func (b *MCPBridge) RemoveMapRemoteRule(ruleID string) {
+	b.app.RemoveMapRemoteRule(ruleID)
+}
+
+func (b *MCPBridge) GetMapRemoteRules() []mcp.MCPMapRemoteRule {
+	rules := b.app.GetMapRemoteRules()
+	result := make([]mcp.MCPMapRemoteRule, len(rules))
+	for i, r := range rules {
+		result[i] = mcp.MCPMapRemoteRule{
+			ID:            r.ID,
+			SourcePattern: r.SourcePattern,
+			TargetURL:     r.TargetURL,
+			Method:        r.Method,
+			Enabled:       r.Enabled,
+			Description:   r.Description,
+			CreatedAt:     r.CreatedAt,
+		}
+	}
+	return result
+}
+
+func (b *MCPBridge) ToggleMapRemoteRule(ruleID string, enabled bool) error {
+	return b.app.ToggleMapRemoteRule(ruleID, enabled)
+}
+
+// === Rewrite Rules ===
+
+func (b *MCPBridge) AddRewriteRule(urlPattern, method, phase, target, headerName, match, replace, description string) string {
+	return b.app.AddRewriteRule(urlPattern, method, phase, target, headerName, match, replace, description)
+}
+
+func (b *MCPBridge) UpdateRewriteRule(id, urlPattern, method, phase, target, headerName, match, replace string, enabled bool, description string) error {
+	return b.app.UpdateRewriteRule(id, urlPattern, method, phase, target, headerName, match, replace, enabled, description)
+}
+
+func (b *MCPBridge) RemoveRewriteRule(ruleID string) {
+	b.app.RemoveRewriteRule(ruleID)
+}
+
+func (b *MCPBridge) GetRewriteRules() []mcp.MCPRewriteRule {
+	rules := b.app.GetRewriteRules()
+	result := make([]mcp.MCPRewriteRule, len(rules))
+	for i, r := range rules {
+		result[i] = mcp.MCPRewriteRule{
+			ID:          r.ID,
+			URLPattern:  r.URLPattern,
+			Method:      r.Method,
+			Phase:       r.Phase,
+			Target:      r.Target,
+			HeaderName:  r.HeaderName,
+			Match:       r.Match,
+			Replace:     r.Replace,
+			Enabled:     r.Enabled,
+			Description: r.Description,
+			CreatedAt:   r.CreatedAt,
+		}
+	}
+	return result
+}
+
+func (b *MCPBridge) ToggleRewriteRule(ruleID string, enabled bool) error {
+	return b.app.ToggleRewriteRule(ruleID, enabled)
 }
 
 // StartMCPServer starts the MCP server with the given app
