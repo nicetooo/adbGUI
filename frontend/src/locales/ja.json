@@ -1551,5 +1551,33 @@
     "detail_fd": "FD数",
     "detail_activities": "Activities",
     "detail_views": "Views"
+  },
+  "command": {
+    "placeholder": "ページ、コマンド、デバイスを検索...",
+    "no_results": "結果が見つかりません",
+    "recent": "最近使用",
+    "group_pages": "ページ",
+    "group_commands": "コマンド",
+    "group_devices": "デバイス",
+    "group_proxy": "ネットワークリクエスト",
+    "group_workflows": "ワークフロー",
+    "group_sessions": "セッション",
+    "cmd_toggle_theme": "ダーク / ライトテーマを切替",
+    "cmd_wireless_connect": "ワイヤレス接続",
+    "cmd_mock_rules": "Mockルールを管理",
+    "cmd_add_mock_rule": "Mockルールを追加",
+    "cmd_map_remote_rules": "リモートマッピングルールを管理",
+    "cmd_add_map_remote_rule": "リモートマッピングルールを追加",
+    "cmd_rewrite_rules": "リライトルールを管理",
+    "cmd_add_rewrite_rule": "リライトルールを追加",
+    "cmd_breakpoint_rules": "ブレークポイントルールを管理",
+    "cmd_add_breakpoint_rule": "ブレークポイントルールを追加",
+    "cmd_proto_files": "Protoファイルを管理",
+    "cmd_new_workflow": "新しいワークフローを作成",
+    "cmd_about": "Gazeについて",
+    "cmd_feedback": "フィードバックを送信",
+    "hint_esc": "閉じる",
+    "hint_navigate": "移動",
+    "hint_select": "選択"
   }
 }

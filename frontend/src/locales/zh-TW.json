@@ -1551,5 +1551,33 @@
     "detail_fd": "檔案描述符",
     "detail_activities": "Activities",
     "detail_views": "Views"
+  },
+  "command": {
+    "placeholder": "搜尋頁面、指令、裝置...",
+    "no_results": "未找到結果",
+    "recent": "最近使用",
+    "group_pages": "頁面",
+    "group_commands": "指令",
+    "group_devices": "裝置",
+    "group_proxy": "網路請求",
+    "group_workflows": "工作流程",
+    "group_sessions": "會話",
+    "cmd_toggle_theme": "切換深色 / 淺色主題",
+    "cmd_wireless_connect": "無線連線",
+    "cmd_mock_rules": "管理 Mock 規則",
+    "cmd_add_mock_rule": "新增 Mock 規則",
+    "cmd_map_remote_rules": "管理遠端映射規則",
+    "cmd_add_map_remote_rule": "新增遠端映射規則",
+    "cmd_rewrite_rules": "管理重寫規則",
+    "cmd_add_rewrite_rule": "新增重寫規則",
+    "cmd_breakpoint_rules": "管理中斷點規則",
+    "cmd_add_breakpoint_rule": "新增中斷點規則",
+    "cmd_proto_files": "管理 Proto 檔案",
+    "cmd_new_workflow": "建立新工作流程",
+    "cmd_about": "關於 Gaze",
+    "cmd_feedback": "傳送意見回饋",
+    "hint_esc": "關閉",
+    "hint_navigate": "導覽",
+    "hint_select": "選擇"
   }
 }

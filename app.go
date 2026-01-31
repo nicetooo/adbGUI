@@ -351,11 +351,11 @@ func (a *App) setupBinaries() {
 	// Prefer system ADB if available
 	if path, err := exec.LookPath("adb"); err == nil {
 		a.adbPath = path
-		fmt.Fprintf(os.Stderr, "Using system adb found in PATH: %s\n", a.adbPath)
+		a.Log("Using system adb found in PATH: %s", a.adbPath)
 	} else {
 		a.adbPath = extract("adb", adbBinary)
 		if a.adbPath != "" {
-			fmt.Fprintf(os.Stderr, "Using bundled adb at: %s\n", a.adbPath)
+			a.Log("Using bundled adb at: %s", a.adbPath)
 		}
 	}
 
@@ -364,17 +364,17 @@ func (a *App) setupBinaries() {
 
 	if len(aaptBinary) > 0 {
 		a.aaptPath = extract("aapt", aaptBinary)
-		fmt.Fprintf(os.Stderr, "AAPT setup at: %s\n", a.aaptPath)
+		a.Log("AAPT setup at: %s", a.aaptPath)
 	}
 
 	// Setup FFmpeg and FFprobe
 	if len(ffmpegBinary) > 0 {
 		a.ffmpegPath = extract("ffmpeg", ffmpegBinary)
-		fmt.Fprintf(os.Stderr, "FFmpeg setup at: %s\n", a.ffmpegPath)
+		a.Log("FFmpeg setup at: %s", a.ffmpegPath)
 	}
 	if len(ffprobeBinary) > 0 {
 		a.ffprobePath = extract("ffprobe", ffprobeBinary)
-		fmt.Fprintf(os.Stderr, "FFprobe setup at: %s\n", a.ffprobePath)
+		a.Log("FFprobe setup at: %s", a.ffprobePath)
 	}
 
 	// Setup ADBKeyboard APK (cross-platform, runs on Android device)
@@ -387,7 +387,7 @@ func (a *App) setupBinaries() {
 			}
 		}
 		a.adbKeyboardPath = apkPath
-		fmt.Fprintf(os.Stderr, "ADBKeyboard APK setup at: %s\n", a.adbKeyboardPath)
+		a.Log("ADBKeyboard APK setup at: %s", a.adbKeyboardPath)
 	}
 
 	a.Log("Binaries setup at: %s", appBinDir)

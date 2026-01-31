@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -111,12 +112,40 @@ type ProxyServer struct {
 	// Written by the request TransparentReadCloser, read by the response one.
 	reqBodyCache   map[string]cachedReqBody
 	reqBodyCacheMu sync.Mutex
+
+	// regexCache caches compiled regular expressions to avoid recompilation per request.
+	regexCache   map[string]*regexp.Regexp
+	regexCacheMu sync.RWMutex
 }
 
 // cachedReqBody holds both the display text and raw bytes for a request body.
 type cachedReqBody struct {
-	text     string
-	rawBytes []byte // non-nil when binary data detected
+	text      string
+	rawBytes  []byte    // non-nil when binary data detected
+	createdAt time.Time // for TTL cleanup
+}
+
+// getRegexp returns a cached compiled regexp, or compiles and caches it.
+func (p *ProxyServer) getRegexp(pattern string) (*regexp.Regexp, error) {
+	p.regexCacheMu.RLock()
+	if re, ok := p.regexCache[pattern]; ok {
+		p.regexCacheMu.RUnlock()
+		return re, nil
+	}
+	p.regexCacheMu.RUnlock()
+
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	p.regexCacheMu.Lock()
+	if p.regexCache == nil {
+		p.regexCache = make(map[string]*regexp.Regexp)
+	}
+	p.regexCache[pattern] = re
+	p.regexCacheMu.Unlock()
+	return re, nil
 }
 
 // GetPort returns the port the proxy is running on
@@ -137,7 +166,6 @@ func (p *ProxyServer) SetLatency(latencyMs int) {
 func (p *ProxyServer) AddMockRule(id, urlPattern, method string, statusCode int, headers map[string]string, body, bodyFile string, delay int, conditions []MockCondition) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	fmt.Fprintf(os.Stderr, "[MOCK DEBUG] AddMockRule: id=%s pattern=%s method=%s status=%d bodyFile=%q conditions=%d\n", id, urlPattern, method, statusCode, bodyFile, len(conditions))
 	if p.mockRules == nil {
 		p.mockRules = make(map[string]*MockRule)
 	}
@@ -201,7 +229,7 @@ func (p *ProxyServer) matchMapRemoteRule(method, requestURL string) string {
 		if rule.Method != "" && !strings.EqualFold(rule.Method, method) {
 			continue
 		}
-		if MatchPattern(rule.SourcePattern, requestURL) {
+		if MatchPattern(requestURL, rule.SourcePattern) {
 			// Simple replacement: replace matched prefix with target
 			// If source has trailing *, capture what's after the fixed part and append to target
 			return applyMapRemote(rule.SourcePattern, rule.TargetURL, requestURL)
@@ -305,7 +333,7 @@ func (p *ProxyServer) applyRewriteRules(method, requestURL, phase string, header
 			continue
 		}
 
-		re, err := regexp.Compile(rule.Match)
+		re, err := p.getRegexp(rule.Match)
 		if err != nil {
 			continue // skip invalid regex
 		}
@@ -355,10 +383,7 @@ func (p *ProxyServer) matchMockRule(r *http.Request, bodyBytes []byte) *MockRule
 	method := r.Method
 	url := r.URL.String()
 
-	fmt.Fprintf(os.Stderr, "[MOCK DEBUG] Checking %s %s against %d rules\n", method, url, len(p.mockRules))
-
-	for id, rule := range p.mockRules {
-		fmt.Fprintf(os.Stderr, "[MOCK DEBUG]   Rule %s: method=%s pattern=%s conditions=%d\n", id, rule.Method, rule.URLPattern, len(rule.Conditions))
+	for _, rule := range p.mockRules {
 		// Check method (empty means match all)
 		if rule.Method != "" && rule.Method != method {
 			continue
@@ -371,11 +396,9 @@ func (p *ProxyServer) matchMockRule(r *http.Request, bodyBytes []byte) *MockRule
 
 		// Check additional conditions (AND logic)
 		if len(rule.Conditions) > 0 && !evaluateConditions(rule.Conditions, r, bodyBytes) {
-			fmt.Fprintf(os.Stderr, "[MOCK DEBUG]     Conditions not met\n")
 			continue
 		}
 
-		fmt.Fprintf(os.Stderr, "[MOCK DEBUG]     MATCHED\n")
 		return rule
 	}
 	return nil
@@ -439,6 +462,30 @@ func evaluateBodyCondition(cond MockCondition, bodyBytes []byte) bool {
 	return matchOperator(cond.Operator, body, cond.Value, len(bodyBytes) > 0)
 }
 
+// package-level regex cache for use in standalone functions
+var (
+	pkgRegexCache   = make(map[string]*regexp.Regexp)
+	pkgRegexCacheMu sync.RWMutex
+)
+
+func getCachedRegexp(pattern string) (*regexp.Regexp, error) {
+	pkgRegexCacheMu.RLock()
+	if re, ok := pkgRegexCache[pattern]; ok {
+		pkgRegexCacheMu.RUnlock()
+		return re, nil
+	}
+	pkgRegexCacheMu.RUnlock()
+
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, err
+	}
+	pkgRegexCacheMu.Lock()
+	pkgRegexCache[pattern] = re
+	pkgRegexCacheMu.Unlock()
+	return re, nil
+}
+
 // matchOperator applies an operator to compare actual vs expected values.
 func matchOperator(operator, actual, expected string, exists bool) bool {
 	switch operator {
@@ -447,7 +494,7 @@ func matchOperator(operator, actual, expected string, exists bool) bool {
 	case "contains":
 		return strings.Contains(actual, expected)
 	case "regex":
-		re, err := regexp.Compile(expected)
+		re, err := getCachedRegexp(expected)
 		if err != nil {
 			return false
 		}
@@ -583,7 +630,7 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 	_ = os.MkdirAll(dataDir, 0755)
 	p.certMgr = NewCertManager(dataDir)
 	if err := p.certMgr.EnsureCert(); err != nil {
-		fmt.Fprintf(os.Stderr, "[Proxy] Warning: Failed to ensure CA cert: %v\n", err)
+		log.Printf("[Proxy] Warning: Failed to ensure CA cert: %v", err)
 	}
 	if err := p.certMgr.LoadToGoproxy(); err != nil {
 		return fmt.Errorf("failed to load CA cert: %v", err)
@@ -736,7 +783,6 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 
 		// Check for mock rules
 		if mockRule := p.matchMockRule(r, mockBodyBytes); mockRule != nil {
-			fmt.Fprintf(os.Stderr, "[MOCK DEBUG] >>> RETURNING MOCK RESPONSE for %s %s (Rule: %s, Status: %d)\n", r.Method, r.URL.String(), mockRule.ID, mockRule.StatusCode)
 			p.debugLog("  -> MOCK RESPONSE (Rule: %s)", mockRule.ID)
 
 			// Mark as mocked in UserData
@@ -752,7 +798,7 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 			if mockRule.BodyFile != "" {
 				fileData, err := os.ReadFile(mockRule.BodyFile)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "[MOCK DEBUG] Failed to read body file %s: %v, falling back to inline body\n", mockRule.BodyFile, err)
+					p.debugLog("Failed to read body file %s: %v, falling back to inline body", mockRule.BodyFile, err)
 					mockBody = mockRule.Body
 				} else {
 					mockBody = string(fileData)
@@ -1110,18 +1156,45 @@ func (p *ProxyServer) Start(port int, onRequest func(RequestLog)) error {
 
 	p.mu.Lock()
 	p.running = true
-	fmt.Fprintf(os.Stderr, "[PROXY DEBUG] Proxy started: running=%v, port=%d, proxy=%p\n", p.running, p.port, p)
+	log.Printf("[Proxy] Started on port %d", p.port)
 	p.mu.Unlock()
 
 	go func() {
 		err := p.server.Serve(p.listener)
-		fmt.Fprintf(os.Stderr, "[PROXY DEBUG] Serve() returned: err=%v, proxy=%p\n", err, p)
+		log.Printf("[Proxy] Serve() returned: %v", err)
 		p.mu.Lock()
 		p.running = false
 		p.mu.Unlock()
 	}()
 
+	// Periodic cleanup of stale reqBodyCache entries (older than 2 minutes)
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			p.mu.Lock()
+			running := p.running
+			p.mu.Unlock()
+			if !running {
+				return
+			}
+			p.cleanupReqBodyCache(2 * time.Minute)
+		}
+	}()
+
 	return nil
+}
+
+// cleanupReqBodyCache removes entries older than maxAge.
+func (p *ProxyServer) cleanupReqBodyCache(maxAge time.Duration) {
+	p.reqBodyCacheMu.Lock()
+	defer p.reqBodyCacheMu.Unlock()
+	cutoff := time.Now().Add(-maxAge)
+	for id, entry := range p.reqBodyCache {
+		if entry.createdAt.Before(cutoff) {
+			delete(p.reqBodyCache, id)
+		}
+	}
 }
 
 // handleHijackConnect implements a custom TCP tunnel to support rate limiting without MITM
@@ -1281,7 +1354,6 @@ func (p *ProxyServer) Stop() error {
 func (p *ProxyServer) IsRunning() bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	fmt.Fprintf(os.Stderr, "[PROXY DEBUG] IsRunning called: running=%v, port=%d, proxy=%p\n", p.running, p.port, p)
 	return p.running
 }
 
@@ -1478,8 +1550,9 @@ func (r *TransparentReadCloser) update(done bool) {
 				result := r.p.analyzeBodyFull(capturedCopy, "", "")
 				r.p.reqBodyCacheMu.Lock()
 				r.p.reqBodyCache[r.id] = cachedReqBody{
-					text:     result.Text,
-					rawBytes: result.RawBytes, // non-nil for binary (e.g. protobuf)
+					text:      result.Text,
+					rawBytes:  result.RawBytes, // non-nil for binary (e.g. protobuf)
+					createdAt: time.Now(),
 				}
 				r.p.reqBodyCacheMu.Unlock()
 			}

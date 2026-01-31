@@ -141,10 +141,6 @@ func (a *App) StartProxy(port int) (string, error) {
 		deviceId := proxyDeviceId
 		proxyDeviceMu.RUnlock()
 
-		// Debug: Log proxy device ID
-		fmt.Printf("[ProxyBridge] Emitting network event: proxyDeviceId=%q, method=%s, url=%s\n",
-			deviceId, req.Method, req.URL)
-
 		// Determine level based on status code
 		level := "info"
 		if req.StatusCode >= 400 && req.StatusCode < 500 {
@@ -551,7 +547,7 @@ func matchOperatorLocal(operator, actual, expected string, exists bool) bool {
 	case "contains":
 		return strings.Contains(actual, expected)
 	case "regex":
-		re, err := regexp.Compile(expected)
+		re, err := getCachedRegexpLocal(expected)
 		if err != nil {
 			return false
 		}
@@ -563,6 +559,29 @@ func matchOperatorLocal(operator, actual, expected string, exists bool) bool {
 	default:
 		return actual == expected
 	}
+}
+
+var (
+	localRegexCache   = make(map[string]*regexp.Regexp)
+	localRegexCacheMu sync.RWMutex
+)
+
+func getCachedRegexpLocal(pattern string) (*regexp.Regexp, error) {
+	localRegexCacheMu.RLock()
+	if re, ok := localRegexCache[pattern]; ok {
+		localRegexCacheMu.RUnlock()
+		return re, nil
+	}
+	localRegexCacheMu.RUnlock()
+
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, err
+	}
+	localRegexCacheMu.Lock()
+	localRegexCache[pattern] = re
+	localRegexCacheMu.Unlock()
+	return re, nil
 }
 
 // ResendRequest sends an HTTP request with optional modifications

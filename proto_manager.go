@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -86,7 +87,7 @@ func (a *App) LoadProtoConfig() error {
 
 	// Compile all loaded files
 	if err := reg.recompile(); err != nil {
-		fmt.Fprintf(os.Stderr, "[Proto] Compile warning: %v\n", err)
+		log.Printf("[Proto] Compile warning: %v", err)
 		// Don't return error — partial compilation is acceptable
 	}
 
@@ -307,7 +308,7 @@ func (a *App) LoadProtoFromURL(rawURL string) ([]string, error) {
 		id, err := a.AddProtoFile(name, content)
 		if err != nil {
 			// Non-fatal: log and continue (partial success)
-			fmt.Fprintf(os.Stderr, "[Proto] Warning: failed to add %s: %v\n", name, err)
+			log.Printf("[Proto] Warning: failed to add %s: %v", name, err)
 			continue
 		}
 		ids = append(ids, id)
@@ -425,7 +426,7 @@ func (a *App) LoadProtoFromDisk() ([]string, error) {
 
 		data, err := os.ReadFile(absPath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[Proto] Warning: cannot read %s: %v\n", importPath, err)
+			log.Printf("[Proto] Warning: cannot read %s: %v", importPath, err)
 			return
 		}
 		content := string(data)
@@ -448,7 +449,7 @@ func (a *App) LoadProtoFromDisk() ([]string, error) {
 			if _, err := os.Stat(impAbs); err != nil {
 				impAbs = filepath.Join(baseDir, imp)
 				if _, err := os.Stat(impAbs); err != nil {
-					fmt.Fprintf(os.Stderr, "[Proto] Warning: import %q not found locally\n", imp)
+					log.Printf("[Proto] Warning: import %q not found locally", imp)
 					continue
 				}
 			}

@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src/",
+    "format": "prettier --write src/"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
@@ -19,7 +21,6 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@monaco-editor/react": "^4.7.0",
     "@tanstack/react-virtual": "^3.13.13",
-    "@types/dagre": "^0.7.53",
     "@xyflow/react": "^12.10.0",
     "antd": "^6.1.1",
     "dagre": "^0.8.5",
@@ -35,12 +36,19 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/dagre": "^0.7.53",
     "@types/react": "^18.0.17",
     "@types/react-dom": "^18.0.6",
-    "@vitejs/plugin-react": "^2.0.1",
+    "@vitejs/plugin-react": "^4.7.0",
+    "eslint": "^9.39.2",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.26",
     "jsdom": "^24.0.0",
-    "typescript": "^4.6.4",
-    "vite": "^3.0.7",
-    "vitest": "^1.6.0"
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.54.0",
+    "vite": "^6.4.1",
+    "vitest": "^3.2.4"
   }
 }

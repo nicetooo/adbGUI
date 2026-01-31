@@ -1551,5 +1551,33 @@
     "detail_fd": "FDs",
     "detail_activities": "Activities",
     "detail_views": "Views"
+  },
+  "command": {
+    "placeholder": "Search pages, commands, devices...",
+    "no_results": "No results found",
+    "recent": "Recent",
+    "group_pages": "Pages",
+    "group_commands": "Commands",
+    "group_devices": "Devices",
+    "group_proxy": "Network Requests",
+    "group_workflows": "Workflows",
+    "group_sessions": "Sessions",
+    "cmd_toggle_theme": "Toggle Dark / Light Theme",
+    "cmd_wireless_connect": "Wireless Connect",
+    "cmd_mock_rules": "Manage Mock Rules",
+    "cmd_add_mock_rule": "Add Mock Rule",
+    "cmd_map_remote_rules": "Manage Map Remote Rules",
+    "cmd_add_map_remote_rule": "Add Map Remote Rule",
+    "cmd_rewrite_rules": "Manage Rewrite Rules",
+    "cmd_add_rewrite_rule": "Add Rewrite Rule",
+    "cmd_breakpoint_rules": "Manage Breakpoint Rules",
+    "cmd_add_breakpoint_rule": "Add Breakpoint Rule",
+    "cmd_proto_files": "Manage Proto Files",
+    "cmd_new_workflow": "Create New Workflow",
+    "cmd_about": "About Gaze",
+    "cmd_feedback": "Send Feedback",
+    "hint_esc": "to close",
+    "hint_navigate": "to navigate",
+    "hint_select": "to select"
   }
 }

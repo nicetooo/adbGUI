@@ -8,6 +8,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"log"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -135,6 +136,6 @@ func (m *CertManager) GenerateCert() error {
 		return err
 	}
 
-	fmt.Fprintf(os.Stderr, "[Proxy] CA Certificate generated at: %s\n", m.CertPath)
+	log.Printf("[Proxy] CA Certificate generated at: %s", m.CertPath)
 	return nil
 }

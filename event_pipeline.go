@@ -195,15 +195,19 @@ func (c *TimeIndexLRUCache) Delete(sessionID string) {
 	c.removeFromOrder(sessionID)
 }
 
-// GetAll 获取所有缓存的时间索引（用于持久化）
+// GetAll 获取所有缓存的时间索引的深拷贝（用于持久化，避免与 updateTimeIndex 竞态）
 func (c *TimeIndexLRUCache) GetAll() map[string]map[int]*TimeIndexEntry {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	// 返回浅拷贝
 	result := make(map[string]map[int]*TimeIndexEntry, len(c.cache))
-	for k, v := range c.cache {
-		result[k] = v
+	for sessionID, entries := range c.cache {
+		copied := make(map[int]*TimeIndexEntry, len(entries))
+		for sec, entry := range entries {
+			e := *entry // 值拷贝
+			copied[sec] = &e
+		}
+		result[sessionID] = copied
 	}
 	return result
 }
@@ -560,18 +564,6 @@ func (p *EventPipeline) processEvents() {
 func (p *EventPipeline) processEvent(event UnifiedEvent) {
 	// 1. 尝试关联已有 Session (不自动创建)
 	sessionID := p.GetActiveSessionID(event.DeviceID)
-
-	// Debug: Log network events to diagnose missing events
-	if event.Source == SourceNetwork {
-		p.sessionMu.RLock()
-		var deviceSessions []string
-		for did, sid := range p.deviceSession {
-			deviceSessions = append(deviceSessions, fmt.Sprintf("%q->%q", did, sid))
-		}
-		p.sessionMu.RUnlock()
-		fmt.Printf("[EventPipeline] Network event: DeviceID=%q, found SessionID=%q, deviceSessions=%v, Type=%s\n",
-			event.DeviceID, sessionID, deviceSessions, event.Type)
-	}
 
 	// 2. 填充默认值
 	if event.Category == "" {

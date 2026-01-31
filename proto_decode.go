@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"strings"
 	"sync"
@@ -146,7 +147,7 @@ func (d *ProtobufDecoder) tryAutoMatch(raw []byte, url, direction string) string
 	d.autoCacheMu.Unlock()
 
 	if result != "" {
-		fmt.Printf("[Proto] Auto-matched %s → %s\n", key, matchedType)
+		log.Printf("[Proto] Auto-matched %s → %s", key, matchedType)
 	}
 	return result
 }

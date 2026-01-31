@@ -1551,5 +1551,33 @@
     "detail_fd": "文件描述符",
     "detail_activities": "Activities",
     "detail_views": "Views"
+  },
+  "command": {
+    "placeholder": "搜索页面、命令、设备...",
+    "no_results": "未找到结果",
+    "recent": "最近使用",
+    "group_pages": "页面",
+    "group_commands": "命令",
+    "group_devices": "设备",
+    "group_proxy": "网络请求",
+    "group_workflows": "工作流",
+    "group_sessions": "会话",
+    "cmd_toggle_theme": "切换深色 / 浅色主题",
+    "cmd_wireless_connect": "无线连接",
+    "cmd_mock_rules": "管理 Mock 规则",
+    "cmd_add_mock_rule": "添加 Mock 规则",
+    "cmd_map_remote_rules": "管理远程映射规则",
+    "cmd_add_map_remote_rule": "添加远程映射规则",
+    "cmd_rewrite_rules": "管理重写规则",
+    "cmd_add_rewrite_rule": "添加重写规则",
+    "cmd_breakpoint_rules": "管理断点规则",
+    "cmd_add_breakpoint_rule": "添加断点规则",
+    "cmd_proto_files": "管理 Proto 文件",
+    "cmd_new_workflow": "创建新工作流",
+    "cmd_about": "关于 Gaze",
+    "cmd_feedback": "发送反馈",
+    "hint_esc": "关闭",
+    "hint_navigate": "导航",
+    "hint_select": "选择"
   }
 }

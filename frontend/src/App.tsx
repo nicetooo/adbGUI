@@ -52,8 +52,10 @@ import {
   useDeviceStore,
   useMirrorStore,
   useUIStore,
+  useCommandStore,
   VIEW_KEYS,
 } from "./stores";
+import CommandPalette from "./components/CommandPalette";
 // @ts-ignore
 import { OpenPath, SetProxyDevice } from "../wailsjs/go/main/App";
 
@@ -217,6 +219,18 @@ function App() {
     return () => unsubDevices();
   }, []);
 
+  // Global keyboard shortcut: Cmd+K / Ctrl+K to open Command Palette
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        useCommandStore.getState().toggle();
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
   // All views are now rendered persistently with keep-alive
   // No renderContent function needed
 
@@ -366,6 +380,8 @@ function App() {
         appVersion={appVersion}
         deviceInfo={devices.find(d => d.id === selectedDevice) ? `${devices.find(d => d.id === selectedDevice)?.brand} ${devices.find(d => d.id === selectedDevice)?.model} (ID: ${selectedDevice})` : "None"}
       />
+
+      <CommandPalette />
     </Layout>
   );
 }

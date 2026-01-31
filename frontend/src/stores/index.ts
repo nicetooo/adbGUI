@@ -62,3 +62,7 @@ export { useAutomationViewStore } from './automationViewStore';
 
 // Thumbnail Store (for FilesView)
 export { useThumbnailStore } from './thumbnailStore';
+
+// Command Palette Store
+export { useCommandStore } from './commandStore';
+export type { CommandResult, CommandGroup, CommandResultType } from './commandStore';
