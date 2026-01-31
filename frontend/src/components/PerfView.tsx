@@ -294,6 +294,8 @@ function PerfView() {
   }, []);
 
   // Measure table container height dynamically via ResizeObserver
+  // Must re-run when hasData changes, because the table div is conditionally rendered
+  const hasData = latestSample !== null;
   useEffect(() => {
     const el = tableContainerRef.current;
     if (!el) return;
@@ -307,7 +309,7 @@ function PerfView() {
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [hasData]);
 
   // Auto-start / auto-stop monitoring
   useEffect(() => {
@@ -351,7 +353,6 @@ function PerfView() {
   }, [selectedDevice, selectedPid]);
 
   const sample = latestSample;
-  const hasData = sample !== null;
   const processes = sample?.processes || [];
 
   // Alert states
