@@ -80,7 +80,17 @@ const TOOL_CATEGORIES = [
     key: "proxy",
     icon: <GlobalOutlined />,
     color: "#faad14",
-    tools: ["proxy_start", "proxy_stop", "proxy_status", "proxy_configure", "proxy_settings", "proxy_device_setup", "proxy_device_cleanup", "proxy_cert_install", "proxy_cert_trust_check", "mock_rule_list", "mock_rule_add", "mock_rule_update", "mock_rule_remove", "mock_rule_toggle", "resend_request", "breakpoint_rule_add", "breakpoint_rule_update", "breakpoint_rule_remove", "breakpoint_rule_list", "breakpoint_rule_toggle", "breakpoint_resolve", "breakpoint_pending_list", "breakpoint_forward_all"],
+    tools: [
+      "proxy_start", "proxy_stop", "proxy_status", "proxy_configure", "proxy_settings",
+      "proxy_device_setup", "proxy_device_cleanup", "proxy_cert_install", "proxy_cert_trust_check",
+      "mock_rule_list", "mock_rule_add", "mock_rule_update", "mock_rule_remove", "mock_rule_toggle",
+      "mock_rule_export", "mock_rule_import",
+      "map_remote_add", "map_remote_update", "map_remote_remove", "map_remote_list", "map_remote_toggle",
+      "rewrite_rule_add", "rewrite_rule_update", "rewrite_rule_remove", "rewrite_rule_list", "rewrite_rule_toggle",
+      "resend_request",
+      "breakpoint_rule_add", "breakpoint_rule_update", "breakpoint_rule_remove", "breakpoint_rule_list", "breakpoint_rule_toggle",
+      "breakpoint_resolve", "breakpoint_pending_list", "breakpoint_forward_all",
+    ],
   },
   {
     key: "video",
