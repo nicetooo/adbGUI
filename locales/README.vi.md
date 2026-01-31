@@ -23,21 +23,33 @@ Một công cụ quản lý và tự động hóa thiết bị Android mạnh m�
 
 ## Ảnh chụp Ứng dụng
 
-| Phản chiếu Thiết bị | Quản lý Tệp |
+| Quản lý Thiết bị | Phản chiếu Màn hình |
 |:---:|:---:|
-| <img src="screenshots/mirror.png" width="400" /> | <img src="screenshots/files.png" width="400" /> |
+| <img src="screenshots/devices.png" width="400" /> | <img src="screenshots/mirror.png" width="400" /> |
 
-| Quản lý Ứng dụng | Xem Logcat |
+| Quản lý Tệp | Quản lý Ứng dụng |
 |:---:|:---:|
-| <img src="screenshots/apps.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+| <img src="screenshots/files.png" width="400" /> | <img src="screenshots/apps.png" width="400" /> |
 
-| ADB Shell | Khay Hệ thống |
+| Giám sát Hiệu năng | Dòng thời gian Phiên |
 |:---:|:---:|
-| <img src="screenshots/shell.png" width="400" /> | <img src="screenshots/tray.png" width="400" /> |
+| <img src="screenshots/performance.png" width="400" /> | <img src="screenshots/session.png" width="400" /> |
 
-| Proxy & Mạng |
-|:---:|
-| <img src="screenshots/proxy.png" width="820" /> |
+| Danh sách Phiên | Xem Logcat |
+|:---:|:---:|
+| <img src="screenshots/session-list.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+
+| Trình chỉnh sửa Luồng công việc | Danh sách Luồng công việc |
+|:---:|:---:|
+| <img src="screenshots/workflow-editor.png" width="400" /> | <img src="screenshots/workflow.png" width="400" /> |
+
+| Trình kiểm tra UI | Ghi lại Cảm ứng |
+|:---:|:---:|
+| <img src="screenshots/ui-inspector.png" width="400" /> | <img src="screenshots/recording.png" width="400" /> |
+
+| Proxy Mạng (MITM) | ADB Shell |
+|:---:|:---:|
+| <img src="screenshots/proxy.png" width="400" /> | <img src="screenshots/shell.png" width="400" /> |
 
 ---
 

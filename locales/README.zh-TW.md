@@ -23,21 +23,33 @@
 
 ## 應用程式截圖
 
-| 裝置投屏 | 檔案管理 |
+| 裝置管理 | 螢幕投射 |
 |:---:|:---:|
-| <img src="screenshots/mirror.png" width="400" /> | <img src="screenshots/files.png" width="400" /> |
+| <img src="screenshots/devices.png" width="400" /> | <img src="screenshots/mirror.png" width="400" /> |
 
-| 應用程式管理 | Logcat 檢視器 |
+| 檔案管理 | 應用程式管理 |
 |:---:|:---:|
-| <img src="screenshots/apps.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+| <img src="screenshots/files.png" width="400" /> | <img src="screenshots/apps.png" width="400" /> |
 
-| ADB Shell | 系統匣 |
+| 效能監控 | Session 時間線 |
 |:---:|:---:|
-| <img src="screenshots/shell.png" width="400" /> | <img src="screenshots/tray.png" width="400" /> |
+| <img src="screenshots/performance.png" width="400" /> | <img src="screenshots/session.png" width="400" /> |
 
-| 代理與網路 |
-|:---:|
-| <img src="screenshots/proxy.png" width="820" /> |
+| Session 列表 | Logcat 檢視器 |
+|:---:|:---:|
+| <img src="screenshots/session-list.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+
+| 視覺化工作流編輯器 | 工作流列表 |
+|:---:|:---:|
+| <img src="screenshots/workflow-editor.png" width="400" /> | <img src="screenshots/workflow.png" width="400" /> |
+
+| UI 檢查器 | 觸控錄製 |
+|:---:|:---:|
+| <img src="screenshots/ui-inspector.png" width="400" /> | <img src="screenshots/recording.png" width="400" /> |
+
+| 網路代理 (MITM) | ADB Shell |
+|:---:|:---:|
+| <img src="screenshots/proxy.png" width="400" /> | <img src="screenshots/shell.png" width="400" /> |
 
 ---
 

@@ -23,21 +23,33 @@
 
 ## 앱 스크린샷
 
-| 기기 미러링 | 파일 관리자 |
+| 기기 관리 | 화면 미러링 |
 |:---:|:---:|
-| <img src="screenshots/mirror.png" width="400" /> | <img src="screenshots/files.png" width="400" /> |
+| <img src="screenshots/devices.png" width="400" /> | <img src="screenshots/mirror.png" width="400" /> |
 
-| 앱 관리 | Logcat 뷰어 |
+| 파일 관리자 | 앱 관리 |
 |:---:|:---:|
-| <img src="screenshots/apps.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+| <img src="screenshots/files.png" width="400" /> | <img src="screenshots/apps.png" width="400" /> |
 
-| ADB Shell | 시스템 트레이 |
+| 성능 모니터 | 세션 타임라인 |
 |:---:|:---:|
-| <img src="screenshots/shell.png" width="400" /> | <img src="screenshots/tray.png" width="400" /> |
+| <img src="screenshots/performance.png" width="400" /> | <img src="screenshots/session.png" width="400" /> |
 
-| 프록시 및 네트워크 |
-|:---:|
-| <img src="screenshots/proxy.png" width="820" /> |
+| 세션 목록 | Logcat 뷰어 |
+|:---:|:---:|
+| <img src="screenshots/session-list.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+
+| 비주얼 워크플로우 에디터 | 워크플로우 목록 |
+|:---:|:---:|
+| <img src="screenshots/workflow-editor.png" width="400" /> | <img src="screenshots/workflow.png" width="400" /> |
+
+| UI 인스펙터 | 터치 녹화 |
+|:---:|:---:|
+| <img src="screenshots/ui-inspector.png" width="400" /> | <img src="screenshots/recording.png" width="400" /> |
+
+| 네트워크 프록시 (MITM) | ADB Shell |
+|:---:|:---:|
+| <img src="screenshots/proxy.png" width="400" /> | <img src="screenshots/shell.png" width="400" /> |
 
 ---
 

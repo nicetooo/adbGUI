@@ -23,21 +23,33 @@
 
 ## アプリのスクリーンショット
 
-| デバイスミラーリング | ファイルマネージャー |
+| デバイス管理 | 画面ミラーリング |
 |:---:|:---:|
-| <img src="screenshots/mirror.png" width="400" /> | <img src="screenshots/files.png" width="400" /> |
+| <img src="screenshots/devices.png" width="400" /> | <img src="screenshots/mirror.png" width="400" /> |
 
-| アプリ管理 | Logcat ビューア |
+| ファイルマネージャー | アプリ管理 |
 |:---:|:---:|
-| <img src="screenshots/apps.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+| <img src="screenshots/files.png" width="400" /> | <img src="screenshots/apps.png" width="400" /> |
 
-| ADB シェル | システムトレイ |
+| パフォーマンスモニター | セッションタイムライン |
 |:---:|:---:|
-| <img src="screenshots/shell.png" width="400" /> | <img src="screenshots/tray.png" width="400" /> |
+| <img src="screenshots/performance.png" width="400" /> | <img src="screenshots/session.png" width="400" /> |
 
-| プロキシとネットワーク |
-|:---:|
-| <img src="screenshots/proxy.png" width="820" /> |
+| セッション一覧 | Logcat ビューア |
+|:---:|:---:|
+| <img src="screenshots/session-list.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+
+| ビジュアルワークフローエディター | ワークフロー一覧 |
+|:---:|:---:|
+| <img src="screenshots/workflow-editor.png" width="400" /> | <img src="screenshots/workflow.png" width="400" /> |
+
+| UI インスペクター | タッチ録画 |
+|:---:|:---:|
+| <img src="screenshots/ui-inspector.png" width="400" /> | <img src="screenshots/recording.png" width="400" /> |
+
+| ネットワークプロキシ (MITM) | ADB シェル |
+|:---:|:---:|
+| <img src="screenshots/proxy.png" width="400" /> | <img src="screenshots/shell.png" width="400" /> |
 
 ---
 

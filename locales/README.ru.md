@@ -23,21 +23,33 @@
 
 ## Скриншоты приложения
 
-| Зеркалирование устройства | Файловый менеджер |
+| Управление устройствами | Зеркалирование экрана |
 |:---:|:---:|
-| <img src="screenshots/mirror.png" width="400" /> | <img src="screenshots/files.png" width="400" /> |
+| <img src="screenshots/devices.png" width="400" /> | <img src="screenshots/mirror.png" width="400" /> |
 
-| Управление приложениями | Просмотр Logcat |
+| Файловый менеджер | Управление приложениями |
 |:---:|:---:|
-| <img src="screenshots/apps.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+| <img src="screenshots/files.png" width="400" /> | <img src="screenshots/apps.png" width="400" /> |
 
-| ADB Shell | Системный трей |
+| Монитор производительности | Временная шкала сессии |
 |:---:|:---:|
-| <img src="screenshots/shell.png" width="400" /> | <img src="screenshots/tray.png" width="400" /> |
+| <img src="screenshots/performance.png" width="400" /> | <img src="screenshots/session.png" width="400" /> |
 
-| Прокси и сеть |
-|:---:|
-| <img src="screenshots/proxy.png" width="820" /> |
+| Список сессий | Просмотр Logcat |
+|:---:|:---:|
+| <img src="screenshots/session-list.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+
+| Визуальный редактор рабочих процессов | Список рабочих процессов |
+|:---:|:---:|
+| <img src="screenshots/workflow-editor.png" width="400" /> | <img src="screenshots/workflow.png" width="400" /> |
+
+| UI Инспектор | Запись касаний |
+|:---:|:---:|
+| <img src="screenshots/ui-inspector.png" width="400" /> | <img src="screenshots/recording.png" width="400" /> |
+
+| Сетевой прокси (MITM) | ADB Shell |
+|:---:|:---:|
+| <img src="screenshots/proxy.png" width="400" /> | <img src="screenshots/shell.png" width="400" /> |
 
 ---
 

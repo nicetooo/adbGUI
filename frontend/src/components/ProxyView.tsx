@@ -1520,8 +1520,8 @@ const ProxyView: React.FC = () => {
             <Card size="small" styles={{ body: { padding: '12px' } }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {/* Row 1: Proxy & Device Settings */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Space split={<Divider type="vertical" />}>
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px 0' }}>
+                        <Space split={<Divider type="vertical" />} style={{ flexShrink: 0 }}>
                             <Space size="small">
                                 <Text strong>{t('proxy.server')}:</Text>
                                 <Tag color={isRunning ? "success" : "default"} style={{ marginRight: 0 }}>{isRunning ? t('proxy.on') : t('proxy.off')}</Tag>
@@ -1585,6 +1585,9 @@ const ProxyView: React.FC = () => {
                                     </Button>
                                 </Space>
                             )}
+                        </Space>
+                        <Divider type="vertical" />
+                        <Space size={4} wrap style={{ flexShrink: 0 }}>
                             <Button.Group size="small">
                                 <Tooltip title={t('proxy.mock_rules')}>
                                     <Button icon={<BlockOutlined />} onClick={handleOpenMockListModal}>
@@ -1625,7 +1628,8 @@ const ProxyView: React.FC = () => {
                                     Proto
                                 </Button>
                             </Tooltip>
-
+                        </Space>
+                        <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
                             <Button
                                 type="primary"
                                 size="small"
@@ -1636,7 +1640,7 @@ const ProxyView: React.FC = () => {
                             >
                                 {isRunning ? t('proxy.stop_capture') : t('proxy.start_capture')}
                             </Button>
-                        </Space>
+                        </div>
                     </div>
 
                     {/* Row 2: Network Monitor & Limit (conditionally rendered) */}

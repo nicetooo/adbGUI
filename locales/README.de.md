@@ -23,21 +23,33 @@ Ein leistungsstarkes, modernes und eigenstaendiges Android-Geraeteverwaltungs- u
 
 ## App-Screenshots
 
-| Geraetespiegelung | Dateimanager |
+| Geräteverwaltung | Bildschirmspiegelung |
 |:---:|:---:|
-| <img src="screenshots/mirror.png" width="400" /> | <img src="screenshots/files.png" width="400" /> |
+| <img src="screenshots/devices.png" width="400" /> | <img src="screenshots/mirror.png" width="400" /> |
 
-| App-Verwaltung | Logcat-Ansicht |
+| Dateimanager | App-Verwaltung |
 |:---:|:---:|
-| <img src="screenshots/apps.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+| <img src="screenshots/files.png" width="400" /> | <img src="screenshots/apps.png" width="400" /> |
 
-| ADB Shell | Systemablage |
+| Leistungsmonitor | Sitzungs-Timeline |
 |:---:|:---:|
-| <img src="screenshots/shell.png" width="400" /> | <img src="screenshots/tray.png" width="400" /> |
+| <img src="screenshots/performance.png" width="400" /> | <img src="screenshots/session.png" width="400" /> |
 
-| Proxy und Netzwerk |
-|:---:|
-| <img src="screenshots/proxy.png" width="820" /> |
+| Sitzungsliste | Logcat-Ansicht |
+|:---:|:---:|
+| <img src="screenshots/session-list.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+
+| Visueller Workflow-Editor | Workflow-Liste |
+|:---:|:---:|
+| <img src="screenshots/workflow-editor.png" width="400" /> | <img src="screenshots/workflow.png" width="400" /> |
+
+| UI-Inspektor | Touch-Aufnahme |
+|:---:|:---:|
+| <img src="screenshots/ui-inspector.png" width="400" /> | <img src="screenshots/recording.png" width="400" /> |
+
+| Netzwerk-Proxy (MITM) | ADB Shell |
+|:---:|:---:|
+| <img src="screenshots/proxy.png" width="400" /> | <img src="screenshots/shell.png" width="400" /> |
 
 ---
 

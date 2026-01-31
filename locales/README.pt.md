@@ -23,21 +23,33 @@ Uma ferramenta poderosa, moderna e independente de gerenciamento e automacao de 
 
 ## Capturas de Tela
 
-| Espelhamento de Tela | Gerenciador de Arquivos |
+| Gerenciamento de Dispositivos | Espelhamento de Tela |
 |:---:|:---:|
-| <img src="screenshots/mirror.png" width="400" /> | <img src="screenshots/files.png" width="400" /> |
+| <img src="screenshots/devices.png" width="400" /> | <img src="screenshots/mirror.png" width="400" /> |
 
-| Gerenciamento de Apps | Visualizador de Logcat |
+| Gerenciador de Arquivos | Gerenciamento de Apps |
 |:---:|:---:|
-| <img src="screenshots/apps.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+| <img src="screenshots/files.png" width="400" /> | <img src="screenshots/apps.png" width="400" /> |
 
-| ADB Shell | Bandeja do Sistema |
+| Monitor de Desempenho | Linha do Tempo da Sessão |
 |:---:|:---:|
-| <img src="screenshots/shell.png" width="400" /> | <img src="screenshots/tray.png" width="400" /> |
+| <img src="screenshots/performance.png" width="400" /> | <img src="screenshots/session.png" width="400" /> |
 
-| Proxy e Rede |
-|:---:|
-| <img src="screenshots/proxy.png" width="820" /> |
+| Lista de Sessões | Visualizador de Logcat |
+|:---:|:---:|
+| <img src="screenshots/session-list.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+
+| Editor Visual de Fluxos de Trabalho | Lista de Fluxos de Trabalho |
+|:---:|:---:|
+| <img src="screenshots/workflow-editor.png" width="400" /> | <img src="screenshots/workflow.png" width="400" /> |
+
+| Inspetor de UI | Gravação de Toque |
+|:---:|:---:|
+| <img src="screenshots/ui-inspector.png" width="400" /> | <img src="screenshots/recording.png" width="400" /> |
+
+| Proxy de Rede (MITM) | ADB Shell |
+|:---:|:---:|
+| <img src="screenshots/proxy.png" width="400" /> | <img src="screenshots/shell.png" width="400" /> |
 
 ---
 

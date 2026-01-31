@@ -21,23 +21,35 @@ Un outil puissant, moderne et autonome de gestion et d'automatisation d'appareil
 - **Pret pour l'IA via MCP** : Plus de 50 outils exposes via le Model Context Protocol pour une integration transparente avec les clients IA comme Claude Desktop et Cursor.
 - **Concu pour les developpeurs** : Logcat, Shell, Proxy MITM et Inspecteur d'interface integres, concus par des developpeurs, pour des developpeurs.
 
-## Captures d'ecran de l'application
+## Captures d'écran de l'application
 
-| Miroir de l'appareil | Gestionnaire de fichiers |
+| Gestion des Appareils | Miroir d'Écran |
 |:---:|:---:|
-| <img src="screenshots/mirror.png" width="400" /> | <img src="screenshots/files.png" width="400" /> |
+| <img src="screenshots/devices.png" width="400" /> | <img src="screenshots/mirror.png" width="400" /> |
 
-| Gestion des applications | Visualiseur Logcat |
+| Gestionnaire de Fichiers | Gestion des Applications |
 |:---:|:---:|
-| <img src="screenshots/apps.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+| <img src="screenshots/files.png" width="400" /> | <img src="screenshots/apps.png" width="400" /> |
 
-| ADB Shell | Barre d'etat systeme |
+| Moniteur de Performance | Chronologie de Session |
 |:---:|:---:|
-| <img src="screenshots/shell.png" width="400" /> | <img src="screenshots/tray.png" width="400" /> |
+| <img src="screenshots/performance.png" width="400" /> | <img src="screenshots/session.png" width="400" /> |
 
-| Proxy et reseau |
-|:---:|
-| <img src="screenshots/proxy.png" width="820" /> |
+| Liste des Sessions | Visualiseur Logcat |
+|:---:|:---:|
+| <img src="screenshots/session-list.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+
+| Éditeur Visuel de Workflows | Liste des Workflows |
+|:---:|:---:|
+| <img src="screenshots/workflow-editor.png" width="400" /> | <img src="screenshots/workflow.png" width="400" /> |
+
+| Inspecteur UI | Enregistrement Tactile |
+|:---:|:---:|
+| <img src="screenshots/ui-inspector.png" width="400" /> | <img src="screenshots/recording.png" width="400" /> |
+
+| Proxy Réseau (MITM) | ADB Shell |
+|:---:|:---:|
+| <img src="screenshots/proxy.png" width="400" /> | <img src="screenshots/shell.png" width="400" /> |
 
 ---
 

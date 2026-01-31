@@ -23,21 +23,33 @@
 
 ## لقطات شاشة التطبيق
 
-| مرآة الجهاز | مدير الملفات |
+| إدارة الأجهزة | عكس الشاشة |
 |:---:|:---:|
-| <img src="screenshots/mirror.png" width="400" /> | <img src="screenshots/files.png" width="400" /> |
+| <img src="screenshots/devices.png" width="400" /> | <img src="screenshots/mirror.png" width="400" /> |
 
-| ادارة التطبيقات | عارض Logcat |
+| مدير الملفات | إدارة التطبيقات |
 |:---:|:---:|
-| <img src="screenshots/apps.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+| <img src="screenshots/files.png" width="400" /> | <img src="screenshots/apps.png" width="400" /> |
 
-| ADB Shell | علبة النظام |
+| مراقب الأداء | الجدول الزمني للجلسة |
 |:---:|:---:|
-| <img src="screenshots/shell.png" width="400" /> | <img src="screenshots/tray.png" width="400" /> |
+| <img src="screenshots/performance.png" width="400" /> | <img src="screenshots/session.png" width="400" /> |
 
-| الوكيل والشبكة |
-|:---:|
-| <img src="screenshots/proxy.png" width="820" /> |
+| قائمة الجلسات | عارض Logcat |
+|:---:|:---:|
+| <img src="screenshots/session-list.png" width="400" /> | <img src="screenshots/logcat.png" width="400" /> |
+
+| محرر سير العمل المرئي | قائمة سير العمل |
+|:---:|:---:|
+| <img src="screenshots/workflow-editor.png" width="400" /> | <img src="screenshots/workflow.png" width="400" /> |
+
+| مفتش واجهة المستخدم | تسجيل اللمس |
+|:---:|:---:|
+| <img src="screenshots/ui-inspector.png" width="400" /> | <img src="screenshots/recording.png" width="400" /> |
+
+| وكيل الشبكة (MITM) | ADB Shell |
+|:---:|:---:|
+| <img src="screenshots/proxy.png" width="400" /> | <img src="screenshots/shell.png" width="400" /> |
 
 ---
 
