@@ -1,6 +1,6 @@
 import React from "react";
-import { Modal, Button, Row, Col, Card, Tabs, Input } from "antd";
-import { ReloadOutlined, AppstoreOutlined, PlayCircleOutlined } from "@ant-design/icons";
+import { Modal, Button, Card, Tabs, Input, theme } from "antd";
+import { ReloadOutlined, PlayCircleOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 // @ts-ignore
 import { main } from "../types/wails-models";
@@ -33,6 +33,8 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({
   getContainer,
 }) => {
   const { t } = useTranslation();
+  const { token } = theme.useToken();
+
   return (
     <Modal
       getContainer={getContainer}
@@ -57,7 +59,7 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({
               {selectedAppInfo ? (selectedAppInfo.label || selectedAppInfo.name) : t("app_info.title")}
             </span>
             {selectedAppInfo && (
-              <span style={{ fontSize: 12, color: "#888", fontWeight: "normal", marginTop: 2 }}>
+              <span style={{ fontSize: 12, color: token.colorTextSecondary, fontWeight: "normal", marginTop: 2 }}>
                 {selectedAppInfo.name}
               </span>
             )}
@@ -87,12 +89,12 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({
         <div style={{ padding: "60px 0", textAlign: "center" }}>
           <ReloadOutlined
             spin
-            style={{ fontSize: 32, color: "#1890ff", marginBottom: 16 }}
+            style={{ fontSize: 32, color: token.colorPrimary, marginBottom: 16 }}
           />
-          <div style={{ fontSize: 16, color: "#666" }}>
+          <div style={{ fontSize: 16, color: token.colorTextSecondary }}>
             {t("app_info.fetching")}
           </div>
-          <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>
+          <div style={{ fontSize: 12, color: token.colorTextTertiary, marginTop: 8 }}>
             {t("app_info.fetching_desc")}
           </div>
         </div>
@@ -119,18 +121,19 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  background: "rgba(255,255,255,0.7)",
+                  background: token.colorBgMask,
                 }}
               >
-                <ReloadOutlined spin style={{ fontSize: 24, color: "#1890ff" }} />
+                <ReloadOutlined spin style={{ fontSize: 24, color: token.colorPrimary }} />
               </div>
             )}
 
-            {/* 紧凑的信息展示区 */}
+            {/* Version / SDK info bar */}
             <div style={{
               marginBottom: 16,
               padding: "8px 12px",
-              background: "#f5f5f5",
+              background: token.colorFillQuaternary,
+              borderLeft: `3px solid ${token.colorPrimary}`,
               borderRadius: 6,
               fontSize: 13,
               display: "flex",
@@ -138,15 +141,15 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({
               gap: "12px 24px"
             }}>
               <div style={{ display: "flex", alignItems: "center" }}>
-                <span style={{ color: "#666", marginRight: 4 }}>Version:</span>
-                <span style={{ fontWeight: 500 }}>
+                <span style={{ color: token.colorTextTertiary, marginRight: 4 }}>Version:</span>
+                <span style={{ fontWeight: 500, color: token.colorText }}>
                   {selectedAppInfo.versionName || "N/A"}
-                  <span style={{ color: "#999", marginLeft: 4 }}>({selectedAppInfo.versionCode || 0})</span>
+                  <span style={{ color: token.colorTextQuaternary, marginLeft: 4 }}>({selectedAppInfo.versionCode || 0})</span>
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "center" }}>
-                <span style={{ color: "#666", marginRight: 4 }}>SDK:</span>
-                <span style={{ fontWeight: 500 }}>
+                <span style={{ color: token.colorTextTertiary, marginRight: 4 }}>SDK:</span>
+                <span style={{ fontWeight: 500, color: token.colorText }}>
                   Min {selectedAppInfo.minSdkVersion || "?"} / Target {selectedAppInfo.targetSdkVersion || "?"}
                 </span>
               </div>
@@ -200,7 +203,7 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({
                                 style={{
                                   fontSize: 12,
                                   padding: "4px 8px",
-                                  borderBottom: "1px solid #f0f0f0",
+                                  borderBottom: `1px solid ${token.colorBorderSecondary}`,
                                 }}
                               >
                                 {p.replace("android.permission.", "")}
@@ -209,7 +212,7 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({
                         ) : (
                           <p
                             style={{
-                              color: "#bfbfbf",
+                              color: token.colorTextQuaternary,
                               fontStyle: "italic",
                               textAlign: "center",
                               padding: "20px 0",
@@ -279,7 +282,7 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({
                                 style={{
                                   fontSize: 12,
                                   padding: "6px 8px",
-                                  borderBottom: "1px solid #f0f0f0",
+                                  borderBottom: `1px solid ${token.colorBorderSecondary}`,
                                   display: "flex",
                                   justifyContent: "space-between",
                                   alignItems: "center",
@@ -310,7 +313,7 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({
                         ) : (
                           <p
                             style={{
-                              color: "#bfbfbf",
+                              color: token.colorTextQuaternary,
                               fontStyle: "italic",
                               textAlign: "center",
                               padding: "20px 0",
@@ -333,4 +336,3 @@ const AppInfoModal: React.FC<AppInfoModalProps> = ({
 };
 
 export default AppInfoModal;
-

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Session & Events - Gaze Guide</title>
+  <meta name="description" content="Unified event timeline combining logcat, network, touch, and device events with session recording, bookmarks, and export.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="../build/icon.svg">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="../" class="logo">
+        <img src="../build/icon.svg" alt="Gaze">
+        <span>Gaze</span>
+      </a>
+      <nav class="nav-links">
+        <a href="../#features">Features</a>
+        <a href="../#mcp">MCP</a>
+        <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <div class="breadcrumb">
+        <a href="../">Home</a> / <a href="../#features">Features</a> / <span>Session & Events</span>
+      </div>
+
+      <div class="guide-hero">
+        <h1>Session & Events</h1>
+        <p>Unified event timeline that combines logcat, network, touch, device state, app lifecycle, and workflow events into a single time-correlated view. Record sessions with video, export and import for sharing.</p>
+      </div>
+
+      <div class="main-screenshot">
+        <img src="../screenshots/session.png" alt="Session Timeline">
+      </div>
+
+      <!-- Overview -->
+      <section class="guide-section">
+        <h2>Overview</h2>
+        <div class="feature-grid">
+          <div class="feature-item">
+            <h4>Unified Timeline</h4>
+            <p>All device events — logs, network requests, touch inputs, state changes — on one timeline.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Session Recording</h4>
+            <p>Start sessions with logcat, screen recording, network proxy, and device monitoring.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Visual Analytics</h4>
+            <p>Statistics, network waterfall chart, and event lane diagrams for analysis.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Export & Import</h4>
+            <p>Export sessions as .gaze archive files. Import on another machine for review.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Session Management -->
+      <section class="guide-section">
+        <h2>Session Management</h2>
+        <p>Sessions are the containers for all device events. Each device can have one active session at a time.</p>
+
+        <h3>Session List</h3>
+        <p>The session list shows all recorded sessions with statistics dashboard:</p>
+        <ul>
+          <li><strong>Total sessions</strong>, <strong>Active sessions</strong>, <strong>Sessions with video</strong>, <strong>Total events</strong></li>
+          <li>Search by session name, ID, or device ID</li>
+          <li>Filter by status: <span class="tag tag-blue">active</span> <span class="tag tag-green">completed</span> <span class="tag tag-red">failed</span> <span class="tag tag-orange">cancelled</span></li>
+          <li>Batch selection and deletion</li>
+          <li>Per-session actions: End, View Events, Play Recording, Rename, Export, Detail, Delete</li>
+        </ul>
+
+        <h3>Creating a Session</h3>
+        <p>Click <strong>Start Session</strong> on the Events page to open the configuration modal:</p>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Module</th><th>Settings</th><th>Default</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Logcat</strong></td><td>Package name, pre-filter, exclude filter</td><td>Enabled</td></tr>
+            <tr><td><strong>Screen Recording</strong></td><td>Quality: Low / Medium / High</td><td>Enabled, Medium</td></tr>
+            <tr><td><strong>Network Proxy</strong></td><td>Port, HTTPS MITM toggle</td><td>Enabled, port 8080, MITM on</td></tr>
+            <tr><td><strong>Device Monitor</strong></td><td>Battery, network, screen, app lifecycle</td><td>Enabled</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Timeline -->
+      <section class="guide-section">
+        <h2>Event Timeline</h2>
+        <img src="../screenshots/guide/session-timeline.png" alt="Event timeline with time ruler, source tags, and event list" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+
+        <h3>Time Ruler</h3>
+        <p>A visual bar at the top showing the full session duration:</p>
+        <ul>
+          <li><strong>Density bars</strong> — Per-second event count (height proportional to count, red for seconds with errors)</li>
+          <li><strong>Position indicator</strong> — Yellow vertical line showing current position</li>
+          <li><strong>Drag-to-select</strong> — Click and drag to select a time range for filtering</li>
+          <li><strong>Bookmark markers</strong> — Colored triangular flags at bookmark positions</li>
+          <li><strong>Critical markers</strong> — Icons for crashes, ANRs, and errors at the bottom</li>
+        </ul>
+
+        <h3>Event List</h3>
+        <p>Each event row shows:</p>
+        <ul>
+          <li><strong>Relative time</strong> — Offset from session start (e.g., "0:05.381")</li>
+          <li><strong>Source tag</strong> — Color-coded: <span class="tag tag-green">logcat</span> <span class="tag tag-purple">network</span> <span class="tag tag-cyan">device</span> <span class="tag tag-blue">app</span> <span class="tag tag-orange">touch</span> and more</li>
+          <li><strong>Title</strong> — Event summary (red for critical events)</li>
+          <li><strong>Duration</strong> — For timed events (e.g., network requests)</li>
+          <li><strong>Level indicator</strong> — Colored dot for error/warning levels</li>
+        </ul>
+
+        <h3>Auto-scroll</h3>
+        <ul>
+          <li><strong>Live mode</strong> — Auto-scroll to latest events (for active sessions)</li>
+          <li><strong>Manual mode</strong> — Pause auto-scrolling for manual navigation</li>
+          <li><strong>"Bottom" button</strong> — Jump to the end of the event list</li>
+        </ul>
+      </section>
+
+      <!-- Filtering -->
+      <section class="guide-section">
+        <h2>Filtering Events</h2>
+
+        <h3>Text Search</h3>
+        <p>Full-text search powered by SQLite FTS5. Searches in event titles, summaries, and data content with 300ms debounce.</p>
+
+        <h3>Filter Checkboxes</h3>
+        <p>Filter by source, category, and level using the filter popover:</p>
+        <ul>
+          <li><strong>Sources (10)</strong> — logcat, network, device, app, ui, touch, workflow, perf, system, assertion</li>
+          <li><strong>Categories (6)</strong> — log, network, state, interaction, automation, diagnostic</li>
+          <li><strong>Levels (6)</strong> — verbose, debug, info, warn, error, fatal</li>
+        </ul>
+
+        <h3>Time Range</h3>
+        <p>Drag-select on the Time Ruler to filter events to a specific time window.</p>
+      </section>
+
+      <!-- Event Detail -->
+      <section class="guide-section">
+        <h2>Event Detail</h2>
+        <img src="../screenshots/guide/session-event-detail.png" alt="Event detail panel with metadata and JSON tree viewer" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <p>Click an event to open the detail panel. The panel adapts based on event type:</p>
+
+        <h3>General Events</h3>
+        <ul>
+          <li>Metadata: time, source, level, duration</li>
+          <li>Interactive JSON tree viewer for the event data</li>
+        </ul>
+
+        <h3>Network Events</h3>
+        <p>Specialized view with tabs for request/response details:</p>
+        <ul>
+          <li>Overview: URL, method, status, duration, size, content type</li>
+          <li>Request/Response headers and body (with JSON formatting)</li>
+          <li>Query parameters (if present)</li>
+          <li>Quick actions: <strong>Mock Request</strong> and <strong>Create Breakpoint</strong> (navigates to Proxy page)</li>
+        </ul>
+      </section>
+
+      <!-- Bookmarks -->
+      <section class="guide-section">
+        <h2>Bookmarks</h2>
+        <p>Mark important moments in the timeline for quick navigation.</p>
+        <ul>
+          <li><strong>Add Bookmark</strong> — Click the bookmark button and enter a label for the current time position</li>
+          <li><strong>Navigate</strong> — Click any bookmark in the list or on the time ruler to jump to that position</li>
+          <li><strong>Types</strong> — user, error, milestone, assertion_fail (each with a distinct color)</li>
+        </ul>
+      </section>
+
+      <!-- Visualization -->
+      <section class="guide-section">
+        <h2>Visualization Panel</h2>
+        <p>Collapsible analytics panel with three tabs:</p>
+
+        <h3>Statistics</h3>
+        <ul>
+          <li>Key metrics: Total events, errors (with rate), crashes/ANRs, avg response time</li>
+          <li>Source distribution (donut chart)</li>
+          <li>Level distribution (bar chart)</li>
+          <li>Event density over time (area chart)</li>
+        </ul>
+
+        <h3>Network Waterfall</h3>
+        <p>Chrome DevTools-style waterfall chart showing all network requests with timing bars color-coded by status (green 2xx, blue 3xx, orange 4xx, red 5xx).</p>
+
+        <h3>Event Lanes</h3>
+        <p>Swim lane diagram grouped by event source. Each lane shows event distribution over time. Click events to view details. Expandable/collapsible lanes with event count tags.</p>
+      </section>
+
+      <!-- Assertions -->
+      <section class="guide-section">
+        <h2>Assertions</h2>
+        <p>Validate session data with built-in and custom assertions:</p>
+
+        <h3>Quick Assertions</h3>
+        <ul>
+          <li><strong>No Errors</strong> — Verify no error/fatal level events exist</li>
+          <li><strong>No Crashes</strong> — Verify no app_crash events exist</li>
+        </ul>
+
+        <h3>Custom Assertions</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Field</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Type</strong></td><td><code>exists</code>, <code>not_exists</code>, or <code>count</code> (within range)</td></tr>
+            <tr><td><strong>Event Types</strong></td><td>Multi-select from session's actual event types</td></tr>
+            <tr><td><strong>Title Match</strong></td><td>Regex pattern for matching event titles</td></tr>
+            <tr><td><strong>Min/Max Count</strong></td><td>For count type: expected range</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Export/Import -->
+      <section class="guide-section">
+        <h2>Export & Import</h2>
+
+        <h3>Export</h3>
+        <p>Export a session as a <code>.gaze</code> archive (ZIP format) containing:</p>
+        <ul>
+          <li><code>manifest.json</code> — Archive metadata</li>
+          <li><code>session.json</code> — Session metadata and configuration</li>
+          <li><code>events.jsonl</code> — All events (JSON Lines format)</li>
+          <li><code>bookmarks.json</code> — User bookmarks</li>
+          <li><code>recording.mp4</code> — Screen recording (if exists)</li>
+        </ul>
+
+        <h3>Import</h3>
+        <p>Import a <code>.gaze</code> file on any machine. A new session ID is generated to avoid conflicts. The imported session name has "(imported)" appended.</p>
+      </section>
+
+      <!-- Event Sources -->
+      <section class="guide-section">
+        <h2>Event Sources</h2>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Source</th><th>Description</th><th>Example Events</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="tag tag-green">logcat</span></td><td>Device logs</td><td>logcat, logcat_aggregated</td></tr>
+            <tr><td><span class="tag tag-purple">network</span></td><td>Network traffic</td><td>http_request, websocket_message</td></tr>
+            <tr><td><span class="tag tag-cyan">device</span></td><td>Device state</td><td>battery_change, network_change, screen_change</td></tr>
+            <tr><td><span class="tag tag-blue">app</span></td><td>App lifecycle</td><td>app_start, app_stop, app_crash, app_anr</td></tr>
+            <tr><td><span class="tag tag-orange">touch</span></td><td>Touch input</td><td>touch, gesture</td></tr>
+            <tr><td>workflow</td><td>Automation</td><td>workflow_start, workflow_step_*, workflow_complete</td></tr>
+            <tr><td>perf</td><td>Performance</td><td>perf_sample</td></tr>
+            <tr><td>system</td><td>System events</td><td>session_start, session_end, recording_start</td></tr>
+            <tr><td>assertion</td><td>Assertions</td><td>assertion_result</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Navigation -->
+      <section class="guide-nav">
+        <h2>More Features</h2>
+        <div class="guide-nav-grid">
+          <a href="mirror.html" class="guide-nav-item">Mirror & Recording</a>
+          <a href="files.html" class="guide-nav-item">File Manager</a>
+          <a href="apps.html" class="guide-nav-item">App Manager</a>
+          <a href="logcat.html" class="guide-nav-item">Logcat</a>
+          <a href="proxy.html" class="guide-nav-item">Network Proxy</a>
+          <a href="performance.html" class="guide-nav-item">Performance Monitor</a>
+          <a href="session.html" class="guide-nav-item active">Session & Events</a>
+          <a href="workflow.html" class="guide-nav-item">Workflow Automation</a>
+          <a href="ui-inspector.html" class="guide-nav-item">UI Inspector</a>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">© 2025 Gaze · MIT License</div>
+      <nav class="footer-links">
+        <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
+        <a href="https://github.com/nicetooo/Gaze/issues" target="_blank">Issues</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

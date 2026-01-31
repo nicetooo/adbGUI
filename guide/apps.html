@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>App Manager - Gaze Guide</title>
+  <meta name="description" content="Manage installed Android apps. Install APK/XAPK/AAB via drag-and-drop, export, uninstall, and inspect package details.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="../build/icon.svg">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="../" class="logo">
+        <img src="../build/icon.svg" alt="Gaze">
+        <span>Gaze</span>
+      </a>
+      <nav class="nav-links">
+        <a href="../#features">Features</a>
+        <a href="../#mcp">MCP</a>
+        <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <div class="breadcrumb">
+        <a href="../">Home</a> / <a href="../#features">Features</a> / <span>App Manager</span>
+      </div>
+
+      <div class="guide-hero">
+        <h1>App Manager</h1>
+        <p>View, install, export, and manage all apps on your Android device. Supports drag-and-drop installation of APK, XAPK, and AAB files.</p>
+      </div>
+
+      <div class="main-screenshot">
+        <img src="../screenshots/apps.png" alt="App Manager">
+      </div>
+
+      <!-- Overview -->
+      <section class="guide-section">
+        <h2>Overview</h2>
+        <div class="feature-grid">
+          <div class="feature-item">
+            <h4>App List</h4>
+            <p>Browse all installed apps with search filtering and type filters (User / System / All).</p>
+          </div>
+          <div class="feature-item">
+            <h4>Drag-and-Drop Install</h4>
+            <p>Drop APK, XAPK, or AAB files to install directly. Multi-file sequential install supported.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Package Details</h4>
+            <p>View version info, permissions, activities, and launch specific activities.</p>
+          </div>
+          <div class="feature-item">
+            <h4>App Operations</h4>
+            <p>Launch, stop, enable/disable, export APK, clear data, and uninstall.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Toolbar -->
+      <section class="guide-section">
+        <h2>Toolbar</h2>
+        <img src="../screenshots/guide/apps-toolbar.png" alt="App manager toolbar with search and filters" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <table class="settings-table">
+          <thead>
+            <tr><th>Control</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Search</strong></td><td>Filter apps by package name (case-insensitive substring match)</td></tr>
+            <tr><td><strong>Type Filter</strong></td><td>All / User (default) / System — re-fetches the package list when changed</td></tr>
+            <tr><td><strong>Refresh</strong></td><td>Re-fetch the full package list from the device</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- App List -->
+      <section class="guide-section">
+        <h2>App List</h2>
+        <p>Each app row shows:</p>
+        <ul>
+          <li><strong>App avatar</strong> — Colored square with the first letter of the app label</li>
+          <li><strong>Name & package</strong> — App label (bold) and full package name (monospace)</li>
+          <li><strong>Type</strong> — <span class="tag tag-orange">system</span> or <span class="tag tag-blue">user</span></li>
+          <li><strong>State</strong> — <span class="tag tag-green">enabled</span> or <span class="tag tag-red">disabled</span></li>
+        </ul>
+      </section>
+
+      <!-- Per-Row Actions -->
+      <section class="guide-section">
+        <h2>App Actions</h2>
+        <p>Each app row has the following action buttons:</p>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Action</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Launch</strong></td><td>Force-stop then launch the app</td></tr>
+            <tr><td><strong>Logcat</strong></td><td>Jump to the Logcat view filtered by this package</td></tr>
+            <tr><td><strong>Force Stop</strong></td><td>Force-stop the running app</td></tr>
+            <tr><td><strong>Enable / Disable</strong></td><td>Toggle the app's enabled state</td></tr>
+            <tr><td><strong>App Settings</strong></td><td>Open the Android Settings detail page for this app on the device</td></tr>
+            <tr><td><strong>Export APK</strong></td><td>Pull the APK from the device and save locally</td></tr>
+            <tr><td><strong>App Info</strong></td><td>Open the detailed info modal (see below)</td></tr>
+            <tr><td><strong>More → Clear Data</strong></td><td>Clear the app's data and cache (with confirmation)</td></tr>
+            <tr><td><strong>More → Uninstall</strong></td><td>Remove the app from the device (with confirmation)</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- App Info Modal -->
+      <section class="guide-section">
+        <h2>App Info Modal</h2>
+        <img src="../screenshots/guide/apps-info-modal.png" alt="App info modal with permissions" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <p>The detail modal shows comprehensive package information:</p>
+
+        <h3>Summary Bar</h3>
+        <ul>
+          <li><strong>Version</strong> — Version name and code (e.g., "2.4.1 (241)")</li>
+          <li><strong>SDK</strong> — Minimum and target SDK versions (e.g., "Min 24 / Target 34")</li>
+        </ul>
+
+        <h3>Permissions Tab</h3>
+        <p>Lists all declared permissions with a search filter. The <code>android.permission.</code> prefix is stripped for readability. Shows the total count in the tab label.</p>
+
+        <h3>Activities Tab</h3>
+        <img src="../screenshots/guide/apps-info-activities.png" alt="App info activities tab with launch buttons" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <p>Lists all activities, sorted with launchable activities first. Each activity name is shown in monospace font. Launchable activities have a <strong>Launch</strong> button to start that specific activity directly.</p>
+      </section>
+
+      <!-- Drag-and-Drop Install -->
+      <section class="guide-section">
+        <h2>Drag-and-Drop Installation</h2>
+        <p>Drag package files from your computer onto the app list area to install them.</p>
+
+        <h3>Supported Formats</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Format</th><th>Description</th><th>Install Method</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>.apk</code></td><td>Standard Android package</td><td><code>adb install -r</code></td></tr>
+            <tr><td><code>.xapk</code></td><td>Multi-APK ZIP (split APKs + OBB)</td><td><code>adb install-multiple</code></td></tr>
+            <tr><td><code>.aab</code></td><td>Android App Bundle</td><td>bundletool (must be installed)</td></tr>
+          </tbody>
+        </table>
+
+        <div class="tip-box">
+          <strong>Tip:</strong> Multiple package files can be dropped at once — they are installed sequentially. Non-matching file types show a warning.
+        </div>
+
+        <div class="warn-box">
+          <strong>AAB files</strong> require <code>bundletool</code> to be installed on your system. If bundletool is not found, a friendly error message is displayed.
+        </div>
+      </section>
+
+      <!-- Navigation -->
+      <section class="guide-nav">
+        <h2>More Features</h2>
+        <div class="guide-nav-grid">
+          <a href="mirror.html" class="guide-nav-item">Mirror & Recording</a>
+          <a href="files.html" class="guide-nav-item">File Manager</a>
+          <a href="apps.html" class="guide-nav-item active">App Manager</a>
+          <a href="logcat.html" class="guide-nav-item">Logcat</a>
+          <a href="proxy.html" class="guide-nav-item">Network Proxy</a>
+          <a href="performance.html" class="guide-nav-item">Performance Monitor</a>
+          <a href="session.html" class="guide-nav-item">Session & Events</a>
+          <a href="workflow.html" class="guide-nav-item">Workflow Automation</a>
+          <a href="ui-inspector.html" class="guide-nav-item">UI Inspector</a>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">© 2025 Gaze · MIT License</div>
+      <nav class="footer-links">
+        <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
+        <a href="https://github.com/nicetooo/Gaze/issues" target="_blank">Issues</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

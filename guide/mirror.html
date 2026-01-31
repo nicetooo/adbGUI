@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mirror & Recording - Gaze Guide</title>
+  <meta name="description" content="Screen mirroring and recording with scrcpy. Configure video, audio, window, control, and power settings.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="../build/icon.svg">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="../" class="logo">
+        <img src="../build/icon.svg" alt="Gaze">
+        <span>Gaze</span>
+      </a>
+      <nav class="nav-links">
+        <a href="../#features">Features</a>
+        <a href="../#mcp">MCP</a>
+        <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <div class="breadcrumb">
+        <a href="../">Home</a> / <a href="../#features">Features</a> / <span>Mirror & Recording</span>
+      </div>
+
+      <div class="guide-hero">
+        <h1>Mirror & Recording</h1>
+        <p>Low-latency screen mirroring powered by scrcpy with full keyboard and mouse control. Record your device screen with configurable quality settings.</p>
+      </div>
+
+      <div class="main-screenshot">
+        <img src="../screenshots/mirror.png" alt="Mirror & Recording">
+      </div>
+
+      <!-- Overview -->
+      <section class="guide-section">
+        <h2>Overview</h2>
+        <p>The Mirror view provides real-time screen mirroring for connected Android devices. It uses scrcpy under the hood for high-performance, low-latency video streaming with audio forwarding support.</p>
+
+        <div class="feature-grid">
+          <div class="feature-item">
+            <h4>Real-time Mirroring</h4>
+            <p>Low-latency display with keyboard and mouse control for direct device interaction.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Screen Recording</h4>
+            <p>Record the device screen independently of mirroring, with configurable output paths.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Quality Presets</h4>
+            <p>HD, Smooth, Low Data, or fully custom resolution, bitrate, and framerate.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Per-Device Config</h4>
+            <p>Settings are saved independently for each connected device.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Controls -->
+      <section class="guide-section">
+        <h2>Top Controls</h2>
+        <p>The top bar contains the main action buttons:</p>
+        <ul>
+          <li><strong>Device Selector</strong> — Choose which connected Android device to mirror.</li>
+          <li><strong>Start / Stop Mirroring</strong> — Toggle the scrcpy mirror session. A live duration timer appears while mirroring is active.</li>
+          <li><strong>Take Screenshot</strong> — Capture the current device screen and save to a local file.</li>
+        </ul>
+
+        <div class="tip-box">
+          <strong>Tip:</strong> All settings changes are applied live while mirroring is active — the mirror automatically restarts with the new configuration.
+        </div>
+      </section>
+
+      <!-- Recording -->
+      <section class="guide-section">
+        <h2>Recording</h2>
+        <img src="../screenshots/guide/mirror-recording.png" alt="Recording panel" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <p>Screen recording can be started and stopped independently of the mirroring session. When you click <strong>Start Record</strong>, a system save dialog prompts you to choose the output file location.</p>
+
+        <h3>Recording Indicators</h3>
+        <ul>
+          <li><strong>Armed state</strong> — "Save dialog will show up" message before recording begins.</li>
+          <li><strong>Active recording</strong> — Red-bordered panel with a pulsating dot, live duration timer, and the output filename.</li>
+        </ul>
+
+        <h3>Open Recordings Folder</h3>
+        <p>Click the folder icon in the Recording card header to open the recordings directory in your system file manager.</p>
+      </section>
+
+      <!-- Video Settings -->
+      <section class="guide-section">
+        <h2>Video Settings</h2>
+        <img src="../screenshots/guide/mirror-video-settings.png" alt="Video settings panel" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <p>Configure the video stream quality with presets or custom values.</p>
+
+        <h3>Quality Presets</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Preset</th><th>Resolution</th><th>Bitrate</th><th>FPS</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>HD</strong></td><td>1920px</td><td>16 Mbps</td><td>60</td></tr>
+            <tr><td><strong>Smooth</strong></td><td>1280px</td><td>8 Mbps</td><td>60</td></tr>
+            <tr><td><strong>Low Data</strong></td><td>720px</td><td>4 Mbps</td><td>30</td></tr>
+            <tr><td><strong>Custom</strong></td><td colspan="3">Shown when values don't match any preset</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Custom Settings</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Setting</th><th>Range</th><th>Default</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Max Resolution</strong></td><td>Auto (0) to 2560px</td><td>Auto</td></tr>
+            <tr><td><strong>Bit Rate</strong></td><td>1 – 64 Mbps</td><td>8 Mbps</td></tr>
+            <tr><td><strong>Max FPS</strong></td><td>15 – 144</td><td>60</td></tr>
+            <tr><td><strong>Video Codec</strong></td><td>H.264, H.265, AV1</td><td>H.264</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Audio Settings -->
+      <section class="guide-section">
+        <h2>Audio Settings</h2>
+        <p>Configure audio forwarding from the device.</p>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Setting</th><th>Options</th><th>Default</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Disable Audio</strong></td><td>On / Off</td><td>Off (audio enabled)</td></tr>
+            <tr><td><strong>Audio Codec</strong></td><td>Opus, AAC, FLAC, RAW</td><td>Opus</td></tr>
+          </tbody>
+        </table>
+
+        <div class="tip-box">
+          <strong>Note:</strong> The audio codec selector is disabled when "Disable Audio" is turned on.
+        </div>
+      </section>
+
+      <!-- Window Options -->
+      <section class="guide-section">
+        <h2>Window Options</h2>
+        <img src="../screenshots/guide/mirror-window-options.png" alt="Window options panel" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <table class="settings-table">
+          <thead>
+            <tr><th>Setting</th><th>Description</th><th>Default</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Always On Top</strong></td><td>Keep the mirror window above all other windows</td><td>Off</td></tr>
+            <tr><td><strong>Fullscreen</strong></td><td>Start the mirror window in fullscreen mode</td><td>Off</td></tr>
+            <tr><td><strong>Borderless</strong></td><td>Remove the window title bar and borders</td><td>Off</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Screen Orientation -->
+      <section class="guide-section">
+        <h2>Screen Orientation</h2>
+        <p>Force the display orientation of the mirror window:</p>
+        <ul>
+          <li><strong>Auto</strong> — Follow the device's natural orientation.</li>
+          <li><strong>Landscape</strong> — Force 90-degree landscape mode.</li>
+          <li><strong>Portrait</strong> — Force portrait mode.</li>
+        </ul>
+      </section>
+
+      <!-- Control & Interaction -->
+      <section class="guide-section">
+        <h2>Control & Interaction</h2>
+        <img src="../screenshots/guide/mirror-control.png" alt="Control and interaction settings" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <table class="settings-table">
+          <thead>
+            <tr><th>Setting</th><th>Description</th><th>Default</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Stay Awake</strong></td><td>Prevent the device from sleeping while mirroring</td><td>On</td></tr>
+            <tr><td><strong>Read Only</strong></td><td>Disable keyboard and mouse control (view-only mode)</td><td>Off</td></tr>
+            <tr><td><strong>Show Touches</strong></td><td>Display touch indicators on the device screen</td><td>Off</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Power Management -->
+      <section class="guide-section">
+        <h2>Power Management</h2>
+        <img src="../screenshots/guide/mirror-power.png" alt="Power management settings" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <table class="settings-table">
+          <thead>
+            <tr><th>Setting</th><th>Description</th><th>Default</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Turn Screen Off</strong></td><td>Turn off the physical device screen while mirroring — saves battery, mirror still shows content</td><td>Off</td></tr>
+            <tr><td><strong>Power Off on Close</strong></td><td>Turn off the device screen when the mirror session ends</td><td>Off</td></tr>
+            <tr><td><strong>No Power On</strong></td><td>Prevent scrcpy from waking the device screen when it starts</td><td>Off</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Advanced Settings -->
+      <section class="guide-section">
+        <h2>Advanced Settings</h2>
+        <img src="../screenshots/guide/mirror-advanced.png" alt="Advanced settings panel" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <p>Fine-tune the mirroring behavior. Click the <strong>Refresh</strong> button to re-detect available cameras and displays on the device.</p>
+
+        <table class="settings-table">
+          <thead>
+            <tr><th>Setting</th><th>Options</th><th>Default</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Video Source</strong></td><td>Display, Camera</td><td>Display</td><td>Stream the screen or a device camera</td></tr>
+            <tr><td><strong>Camera ID</strong></td><td>Default + detected cameras</td><td>Default</td><td>Only visible when source is Camera</td></tr>
+            <tr><td><strong>Camera Size</strong></td><td>Default, 1920x1080, 1280x720, 1024x768, 640x480</td><td>Default</td><td>Only visible when source is Camera</td></tr>
+            <tr><td><strong>Display ID</strong></td><td>0 (Main) + detected displays</td><td>0</td><td>Only visible when source is Display</td></tr>
+            <tr><td><strong>Orientation</strong></td><td>0°, 90°, 180°, 270°, Flip 0°</td><td>0°</td><td>Fine-grained rotation control</td></tr>
+            <tr><td><strong>Keyboard Mode</strong></td><td>SDK, UHID</td><td>SDK</td><td>UHID emulates a physical USB HID keyboard</td></tr>
+            <tr><td><strong>Mouse Mode</strong></td><td>SDK, UHID</td><td>SDK</td><td>UHID emulates a physical USB HID mouse</td></tr>
+            <tr><td><strong>No Clipboard Sync</strong></td><td>On / Off</td><td>Off</td><td>Disable clipboard sharing between PC and device</td></tr>
+            <tr><td><strong>Show FPS (Logs)</strong></td><td>On / Off</td><td>Off</td><td>Display FPS counter in scrcpy logs</td></tr>
+          </tbody>
+        </table>
+
+        <div class="warn-box">
+          <strong>Camera mirroring</strong> requires Android 12 or higher. A warning is displayed if the device runs an older version.
+        </div>
+      </section>
+
+      <!-- Navigation -->
+      <section class="guide-nav">
+        <h2>More Features</h2>
+        <div class="guide-nav-grid">
+          <a href="mirror.html" class="guide-nav-item active">Mirror & Recording</a>
+          <a href="files.html" class="guide-nav-item">File Manager</a>
+          <a href="apps.html" class="guide-nav-item">App Manager</a>
+          <a href="logcat.html" class="guide-nav-item">Logcat</a>
+          <a href="proxy.html" class="guide-nav-item">Network Proxy</a>
+          <a href="performance.html" class="guide-nav-item">Performance Monitor</a>
+          <a href="session.html" class="guide-nav-item">Session & Events</a>
+          <a href="workflow.html" class="guide-nav-item">Workflow Automation</a>
+          <a href="ui-inspector.html" class="guide-nav-item">UI Inspector</a>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">© 2025 Gaze · MIT License</div>
+      <nav class="footer-links">
+        <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
+        <a href="https://github.com/nicetooo/Gaze/issues" target="_blank">Issues</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Performance Monitor - Gaze Guide</title>
+  <meta name="description" content="Real-time CPU, memory, FPS, network, battery, and temperature monitoring with process-level detail.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="../build/icon.svg">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="../" class="logo">
+        <img src="../build/icon.svg" alt="Gaze">
+        <span>Gaze</span>
+      </a>
+      <nav class="nav-links">
+        <a href="../#features">Features</a>
+        <a href="../#mcp">MCP</a>
+        <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <div class="breadcrumb">
+        <a href="../">Home</a> / <a href="../#features">Features</a> / <span>Performance Monitor</span>
+      </div>
+
+      <div class="guide-hero">
+        <h1>Performance Monitor</h1>
+        <p>Real-time system and per-app performance monitoring. Track CPU, memory, FPS, network I/O, battery, and temperature with process-level memory breakdown.</p>
+      </div>
+
+      <div class="main-screenshot">
+        <img src="../screenshots/performance.png" alt="Performance Monitor">
+      </div>
+
+      <!-- Overview -->
+      <section class="guide-section">
+        <h2>Overview</h2>
+        <div class="feature-grid">
+          <div class="feature-item">
+            <h4>6 Metric Cards</h4>
+            <p>CPU usage, memory, FPS, network I/O, battery level, and CPU temperature at a glance.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Auto-Monitoring</h4>
+            <p>Monitoring starts automatically when a device is selected. No manual start needed.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Process List</h4>
+            <p>All running app processes with CPU usage, memory, user, and PID.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Process Detail</h4>
+            <p>Click any process for detailed memory breakdown chart and heap analysis.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Metric Cards -->
+      <section class="guide-section">
+        <h2>System Metrics</h2>
+        <img src="../screenshots/guide/perf-overview.png" alt="Performance metric cards showing CPU, memory, FPS, network, battery and temperature" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <p>Six metric cards displayed in a row at the top of the page:</p>
+
+        <table class="settings-table">
+          <thead>
+            <tr><th>Metric</th><th>Value</th><th>Sub-info</th><th>Alert Threshold</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>CPU</strong></td><td>System-wide usage %</td><td>Core count</td><td>Red when &gt; 80%</td></tr>
+            <tr><td><strong>Memory</strong></td><td>System memory usage %</td><td>Used/Total MB</td><td>Red when &gt; 85%</td></tr>
+            <tr><td><strong>FPS</strong></td><td>Current frame rate</td><td>—</td><td>—</td></tr>
+            <tr><td><strong>Network</strong></td><td>Combined RX+TX KB/s</td><td>↓RX ↑TX breakdown</td><td>—</td></tr>
+            <tr><td><strong>Battery</strong></td><td>Battery level %</td><td>Temperature °C</td><td>—</td></tr>
+            <tr><td><strong>CPU Temp</strong></td><td>Temperature °C</td><td>—</td><td>Red when &gt; 70°C</td></tr>
+          </tbody>
+        </table>
+
+        <div class="tip-box">
+          <strong>Note:</strong> Each card has a colored left border for quick visual identification. When a metric exceeds its alert threshold, the card turns red with an exclamation indicator.
+        </div>
+      </section>
+
+      <!-- Snapshot -->
+      <section class="guide-section">
+        <h2>Performance Snapshot</h2>
+        <p>Click the <strong>camera icon</strong> in the header to take a one-time performance snapshot. This collects CPU, memory, network, and battery data in parallel without requiring continuous monitoring.</p>
+        <div class="tip-box">
+          <strong>Note:</strong> Snapshots don't include FPS data (which requires continuous monitoring to calculate frame deltas) or the process list.
+        </div>
+      </section>
+
+      <!-- Process List -->
+      <section class="guide-section">
+        <h2>Running Processes</h2>
+        <p>A scrollable table showing all running app-level processes (system processes like <code>init</code> and <code>surfaceflinger</code> are excluded).</p>
+
+        <table class="settings-table">
+          <thead>
+            <tr><th>Column</th><th>Default Sort</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Process</strong></td><td>—</td><td>Package name (monospace, copyable)</td></tr>
+            <tr><td><strong>CPU %</strong></td><td>Descending ✓</td><td>Color-coded: red ≥50%, orange ≥20%, blue &gt;0%</td></tr>
+            <tr><td><strong>Memory</strong></td><td>—</td><td>RSS in MB. Color-coded: red ≥500MB, orange ≥200MB, green &gt;0</td></tr>
+            <tr><td><strong>User</strong></td><td>—</td><td>Linux user (e.g., <code>u0_a123</code>)</td></tr>
+            <tr><td><strong>PID</strong></td><td>—</td><td>Process ID</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Process Detail -->
+      <section class="guide-section">
+        <h2>Process Detail (Expandable)</h2>
+        <p>Click any process row to expand an inline detail panel. Data is fetched via <code>dumpsys meminfo</code> and <code>/proc/&lt;pid&gt;/status</code> (takes 2-3 seconds).</p>
+
+        <h3>Memory Breakdown Chart</h3>
+        <p>Horizontal bar chart showing PSS (Proportional Set Size) by category:</p>
+        <ul>
+          <li><span class="tag tag-purple">Graphics</span> — GPU memory</li>
+          <li><span class="tag tag-cyan">Code</span> — DEX, OAT, shared libraries</li>
+          <li><span class="tag tag-orange">Native Heap</span> — C/C++ allocations</li>
+          <li><span class="tag tag-green">Java Heap</span> — Dalvik/ART heap</li>
+          <li><span class="tag tag-blue">Stack</span> — Thread stacks</li>
+          <li>System, Private Other, Unknown</li>
+        </ul>
+
+        <h3>Process Info</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Field</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Threads</strong></td><td>Thread count</td></tr>
+            <tr><td><strong>FDs</strong></td><td>File descriptor count</td></tr>
+            <tr><td><strong>Activities</strong></td><td>Android Activity count</td></tr>
+            <tr><td><strong>Views</strong></td><td>Android View count</td></tr>
+            <tr><td><strong>WebViews</strong></td><td>WebView instance count</td></tr>
+            <tr><td><strong>Binders</strong></td><td>Local + proxy binder count</td></tr>
+            <tr><td><strong>Swap</strong></td><td>Swap usage in MB</td></tr>
+            <tr><td><strong>OOM</strong></td><td>OOM score with classification: <span class="tag tag-green">Foreground</span> <span class="tag tag-blue">Visible</span> <span class="tag tag-cyan">Perceptible</span> <span class="tag tag-orange">Previous</span> <span class="tag tag-gray">Cached</span></td></tr>
+          </tbody>
+        </table>
+
+        <h3>Heap Usage Bars</h3>
+        <p>Progress bars showing allocated/total for Java Heap and Native Heap (e.g., "Java Heap: 21.0 / 32.5 MB").</p>
+      </section>
+
+      <!-- Data Collection -->
+      <section class="guide-section">
+        <h2>How Data Is Collected</h2>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Metric</th><th>Source</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>CPU</td><td><code>dumpsys cpuinfo</code></td></tr>
+            <tr><td>Memory</td><td><code>/proc/meminfo</code></td></tr>
+            <tr><td>FPS</td><td><code>dumpsys gfxinfo</code> (frame count delta)</td></tr>
+            <tr><td>Network</td><td><code>/proc/net/dev</code> (wlan/eth/rmnet interfaces)</td></tr>
+            <tr><td>Battery</td><td><code>dumpsys battery</code></td></tr>
+            <tr><td>Process list</td><td><code>dumpsys cpuinfo</code> + <code>ps -A</code> (merged)</td></tr>
+            <tr><td>Process detail</td><td><code>dumpsys meminfo &lt;pid&gt;</code> + <code>/proc/&lt;pid&gt;/status</code></td></tr>
+          </tbody>
+        </table>
+        <p>Default sampling interval is 2 seconds. Up to 300 samples (approximately 10 minutes) are kept in memory.</p>
+      </section>
+
+      <!-- Navigation -->
+      <section class="guide-nav">
+        <h2>More Features</h2>
+        <div class="guide-nav-grid">
+          <a href="mirror.html" class="guide-nav-item">Mirror & Recording</a>
+          <a href="files.html" class="guide-nav-item">File Manager</a>
+          <a href="apps.html" class="guide-nav-item">App Manager</a>
+          <a href="logcat.html" class="guide-nav-item">Logcat</a>
+          <a href="proxy.html" class="guide-nav-item">Network Proxy</a>
+          <a href="performance.html" class="guide-nav-item active">Performance Monitor</a>
+          <a href="session.html" class="guide-nav-item">Session & Events</a>
+          <a href="workflow.html" class="guide-nav-item">Workflow Automation</a>
+          <a href="ui-inspector.html" class="guide-nav-item">UI Inspector</a>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">© 2025 Gaze · MIT License</div>
+      <nav class="footer-links">
+        <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
+        <a href="https://github.com/nicetooo/Gaze/issues" target="_blank">Issues</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

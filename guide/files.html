@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Manager - Gaze Guide</title>
+  <meta name="description" content="Browse, upload, download, and manage files on your Android device with drag-and-drop support.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="../build/icon.svg">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="../" class="logo">
+        <img src="../build/icon.svg" alt="Gaze">
+        <span>Gaze</span>
+      </a>
+      <nav class="nav-links">
+        <a href="../#features">Features</a>
+        <a href="../#mcp">MCP</a>
+        <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <div class="breadcrumb">
+        <a href="../">Home</a> / <a href="../#features">Features</a> / <span>File Manager</span>
+      </div>
+
+      <div class="guide-hero">
+        <h1>File Manager</h1>
+        <p>Browse, upload, download, copy, move, and delete files on your Android device. Supports drag-and-drop upload with image and video thumbnail previews.</p>
+      </div>
+
+      <div class="main-screenshot">
+        <img src="../screenshots/files.png" alt="File Manager">
+      </div>
+
+      <!-- Overview -->
+      <section class="guide-section">
+        <h2>Overview</h2>
+        <div class="feature-grid">
+          <div class="feature-item">
+            <h4>Browse Directories</h4>
+            <p>Navigate the full device filesystem with back button and direct path input.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Drag-and-Drop Upload</h4>
+            <p>Drop files from your computer directly onto the file list to upload to the device.</p>
+          </div>
+          <div class="feature-item">
+            <h4>File Operations</h4>
+            <p>Copy, cut, paste, rename, delete, and create new folders.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Thumbnail Previews</h4>
+            <p>Image and video files show inline thumbnail previews with hover-to-enlarge.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Navigation -->
+      <section class="guide-section">
+        <h2>Navigation</h2>
+        <ul>
+          <li><strong>Back Button</strong> — Navigate to the parent directory. Disabled at root.</li>
+          <li><strong>Path Input</strong> — Shows the current directory path. Type a path and press <kbd>Enter</kbd> to navigate directly.</li>
+          <li><strong>Double-click folder</strong> — Navigate into a directory.</li>
+          <li><strong>Double-click file</strong> — Open the file on your host computer using the default application.</li>
+        </ul>
+        <p>The default starting path is <code>/sdcard</code>.</p>
+      </section>
+
+      <!-- Toolbar -->
+      <section class="guide-section">
+        <h2>Toolbar</h2>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Button</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Show Hidden</strong></td><td>Toggle visibility of files starting with <code>.</code> (dot-files). Client-side filter only.</td></tr>
+            <tr><td><strong>New Folder</strong></td><td>Create a new directory at the current path. Opens a dialog for the folder name.</td></tr>
+            <tr><td><strong>Paste</strong></td><td>Paste a previously copied or cut file. Shows "Paste (Copy)" or "Paste (Cut)" when clipboard is populated. Turns primary/blue when active.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- File List -->
+      <section class="guide-section">
+        <h2>File List</h2>
+        <img src="../screenshots/guide/files-list.png" alt="File list with columns and thumbnails" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <p>The file list uses virtualized rendering for fast performance even with thousands of files.</p>
+
+        <h3>Columns</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Column</th><th>Sortable</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Name</strong></td><td>Yes</td><td>File/folder name with type icon and optional thumbnail</td></tr>
+            <tr><td><strong>Size</strong></td><td>Yes</td><td>Human-readable file size (KB/MB). Directories show <code>-</code></td></tr>
+            <tr><td><strong>Permissions</strong></td><td>No</td><td>Unix mode string (e.g., <code>drwxr-xr-x</code>)</td></tr>
+            <tr><td><strong>Time</strong></td><td>Yes (default)</td><td>Last modification time, sorted descending by default</td></tr>
+            <tr><td><strong>Action</strong></td><td>No</td><td>Per-row action buttons</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Thumbnails</h3>
+        <p>Image files (<code>.jpg</code>, <code>.jpeg</code>, <code>.png</code>, <code>.webp</code>, <code>.gif</code>) and video files (<code>.mp4</code>, <code>.mkv</code>, <code>.mov</code>, <code>.avi</code>) display inline thumbnails. Hover over the name to see a larger preview (up to 400×400px).</p>
+      </section>
+
+      <!-- Per-Row Actions -->
+      <section class="guide-section">
+        <h2>File Actions</h2>
+        <img src="../screenshots/guide/files-context-menu.png" alt="File context menu with actions" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <p>Each file row has these inline buttons:</p>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Action</th><th>Available For</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Download</strong></td><td>Files only</td><td>Pull the file from the device to your computer. A save dialog appears.</td></tr>
+            <tr><td><strong>Copy</strong></td><td>All</td><td>Copy the file/folder path to the internal clipboard.</td></tr>
+            <tr><td><strong>Cut</strong></td><td>All</td><td>Cut the file/folder path. The file is moved on paste.</td></tr>
+            <tr><td><strong>More (...)</strong></td><td>All</td><td>Dropdown with: Open on Host, Rename, Delete.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>More Menu</h3>
+        <ul>
+          <li><strong>Open on Host</strong> — Pull the file to a temp location and open with your system's default application. A loading indicator with cancel button appears during transfer. Disabled for directories.</li>
+          <li><strong>Rename</strong> — Opens a dialog pre-filled with the current name (text is pre-selected).</li>
+          <li><strong>Delete</strong> — Opens a confirmation dialog before permanently deleting.</li>
+        </ul>
+      </section>
+
+      <!-- Drag and Drop -->
+      <section class="guide-section">
+        <h2>Drag-and-Drop Upload</h2>
+        <p>Drag files from your computer onto the file list area to upload them to the current directory on the device.</p>
+
+        <h3>How It Works</h3>
+        <ol>
+          <li>Drag one or more files over the file manager area.</li>
+          <li>A blue overlay appears showing "Drop files here to upload" with the target path.</li>
+          <li>Drop the files to start uploading.</li>
+          <li>A progress overlay shows the current file and progress (e.g., "2/5").</li>
+          <li>The file list refreshes automatically after upload completes.</li>
+        </ol>
+
+        <div class="warn-box">
+          <strong>Root directory:</strong> If you're at <code>/</code> (which is read-only on Android), uploads are automatically redirected to <code>/sdcard</code> with a notification.
+        </div>
+
+        <h3>Upload Results</h3>
+        <ul>
+          <li><span class="tag tag-green">All succeed</span> "Successfully uploaded N file(s)"</li>
+          <li><span class="tag tag-yellow">Partial</span> "Uploaded X file(s), Y failed"</li>
+          <li><span class="tag tag-red">All fail</span> "Failed to upload files"</li>
+        </ul>
+      </section>
+
+      <!-- Navigation -->
+      <section class="guide-nav">
+        <h2>More Features</h2>
+        <div class="guide-nav-grid">
+          <a href="mirror.html" class="guide-nav-item">Mirror & Recording</a>
+          <a href="files.html" class="guide-nav-item active">File Manager</a>
+          <a href="apps.html" class="guide-nav-item">App Manager</a>
+          <a href="logcat.html" class="guide-nav-item">Logcat</a>
+          <a href="proxy.html" class="guide-nav-item">Network Proxy</a>
+          <a href="performance.html" class="guide-nav-item">Performance Monitor</a>
+          <a href="session.html" class="guide-nav-item">Session & Events</a>
+          <a href="workflow.html" class="guide-nav-item">Workflow Automation</a>
+          <a href="ui-inspector.html" class="guide-nav-item">UI Inspector</a>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">© 2025 Gaze · MIT License</div>
+      <nav class="footer-links">
+        <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
+        <a href="https://github.com/nicetooo/Gaze/issues" target="_blank">Issues</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

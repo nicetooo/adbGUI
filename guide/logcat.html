@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logcat - Gaze Guide</title>
+  <meta name="description" content="Real-time Android log viewer with package filtering, regex search, pre-filter and exclude rules, and log level filtering.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="../build/icon.svg">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="../" class="logo">
+        <img src="../build/icon.svg" alt="Gaze">
+        <span>Gaze</span>
+      </a>
+      <nav class="nav-links">
+        <a href="../#features">Features</a>
+        <a href="../#mcp">MCP</a>
+        <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <div class="breadcrumb">
+        <a href="../">Home</a> / <a href="../#features">Features</a> / <span>Logcat</span>
+      </div>
+
+      <div class="guide-hero">
+        <h1>Logcat</h1>
+        <p>Real-time Android log streaming with powerful filtering. Package-scoped capture, regex search, saved filter presets, and color-coded log levels.</p>
+      </div>
+
+      <div class="main-screenshot">
+        <img src="../screenshots/logcat.png" alt="Logcat">
+      </div>
+
+      <!-- Overview -->
+      <section class="guide-section">
+        <h2>Overview</h2>
+        <div class="feature-grid">
+          <div class="feature-item">
+            <h4>Real-time Streaming</h4>
+            <p>Live log capture with up to 50,000 buffered entries and virtualized rendering.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Three Filter Layers</h4>
+            <p>Pre-filter (include), Exclude filter, and View filter — each serves a different purpose.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Package Filtering</h4>
+            <p>Filter logs by app package name with running status indicator.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Saved Presets</h4>
+            <p>Save filter patterns for quick reuse across sessions.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Header Controls -->
+      <section class="guide-section">
+        <h2>Header Controls</h2>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Control</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Device Selector</strong></td><td>Select which connected device to capture logs from</td></tr>
+            <tr><td><strong>Package Selector</strong></td><td>Searchable dropdown of installed packages. Shows a green "RUNNING" tag if the selected app is active. Disabled during capture.</td></tr>
+            <tr><td><strong>Start/Stop App</strong></td><td>Launch or force-stop the selected app (icon toggles based on running state)</td></tr>
+            <tr><td><strong>Start/Stop Logcat</strong></td><td>Begin or end log capture. Starting clears all existing logs.</td></tr>
+            <tr><td><strong>Clear</strong></td><td>Clear all captured logs from the buffer</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Three Filter Layers -->
+      <section class="guide-section">
+        <h2>Filter System</h2>
+        <img src="../screenshots/guide/logcat-filters.png" alt="Logcat filter system with pre-filter and exclude" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <p>Logcat has three independent filter layers, each operating at a different stage:</p>
+
+        <h3>1. Pre-Filter (Include)</h3>
+        <p>Select saved filter presets from a multi-select dropdown. Matching patterns are combined with <code>|</code> (OR) into a single regex.</p>
+        <div class="warn-box">
+          <strong>Destructive filter:</strong> Logs that don't match the pre-filter are permanently discarded at ingestion time. They cannot be recovered without restarting logcat.
+        </div>
+
+        <h3>2. Exclude Filter</h3>
+        <p>Select saved filter presets to exclude. Any log matching the exclude pattern is permanently dropped before entering the buffer.</p>
+        <div class="warn-box">
+          <strong>Destructive filter:</strong> Like pre-filter, excluded logs are permanently discarded and cannot be recovered.
+        </div>
+
+        <h3>3. View Filter (Search)</h3>
+        <p>The main interactive search bar that filters the already-buffered logs in real-time. This is <strong>non-destructive</strong> — logs are hidden, not deleted.</p>
+
+        <table class="settings-table">
+          <thead>
+            <tr><th>Toggle</th><th>Shortcut</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Aa</strong></td><td>Match Case</td><td>Enable case-sensitive matching</td></tr>
+            <tr><td><strong>W</strong></td><td>Whole Word</td><td>Match whole words only (wraps with <code>\b</code>)</td></tr>
+            <tr><td><strong>.*</strong></td><td>Regex</td><td>Interpret filter as a regular expression</td></tr>
+            <tr><td><strong>Save</strong></td><td>—</td><td>Save the current filter pattern as a reusable preset</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Level Filter</h3>
+        <p>Checkbox group for filtering by log level:</p>
+        <ul>
+          <li><span class="tag tag-red">Error</span> — Red</li>
+          <li><span class="tag tag-yellow">Warning</span> — Amber</li>
+          <li><span class="tag tag-blue">Info</span> — Blue</li>
+          <li><span class="tag tag-green">Debug</span> — Green</li>
+          <li><span class="tag tag-gray">Verbose</span> — Gray</li>
+        </ul>
+        <p>When no checkboxes are selected, all levels are shown.</p>
+      </section>
+
+      <!-- Log Display -->
+      <section class="guide-section">
+        <h2>Log Display</h2>
+        <img src="../screenshots/guide/logcat-streaming.png" alt="Logcat streaming with color-coded log levels" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <p>Logs are displayed in a dark-themed virtualized list with color-coded levels.</p>
+
+        <h3>Columns</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Column</th><th>Width</th><th>Content</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Timestamp</strong></td><td>90px</td><td><code>HH:MM:SS.mmm</code> format</td></tr>
+            <tr><td><strong>Level/Tag</strong></td><td>150px</td><td>Format: <code>E/ActivityManager</code>, color-coded by level</td></tr>
+            <tr><td><strong>Message</strong></td><td>Flex</td><td>Log message text, single line with ellipsis</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Visual Indicators</h3>
+        <ul>
+          <li><strong>Left border</strong> — 3px colored stripe matching the log level</li>
+          <li><strong>Error/Warning rows</strong> — Subtle tinted background for immediate visibility</li>
+          <li><strong>Search highlighting</strong> — Matching text highlighted with yellow <code>&lt;mark&gt;</code> tags</li>
+        </ul>
+
+        <h3>Auto-scroll</h3>
+        <ul>
+          <li>Auto-scroll is ON by default when logcat starts</li>
+          <li>Scrolling up disables auto-scroll</li>
+          <li>Scrolling back to the bottom re-enables it</li>
+          <li>A floating "scroll to bottom" button appears when auto-scroll is disabled</li>
+        </ul>
+      </section>
+
+      <!-- Detail Panel -->
+      <section class="guide-section">
+        <h2>Log Detail Panel</h2>
+        <img src="../screenshots/guide/logcat-detail.png" alt="Log detail panel with message and raw tabs" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <p>Click any log row to select it and open a 400px-wide detail panel on the right.</p>
+        <ul>
+          <li><strong>Level tag</strong> — Color-coded level badge (e.g., <span class="tag tag-red">ERROR</span>)</li>
+          <li><strong>Metadata</strong> — Timestamp, PID, package name</li>
+          <li><strong>Message tab</strong> — Parsed message with word-wrap</li>
+          <li><strong>Raw tab</strong> — Original raw logcat line</li>
+          <li><strong>Copy button</strong> — Copy the current tab's content to clipboard</li>
+        </ul>
+        <p>Navigate between logs with <kbd>↑</kbd> / <kbd>↓</kbd> arrow keys, <kbd>Home</kbd>, and <kbd>End</kbd>.</p>
+      </section>
+
+      <!-- Saved Presets -->
+      <section class="guide-section">
+        <h2>Saved Filter Presets</h2>
+        <p>Click the <strong>Save</strong> button in the view filter bar to save the current pattern as a named preset. Saved presets appear in both the Pre-Filter and Exclude Filter dropdowns.</p>
+        <ul>
+          <li>Each preset stores the name, pattern text, and regex mode setting</li>
+          <li>Presets are persisted in <code>localStorage</code></li>
+          <li>Delete presets from the dropdown using the trash icon on hover</li>
+        </ul>
+      </section>
+
+      <!-- Navigation -->
+      <section class="guide-nav">
+        <h2>More Features</h2>
+        <div class="guide-nav-grid">
+          <a href="mirror.html" class="guide-nav-item">Mirror & Recording</a>
+          <a href="files.html" class="guide-nav-item">File Manager</a>
+          <a href="apps.html" class="guide-nav-item">App Manager</a>
+          <a href="logcat.html" class="guide-nav-item active">Logcat</a>
+          <a href="proxy.html" class="guide-nav-item">Network Proxy</a>
+          <a href="performance.html" class="guide-nav-item">Performance Monitor</a>
+          <a href="session.html" class="guide-nav-item">Session & Events</a>
+          <a href="workflow.html" class="guide-nav-item">Workflow Automation</a>
+          <a href="ui-inspector.html" class="guide-nav-item">UI Inspector</a>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">© 2025 Gaze · MIT License</div>
+      <nav class="footer-links">
+        <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
+        <a href="https://github.com/nicetooo/Gaze/issues" target="_blank">Issues</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

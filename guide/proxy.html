@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Network Proxy - Gaze Guide</title>
+  <meta name="description" content="HTTP/HTTPS traffic capture with MITM decryption, mock rules, breakpoints, URL remapping, auto-rewrite, and protobuf support.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="../build/icon.svg">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="../" class="logo">
+        <img src="../build/icon.svg" alt="Gaze">
+        <span>Gaze</span>
+      </a>
+      <nav class="nav-links">
+        <a href="../#features">Features</a>
+        <a href="../#mcp">MCP</a>
+        <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <div class="breadcrumb">
+        <a href="../">Home</a> / <a href="../#features">Features</a> / <span>Network Proxy</span>
+      </div>
+
+      <div class="guide-hero">
+        <h1>Network Proxy</h1>
+        <p>Full-featured HTTP/HTTPS proxy with MITM decryption, mock responses, breakpoints, URL remapping, auto-rewrite rules, protobuf decoding, bandwidth throttling, and HAR export.</p>
+      </div>
+
+      <div class="main-screenshot">
+        <img src="../screenshots/proxy.png" alt="Network Proxy">
+      </div>
+
+      <!-- Overview -->
+      <section class="guide-section">
+        <h2>Overview</h2>
+        <div class="feature-grid">
+          <div class="feature-item">
+            <h4>MITM Decryption</h4>
+            <p>Decrypt HTTPS traffic with automatic CA certificate management.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Mock Rules</h4>
+            <p>Return fake responses without hitting the real server. Supports conditions and delays.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Breakpoints</h4>
+            <p>Pause requests or responses mid-flight to inspect and modify them.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Map Remote</h4>
+            <p>Redirect URLs to different servers (e.g., production to staging).</p>
+          </div>
+          <div class="feature-item">
+            <h4>Auto-Rewrite</h4>
+            <p>Regex find-and-replace on headers or body content automatically.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Protobuf Support</h4>
+            <p>Load .proto schemas and decode protobuf payloads with named fields.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Toolbar -->
+      <section class="guide-section">
+        <h2>Proxy Toolbar</h2>
+        <img src="../screenshots/guide/proxy-toolbar.png" alt="Proxy toolbar with server controls and MITM toggle" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+
+        <h3>Server Controls</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Control</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Server Status</strong></td><td>Shows <span class="tag tag-green">ON</span> or <span class="tag tag-gray">OFF</span></td></tr>
+            <tr><td><strong>IP Address</strong></td><td>Auto-detected local IP (copyable)</td></tr>
+            <tr><td><strong>Port</strong></td><td>Proxy port (default: 8080). Editable when stopped.</td></tr>
+            <tr><td><strong>WebSocket</strong></td><td>Toggle WebSocket interception</td></tr>
+            <tr><td><strong>MITM</strong></td><td>Toggle HTTPS man-in-the-middle decryption</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Certificate Controls (when MITM is on)</h3>
+        <ul>
+          <li><strong>Cert</strong> — Push the CA certificate to the device with installation instructions</li>
+          <li><strong>Trust status</strong> — Shows trusted/untrusted/pending status (auto-polls every 2s)</li>
+          <li><strong>Rules</strong> — Configure MITM bypass patterns (domains to skip decryption)</li>
+        </ul>
+
+        <h3>Start / Stop</h3>
+        <p>The <strong>Start Capture</strong> button configures the device proxy settings, creates an ADB reverse tunnel, and starts the proxy server. <strong>Stop Capture</strong> reverses all of these.</p>
+      </section>
+
+      <!-- Throttling -->
+      <section class="guide-section">
+        <h2>Bandwidth Throttling</h2>
+        <p>Simulate slow network conditions with configurable limits:</p>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Setting</th><th>Unit</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Download Limit</strong></td><td>KB/s</td><td>Maximum download speed</td></tr>
+            <tr><td><strong>Upload Limit</strong></td><td>KB/s</td><td>Maximum upload speed</td></tr>
+            <tr><td><strong>Latency</strong></td><td>ms</td><td>Artificial delay added to all requests</td></tr>
+          </tbody>
+        </table>
+        <p>Click <strong>Apply</strong> to activate limits, or <strong>Clear</strong> to reset to unlimited.</p>
+      </section>
+
+      <!-- Request List -->
+      <section class="guide-section">
+        <h2>Request List</h2>
+        <p>All intercepted traffic appears in a virtualized list (max 5,000 entries) with these columns:</p>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Column</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Time</strong></td><td>Timestamp of the request</td></tr>
+            <tr><td><strong>Method</strong></td><td>Color-coded: <span class="tag tag-green">GET</span> <span class="tag tag-blue">POST</span> <span class="tag tag-orange">PUT</span> <span class="tag tag-red">DELETE</span> <span class="tag tag-purple">PATCH</span></td></tr>
+            <tr><td><strong>Status</strong></td><td>Color-coded status. Mocked responses show a <span class="tag tag-purple">M</span> badge</td></tr>
+            <tr><td><strong>URL</strong></td><td>Full request URL (HTTPS requests show a lock icon)</td></tr>
+            <tr><td><strong>Type</strong></td><td>Content subtype (json, html, etc.)</td></tr>
+            <tr><td><strong>Size</strong></td><td>Response body size</td></tr>
+            <tr><td><strong>Duration</strong></td><td>Response time (red if >3s, yellow if >1s)</td></tr>
+          </tbody>
+        </table>
+
+        <h3>List Actions</h3>
+        <ul>
+          <li><strong>Filter</strong> — ALL / HTTP / WS protocol filter + full-text deep search</li>
+          <li><strong>Compose</strong> — Create and send a custom HTTP request</li>
+          <li><strong>Export HAR</strong> — Download all captured requests as a HAR 1.2 JSON file</li>
+          <li><strong>Clear</strong> — Clear all request logs</li>
+        </ul>
+      </section>
+
+      <!-- Request Detail -->
+      <section class="guide-section">
+        <h2>Request Detail Panel</h2>
+        <p>Click a request to open the detail panel with full headers and body.</p>
+
+        <h3>Detail Actions</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Action</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Copy Code</strong></td><td>Generate code in cURL, JavaScript (Fetch), Python (requests), or Go (net/http)</td></tr>
+            <tr><td><strong>Resend</strong></td><td>Re-send the request with optional modifications</td></tr>
+            <tr><td><strong>Mock</strong></td><td>Create a mock rule pre-filled from this request</td></tr>
+            <tr><td><strong>BP</strong></td><td>Create a breakpoint rule pre-filled from this request</td></tr>
+            <tr><td><strong>Diff</strong></td><td>Compare two requests side-by-side with line-level diff highlighting</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Detail Tabs</h3>
+        <ul>
+          <li><strong>Request Headers</strong> — Key-value grid of all request headers</li>
+          <li><strong>Query Params</strong> — Extracted URL query parameters (shown only if present)</li>
+          <li><strong>Request Body</strong> — Auto-formatted JSON or raw text. Protobuf payloads show a "Protobuf Decoded" tag</li>
+          <li><strong>Response Headers</strong> — Status code + all response headers</li>
+          <li><strong>Response Body</strong> — Auto-formatted JSON or raw text</li>
+          <li><strong>WS Messages</strong> — WebSocket frame list with direction, type, and timestamp (for WS connections)</li>
+        </ul>
+      </section>
+
+      <!-- Mock Rules -->
+      <section class="guide-section">
+        <h2>Mock Rules</h2>
+        <img src="../screenshots/guide/proxy-mock-rules.png" alt="Mock rules list with enabled/disabled toggles" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <p>Return predefined responses for matching requests without hitting the real server.</p>
+
+        <h3>Rule Configuration</h3>
+        <img src="../screenshots/guide/proxy-mock-editor.png" alt="Mock rule editor with URL pattern and response body" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <table class="settings-table">
+          <thead>
+            <tr><th>Field</th><th>Required</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>URL Pattern</strong></td><td>Yes</td><td>Wildcard pattern (e.g., <code>*/api/users*</code>)</td></tr>
+            <tr><td><strong>Method</strong></td><td>No</td><td>HTTP method (empty matches all)</td></tr>
+            <tr><td><strong>Status Code</strong></td><td>No</td><td>Response status (default: 200)</td></tr>
+            <tr><td><strong>Delay</strong></td><td>No</td><td>Response delay in milliseconds</td></tr>
+            <tr><td><strong>Response Body</strong></td><td>No</td><td>JSON editor for the mock response content</td></tr>
+            <tr><td><strong>Body File</strong></td><td>No</td><td>Path to a local file to serve as response (Map Local)</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Conditions</h3>
+        <p>Add match conditions for fine-grained control. Conditions use AND logic — all must match:</p>
+        <ul>
+          <li><strong>Type</strong> — header, query, or body</li>
+          <li><strong>Operator</strong> — equals, contains, regex, exists, not_exists</li>
+          <li><strong>Key/Value</strong> — Header name or query param with expected value</li>
+        </ul>
+
+        <h3>Import / Export</h3>
+        <p>Export all mock rules as JSON for sharing. Import rules from a JSON file — new IDs are generated to avoid conflicts.</p>
+      </section>
+
+      <!-- Breakpoints -->
+      <section class="guide-section">
+        <h2>Breakpoints</h2>
+        <p>Pause requests or responses mid-flight to inspect and modify them before forwarding.</p>
+
+        <h3>Breakpoint Rule</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Field</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>URL Pattern</strong></td><td>Wildcard pattern to match</td></tr>
+            <tr><td><strong>Phase</strong></td><td><span class="tag tag-green">Request</span> (before sending), <span class="tag tag-orange">Response</span> (before forwarding), or <span class="tag tag-blue">Both</span></td></tr>
+          </tbody>
+        </table>
+
+        <h3>Resolving Breakpoints</h3>
+        <p>When a breakpoint is hit, a pending notification appears. You can:</p>
+        <ul>
+          <li><strong>Forward</strong> — Continue with original (or modified) request/response</li>
+          <li><strong>Drop</strong> — Abort the request entirely</li>
+          <li><strong>Modify</strong> — Edit method, URL, headers, query params, body, or status code before forwarding</li>
+        </ul>
+        <p>Pending breakpoints auto-forward after 120 seconds if not resolved.</p>
+      </section>
+
+      <!-- Map Remote -->
+      <section class="guide-section">
+        <h2>Map Remote (URL Redirect)</h2>
+        <p>Redirect requests matching a source pattern to a different target URL.</p>
+        <div class="code-block">Source:  https://prod.example.com/api/*
+Target:  http://localhost:3000/api/*</div>
+        <p>Useful for redirecting production API calls to a local development server or staging environment.</p>
+      </section>
+
+      <!-- Rewrite -->
+      <section class="guide-section">
+        <h2>Auto-Rewrite Rules</h2>
+        <p>Automatically apply regex find-and-replace on request/response headers or bodies.</p>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Field</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Phase</strong></td><td>Request, Response, or Both</td></tr>
+            <tr><td><strong>Target</strong></td><td>Header (specify header name) or Body</td></tr>
+            <tr><td><strong>Match</strong></td><td>Regex pattern to find</td></tr>
+            <tr><td><strong>Replace</strong></td><td>Replacement string (supports <code>$1</code>, <code>$2</code> capture groups)</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Protobuf -->
+      <section class="guide-section">
+        <h2>Protobuf Support</h2>
+        <p>Load <code>.proto</code> schema files and map URL patterns to message types for automatic protobuf decoding.</p>
+
+        <h3>Proto Files</h3>
+        <ul>
+          <li><strong>Add manually</strong> — Paste proto3 schema content directly</li>
+          <li><strong>Import local file</strong> — Select <code>.proto</code> files from disk</li>
+          <li><strong>Import from URL</strong> — Fetch remote proto files (auto-resolves imports)</li>
+        </ul>
+
+        <h3>URL Mappings</h3>
+        <p>Map URL patterns to protobuf message types. When a matching request is intercepted, the body is decoded with named fields instead of raw field numbers.</p>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Field</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>URL Pattern</strong></td><td>Wildcard pattern (e.g., <code>*api.example.com/v1/users*</code>)</td></tr>
+            <tr><td><strong>Message Type</strong></td><td>Fully qualified name (e.g., <code>myapp.UserResponse</code>)</td></tr>
+            <tr><td><strong>Direction</strong></td><td>Response (default), Request, or Both</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Compose / Resend -->
+      <section class="guide-section">
+        <h2>Compose & Resend</h2>
+        <img src="../screenshots/guide/proxy-compose.png" alt="HTTP request composer with method, URL, headers and body" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <p>Create and send custom HTTP requests. The compose form supports:</p>
+        <ul>
+          <li>Method selector (GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS)</li>
+          <li>URL input</li>
+          <li>Headers editing (one per line as <code>Key: Value</code>)</li>
+          <li>Body editor with JSON syntax highlighting</li>
+          <li>Response display with status, duration, and formatted body</li>
+        </ul>
+        <p>Use <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (or <kbd>Cmd</kbd>+<kbd>Enter</kbd>) to send quickly.</p>
+      </section>
+
+      <!-- Navigation -->
+      <section class="guide-nav">
+        <h2>More Features</h2>
+        <div class="guide-nav-grid">
+          <a href="mirror.html" class="guide-nav-item">Mirror & Recording</a>
+          <a href="files.html" class="guide-nav-item">File Manager</a>
+          <a href="apps.html" class="guide-nav-item">App Manager</a>
+          <a href="logcat.html" class="guide-nav-item">Logcat</a>
+          <a href="proxy.html" class="guide-nav-item active">Network Proxy</a>
+          <a href="performance.html" class="guide-nav-item">Performance Monitor</a>
+          <a href="session.html" class="guide-nav-item">Session & Events</a>
+          <a href="workflow.html" class="guide-nav-item">Workflow Automation</a>
+          <a href="ui-inspector.html" class="guide-nav-item">UI Inspector</a>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">© 2025 Gaze · MIT License</div>
+      <nav class="footer-links">
+        <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
+        <a href="https://github.com/nicetooo/Gaze/issues" target="_blank">Issues</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

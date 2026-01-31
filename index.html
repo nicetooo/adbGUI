@@ -282,11 +282,15 @@
     }
 
     .feature-card {
+      display: block;
       background: #111;
       border: 1px solid #1a1a1a;
       border-radius: 12px;
       overflow: hidden;
       transition: border-color 0.2s;
+      cursor: pointer;
+      color: inherit;
+      text-decoration: none;
     }
 
     .feature-card:hover {
@@ -788,69 +792,69 @@
     <section id="features" class="features">
       <div class="container">
         <div class="features-grid">
-          <div class="feature-card">
+          <a href="guide/mirror.html" class="feature-card">
             <img src="screenshots/mirror.png" alt="Mirror & Recording">
             <div class="feature-card-content">
               <h3>Mirror & Recording</h3>
               <p>Low-latency scrcpy mirroring with audio forwarding. Keyboard and mouse control. Multi-device simultaneous recording. Background recording with system tray.</p>
             </div>
-          </div>
-          <div class="feature-card">
+          </a>
+          <a href="guide/files.html" class="feature-card">
             <img src="screenshots/files.png" alt="File Manager">
             <div class="feature-card-content">
               <h3>File Manager</h3>
               <p>Drag-and-drop upload and download. Copy, cut, paste, rename, delete. Navigate system directories. Batch file operations.</p>
             </div>
-          </div>
-          <div class="feature-card">
+          </a>
+          <a href="guide/apps.html" class="feature-card">
             <img src="screenshots/apps.png" alt="App Manager">
             <div class="feature-card-content">
               <h3>App Manager</h3>
               <p>Drag-and-drop APK/XAPK/AAB install. Export APK to local. Uninstall, force stop, clear data. View package details, permissions, activities, services.</p>
             </div>
-          </div>
-          <div class="feature-card">
+          </a>
+          <a href="guide/logcat.html" class="feature-card">
             <img src="screenshots/logcat.png" alt="Logcat">
             <div class="feature-card-content">
               <h3>Logcat</h3>
               <p>Real-time log streaming with filters by package, tag, level. Regex search. Pre-filter and exclude rules. Export logs to file.</p>
             </div>
-          </div>
-          <div class="feature-card">
+          </a>
+          <a href="guide/proxy.html" class="feature-card">
             <img src="screenshots/proxy.png" alt="Network Proxy">
             <div class="feature-card-content">
               <h3>Network Proxy</h3>
               <p>HTTP/HTTPS traffic capture with MITM decryption. Mock rules, breakpoints, URL remapping, and auto-rewrite. WebSocket support. Bandwidth throttling and latency simulation.</p>
             </div>
-          </div>
-          <div class="feature-card">
+          </a>
+          <a href="guide/performance.html" class="feature-card">
             <img src="screenshots/performance.png" alt="Performance Monitor">
             <div class="feature-card-content">
               <h3>Performance Monitor</h3>
               <p>Real-time CPU, memory, FPS, network I/O, and battery monitoring. Per-app resource tracking. Process-level detail with memory breakdown.</p>
             </div>
-          </div>
-          <div class="feature-card">
+          </a>
+          <a href="guide/session.html" class="feature-card">
             <img src="screenshots/session.png" alt="Session Timeline">
             <div class="feature-card-content">
               <h3>Session & Events</h3>
               <p>Unified event timeline combining logcat, network, touch, and device events. Session recording with video sync. Full-text search and bookmarks. Export session data.</p>
             </div>
-          </div>
-          <div class="feature-card">
+          </a>
+          <a href="guide/workflow.html" class="feature-card">
             <img src="screenshots/workflow-editor.png" alt="Visual Workflow Editor">
             <div class="feature-card-content">
               <h3>Workflow Automation</h3>
               <p>Visual node-based workflow editor with 30+ step types. Conditional branching, variables, sub-workflows. Step-by-step debugging. Session integration for test reporting.</p>
             </div>
-          </div>
-          <div class="feature-card">
+          </a>
+          <a href="guide/ui-inspector.html" class="feature-card">
             <img src="screenshots/ui-inspector.png" alt="UI Inspector">
             <div class="feature-card-content">
               <h3>UI Inspector</h3>
               <p>Browse full UI hierarchy tree. Inspect element properties, bounds, and attributes. Touch recording for automation scripts. Element-based actions with selectors.</p>
             </div>
-          </div>
+          </a>
         </div>
       </div>
     </section>

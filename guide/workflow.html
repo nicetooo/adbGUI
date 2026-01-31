@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workflow Automation - Gaze Guide</title>
+  <meta name="description" content="Visual node-based workflow editor with 30+ step types. Conditional branching, variables, sub-workflows, and step-by-step debugging.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="../build/icon.svg">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="../" class="logo">
+        <img src="../build/icon.svg" alt="Gaze">
+        <span>Gaze</span>
+      </a>
+      <nav class="nav-links">
+        <a href="../#features">Features</a>
+        <a href="../#mcp">MCP</a>
+        <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <div class="breadcrumb">
+        <a href="../">Home</a> / <a href="../#features">Features</a> / <span>Workflow Automation</span>
+      </div>
+
+      <div class="guide-hero">
+        <h1>Workflow Automation</h1>
+        <p>Visual node-based workflow editor with 30+ step types. Build complex automation flows with conditional branching, variables, sub-workflows, and step-by-step debugging.</p>
+      </div>
+
+      <div class="main-screenshot">
+        <img src="../screenshots/workflow-editor.png" alt="Visual Workflow Editor">
+      </div>
+
+      <!-- Overview -->
+      <section class="guide-section">
+        <h2>Overview</h2>
+        <div class="feature-grid">
+          <div class="feature-item">
+            <h4>Visual Editor</h4>
+            <p>Drag-and-drop node canvas with auto-layout, minimap, and snap-to-grid.</p>
+          </div>
+          <div class="feature-item">
+            <h4>30+ Step Types</h4>
+            <p>Tap, swipe, element actions, app control, key events, variables, branching, and more.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Step-by-Step Debug</h4>
+            <p>Pause, resume, and step through workflows one node at a time.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Session Integration</h4>
+            <p>Start and end Gaze sessions within workflows for automated test reporting.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Workflow List -->
+      <section class="guide-section">
+        <h2>Workflow List</h2>
+        <p>The left sidebar (250px) shows all saved workflows:</p>
+        <ul>
+          <li>Click to select and load into the editor</li>
+          <li>Double-click the name to rename inline</li>
+          <li>Delete button with confirmation</li>
+          <li><strong>+</strong> button to create a new workflow (auto-creates a Start node)</li>
+          <li>Running workflows show a spinning indicator</li>
+        </ul>
+      </section>
+
+      <!-- Visual Editor -->
+      <section class="guide-section">
+        <h2>Visual Node Editor</h2>
+        <img src="../screenshots/guide/workflow-editor.png" alt="Visual node editor with connected workflow steps" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <p>The main canvas area uses React Flow for a node-graph editing experience:</p>
+        <ul>
+          <li><strong>Dot-grid background</strong> with snap-to-grid (15px)</li>
+          <li><strong>Minimap</strong> in the bottom-right corner</li>
+          <li><strong>Zoom controls</strong> — Zoom in/out/fit</li>
+          <li><strong>Auto-layout</strong> — Vertical (top-to-bottom) or Horizontal (left-to-right) using dagre algorithm</li>
+        </ul>
+
+        <h3>Node Appearance</h3>
+        <p>Each node is a 280px-wide card showing:</p>
+        <ul>
+          <li>Step type icon and name</li>
+          <li>Type-specific summary (e.g., coordinates, selector, package name)</li>
+          <li>Lightning bolt button for single-step execution</li>
+          <li>During execution: primary-color glow effect on the active node</li>
+        </ul>
+
+        <h3>Connections</h3>
+        <p>Nodes are connected via color-coded edges:</p>
+        <ul>
+          <li><span class="tag tag-green">Success</span> — Green arrow for normal flow</li>
+          <li><span class="tag tag-red">Error</span> — Orange/red arrow for error handling</li>
+          <li>Branch nodes have: <span class="tag tag-green">True</span>, <span class="tag tag-red">False</span>, and <span class="tag tag-orange">Error</span> outputs</li>
+        </ul>
+
+        <h3>Node Deletion</h3>
+        <p>Delete nodes with <kbd>Backspace</kbd> or <kbd>Delete</kbd>. The Start node cannot be deleted. When a node is deleted, incoming edges are automatically reconnected to outgoing targets to preserve the flow.</p>
+      </section>
+
+      <!-- Step Types -->
+      <section class="guide-section">
+        <h2>Step Types (30+)</h2>
+        <p>Steps are organized into 9 categories in the tool panel:</p>
+
+        <h3>Coordinate Actions</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Step</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>tap</code></td><td>Tap at specific screen coordinates (x, y)</td></tr>
+            <tr><td><code>swipe</code></td><td>Swipe between two coordinates with duration</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Element Actions</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Step</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>click_element</code></td><td>Click a UI element found by selector</td></tr>
+            <tr><td><code>long_click_element</code></td><td>Long-press a UI element</td></tr>
+            <tr><td><code>input_text</code></td><td>Type text into a UI element</td></tr>
+            <tr><td><code>swipe_element</code></td><td>Swipe from a UI element in a direction</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Wait & Assert</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Step</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>wait_element</code></td><td>Wait for a UI element to appear</td></tr>
+            <tr><td><code>wait_gone</code></td><td>Wait for a UI element to disappear</td></tr>
+            <tr><td><code>wait</code></td><td>Wait a fixed duration (milliseconds)</td></tr>
+            <tr><td><code>assert_element</code></td><td>Assert a UI element matches expectations</td></tr>
+            <tr><td><code>scroll_to</code></td><td>Scroll until an element is found</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Flow Control</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Step</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>branch</code></td><td>Conditional branching (True/False/Error outputs)</td></tr>
+            <tr><td><code>set_variable</code></td><td>Set a workflow variable (supports arithmetic)</td></tr>
+            <tr><td><code>read_to_variable</code></td><td>Read a UI element's attribute into a variable</td></tr>
+            <tr><td><code>run_workflow</code></td><td>Execute another workflow as a sub-workflow</td></tr>
+          </tbody>
+        </table>
+
+        <h3>App Actions</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Step</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>launch_app</code></td><td>Launch an app by package name</td></tr>
+            <tr><td><code>stop_app</code></td><td>Force-stop an app</td></tr>
+            <tr><td><code>clear_app</code></td><td>Clear app data and cache</td></tr>
+            <tr><td><code>open_settings</code></td><td>Open app's system settings page</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Key Events & Screen</h3>
+        <p><code>key_back</code>, <code>key_home</code>, <code>key_recent</code>, <code>key_power</code>, <code>key_volume_up</code>, <code>key_volume_down</code>, <code>screen_on</code>, <code>screen_off</code></p>
+
+        <h3>Script & ADB</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Step</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>script</code></td><td>Run a named automation script</td></tr>
+            <tr><td><code>adb</code></td><td>Execute a raw ADB command</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Session Control</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Step</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>start_session</code></td><td>Start a Gaze session with configurable logcat, recording, proxy, and monitor</td></tr>
+            <tr><td><code>end_session</code></td><td>End the current session with a status (completed / error / cancelled)</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Step Configuration -->
+      <section class="guide-section">
+        <h2>Step Configuration</h2>
+        <img src="../screenshots/guide/workflow-step-config.png" alt="Step configuration drawer with fields and element selector" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <p>Click a node to open the 450px edit drawer on the right. All changes are auto-saved.</p>
+
+        <h3>Common Fields (All Steps)</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Field</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Name</strong></td><td>Optional label for the step</td></tr>
+            <tr><td><strong>Timeout</strong></td><td>Maximum execution time (ms, default: 5000)</td></tr>
+            <tr><td><strong>Loop</strong></td><td>Repeat count (default: 1)</td></tr>
+            <tr><td><strong>Pre Wait</strong></td><td>Delay before execution (ms)</td></tr>
+            <tr><td><strong>Post Delay</strong></td><td>Delay after execution (ms)</td></tr>
+            <tr><td><strong>On Error</strong></td><td>Stop or Continue</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Element Selector</h3>
+        <p>Element-based steps use selectors to find UI elements:</p>
+        <ul>
+          <li><strong>Text</strong> — Match by visible text</li>
+          <li><strong>Resource ID</strong> — Match by <code>resource-id</code> attribute</li>
+          <li><strong>Content Desc</strong> — Match by accessibility description</li>
+          <li><strong>Class</strong> — Match by Java class name</li>
+          <li><strong>XPath</strong> — XPath expression for complex matching</li>
+          <li><strong>Bounds</strong> — Direct bounding rectangle</li>
+        </ul>
+        <p>An <strong>Element Picker</strong> button (crosshair icon) opens a modal to select elements directly from the device screen.</p>
+      </section>
+
+      <!-- Branch Conditions -->
+      <section class="guide-section">
+        <h2>Conditional Branching</h2>
+        <p>The <code>branch</code> step evaluates a condition and follows the True or False path:</p>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Condition</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>exists</code></td><td>Check if a UI element matching the selector exists</td></tr>
+            <tr><td><code>not_exists</code></td><td>Check if a UI element does NOT exist</td></tr>
+            <tr><td><code>text_equals</code></td><td>Check if element text exactly matches expected value</td></tr>
+            <tr><td><code>text_contains</code></td><td>Check if element text contains expected substring</td></tr>
+            <tr><td><code>variable_equals</code></td><td>Check if a workflow variable equals expected value</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Variables -->
+      <section class="guide-section">
+        <h2>Variables</h2>
+        <p>Workflows support key-value variables that can be set, read, and used in step configurations.</p>
+        <ul>
+          <li><strong>Define variables</strong> — Click the "Variables" button (gear icon) in the toolbar to open the editor</li>
+          <li><strong>Use in steps</strong> — Reference variables with <code>{{variableName}}</code> syntax (autocomplete available)</li>
+          <li><strong>set_variable</strong> — Set a variable to a value (supports arithmetic: <code>{{count}} + 1</code>)</li>
+          <li><strong>read_to_variable</strong> — Read a UI element's text/id/class into a variable</li>
+          <li><strong>Runtime display</strong> — During execution, all variable values are shown in the runtime context panel</li>
+        </ul>
+      </section>
+
+      <!-- Execution -->
+      <section class="guide-section">
+        <h2>Execution & Debugging</h2>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Button</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Run</strong></td><td>Save and execute the workflow on the selected device</td></tr>
+            <tr><td><strong>Pause</strong></td><td>Pause execution between steps</td></tr>
+            <tr><td><strong>Resume</strong></td><td>Continue from the paused position</td></tr>
+            <tr><td><strong>Step Next</strong></td><td>Execute only the next step, then re-pause</td></tr>
+            <tr><td><strong>Stop</strong></td><td>Force-stop the workflow</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Runtime Context Panel</h3>
+        <p>While a workflow is running, a floating panel shows:</p>
+        <ul>
+          <li>Workflow name and paused state</li>
+          <li>Progress bar with percentage</li>
+          <li>Current step name and type</li>
+          <li>Live variable values</li>
+        </ul>
+
+        <h3>Single Step Execution</h3>
+        <p>Click the lightning bolt button on any node (except Start) to execute just that one step independently — useful for testing individual actions.</p>
+      </section>
+
+      <!-- List View -->
+      <section class="guide-section">
+        <h2>List View</h2>
+        <p>Toggle between Canvas (visual) and List view using the button group in the toolbar. The list view shows steps in linear execution order with drag-and-drop reordering.</p>
+      </section>
+
+      <!-- Navigation -->
+      <section class="guide-nav">
+        <h2>More Features</h2>
+        <div class="guide-nav-grid">
+          <a href="mirror.html" class="guide-nav-item">Mirror & Recording</a>
+          <a href="files.html" class="guide-nav-item">File Manager</a>
+          <a href="apps.html" class="guide-nav-item">App Manager</a>
+          <a href="logcat.html" class="guide-nav-item">Logcat</a>
+          <a href="proxy.html" class="guide-nav-item">Network Proxy</a>
+          <a href="performance.html" class="guide-nav-item">Performance Monitor</a>
+          <a href="session.html" class="guide-nav-item">Session & Events</a>
+          <a href="workflow.html" class="guide-nav-item active">Workflow Automation</a>
+          <a href="ui-inspector.html" class="guide-nav-item">UI Inspector</a>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">© 2025 Gaze · MIT License</div>
+      <nav class="footer-links">
+        <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
+        <a href="https://github.com/nicetooo/Gaze/issues" target="_blank">Issues</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

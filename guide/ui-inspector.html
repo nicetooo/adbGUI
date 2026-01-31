@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UI Inspector - Gaze Guide</title>
+  <meta name="description" content="Browse UI hierarchy, inspect element properties, perform actions, and record touch interactions for automation.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="../build/icon.svg">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="../" class="logo">
+        <img src="../build/icon.svg" alt="Gaze">
+        <span>Gaze</span>
+      </a>
+      <nav class="nav-links">
+        <a href="../#features">Features</a>
+        <a href="../#mcp">MCP</a>
+        <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <div class="breadcrumb">
+        <a href="../">Home</a> / <a href="../#features">Features</a> / <span>UI Inspector</span>
+      </div>
+
+      <div class="guide-hero">
+        <h1>UI Inspector & Touch Recording</h1>
+        <p>Browse the full UI hierarchy tree, inspect element properties, perform actions on elements, and record touch interactions for automation scripts.</p>
+      </div>
+
+      <div class="main-screenshot">
+        <img src="../screenshots/ui-inspector.png" alt="UI Inspector">
+      </div>
+
+      <!-- Overview -->
+      <section class="guide-section">
+        <h2>Overview</h2>
+        <div class="feature-grid">
+          <div class="feature-item">
+            <h4>UI Hierarchy Tree</h4>
+            <p>Browse the complete Android UI element tree with expand/collapse and search.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Element Properties</h4>
+            <p>Inspect text, resource-id, class, bounds, clickable, enabled, and more.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Element Actions</h4>
+            <p>Click, long-click, swipe, or input text on any element directly.</p>
+          </div>
+          <div class="feature-item">
+            <h4>Touch Recording</h4>
+            <p>Record device interactions in Fast or Precise mode. Convert to workflows.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Hierarchy Tree -->
+      <section class="guide-section">
+        <h2>UI Hierarchy Tree</h2>
+        <img src="../screenshots/guide/ui-inspector-hierarchy.png" alt="UI hierarchy tree with expandable nodes and element properties" style="max-width:100%; border-radius:8px; border:1px solid #333; margin-bottom:16px;">
+        <p>The tree displays all UI elements on the current device screen. Click <strong>Refresh</strong> to re-fetch the hierarchy.</p>
+
+        <h3>Tree Node Display</h3>
+        <p>Each node shows:</p>
+        <ul>
+          <li><strong>Class name</strong> — Short form in brackets (e.g., <code>[Button]</code>, <code>[EditText]</code>)</li>
+          <li><strong>Text</strong> — Visible text in bold quotes (e.g., <code>"OK"</code>)</li>
+          <li><strong>Resource ID</strong> — Short ID after <code>/</code> (e.g., <code>#btn_ok</code>)</li>
+        </ul>
+        <p>The first 2 levels are auto-expanded on load. A 2-second cache prevents unnecessary re-fetches.</p>
+      </section>
+
+      <!-- Search -->
+      <section class="guide-section">
+        <h2>Search Modes</h2>
+        <p>Three search modes are available from the dropdown:</p>
+
+        <table class="settings-table">
+          <thead>
+            <tr><th>Mode</th><th>Syntax</th><th>Example</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Auto</strong></td><td>Detects mode automatically</td><td>Any query</td></tr>
+            <tr><td><strong>Text</strong></td><td>Plain text substring</td><td><code>Login</code> — matches text, id, class, contentDesc</td></tr>
+            <tr><td><strong>XPath</strong></td><td>Starts with <code>//</code></td><td><code>//Button[@text='OK']</code></td></tr>
+            <tr><td><strong>Advanced</strong></td><td>Uses <code>:</code>, <code>=</code>, AND/OR</td><td><code>clickable:true AND text:OK</code></td></tr>
+          </tbody>
+        </table>
+
+        <h3>Advanced Operators</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Operator</th><th>Meaning</th><th>Example</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>:</code> or <code>~</code></td><td>Contains</td><td><code>text:OK</code></td></tr>
+            <tr><td><code>=</code></td><td>Exact equals</td><td><code>clickable=true</code></td></tr>
+            <tr><td><code>^</code></td><td>Starts with</td><td><code>id^com.app</code></td></tr>
+            <tr><td><code>$</code></td><td>Ends with</td><td><code>class$Button</code></td></tr>
+          </tbody>
+        </table>
+
+        <p>Matching nodes are highlighted and non-matching branches are hidden. A help tooltip (?) shows all syntax examples.</p>
+      </section>
+
+      <!-- Element Detail -->
+      <section class="guide-section">
+        <h2>Element Properties</h2>
+        <p>Select a tree node to open the 350px detail panel showing:</p>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Property</th><th>Copyable</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Text</strong></td><td>Yes</td><td>Element's visible text</td></tr>
+            <tr><td><strong>Resource ID</strong></td><td>Yes</td><td>Full resource-id string</td></tr>
+            <tr><td><strong>Class</strong></td><td>No</td><td>Full Java class name</td></tr>
+            <tr><td><strong>Content Desc</strong></td><td>No</td><td>Accessibility description</td></tr>
+            <tr><td><strong>Bounds</strong></td><td>No</td><td>Bounding rectangle (e.g., <code>[0,0][1080,1920]</code>)</td></tr>
+            <tr><td><strong>Clickable</strong></td><td>No</td><td>Always shown (true/false)</td></tr>
+            <tr><td><strong>Long Clickable</strong></td><td>No</td><td>Always shown (true/false)</td></tr>
+            <tr><td><strong>Enabled</strong></td><td>No</td><td>Shown if truthy</td></tr>
+            <tr><td><strong>Focused</strong></td><td>No</td><td>Shown if truthy</td></tr>
+            <tr><td><strong>Scrollable</strong></td><td>No</td><td>Shown if truthy</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Element Actions -->
+      <section class="guide-section">
+        <h2>Element Actions</h2>
+        <p>Select an action from the dropdown and click <strong>Simulate</strong> to execute:</p>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Action</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Click</strong></td><td>Tap the center of the element</td></tr>
+            <tr><td><strong>Long Click</strong></td><td>Long-press the element</td></tr>
+            <tr><td><strong>Swipe Up/Down/Left/Right</strong></td><td>Swipe from the element in a direction</td></tr>
+            <tr><td><strong>Back / Home / Recent</strong></td><td>Press device navigation keys</td></tr>
+            <tr><td><strong>Input</strong></td><td>Type text into the element (auto-selected for EditText elements)</td></tr>
+          </tbody>
+        </table>
+
+        <div class="tip-box">
+          <strong>Auto-detection:</strong> When an <code>EditText</code> element is selected, the action automatically switches to "Input" mode.
+        </div>
+
+        <h3>Quick Actions</h3>
+        <ul>
+          <li><strong>Copy as Workflow Step</strong> — Generate a JSON workflow step template from the selected element</li>
+          <li><strong>Copy Selector</strong> — Copy the best selector value (text &gt; resourceId &gt; contentDesc) to clipboard</li>
+        </ul>
+
+        <p>After each action, the UI hierarchy is silently re-fetched after 800ms. If the hierarchy changed, an "UI Updated" notification appears.</p>
+      </section>
+
+      <!-- Touch Recording -->
+      <section class="guide-section">
+        <h2>Touch Recording</h2>
+        <p>Record device touch interactions to create reusable automation scripts.</p>
+
+        <h3>Recording Modes</h3>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Mode</th><th>Description</th><th>Trade-off</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Fast</strong></td><td>Records raw touch coordinates only</td><td>Lowest latency, coordinate-based (fragile across different screen sizes)</td></tr>
+            <tr><td><strong>Precise</strong></td><td>Captures UI hierarchy per touch to identify elements</td><td>Higher latency, but produces robust element-based selectors</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Recording Flow</h3>
+        <ol>
+          <li>Select a recording mode (Fast or Precise)</li>
+          <li>Click <strong>Start Recording</strong></li>
+          <li>Touch the device to record actions — each tap, long-press, and swipe is captured</li>
+          <li>Click <strong>Stop Recording</strong></li>
+          <li>Save the script with a name</li>
+        </ol>
+
+        <h3>Active Recording Indicators</h3>
+        <ul>
+          <li>Red-bordered card with pulsating dot</li>
+          <li>Live duration timer (MM:SS)</li>
+          <li>Action counter showing events captured</li>
+          <li>In Precise mode: status indicators (Dumping → Analyzing → Waiting for selector → Ready)</li>
+        </ul>
+
+        <h3>Selector Choice (Precise Mode)</h3>
+        <p>In Precise mode, after each touch the system analyzes the UI and presents a list of selector suggestions ranked by priority. Select the best selector for robust replay, or fall back to coordinates.</p>
+      </section>
+
+      <!-- Script Preview -->
+      <section class="guide-section">
+        <h2>Script Preview & Playback</h2>
+
+        <h3>Preview</h3>
+        <p>After recording, a monospaced preview shows all captured events:</p>
+        <div class="code-block">1. tap (540, 960) [text: Login] @ 1200ms
+2. long press (270, 480) [id: com.example:id/item] 800ms @ 3500ms
+3. swipe (540, 1200) -> (540, 400) 350ms @ 5000ms
+4. wait 1000ms</div>
+        <p>Each event has a lightning-bolt button for single-step execution (useful for debugging).</p>
+
+        <h3>Playback</h3>
+        <ul>
+          <li>Click <strong>Test Script</strong> or the play button to replay on the device</li>
+          <li>Progress bar shows current event / total</li>
+          <li><strong>Auto-scaling</strong> — Coordinates are automatically adjusted for different screen resolutions</li>
+          <li>Completed events are highlighted in green during playback</li>
+        </ul>
+      </section>
+
+      <!-- Script Management -->
+      <section class="guide-section">
+        <h2>Script Management</h2>
+        <p>Saved scripts appear in a virtual-scrolling list:</p>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Action</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Play</strong></td><td>Replay the script on the selected device</td></tr>
+            <tr><td><strong>Rename</strong></td><td>Change the script name</td></tr>
+            <tr><td><strong>Convert to Workflow</strong></td><td>Transform the touch script into a visual workflow with proper step types and connections</td></tr>
+            <tr><td><strong>Delete</strong></td><td>Remove the script (with confirmation)</td></tr>
+          </tbody>
+        </table>
+        <p>Batch selection with select-all checkbox and bulk delete is supported.</p>
+
+        <h3>Convert to Workflow</h3>
+        <p>Conversion creates a full workflow with:</p>
+        <ul>
+          <li>A Start node</li>
+          <li>Wait steps for delays between events (&gt;50ms)</li>
+          <li>Element-based steps (click_element, long_click_element, swipe_element) using selectors from Precise recording</li>
+          <li>Coordinate-based bounds selectors as fallback</li>
+          <li>Sequential connections between all steps</li>
+        </ul>
+      </section>
+
+      <!-- Selector Types -->
+      <section class="guide-section">
+        <h2>Element Selector Types</h2>
+        <table class="settings-table">
+          <thead>
+            <tr><th>Type</th><th>Description</th><th>Robustness</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>text</code></td><td>Match by visible text</td><td>High (if text is stable)</td></tr>
+            <tr><td><code>id</code></td><td>Match by resource-id</td><td>High</td></tr>
+            <tr><td><code>desc</code></td><td>Match by content-description</td><td>High</td></tr>
+            <tr><td><code>class</code></td><td>Match by Java class name</td><td>Medium</td></tr>
+            <tr><td><code>xpath</code></td><td>XPath expression</td><td>Medium (depends on hierarchy)</td></tr>
+            <tr><td><code>bounds</code></td><td>Direct bounding rectangle</td><td>Low (screen-size dependent)</td></tr>
+            <tr><td><code>coordinates</code></td><td>Raw x,y coordinates</td><td>Lowest</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Navigation -->
+      <section class="guide-nav">
+        <h2>More Features</h2>
+        <div class="guide-nav-grid">
+          <a href="mirror.html" class="guide-nav-item">Mirror & Recording</a>
+          <a href="files.html" class="guide-nav-item">File Manager</a>
+          <a href="apps.html" class="guide-nav-item">App Manager</a>
+          <a href="logcat.html" class="guide-nav-item">Logcat</a>
+          <a href="proxy.html" class="guide-nav-item">Network Proxy</a>
+          <a href="performance.html" class="guide-nav-item">Performance Monitor</a>
+          <a href="session.html" class="guide-nav-item">Session & Events</a>
+          <a href="workflow.html" class="guide-nav-item">Workflow Automation</a>
+          <a href="ui-inspector.html" class="guide-nav-item active">UI Inspector</a>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-left">© 2025 Gaze · MIT License</div>
+      <nav class="footer-links">
+        <a href="https://github.com/nicetooo/Gaze" target="_blank">GitHub</a>
+        <a href="https://github.com/nicetooo/Gaze/issues" target="_blank">Issues</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>
