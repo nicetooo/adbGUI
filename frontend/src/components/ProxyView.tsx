@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { Card, Button, InputNumber, Space, Typography, Tag, Divider, Switch, Tooltip, Radio, Input, Tabs, theme, Form, Table, Popconfirm, Popover, Spin, App, Modal, Select, AutoComplete, Dropdown } from 'antd';
 import { PoweroffOutlined, PlayCircleOutlined, DeleteOutlined, SettingOutlined, LockOutlined, GlobalOutlined, ArrowUpOutlined, ArrowDownOutlined, ApiOutlined, SafetyCertificateOutlined, DownloadOutlined, HourglassOutlined, CopyOutlined, BlockOutlined, SendOutlined, CloseOutlined, PlusOutlined, EditOutlined, CodeOutlined, CloudDownloadOutlined, FolderOpenOutlined, LoadingOutlined, MinusCircleOutlined, BugOutlined, FastForwardOutlined, StopOutlined, SwapOutlined } from '@ant-design/icons';
 import VirtualList from './VirtualList';
@@ -28,6 +28,14 @@ const METHOD_COLORS: Record<string, string> = {
 };
 
 const getMethodColor = (method: string): string => METHOD_COLORS[method?.toUpperCase()] || '#8c8c8c';
+
+const HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
+
+// Shared method select options with colored labels (used by compose request and all proxy rule forms)
+const METHOD_SELECT_OPTIONS = HTTP_METHODS.map(m => ({
+    label: <span style={{ color: getMethodColor(m), fontWeight: 600 }}>{m}</span>,
+    value: m,
+}));
 
 // Status code → Ant Design Tag color
 const getStatusColor = (code: number): string => {
@@ -117,6 +125,7 @@ const ProxyView: React.FC = () => {
 
     const [resendForm] = Form.useForm();
     const [mockForm] = Form.useForm();
+    const [breakpointForm] = Form.useForm();
     const [mapRemoteForm] = Form.useForm();
     const [rewriteForm] = Form.useForm();
     const [protoFileForm] = Form.useForm();
@@ -124,6 +133,12 @@ const ProxyView: React.FC = () => {
 
     // Watch conditions array to reactively disable/hide fields based on type & operator
     const watchedConditions: Array<{ type?: string; operator?: string }> | undefined = Form.useWatch('conditions', mockForm);
+
+    // Watch method field in each form to filter URL pattern autocomplete by HTTP method
+    const mockFormMethod: string | undefined = Form.useWatch('method', mockForm);
+    const breakpointFormMethod: string | undefined = Form.useWatch('method', breakpointForm);
+    const mapRemoteFormMethod: string | undefined = Form.useWatch('method', mapRemoteForm);
+    const rewriteFormMethod: string | undefined = Form.useWatch('method', rewriteForm);
 
     // Additional proxy store state
     const {
@@ -278,10 +293,10 @@ const ProxyView: React.FC = () => {
         return { headers, queryParams };
     }, [mockConditionHints, formStoredHints, logs.length]);
 
-    // Aggregate captured URLs into wildcard patterns for autocomplete suggestions
-    const capturedUrlPatterns = useMemo(() => {
-        if (logs.length === 0) return [];
-        const pathMap = new Map<string, { method: string; count: number }>();
+    // Aggregate captured URLs into wildcard patterns with per-method counts
+    const capturedUrlData = useMemo(() => {
+        if (logs.length === 0) return new Map<string, Map<string, number>>();
+        const pathMap = new Map<string, Map<string, number>>();
         const cap = Math.min(logs.length, 500);
         for (let i = 0; i < cap; i++) {
             const log = logs[i];
@@ -297,25 +312,41 @@ const ProxyView: React.FC = () => {
             // Normalize: collapse numeric path segments to * (e.g. /api/users/123 -> /api/users/*)
             const normalized = pathname.replace(/\/\d+/g, '/*');
             const pattern = `*${normalized}*`;
-            const existing = pathMap.get(pattern);
-            if (existing) {
-                existing.count++;
-            } else {
-                pathMap.set(pattern, { method: log.method, count: 1 });
+            if (!pathMap.has(pattern)) {
+                pathMap.set(pattern, new Map());
             }
+            const methods = pathMap.get(pattern)!;
+            methods.set(log.method, (methods.get(log.method) || 0) + 1);
         }
-        return Array.from(pathMap.entries())
-            .sort((a, b) => b[1].count - a[1].count)
-            .map(([pattern, info]) => ({
-                value: pattern,
-                label: (
-                    <span style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 12 }}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{pattern}</span>
-                        <span style={{ color: 'rgba(255,255,255,0.35)', marginLeft: 8, flexShrink: 0 }}>{info.method} ×{info.count}</span>
-                    </span>
-                ),
-            }));
+        return pathMap;
     }, [logs.length]);
+
+    // Build autocomplete options from captured URL data, optionally filtered by HTTP method
+    const getUrlPatternsForMethod = useCallback((method?: string): { value: string; label: ReactNode }[] => {
+        const entries = Array.from(capturedUrlData.entries());
+        const filtered = method
+            ? entries.filter(([, methods]) => methods.has(method))
+            : entries;
+        return filtered
+            .sort((a, b) => {
+                const countA = method ? (a[1].get(method) || 0) : Array.from(a[1].values()).reduce((s, c) => s + c, 0);
+                const countB = method ? (b[1].get(method) || 0) : Array.from(b[1].values()).reduce((s, c) => s + c, 0);
+                return countB - countA;
+            })
+            .map(([pattern, methods]) => {
+                const count = method ? (methods.get(method) || 0) : Array.from(methods.values()).reduce((s, c) => s + c, 0);
+                const methodsLabel = method || Array.from(methods.keys()).join(',');
+                return {
+                    value: pattern,
+                    label: (
+                        <span style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 12 }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{pattern}</span>
+                            <span style={{ color: 'rgba(255,255,255,0.35)', marginLeft: 8, flexShrink: 0 }}>{methodsLabel} ×{count}</span>
+                        </span>
+                    ),
+                };
+            });
+    }, [capturedUrlData]);
 
     // Check cert trust status when MITM is enabled and proxy is running
     useEffect(() => {
@@ -1376,7 +1407,6 @@ const ProxyView: React.FC = () => {
     };
 
     // --- Breakpoint handlers ---
-    const [breakpointForm] = Form.useForm();
 
     const loadBreakpointRules = async () => {
         try {
@@ -2293,10 +2323,7 @@ const ProxyView: React.FC = () => {
                         <Form.Item name="method" noStyle>
                             <Select
                                 style={{ width: 110 }}
-                                options={['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'].map(m => ({
-                                    label: <span style={{ color: getMethodColor(m), fontWeight: 600 }}>{m}</span>,
-                                    value: m,
-                                }))}
+                                options={METHOD_SELECT_OPTIONS}
                             />
                         </Form.Item>
                         <Form.Item name="url" noStyle rules={[{ required: true, message: t('proxy.url_required') }]}>
@@ -2483,26 +2510,26 @@ const ProxyView: React.FC = () => {
                 style={{ top: 32, paddingBottom: 0 }}
             >
                 <Form form={mockForm} layout="vertical" size="small">
-                    <Space wrap style={{ width: '100%' }}>
-                        <Form.Item name="urlPattern" label={t('proxy.url_pattern')} rules={[{ required: true }]} style={{ marginBottom: 8, minWidth: 280 }}>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                        <Form.Item name="urlPattern" label={t('proxy.url_pattern')} rules={[{ required: true }]} style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
                             <AutoComplete
                                 placeholder="*/api/*"
-                                options={capturedUrlPatterns}
+                                options={getUrlPatternsForMethod(mockFormMethod)}
                                 filterOption={(inputValue, option) =>
                                     (option?.value as string)?.toLowerCase().includes(inputValue.toLowerCase())
                                 }
                             />
                         </Form.Item>
-                        <Form.Item name="method" label={t('proxy.col_method')} style={{ marginBottom: 8, width: 100 }}>
-                            <Input placeholder="GET" />
+                        <Form.Item name="method" label={t('proxy.col_method')} style={{ marginBottom: 0, width: 100, flexShrink: 0 }}>
+                            <Select allowClear placeholder="All" options={METHOD_SELECT_OPTIONS} />
                         </Form.Item>
-                        <Form.Item name="statusCode" label={t('proxy.status_code')} style={{ marginBottom: 8, width: 80 }}>
-                            <InputNumber min={100} max={599} placeholder="200" />
+                        <Form.Item name="statusCode" label={t('proxy.status_code')} style={{ marginBottom: 0, width: 90, flexShrink: 0 }}>
+                            <InputNumber min={100} max={599} placeholder="200" style={{ width: '100%' }} />
                         </Form.Item>
-                        <Form.Item name="delay" label={t('proxy.delay_ms')} style={{ marginBottom: 8, width: 80 }}>
-                            <InputNumber min={0} placeholder="0" />
+                        <Form.Item name="delay" label={t('proxy.delay_ms')} style={{ marginBottom: 0, width: 80, flexShrink: 0 }}>
+                            <InputNumber min={0} placeholder="0" style={{ width: '100%' }} />
                         </Form.Item>
-                    </Space>
+                    </div>
                     <Form.Item name="contentType" label="Content-Type" style={{ marginBottom: 8 }}>
                         <Input placeholder="application/json" />
                     </Form.Item>
@@ -2800,7 +2827,7 @@ const ProxyView: React.FC = () => {
                     <Form.Item name="urlPattern" label={t('proxy.url_pattern')} rules={[{ required: true }]}>
                         <AutoComplete
                             placeholder="*/api/user/*"
-                            options={capturedUrlPatterns}
+                            options={getUrlPatternsForMethod()}
                             filterOption={(inputValue, option) =>
                                 (option?.value as string)?.toLowerCase().includes(inputValue.toLowerCase())
                             }
@@ -2949,14 +2976,14 @@ const ProxyView: React.FC = () => {
                     <Form.Item name="urlPattern" label={t('proxy.breakpoint_url_pattern')} rules={[{ required: true }]}>
                         <AutoComplete
                             placeholder="*/api/*"
-                            options={capturedUrlPatterns}
+                            options={getUrlPatternsForMethod(breakpointFormMethod)}
                             filterOption={(inputValue, option) =>
                                 (option?.value as string)?.toLowerCase().includes(inputValue.toLowerCase())
                             }
                         />
                     </Form.Item>
                     <Form.Item name="method" label={t('proxy.breakpoint_method')}>
-                        <Input placeholder="GET (empty = all)" />
+                        <Select allowClear placeholder="All" options={METHOD_SELECT_OPTIONS} />
                     </Form.Item>
                     <Form.Item name="phase" label={t('proxy.breakpoint_phase')} rules={[{ required: true }]}>
                         <Radio.Group>
@@ -3328,7 +3355,7 @@ const ProxyView: React.FC = () => {
                     <Form.Item name="sourcePattern" label={t('proxy.map_remote_source')} rules={[{ required: true }]}>
                         <AutoComplete
                             placeholder="*/api/v1/*"
-                            options={capturedUrlPatterns}
+                            options={getUrlPatternsForMethod(mapRemoteFormMethod)}
                             filterOption={(inputValue, option) =>
                                 (option?.value as string)?.toLowerCase().includes(inputValue.toLowerCase())
                             }
@@ -3338,7 +3365,7 @@ const ProxyView: React.FC = () => {
                         <Input placeholder="http://localhost:3000/api/v1/*" />
                     </Form.Item>
                     <Form.Item name="method" label={t('proxy.breakpoint_method')}>
-                        <Input placeholder="GET (empty = all)" />
+                        <Select allowClear placeholder="All" options={METHOD_SELECT_OPTIONS} />
                     </Form.Item>
                     <Form.Item name="description" label={t('proxy.breakpoint_description')}>
                         <Input placeholder="Optional description" />
@@ -3404,15 +3431,15 @@ const ProxyView: React.FC = () => {
                     <Form.Item name="urlPattern" label={t('proxy.url_pattern')} rules={[{ required: true }]}>
                         <AutoComplete
                             placeholder="*/api/*"
-                            options={capturedUrlPatterns}
+                            options={getUrlPatternsForMethod(rewriteFormMethod)}
                             filterOption={(inputValue, option) =>
                                 (option?.value as string)?.toLowerCase().includes(inputValue.toLowerCase())
                             }
                         />
                     </Form.Item>
                     <Space wrap style={{ width: '100%' }}>
-                        <Form.Item name="method" label={t('proxy.col_method')} style={{ width: 100 }}>
-                            <Input placeholder="GET" />
+                        <Form.Item name="method" label={t('proxy.col_method')} style={{ width: 110 }}>
+                            <Select allowClear placeholder="All" options={METHOD_SELECT_OPTIONS} />
                         </Form.Item>
                         <Form.Item name="phase" label={t('proxy.rewrite_phase')} rules={[{ required: true }]} style={{ width: 130 }}>
                             <Select placeholder="Phase">
