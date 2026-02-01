@@ -2,7 +2,6 @@
 
 Un outil puissant, moderne et autonome de gestion et d'automatisation d'appareils Android, construit avec **Wails**, **React** et **Ant Design**. Il dispose d'une architecture unifiee **Session-Event** pour le suivi complet du comportement des appareils, d'un moteur visuel **Workflow** pour l'automatisation des tests, et d'une integration complete **MCP** (Model Context Protocol) pour le controle des appareils par l'IA.
 
-> **Note** : Cette application est le fruit d'un pur **vibecoding**.
 
 [English](README.md) | [简体中文](locales/README.zh-CN.md) | [繁體中文](locales/README.zh-TW.md) | [日本語](locales/README.ja.md) | [한국어](locales/README.ko.md) | [Español](locales/README.es.md) | [Português](locales/README.pt.md) | [Français](locales/README.fr.md) | [Deutsch](locales/README.de.md) | [Русский](locales/README.ru.md) | [Tiếng Việt](locales/README.vi.md) | [العربية](locales/README.ar.md)
 

@@ -48,9 +48,6 @@ const AboutModal: React.FC<AboutModalProps> = ({ open, onCancel }) => {
       <Paragraph>
         {t("about.description")}
       </Paragraph>
-      <Paragraph style={{ fontStyle: "italic", color: "#faad14" }}>
-        {t("about.vibecoding")}
-      </Paragraph>
 
       <Divider />
 

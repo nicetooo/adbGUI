@@ -2,7 +2,6 @@
 
 Ein leistungsstarkes, modernes und eigenstaendiges Android-Geraeteverwaltungs- und Automatisierungstool, entwickelt mit **Wails**, **React** und **Ant Design**. Es bietet eine einheitliche **Session-Event**-Architektur fuer vollstaendiges Tracking des Geraeteverhaltens, eine visuelle **Workflow**-Engine fuer Testautomatisierung und eine vollstaendige **MCP**-Integration (Model Context Protocol) fuer KI-gesteuerte Geraetesteuerung.
 
-> **Hinweis**: Diese Anwendung ist das Ergebnis von reinem **vibecoding**.
 
 [English](README.md) | [简体中文](locales/README.zh-CN.md) | [繁體中文](locales/README.zh-TW.md) | [日本語](locales/README.ja.md) | [한국어](locales/README.ko.md) | [Español](locales/README.es.md) | [Português](locales/README.pt.md) | [Français](locales/README.fr.md) | [Deutsch](locales/README.de.md) | [Русский](locales/README.ru.md) | [Tiếng Việt](locales/README.vi.md) | [العربية](locales/README.ar.md)
 

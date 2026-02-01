@@ -2,7 +2,6 @@
 
 Мощный, современный и полностью автономный инструмент для управления и автоматизации Android-устройств, созданный с использованием **Wails**, **React** и **Ant Design**. Включает унифицированную архитектуру **Session-Event** для полного отслеживания поведения устройства, визуальный движок **Workflow** для автоматизации тестирования и полную интеграцию с **MCP** (Model Context Protocol) для управления устройствами с помощью ИИ.
 
-> **Примечание**: Это приложение — результат чистого **vibecoding**.
 
 [English](README.md) | [简体中文](locales/README.zh-CN.md) | [繁體中文](locales/README.zh-TW.md) | [日本語](locales/README.ja.md) | [한국어](locales/README.ko.md) | [Español](locales/README.es.md) | [Português](locales/README.pt.md) | [Français](locales/README.fr.md) | [Deutsch](locales/README.de.md) | [Русский](locales/README.ru.md) | [Tiếng Việt](locales/README.vi.md) | [العربية](locales/README.ar.md)
 

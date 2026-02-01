@@ -2,7 +2,6 @@
 
 **Wails**, **React**, **Ant Design**으로 구축된 강력하고 현대적인 독립형 Android 기기 관리 및 자동화 도구입니다. 완전한 기기 동작 추적을 위한 통합 **Session-Event** 아키텍처, 테스트 자동화를 위한 비주얼 **Workflow** 엔진, AI 기반 기기 제어를 위한 완전한 **MCP** (Model Context Protocol) 통합을 제공합니다.
 
-> **참고**: 이 애플리케이션은 순수한 **vibecoding**의 결과물입니다.
 
 [English](README.md) | [简体中文](locales/README.zh-CN.md) | [繁體中文](locales/README.zh-TW.md) | [日本語](locales/README.ja.md) | [한국어](locales/README.ko.md) | [Español](locales/README.es.md) | [Português](locales/README.pt.md) | [Français](locales/README.fr.md) | [Deutsch](locales/README.de.md) | [Русский](locales/README.ru.md) | [Tiếng Việt](locales/README.vi.md) | [العربية](locales/README.ar.md)
 

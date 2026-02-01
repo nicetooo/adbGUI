@@ -2,7 +2,6 @@
 
 一個強大、現代且自包含的 Android 裝置管理與自動化工具，基於 **Wails**、**React** 和 **Ant Design** 構建。採用統一的 **Session-Event** 架構實現完整的裝置行為追蹤，搭配視覺化 **Workflow** 引擎進行測試自動化，並完整整合 **MCP**（Model Context Protocol）以實現 AI 驅動的裝置控制。
 
-> **注意**：本應用為純 **vibecoding** 產物。
 
 [English](README.md) | [简体中文](locales/README.zh-CN.md) | [繁體中文](locales/README.zh-TW.md) | [日本語](locales/README.ja.md) | [한국어](locales/README.ko.md) | [Español](locales/README.es.md) | [Português](locales/README.pt.md) | [Français](locales/README.fr.md) | [Deutsch](locales/README.de.md) | [Русский](locales/README.ru.md) | [Tiếng Việt](locales/README.vi.md) | [العربية](locales/README.ar.md)
 

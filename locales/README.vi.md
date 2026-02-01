@@ -2,7 +2,6 @@
 
 Một công cụ quản lý và tự động hóa thiết bị Android mạnh mẽ, hiện đại và hoàn toàn độc lập, được xây dựng bằng **Wails**, **React** và **Ant Design**. Tích hợp kiến trúc **Session-Event** thống nhất để theo dõi toàn diện hành vi thiết bị, công cụ **Workflow** trực quan để tự động hóa kiểm thử, và tích hợp đầy đủ **MCP** (Model Context Protocol) để điều khiển thiết bị bằng AI.
 
-> **Lưu ý**: Ứng dụng này là sản phẩm của quá trình **vibecoding** thuần túy.
 
 [English](README.md) | [简体中文](locales/README.zh-CN.md) | [繁體中文](locales/README.zh-TW.md) | [日本語](locales/README.ja.md) | [한국어](locales/README.ko.md) | [Español](locales/README.es.md) | [Português](locales/README.pt.md) | [Français](locales/README.fr.md) | [Deutsch](locales/README.de.md) | [Русский](locales/README.ru.md) | [Tiếng Việt](locales/README.vi.md) | [العربية](locales/README.ar.md)
 

@@ -2,7 +2,6 @@
 
 اداة قوية وحديثة ومستقلة لادارة اجهزة Android واتمتتها، مبنية باستخدام **Wails** و **React** و **Ant Design**. تتميز بمعمارية **Session-Event** موحدة لتتبع سلوك الجهاز بالكامل، ومحرك **Workflow** مرئي لاتمتة الاختبارات، وتكامل كامل مع **MCP** (Model Context Protocol) للتحكم بالاجهزة بواسطة الذكاء الاصطناعي.
 
-> **ملاحظة**: هذا التطبيق هو ثمرة **vibecoding** خالص.
 
 [English](README.md) | [简体中文](locales/README.zh-CN.md) | [繁體中文](locales/README.zh-TW.md) | [日本語](locales/README.ja.md) | [한국어](locales/README.ko.md) | [Español](locales/README.es.md) | [Português](locales/README.pt.md) | [Français](locales/README.fr.md) | [Deutsch](locales/README.de.md) | [Русский](locales/README.ru.md) | [Tiếng Việt](locales/README.vi.md) | [العربية](locales/README.ar.md)
 

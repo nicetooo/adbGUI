@@ -2,7 +2,6 @@
 
 一个强大、现代且完全自包含的 Android 设备管理与自动化工具，基于 **Wails**、**React** 和 **Ant Design** 构建。采用统一的 **Session-Event** 架构实现完整的设备行为追踪，配备可视化 **Workflow** 引擎用于测试自动化，并全面集成 **MCP**（Model Context Protocol）实现 AI 驱动的设备控制。
 
-> **注意**：本应用为纯 **vibecoding** 产物。
 
 [English](README.md) | [简体中文](locales/README.zh-CN.md) | [繁體中文](locales/README.zh-TW.md) | [日本語](locales/README.ja.md) | [한국어](locales/README.ko.md) | [Español](locales/README.es.md) | [Português](locales/README.pt.md) | [Français](locales/README.fr.md) | [Deutsch](locales/README.de.md) | [Русский](locales/README.ru.md) | [Tiếng Việt](locales/README.vi.md) | [العربية](locales/README.ar.md)
 
