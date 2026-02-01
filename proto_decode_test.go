@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"google.golang.org/protobuf/proto"
@@ -177,6 +178,160 @@ message SimpleMsg {
 	decoder.autoCacheMu.RUnlock()
 	if afterClear != 0 {
 		t.Errorf("Expected empty cache after clear, got %d entries", afterClear)
+	}
+}
+
+// TestLenientCompiler_DuplicateEnumValues tests that the lenient compiler
+// handles proto files with duplicate enum value names across enums (C++ scoping conflict)
+func TestLenientCompiler_DuplicateEnumValues(t *testing.T) {
+	compiler := NewProtoCompiler()
+
+	// This proto has multiple enums with the same value name "UNKNOWN"
+	// which violates proto3 C++ scoping rules but is common in production protos
+	files := map[string]string{
+		"im_api.proto": `syntax = "proto3";
+package im.api;
+
+message ChatMessage {
+  int64 msg_id = 1;
+  string content = 2;
+  MessageType type = 3;
+  MessageStatus status = 4;
+
+  enum MessageType {
+    UNKNOWN = 0;
+    TEXT = 1;
+    IMAGE = 2;
+  }
+
+  enum MessageStatus {
+    UNKNOWN = 0;
+    SENDING = 1;
+    SENT = 2;
+  }
+}
+
+message GroupInfo {
+  int64 group_id = 1;
+
+  enum GroupType {
+    UNKNOWN = 0;
+    NORMAL = 1;
+  }
+}`,
+	}
+
+	err := compiler.Compile(files)
+	if err != nil {
+		t.Fatalf("Lenient compiler should succeed with duplicate enum values, got: %v", err)
+	}
+
+	// Verify message types were indexed
+	types := compiler.GetAllMessageTypes()
+	typeMap := make(map[string]bool)
+	for _, tp := range types {
+		typeMap[tp] = true
+	}
+
+	if !typeMap["im.api.ChatMessage"] {
+		t.Error("Expected im.api.ChatMessage to be compiled")
+	}
+	if !typeMap["im.api.GroupInfo"] {
+		t.Error("Expected im.api.GroupInfo to be compiled")
+	}
+
+	// Verify descriptors work
+	desc := compiler.GetMessageDescriptor("im.api.ChatMessage")
+	if desc == nil {
+		t.Fatal("ChatMessage descriptor not found")
+	}
+	if desc.Fields().Len() != 4 {
+		t.Errorf("ChatMessage should have 4 fields, got %d", desc.Fields().Len())
+	}
+}
+
+// TestLenientCompiler_RealErrors tests that actual compile errors still propagate
+func TestLenientCompiler_RealErrors(t *testing.T) {
+	compiler := NewProtoCompiler()
+
+	files := map[string]string{
+		"bad.proto": `syntax = "proto3";
+package test;
+
+message Broken {
+  string name = 1;
+  int32 name = 2;  // duplicate field name - real error
+}`,
+	}
+
+	err := compiler.Compile(files)
+	if err == nil {
+		t.Error("Expected real compile error for duplicate field name")
+	}
+}
+
+// TestEnumPrefix tests the enum name prefix generation
+func TestEnumPrefix(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"MessageType", "MT"},
+		{"MessageStatus", "MS"},
+		{"GroupType", "GT"},
+		{"GroupStatus", "GS"},
+		{"NotificationType", "NT"},
+		{"Status", "S"},
+		{"ALLCAPS", "ALLCAPS"}, // all upper = include all
+		{"type", "t"},          // all lower = first char
+	}
+
+	for _, tt := range tests {
+		got := enumPrefix(tt.input)
+		if got != tt.want {
+			t.Errorf("enumPrefix(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+// TestFixDuplicateEnumValues tests the enum value deduplication
+func TestFixDuplicateEnumValues(t *testing.T) {
+	input := `syntax = "proto3";
+package test;
+
+message Msg {
+  enum TypeA {
+    UNKNOWN = 0;
+    FOO = 1;
+  }
+  enum TypeB {
+    UNKNOWN = 0;
+    BAR = 1;
+  }
+}
+`
+	result := fixDuplicateEnumValues(input)
+
+	// UNKNOWN should be renamed in both enums
+	if strings.Contains(result, "\n    UNKNOWN = 0;") {
+		// At least one should be renamed
+		count := strings.Count(result, "UNKNOWN = 0")
+		if count > 1 {
+			t.Errorf("Expected at most 1 bare UNKNOWN remaining, got %d.\nResult:\n%s", count, result)
+		}
+	}
+
+	// Should still have the enum structure
+	if !strings.Contains(result, "enum TypeA") || !strings.Contains(result, "enum TypeB") {
+		t.Error("Enum blocks should be preserved")
+	}
+
+	// Non-duplicate values should be unchanged
+	if !strings.Contains(result, "FOO = 1") {
+		t.Error("Non-duplicate value FOO should be unchanged")
+	}
+	if !strings.Contains(result, "BAR = 1") {
+		t.Error("Non-duplicate value BAR should be unchanged")
 	}
 }
 
