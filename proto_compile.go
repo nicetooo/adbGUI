@@ -52,10 +52,13 @@ func (c *ProtoCompiler) Compile(files map[string]string) error {
 		func(err reporter.ErrorWithPos) {},
 	)
 
+	// Use WithStandardImports to make well-known types (google/protobuf/*)
+	// available for import resolution without needing to provide their source.
+	sourceResolver := &protocompile.SourceResolver{
+		Accessor: accessor,
+	}
 	compiler := protocompile.Compiler{
-		Resolver: &protocompile.SourceResolver{
-			Accessor: accessor,
-		},
+		Resolver: protocompile.WithStandardImports(sourceResolver),
 		Reporter: silentReporter,
 	}
 

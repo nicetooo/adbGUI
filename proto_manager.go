@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -16,6 +17,11 @@ import (
 	"github.com/google/uuid"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
+
+// protoHTTPClient is a shared HTTP client for proto file downloads with proper timeout.
+var protoHTTPClient = &http.Client{
+	Timeout: 30 * time.Second,
+}
 
 // Global proto registry and decoder, shared across the app.
 var (
@@ -238,6 +244,12 @@ func (a *App) GetProtoMessageTypes() []string {
 // LoadProtoFromURL fetches a .proto file from a remote URL and automatically
 // resolves and downloads all `import` dependencies recursively.
 // Well-known imports (google/protobuf/*) are skipped (handled by protocompile).
+//
+// Import resolution strategy:
+//  1. Infer the proto root URL from the file's `package` declaration and URL path
+//  2. Fall back to detecting path overlap between import path and URL
+//  3. Fall back to resolving relative to the parent file's directory
+//
 // Returns (ids, error) for all added files.
 func (a *App) LoadProtoFromURL(rawURL string) ([]string, error) {
 	if rawURL == "" {
@@ -254,92 +266,264 @@ func (a *App) LoadProtoFromURL(rawURL string) ([]string, error) {
 
 	// Collected files: importPath -> content
 	collected := make(map[string]string)
-	visited := make(map[string]bool) // URLs already fetched
+	visited := make(map[string]bool) // importPath -> already processed
 
-	// Resolve the base directory URL for relative import resolution
-	baseDir := rawURL
-	if idx := strings.LastIndex(baseDir, "/"); idx != -1 {
-		baseDir = baseDir[:idx]
-	}
+	// protoRoot is inferred from the first file's package declaration + URL.
+	// Once set, all imports resolve relative to this root.
+	var protoRoot string
 
-	var resolveErr error
-	var resolve func(fetchURL, importPath string)
-	resolve = func(fetchURL, importPath string) {
-		if resolveErr != nil || visited[fetchURL] {
-			return
+	// fetchAndCollect downloads a proto file and recursively resolves its imports.
+	// candidateURLs are tried in order; the first successful one is used.
+	var fetchAndCollect func(importPath string, candidateURLs []string) error
+	fetchAndCollect = func(importPath string, candidateURLs []string) error {
+		if visited[importPath] {
+			return nil
 		}
-		visited[fetchURL] = true
+		visited[importPath] = true
 
-		content, err := fetchProtoURL(fetchURL)
-		if err != nil {
-			resolveErr = fmt.Errorf("failed to fetch %s: %w", importPath, err)
-			return
+		// Try each candidate URL until one succeeds
+		var content string
+		var lastErr error
+		var successURL string
+		for _, url := range candidateURLs {
+			var err error
+			content, err = fetchProtoURL(url)
+			if err == nil {
+				successURL = url
+				break
+			}
+			lastErr = err
+			log.Printf("[Proto] Candidate URL failed for %s: %s (%v)", importPath, url, err)
+		}
+		if successURL == "" {
+			return fmt.Errorf("failed to fetch %q (tried %d URLs): %w", importPath, len(candidateURLs), lastErr)
 		}
 
 		collected[importPath] = content
 
-		// Parse import statements and resolve dependencies
+		// Infer proto root from package declaration (only needs to succeed once)
+		if protoRoot == "" {
+			if root := inferProtoRoot(successURL, content); root != "" {
+				protoRoot = root
+				log.Printf("[Proto] Inferred proto root: %s", protoRoot)
+			}
+		}
+
+		// Recursively resolve imports
 		for _, imp := range parseProtoImports(content) {
 			// Skip well-known types (protocompile has built-in support)
 			if strings.HasPrefix(imp, "google/protobuf/") {
 				continue
 			}
-			// Skip if we already have this file in registry or collected
-			if existingNames[imp] || collected[imp] != "" {
+			// Skip if already in registry or collected
+			if existingNames[imp] || collected[imp] != "" || visited[imp] {
 				continue
 			}
-			// Resolve relative to the base directory of the original URL
-			impURL := baseDir + "/" + imp
-			resolve(impURL, imp)
+
+			// Build candidate URLs for this import (multiple strategies)
+			candidates := buildImportURLCandidates(protoRoot, successURL, imp)
+			if err := fetchAndCollect(imp, candidates); err != nil {
+				return err
+			}
 		}
+
+		return nil
 	}
 
 	// Start with the root file
 	rootName := extractProtoFileName(rawURL)
-	resolve(rawURL, rootName)
-
-	if resolveErr != nil {
-		return nil, resolveErr
+	if err := fetchAndCollect(rootName, []string{rawURL}); err != nil {
+		return nil, err
 	}
 
-	// Add all collected files
-	var ids []string
-	for name, content := range collected {
-		id, err := a.AddProtoFile(name, content)
-		if err != nil {
-			// Non-fatal: log and continue (partial success)
-			log.Printf("[Proto] Warning: failed to add %s: %v", name, err)
-			continue
+	// Re-key the root file with its proper import path (package-based).
+	// e.g., "check_error.proto" → "google/api/servicecontrol/v1/check_error.proto"
+	// This ensures the proto compiler can find it by its canonical import path.
+	if protoRoot != "" {
+		suffix := strings.TrimPrefix(rawURL, protoRoot+"/")
+		if suffix != rawURL && suffix != rootName {
+			if content, ok := collected[rootName]; ok {
+				delete(collected, rootName)
+				collected[suffix] = content
+				log.Printf("[Proto] Re-keyed root file: %s → %s", rootName, suffix)
+			}
 		}
-		ids = append(ids, id)
+	}
+
+	// Add all collected files in dependency order.
+	// Use a retry loop: each pass adds files whose dependencies are already resolved.
+	// This handles arbitrary dependency graphs without explicit topological sort.
+	remaining := make(map[string]string, len(collected))
+	for name, content := range collected {
+		remaining[name] = content
+	}
+
+	var ids []string
+	for retry := 0; retry <= len(collected) && len(remaining) > 0; retry++ {
+		progress := false
+		for name, content := range remaining {
+			id, err := a.AddProtoFile(name, content)
+			if err != nil {
+				// Will retry in next pass (dependency might not be added yet)
+				continue
+			}
+			ids = append(ids, id)
+			delete(remaining, name)
+			progress = true
+		}
+		if !progress {
+			// No file could be added — remaining files have unresolvable dependencies
+			for name := range remaining {
+				log.Printf("[Proto] Warning: could not add %s (unresolved dependencies)", name)
+			}
+			break
+		}
 	}
 
 	if len(ids) == 0 {
-		return nil, fmt.Errorf("no files were added")
+		return nil, fmt.Errorf("no files were added (possible compile errors, check logs)")
 	}
 	return ids, nil
 }
 
-// fetchProtoURL downloads content from a URL.
-func fetchProtoURL(url string) (string, error) {
-	resp, err := http.Get(url)
+// inferProtoRoot infers the proto root URL from a file's URL and its package declaration.
+//
+// For example:
+//
+//	URL:     "https://raw.githubusercontent.com/googleapis/googleapis/master/google/api/annotations.proto"
+//	package: "google.api"
+//	→ canonical path = "google/api/annotations.proto"
+//	→ root = "https://raw.githubusercontent.com/googleapis/googleapis/master"
+func inferProtoRoot(fileURL, content string) string {
+	pkg := parseProtoPackage(content)
+	if pkg == "" {
+		return ""
+	}
+
+	// Convert package to path: "google.api" → "google/api"
+	pkgPath := strings.ReplaceAll(pkg, ".", "/")
+
+	// Build canonical suffix: "/google/api/annotations.proto"
+	filename := extractProtoFileName(fileURL)
+	canonicalSuffix := "/" + pkgPath + "/" + filename
+
+	if strings.HasSuffix(fileURL, canonicalSuffix) {
+		return strings.TrimSuffix(fileURL, canonicalSuffix)
+	}
+	return ""
+}
+
+// buildImportURLCandidates generates candidate URLs for an import path using multiple strategies.
+// Returns URLs in priority order (most likely correct first).
+//
+// Strategies:
+//  1. Proto root (from package declaration inference) — most reliable
+//  2. Path overlap detection — find the import path's first directory segment in the parent URL
+//  3. Relative to parent directory — original fallback behavior
+func buildImportURLCandidates(protoRoot, parentFileURL, importPath string) []string {
+	var candidates []string
+	seen := make(map[string]bool)
+	add := func(url string) {
+		if url != "" && !seen[url] && strings.Contains(url, "://") {
+			seen[url] = true
+			candidates = append(candidates, url)
+		}
+	}
+
+	// Strategy 1: Use inferred proto root (most reliable when available)
+	if protoRoot != "" {
+		add(protoRoot + "/" + importPath)
+	}
+
+	// Strategy 2: Detect path overlap between import path and parent URL.
+	// If the import is "google/api/http.proto" and parent URL contains "/google/api/...",
+	// we find that overlap to compute the root without doubling the path.
+	parentDir := parentFileURL
+	if idx := strings.LastIndex(parentDir, "/"); idx > 0 {
+		parentDir = parentDir[:idx]
+	}
+
+	importFirstSeg := importPath
+	if idx := strings.IndexByte(importPath, '/'); idx > 0 {
+		importFirstSeg = importPath[:idx]
+	}
+	// Search from the right to find the best match
+	searchNeedle := "/" + importFirstSeg + "/"
+	if idx := strings.LastIndex(parentDir, searchNeedle); idx >= 0 {
+		root := parentDir[:idx]
+		add(root + "/" + importPath)
+	}
+	// Also check if parentDir ends with the first segment (no trailing slash)
+	searchNeedleEnd := "/" + importFirstSeg
+	if strings.HasSuffix(parentDir, searchNeedleEnd) {
+		root := strings.TrimSuffix(parentDir, searchNeedleEnd)
+		add(root + "/" + importPath)
+	}
+
+	// Strategy 3: Relative to parent file's directory (original behavior, acts as fallback).
+	// Only add if the import's directory prefix is NOT already present in parentDir,
+	// otherwise we'd create a doubled path like ".../google/api/google/api/http.proto".
+	relativeURL := parentDir + "/" + importPath
+	if importDirIdx := strings.LastIndex(importPath, "/"); importDirIdx > 0 {
+		importDir := importPath[:importDirIdx] // e.g., "google/api"
+		// Check if parentDir already ends with any prefix of importDir's segments.
+		// If the first segment of the import (e.g., "google") already appears in parentDir,
+		// then relative resolution will likely double the path.
+		if !strings.Contains(parentDir, "/"+importFirstSeg+"/") &&
+			!strings.HasSuffix(parentDir, "/"+importDir) {
+			add(relativeURL)
+		}
+	} else {
+		// Simple filename import (no directory), relative resolution is always safe
+		add(relativeURL)
+	}
+
+	return candidates
+}
+
+// parseProtoPackage extracts the package name from .proto file content.
+// Returns empty string if no package declaration is found.
+func parseProtoPackage(content string) string {
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "package ") {
+			// Extract: package google.api;
+			line = strings.TrimPrefix(line, "package ")
+			line = strings.TrimSuffix(strings.TrimSpace(line), ";")
+			return strings.TrimSpace(line)
+		}
+	}
+	return ""
+}
+
+// fetchProtoURL downloads content from a URL with proper timeout, headers, and size limit.
+func fetchProtoURL(rawURL string) (string, error) {
+	req, err := http.NewRequest("GET", rawURL, nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("invalid URL %q: %w", rawURL, err)
+	}
+	req.Header.Set("User-Agent", "Gaze/1.0 (proto-loader)")
+	req.Header.Set("Accept", "text/plain, application/octet-stream, */*")
+
+	resp, err := protoHTTPClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("request to %s failed: %w", rawURL, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
+		return "", fmt.Errorf("HTTP %d from %s", resp.StatusCode, rawURL)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	// Limit body to 10MB to prevent memory issues
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("reading %s: %w", rawURL, err)
 	}
 
 	content := string(body)
 	if len(strings.TrimSpace(content)) == 0 {
-		return "", fmt.Errorf("empty content")
+		return "", fmt.Errorf("empty content from %s", rawURL)
 	}
 	return content, nil
 }
@@ -372,11 +556,14 @@ func parseProtoImports(content string) []string {
 }
 
 // extractProtoFileName extracts a clean filename from a URL.
+// Uses path.Base (not filepath.Base) for correct URL path handling on all platforms.
 func extractProtoFileName(rawURL string) string {
-	name := filepath.Base(rawURL)
-	if idx := strings.IndexByte(name, '?'); idx != -1 {
-		name = name[:idx]
+	// Strip query string first, then extract base name
+	clean := rawURL
+	if idx := strings.IndexByte(clean, '?'); idx != -1 {
+		clean = clean[:idx]
 	}
+	name := path.Base(clean)
 	if !strings.HasSuffix(name, ".proto") {
 		name += ".proto"
 	}
