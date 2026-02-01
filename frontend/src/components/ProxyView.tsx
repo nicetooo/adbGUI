@@ -2064,25 +2064,12 @@ const ProxyView: React.FC = () => {
                                         )}
                                     </div>
                                     <div style={{
-                                        fontFamily: 'monospace',
-                                        fontSize: 12,
-                                        whiteSpace: 'pre-wrap',
-                                        wordBreak: 'break-all',
                                         flex: 1,
                                         minHeight: 0,
                                         overflow: 'auto',
                                         background: token.colorBgContainer,
-                                        padding: 12,
                                     }}>
-                                        <Text copyable={{ text: selectedLog.wsMessageInfo?.payload || '' }}>
-                                            {(() => {
-                                                const payload = selectedLog.wsMessageInfo?.payload || '';
-                                                if (selectedLog.wsMessageInfo?.isProtobuf || selectedLog.isProtobuf) {
-                                                    try { return JSON.stringify(JSON.parse(payload), null, 2); } catch { return payload; }
-                                                }
-                                                try { return JSON.stringify(JSON.parse(payload), null, 2); } catch { return payload; }
-                                            })()}
-                                        </Text>
+                                        <JsonViewer data={selectedLog.wsMessageInfo?.payload || ''} fontSize={12} />
                                     </div>
                                 </div>
                             ) : (selectedLog.method === 'CONNECT') ? (
@@ -2297,15 +2284,23 @@ const ProxyView: React.FC = () => {
                                                                         <Text style={{ fontSize: 11, color: token.colorTextSecondary, flexShrink: 0 }}>
                                                                             {msg.payloadSize}B
                                                                         </Text>
-                                                                        {msg.isProtobuf ? (
-                                                                            <div style={{ flex: 1, overflow: 'hidden', fontFamily: 'monospace', fontSize: 11, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                                                                                {(() => { try { return JSON.stringify(JSON.parse(msg.payload), null, 2); } catch { return msg.payload; } })()}
-                                                                            </div>
-                                                                        ) : (
-                                                                            <div style={{ flex: 1, overflow: 'hidden', fontFamily: 'monospace', fontSize: 11, whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                                                                                {msg.payload}
-                                                                            </div>
-                                                                        )}
+                                                                        {(() => {
+                                                                            const payload = msg.payload;
+                                                                            // Try to parse as JSON (protobuf decoded or plain JSON)
+                                                                            let isJson = false;
+                                                                            if (msg.isProtobuf || (payload && (payload.startsWith('{') || payload.startsWith('[')))) {
+                                                                                try { JSON.parse(payload); isJson = true; } catch { /* not JSON */ }
+                                                                            }
+                                                                            return isJson ? (
+                                                                                <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                                                    <JsonViewer data={payload} fontSize={11} collapseDepth={1} searchable={false} />
+                                                                                </div>
+                                                                            ) : (
+                                                                                <div style={{ flex: 1, overflow: 'hidden', fontFamily: 'monospace', fontSize: 11, whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                                                                                    {payload}
+                                                                                </div>
+                                                                            );
+                                                                        })()}
                                                                     </div>
                                                                 ))}
                                                             </div>
