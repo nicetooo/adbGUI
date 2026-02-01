@@ -179,6 +179,58 @@ func TestWSFrameParser_FragmentedMessage(t *testing.T) {
 	}
 }
 
+func TestWSFrameParser_ContinuationWithoutInitialFragment(t *testing.T) {
+	// Edge case: continuation frame arrives when fragmentType was never set (zero value = WSContinuation).
+	// This can happen if the parser starts mid-stream and misses the initial fragment.
+	// The fix should auto-detect type from payload instead of returning "unknown".
+	var received []WSMessage
+	parser := newWSFrameParser("conn1", "receive", "", func(msg WSMessage) {
+		received = append(received, msg)
+	})
+
+	// Simulate: directly feed a continuation frame with fin=true (no preceding initial fragment)
+	// The fragmentType is 0 (WSContinuation) because it was never set.
+	parser.fragments = []byte("partial ")
+	// fragmentType stays at zero value (WSContinuation = 0)
+	parser.feed(buildWSFrame(true, 0, false, []byte("data")))
+
+	if len(received) != 1 {
+		t.Fatalf("Expected 1 message, got %d", len(received))
+	}
+	// With the fix, valid UTF-8 payload should be detected as "text", not "unknown"
+	if received[0].TypeName == "unknown" {
+		t.Errorf("Type should not be 'unknown' for valid UTF-8 continuation payload, got %q", received[0].TypeName)
+	}
+	if received[0].TypeName != "text" {
+		t.Errorf("Expected type 'text' for UTF-8 continuation payload, got %q", received[0].TypeName)
+	}
+	if received[0].Payload != "partial data" {
+		t.Errorf("Expected 'partial data', got %q", received[0].Payload)
+	}
+}
+
+func TestWSFrameParser_ContinuationBinaryAutoDetect(t *testing.T) {
+	// When fragmentType is 0 and payload is not valid UTF-8, it should be detected as "binary"
+	var received []WSMessage
+	parser := newWSFrameParser("conn1", "receive", "", func(msg WSMessage) {
+		received = append(received, msg)
+	})
+
+	// Feed binary data through continuation path
+	parser.fragments = []byte{0x80, 0xFF, 0xFE}
+	parser.feed(buildWSFrame(true, 0, false, []byte{0x00, 0xC0, 0xAF}))
+
+	if len(received) != 1 {
+		t.Fatalf("Expected 1 message, got %d", len(received))
+	}
+	if received[0].TypeName != "binary" {
+		t.Errorf("Expected type 'binary' for invalid UTF-8 continuation payload, got %q", received[0].TypeName)
+	}
+	if !received[0].IsBinary {
+		t.Error("Should be marked as binary")
+	}
+}
+
 func TestWSFrameParser_MultipleFrames(t *testing.T) {
 	var received []WSMessage
 	parser := newWSFrameParser("conn1", "receive", "", func(msg WSMessage) {

@@ -5,7 +5,7 @@ import VirtualList from './VirtualList';
 import DeviceSelector from './DeviceSelector';
 import JsonViewer from './JsonViewer';
 import JsonEditor from './JsonEditor';
-import { useDeviceStore, useProxyStore, RequestLog as StoreRequestLog, WSMessage } from '../stores';
+import { useDeviceStore, useProxyStore, RequestLog as StoreRequestLog, WSMessage, WSMessageInfo } from '../stores';
 import { buildModifications, type EditableHeader } from '../stores/proxyStore';
 // @ts-ignore
 import { StartProxy, StopProxy, GetProxyStatus, GetLocalIP, RunAdbCommand, StartNetworkMonitor, StopNetworkMonitor, SetProxyLimit, SetProxyWSEnabled, SetProxyMITM, InstallProxyCert, SetProxyLatency, SetMITMBypassPatterns, GetMITMBypassPatterns, SetProxyDevice, ResendRequest, AddMockRule, UpdateMockRule, RemoveMockRule, GetMockRules, ToggleMockRule, ExportMockRules, ImportMockRules, CheckCertTrust, SetupProxyForDevice, CleanupProxyForDevice, GetProtoFiles, AddProtoFile, UpdateProtoFile, RemoveProtoFile, GetProtoMappings, AddProtoMapping, UpdateProtoMapping, RemoveProtoMapping, GetProtoMessageTypes, LoadProtoFromURL, LoadProtoFromDisk, AddBreakpointRule, UpdateBreakpointRule, RemoveBreakpointRule, GetBreakpointRules, ToggleBreakpointRule, ResolveBreakpoint, GetPendingBreakpoints, ForwardAllBreakpoints, AddMapRemoteRule, UpdateMapRemoteRule, RemoveMapRemoteRule, GetMapRemoteRules, ToggleMapRemoteRule, AddRewriteRule, UpdateRewriteRule, RemoveRewriteRule, GetRewriteRules, ToggleRewriteRule } from '../../wailsjs/go/main/App';
@@ -72,6 +72,8 @@ interface RequestLog {
     respHeaders?: Record<string, string[]>;
     respBody?: string;
     isWs?: boolean;
+    isWsMessage?: boolean;  // true for individual WS message rows (vs WS connection)
+    wsMessageInfo?: WSMessageInfo;
     mocked?: boolean;
     isProtobuf?: boolean;
     isReqProtobuf?: boolean;
@@ -455,7 +457,6 @@ const ProxyView: React.FC = () => {
 
         // Listen for network events from session (unified event source)
         const handleSessionBatch = (events: any[]) => {
-            // Filter for network events only
             const networkEvents = events.filter((e: any) => e.category === 'network');
 
             for (const event of networkEvents) {
@@ -469,7 +470,39 @@ const ProxyView: React.FC = () => {
                     }
                 }
                 const timeStr = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : '';
-                // Convert session event to RequestLog format
+
+                // Handle websocket_message events specially
+                if (event.type === 'websocket_message') {
+                    const dirArrow = detail.direction === 'send' ? '↑' : '↓';
+                    const log: RequestLog = {
+                        id: event.id,
+                        time: timeStr,
+                        clientIp: '',
+                        method: dirArrow,
+                        url: `${detail.typeName || 'message'} (${detail.payloadSize || 0}B)`,
+                        headers: {},
+                        body: '',
+                        isHttps: false,
+                        isWs: true,
+                        isWsMessage: true,
+                        wsMessageInfo: {
+                            connectionId: detail.connectionId || '',
+                            direction: detail.direction || '',
+                            typeName: detail.typeName || 'unknown',
+                            payload: detail.payload || '',
+                            payloadSize: detail.payloadSize || 0,
+                            isBinary: detail.isBinary || false,
+                            isProtobuf: detail.isProtobuf || false,
+                        },
+                        bodySize: detail.payloadSize || 0,
+                        isProtobuf: detail.isProtobuf || false,
+                        timestamp: event.timestamp,
+                    };
+                    addLog(log);
+                    continue;
+                }
+
+                // Convert regular HTTP/WS connection events to RequestLog format
                 const log: RequestLog = {
                     id: detail.id || event.id,
                     time: timeStr,
@@ -1896,6 +1929,8 @@ const ProxyView: React.FC = () => {
                             <div>
                                 {record.method === 'CONNECT' ? (
                                     <Tag color="purple" style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>TUNNEL</Tag>
+                                ) : record.isWsMessage ? (
+                                    <Tag color={record.wsMessageInfo?.direction === 'send' ? 'green' : 'blue'} style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>{record.method}</Tag>
                                 ) : record.isWs ? (
                                     <Tag color="cyan" style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>WS</Tag>
                                 ) : (
@@ -1903,14 +1938,20 @@ const ProxyView: React.FC = () => {
                                 )}
                             </div>
                             <div>
-                                <Tag color={record.statusCode ? getStatusColor(record.statusCode) : 'default'} style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>{record.statusCode || '-'}</Tag>
-                                {record.mocked && <Tag color="magenta" style={{ marginLeft: 2, transform: 'scale(0.7)', transformOrigin: 'left center' }}>M</Tag>}
+                                {record.isWsMessage ? (
+                                    <Tag style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center', fontSize: 10 }}>{record.wsMessageInfo?.typeName}</Tag>
+                                ) : (
+                                    <>
+                                        <Tag color={record.statusCode ? getStatusColor(record.statusCode) : 'default'} style={{ marginRight: 0, transform: 'scale(0.8)', transformOrigin: 'left center' }}>{record.statusCode || '-'}</Tag>
+                                        {record.mocked && <Tag color="magenta" style={{ marginLeft: 2, transform: 'scale(0.7)', transformOrigin: 'left center' }}>M</Tag>}
+                                    </>
+                                )}
                             </div>
-                            <div title={record.url} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: token.colorLink }}>
-                                {record.url}
-                                {record.isHttps && <LockOutlined style={{ fontSize: '10px', marginLeft: 4, color: '#52c41a' }} />}
+                            <div title={record.isWsMessage ? (record.wsMessageInfo?.payload || '') : record.url} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: record.isWsMessage ? token.colorTextSecondary : token.colorLink, fontFamily: record.isWsMessage ? 'monospace' : undefined, fontSize: record.isWsMessage ? 11 : undefined }}>
+                                {record.isWsMessage ? (record.wsMessageInfo?.payload || record.url) : record.url}
+                                {!record.isWsMessage && record.isHttps && <LockOutlined style={{ fontSize: '10px', marginLeft: 4, color: '#52c41a' }} />}
                             </div>
-                            <div style={{ color: '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{record.contentType?.split(';')[0].split('/')[1] || '-'}</div>
+                            <div style={{ color: '#888', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{record.isWsMessage ? (record.wsMessageInfo?.isProtobuf ? 'protobuf' : (record.wsMessageInfo?.isBinary ? 'binary' : 'text')) : (record.contentType?.split(';')[0].split('/')[1] || '-')}</div>
                             <div style={{ fontFamily: 'monospace', color: '#666' }}>{formatBytes(record.bodySize || 0)}</div>
                             <div style={{ fontFamily: 'monospace', color: record.duration && record.duration > 3000 ? '#ff4d4f' : record.duration && record.duration > 1000 ? '#faad14' : '#666' }}>{formatMs(record.duration)}</div>
                         </div>
@@ -1923,64 +1964,68 @@ const ProxyView: React.FC = () => {
                     <Card
                         size="small"
                         style={{ width: '50%', minWidth: 400, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-                        styles={{ body: { flex: 1, overflow: 'auto', padding: 16 } }}
+                        styles={{ body: { flex: 1, overflow: selectedLog.isWsMessage ? 'hidden' : 'auto', padding: 16, display: 'flex', flexDirection: 'column' } }}
                         title={
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <Text strong>{t('proxy.details')}</Text>
                                 <Space size="small">
-                                    <Dropdown
-                                        menu={{
-                                            items: [
-                                                { key: 'curl', label: 'cURL' },
-                                                { key: 'fetch', label: 'JavaScript (Fetch)' },
-                                                { key: 'python', label: 'Python (requests)' },
-                                                { key: 'go', label: 'Go (net/http)' },
-                                            ],
-                                            onClick: ({ key }) => handleCopyCode(selectedLog, key as CodeLanguage),
-                                        }}
-                                    >
-                                        <Button
-                                            type="text"
-                                            size="small"
-                                            icon={<CodeOutlined />}
-                                        >
-                                            {t('proxy.copy_code')}
-                                        </Button>
-                                    </Dropdown>
-                                    <Button
-                                        type="text"
-                                        size="small"
-                                        icon={<SendOutlined />}
-                                        onClick={() => handleOpenResendModal(selectedLog)}
-                                    >
-                                        {t('proxy.resend')}
-                                    </Button>
-                                    <Button
-                                        type="text"
-                                        size="small"
-                                        icon={<BlockOutlined />}
-                                        onClick={() => createMockFromRequest(selectedLog)}
-                                    >
-                                        Mock
-                                    </Button>
-                                    <Button
-                                        type="text"
-                                        size="small"
-                                        icon={<BugOutlined />}
-                                        onClick={() => createBreakpointFromRequest(selectedLog)}
-                                    >
-                                        BP
-                                    </Button>
-                                    <Tooltip title={diffBaseLog ? t('proxy.diff_compare') : t('proxy.diff_mark')}>
-                                        <Button
-                                            type={diffBaseLog && diffBaseLog.id !== selectedLog.id ? "primary" : "text"}
-                                            size="small"
-                                            icon={<SwapOutlined />}
-                                            onClick={() => handleMarkForDiff(selectedLog as any)}
-                                        >
-                                            Diff
-                                        </Button>
-                                    </Tooltip>
+                                    {!selectedLog.isWsMessage && (
+                                        <>
+                                            <Dropdown
+                                                menu={{
+                                                    items: [
+                                                        { key: 'curl', label: 'cURL' },
+                                                        { key: 'fetch', label: 'JavaScript (Fetch)' },
+                                                        { key: 'python', label: 'Python (requests)' },
+                                                        { key: 'go', label: 'Go (net/http)' },
+                                                    ],
+                                                    onClick: ({ key }) => handleCopyCode(selectedLog, key as CodeLanguage),
+                                                }}
+                                            >
+                                                <Button
+                                                    type="text"
+                                                    size="small"
+                                                    icon={<CodeOutlined />}
+                                                >
+                                                    {t('proxy.copy_code')}
+                                                </Button>
+                                            </Dropdown>
+                                            <Button
+                                                type="text"
+                                                size="small"
+                                                icon={<SendOutlined />}
+                                                onClick={() => handleOpenResendModal(selectedLog)}
+                                            >
+                                                {t('proxy.resend')}
+                                            </Button>
+                                            <Button
+                                                type="text"
+                                                size="small"
+                                                icon={<BlockOutlined />}
+                                                onClick={() => createMockFromRequest(selectedLog)}
+                                            >
+                                                Mock
+                                            </Button>
+                                            <Button
+                                                type="text"
+                                                size="small"
+                                                icon={<BugOutlined />}
+                                                onClick={() => createBreakpointFromRequest(selectedLog)}
+                                            >
+                                                BP
+                                            </Button>
+                                            <Tooltip title={diffBaseLog ? t('proxy.diff_compare') : t('proxy.diff_mark')}>
+                                                <Button
+                                                    type={diffBaseLog && diffBaseLog.id !== selectedLog.id ? "primary" : "text"}
+                                                    size="small"
+                                                    icon={<SwapOutlined />}
+                                                    onClick={() => handleMarkForDiff(selectedLog as any)}
+                                                >
+                                                    Diff
+                                                </Button>
+                                            </Tooltip>
+                                        </>
+                                    )}
                                     <Button
                                         type="text"
                                         size="small"
@@ -1991,13 +2036,56 @@ const ProxyView: React.FC = () => {
                             </div>
                         }
                     >
-                        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                            <div style={{ wordBreak: 'break-all', fontFamily: 'monospace', background: token.colorFillTertiary, padding: 8, borderRadius: 4, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                                <Tag style={{ flexShrink: 0, color: getMethodColor(selectedLog.method), borderColor: getMethodColor(selectedLog.method), background: `${getMethodColor(selectedLog.method)}10` }}>{selectedLog.method}</Tag>
-                                <Text copyable={{ text: selectedLog.url }} style={{ fontFamily: 'monospace', fontSize: '13px', flex: 1, wordBreak: 'break-all' }}>{selectedLog.url}</Text>
+                        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12, ...(selectedLog.isWsMessage ? { height: '100%' } : {}) }}>
+                            <div style={{ wordBreak: 'break-all', fontFamily: 'monospace', background: token.colorFillTertiary, padding: 8, borderRadius: 4, display: 'flex', alignItems: 'flex-start', gap: 8, flexShrink: 0 }}>
+                                {selectedLog.isWsMessage ? (
+                                    <>
+                                        <Tag color={selectedLog.wsMessageInfo?.direction === 'send' ? 'green' : 'blue'} style={{ flexShrink: 0 }}>
+                                            {selectedLog.wsMessageInfo?.direction === 'send' ? '↑ Send' : '↓ Recv'}
+                                        </Tag>
+                                        <Tag style={{ flexShrink: 0 }}>{selectedLog.wsMessageInfo?.typeName}</Tag>
+                                        <Text type="secondary" style={{ flexShrink: 0, fontSize: 12 }}>{selectedLog.wsMessageInfo?.payloadSize}B</Text>
+                                        {selectedLog.wsMessageInfo?.isProtobuf && <Tag color="purple" style={{ flexShrink: 0 }}>Protobuf</Tag>}
+                                    </>
+                                ) : (
+                                    <>
+                                        <Tag style={{ flexShrink: 0, color: getMethodColor(selectedLog.method), borderColor: getMethodColor(selectedLog.method), background: `${getMethodColor(selectedLog.method)}10` }}>{selectedLog.method}</Tag>
+                                        <Text copyable={{ text: selectedLog.url }} style={{ fontFamily: 'monospace', fontSize: '13px', flex: 1, wordBreak: 'break-all' }}>{selectedLog.url}</Text>
+                                    </>
+                                )}
                             </div>
 
-                            {(selectedLog.method === 'CONNECT') ? (
+                            {selectedLog.isWsMessage ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, borderRadius: 8, overflow: 'hidden', border: `1px solid ${token.colorBorderSecondary}` }}>
+                                    <div style={{ padding: '8px 12px', display: 'flex', gap: 8, alignItems: 'center', background: token.colorFillAlter, flexShrink: 0 }}>
+                                        <Text type="secondary" style={{ fontSize: 12 }}>{t('proxy.col_time')}: {selectedLog.time}</Text>
+                                        {selectedLog.wsMessageInfo?.connectionId && (
+                                            <Text type="secondary" style={{ fontSize: 12 }}>Connection: {selectedLog.wsMessageInfo.connectionId.slice(0, 8)}</Text>
+                                        )}
+                                    </div>
+                                    <div style={{
+                                        fontFamily: 'monospace',
+                                        fontSize: 12,
+                                        whiteSpace: 'pre-wrap',
+                                        wordBreak: 'break-all',
+                                        flex: 1,
+                                        minHeight: 0,
+                                        overflow: 'auto',
+                                        background: token.colorBgContainer,
+                                        padding: 12,
+                                    }}>
+                                        <Text copyable={{ text: selectedLog.wsMessageInfo?.payload || '' }}>
+                                            {(() => {
+                                                const payload = selectedLog.wsMessageInfo?.payload || '';
+                                                if (selectedLog.wsMessageInfo?.isProtobuf || selectedLog.isProtobuf) {
+                                                    try { return JSON.stringify(JSON.parse(payload), null, 2); } catch { return payload; }
+                                                }
+                                                try { return JSON.stringify(JSON.parse(payload), null, 2); } catch { return payload; }
+                                            })()}
+                                        </Text>
+                                    </div>
+                                </div>
+                            ) : (selectedLog.method === 'CONNECT') ? (
                                 <div style={{ textAlign: 'center', padding: '40px 20px', background: token.colorFillAlter, borderRadius: 8 }}>
                                     <LockOutlined style={{ fontSize: 48, color: token.colorTextDisabled, marginBottom: 16 }} />
                                     <br />
@@ -2226,10 +2314,10 @@ const ProxyView: React.FC = () => {
                                                 );
                                             })()
                                         }] : [])
-                                    ]} />
+                                     ]} />
                                 );
                             })()}
-                        </Space>
+                        </div>
                     </Card>
                 )}
             </div>

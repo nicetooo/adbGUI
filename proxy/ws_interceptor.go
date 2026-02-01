@@ -6,6 +6,7 @@ import (
 	"io"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 // WSMessageType represents WebSocket frame opcodes
@@ -153,6 +154,16 @@ func (p *wsFrameParser) emitMessage(msgType WSMessageType, payload []byte) {
 	typeName := "unknown"
 	isBinary := false
 	switch msgType {
+	case WSContinuation:
+		// Continuation frames shouldn't normally reach emitMessage directly,
+		// but handle as safety net (e.g., fragmentType was never set due to
+		// missed initial fragment). Auto-detect type from payload content.
+		if utf8.Valid(payload) {
+			typeName = "text"
+		} else {
+			typeName = "binary"
+			isBinary = true
+		}
 	case WSText:
 		typeName = "text"
 	case WSBinary:

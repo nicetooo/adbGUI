@@ -1,6 +1,16 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 
+export interface WSMessageInfo {
+  connectionId: string;
+  direction: string; // "send" | "receive"
+  typeName: string;  // "text" | "binary" | "ping" | "pong" | "close"
+  payload: string;
+  payloadSize: number;
+  isBinary: boolean;
+  isProtobuf?: boolean;
+}
+
 export interface RequestLog {
   id: string;
   time: string;
@@ -17,6 +27,8 @@ export interface RequestLog {
   respHeaders?: Record<string, string[]>;
   respBody?: string;
   isWs?: boolean;
+  isWsMessage?: boolean;  // true for individual WS message rows (vs WS connection)
+  wsMessageInfo?: WSMessageInfo;
   mocked?: boolean;
   isProtobuf?: boolean;
   isReqProtobuf?: boolean;
