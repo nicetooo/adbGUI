@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -74,12 +75,14 @@ func (c *ProtoCompiler) Compile(files map[string]string) error {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Pre-process: convert angle bracket `<>` option syntax to `{}`.
-	// Some proto files (especially from Google and proto2) use `<>` message literal syntax
-	// in option values, which is valid text-format but not accepted by protoc in source files.
+	// Pre-process proto files before compilation:
+	// 1. Convert angle bracket `<>` option syntax to `{}` (protoc only accepts `{}`)
+	// 2. Rename duplicate enum values within the same scope (C++ scoping rules)
 	preprocessed := make(map[string]string, len(files))
 	for name, content := range files {
-		preprocessed[name] = fixAngleBracketOptions(content)
+		content = fixAngleBracketOptions(content)
+		content = fixDuplicateEnumValues(content)
+		preprocessed[name] = content
 	}
 
 	// Write all proto files to temp directory
@@ -582,4 +585,131 @@ func isOptionAngleBracket(runes []rune, result []rune) bool {
 // isIdentRune returns true if r is a valid identifier character.
 func isIdentRune(r rune) bool {
 	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_'
+}
+
+// --- Preprocessor: duplicate enum value deduplication ---
+
+// fixDuplicateEnumValues detects enum value names that collide within the same
+// scope (per C++ scoping rules) and renames them by prefixing the enum type name.
+//
+// Proto3 treats enum values as siblings of their type, not children.
+// So two enums in the same package/message with e.g. "UNKNOWN = 0" will fail.
+// This preprocessor renames the second occurrence: UNKNOWN → FS_UNKNOWN (using
+// initials of the enum name, e.g. FallbackStatus → FS).
+//
+// This is safe because protobuf wire format uses field numbers, not enum names.
+func fixDuplicateEnumValues(content string) string {
+	return fixEnumsInScope(content)
+}
+
+// enumValueRegex matches enum value declarations like "UNKNOWN = 0;" or "NotUsed = 99;"
+var enumValueRegex = regexp.MustCompile(`(?m)^\s*([A-Za-z][A-Za-z0-9_]*)\s*=\s*(-?\d+)\s*;`)
+
+// enumBlockRegex matches enum blocks: "enum Name { ... }"
+var enumBlockRegex = regexp.MustCompile(`(?ms)enum\s+(\w+)\s*\{([^}]*)\}`)
+
+// fixEnumsInScope finds all enum blocks in the content and renames duplicate values.
+func fixEnumsInScope(content string) string {
+	type enumInfo struct {
+		name       string
+		matchStart int
+		matchEnd   int
+		body       string
+		values     []string
+	}
+
+	matches := enumBlockRegex.FindAllStringSubmatchIndex(content, -1)
+	if len(matches) == 0 {
+		return content
+	}
+
+	var enums []enumInfo
+	for _, m := range matches {
+		enumName := content[m[2]:m[3]]
+		body := content[m[4]:m[5]]
+
+		valueMatches := enumValueRegex.FindAllStringSubmatch(body, -1)
+		var values []string
+		for _, vm := range valueMatches {
+			values = append(values, vm[1])
+		}
+
+		enums = append(enums, enumInfo{
+			name:       enumName,
+			matchStart: m[0],
+			matchEnd:   m[1],
+			body:       body,
+			values:     values,
+		})
+	}
+
+	// Count how many enums define each value name
+	valueCounts := make(map[string]int)
+	for _, e := range enums {
+		for _, v := range e.values {
+			valueCounts[v]++
+		}
+	}
+
+	hasDuplicates := false
+	for _, count := range valueCounts {
+		if count > 1 {
+			hasDuplicates = true
+			break
+		}
+	}
+	if !hasDuplicates {
+		return content
+	}
+
+	// Process in reverse order to preserve string positions
+	result := content
+	for i := len(enums) - 1; i >= 0; i-- {
+		e := enums[i]
+		prefix := enumPrefix(e.name)
+
+		needsFix := false
+		for _, v := range e.values {
+			if valueCounts[v] > 1 {
+				needsFix = true
+				break
+			}
+		}
+		if !needsFix {
+			continue
+		}
+
+		newBody := e.body
+		for _, v := range e.values {
+			if valueCounts[v] > 1 {
+				newName := prefix + "_" + v
+				re := regexp.MustCompile(`(?m)(^\s*)` + regexp.QuoteMeta(v) + `(\s*=)`)
+				newBody = re.ReplaceAllString(newBody, "${1}"+newName+"${2}")
+			}
+		}
+
+		if newBody != e.body {
+			oldBlock := content[e.matchStart:e.matchEnd]
+			newBlock := strings.Replace(oldBlock, e.body, newBody, 1)
+			result = result[:e.matchStart] + newBlock + result[e.matchEnd:]
+		}
+	}
+
+	return result
+}
+
+// enumPrefix generates a short prefix from an enum name using uppercase letters.
+// Examples: "MessageType" → "MT", "FallbackStatus" → "FS", "Status" → "S"
+func enumPrefix(enumName string) string {
+	var prefix strings.Builder
+	for i, ch := range enumName {
+		if i == 0 || (ch >= 'A' && ch <= 'Z') {
+			prefix.WriteRune(ch)
+		}
+	}
+	result := prefix.String()
+	if result == "" {
+		return strings.ToUpper(enumName[:1])
+	}
+	return result
 }

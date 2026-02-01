@@ -308,6 +308,115 @@ message GroupInfo {
 	}
 }
 
+// TestProtoc_DuplicateEnumValues_Preprocessor tests that the fixDuplicateEnumValues
+// preprocessor automatically renames colliding enum values so protoc can compile them.
+// This matches real-world proto files (e.g. im_api.proto) where different enums in the
+// same package have values like "UNKNOWN", "NotUsed", "UNAVAILABLE".
+func TestProtoc_DuplicateEnumValues_Preprocessor(t *testing.T) {
+	compiler := newTestCompiler(t)
+
+	// Real-world scenario: multiple enums with colliding value names
+	files := map[string]string{
+		"im_api.proto": `syntax = "proto3";
+package im_proto;
+
+enum MessageType {
+  UNKNOWN = 0;
+  TEXT = 1;
+  NotUsed = 99;
+}
+
+enum BizStatusMessageType {
+  UNKNOWN = 0;
+  NotUsed = 99;
+  STATUS_UPDATE = 1;
+}
+
+enum FallbackStatus {
+  UNKNOWN = 0;
+  UNAVAILABLE = 1;
+}
+
+enum ConnectionStatus {
+  UNAVAILABLE = 0;
+  CONNECTED = 1;
+}
+
+message ChatMessage {
+  int64 msg_id = 1;
+  string content = 2;
+  MessageType type = 3;
+}`,
+	}
+
+	err := compiler.Compile(files)
+	if err != nil {
+		t.Fatalf("Preprocessor should fix duplicate enum values, got: %v", err)
+	}
+
+	desc := compiler.GetMessageDescriptor("im_proto.ChatMessage")
+	if desc == nil {
+		t.Fatal("ChatMessage descriptor not found")
+	}
+	if desc.Fields().Len() != 3 {
+		t.Errorf("ChatMessage should have 3 fields, got %d", desc.Fields().Len())
+	}
+}
+
+// TestFixDuplicateEnumValues tests the preprocessor function directly.
+func TestFixDuplicateEnumValues(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		wantDups bool // should contain renamed values
+	}{
+		{
+			name: "no duplicates - unchanged",
+			input: `enum Foo {
+  A = 0;
+  B = 1;
+}
+enum Bar {
+  C = 0;
+  D = 1;
+}`,
+			wantDups: false,
+		},
+		{
+			name: "duplicates renamed",
+			input: `enum MessageType {
+  UNKNOWN = 0;
+  TEXT = 1;
+}
+enum Status {
+  UNKNOWN = 0;
+  ACTIVE = 1;
+}`,
+			wantDups: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := fixDuplicateEnumValues(tt.input)
+			if tt.wantDups {
+				// UNKNOWN should be renamed in at least one enum
+				if result == tt.input {
+					t.Error("Expected duplicates to be renamed, but content unchanged")
+				}
+				// Should contain prefixed versions like MT_UNKNOWN or S_UNKNOWN
+				if !strings.Contains(result, "_UNKNOWN") {
+					t.Errorf("Expected prefixed UNKNOWN, got:\n%s", result)
+				}
+			} else {
+				if result != tt.input {
+					t.Errorf("Expected unchanged content, got:\n%s", result)
+				}
+			}
+		})
+	}
+}
+
 // TestProtoc_RealErrors tests that actual compile errors still propagate
 func TestProtoc_RealErrors(t *testing.T) {
 	compiler := newTestCompiler(t)
