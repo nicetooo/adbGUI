@@ -2485,7 +2485,13 @@ const ProxyView: React.FC = () => {
                 <Form form={mockForm} layout="vertical" size="small">
                     <Space wrap style={{ width: '100%' }}>
                         <Form.Item name="urlPattern" label={t('proxy.url_pattern')} rules={[{ required: true }]} style={{ marginBottom: 8, minWidth: 280 }}>
-                            <Input placeholder="*/api/*" />
+                            <AutoComplete
+                                placeholder="*/api/*"
+                                options={capturedUrlPatterns}
+                                filterOption={(inputValue, option) =>
+                                    (option?.value as string)?.toLowerCase().includes(inputValue.toLowerCase())
+                                }
+                            />
                         </Form.Item>
                         <Form.Item name="method" label={t('proxy.col_method')} style={{ marginBottom: 8, width: 100 }}>
                             <Input placeholder="GET" />
@@ -2941,7 +2947,13 @@ const ProxyView: React.FC = () => {
             >
                 <Form form={breakpointForm} layout="vertical" initialValues={{ phase: 'both' }}>
                     <Form.Item name="urlPattern" label={t('proxy.breakpoint_url_pattern')} rules={[{ required: true }]}>
-                        <Input placeholder="*/api/*" />
+                        <AutoComplete
+                            placeholder="*/api/*"
+                            options={capturedUrlPatterns}
+                            filterOption={(inputValue, option) =>
+                                (option?.value as string)?.toLowerCase().includes(inputValue.toLowerCase())
+                            }
+                        />
                     </Form.Item>
                     <Form.Item name="method" label={t('proxy.breakpoint_method')}>
                         <Input placeholder="GET (empty = all)" />
@@ -3314,7 +3326,13 @@ const ProxyView: React.FC = () => {
             >
                 <Form form={mapRemoteForm} layout="vertical">
                     <Form.Item name="sourcePattern" label={t('proxy.map_remote_source')} rules={[{ required: true }]}>
-                        <Input placeholder="*/api/v1/*" />
+                        <AutoComplete
+                            placeholder="*/api/v1/*"
+                            options={capturedUrlPatterns}
+                            filterOption={(inputValue, option) =>
+                                (option?.value as string)?.toLowerCase().includes(inputValue.toLowerCase())
+                            }
+                        />
                     </Form.Item>
                     <Form.Item name="targetURL" label={t('proxy.map_remote_target')} rules={[{ required: true }]}>
                         <Input placeholder="http://localhost:3000/api/v1/*" />
@@ -3384,7 +3402,13 @@ const ProxyView: React.FC = () => {
             >
                 <Form form={rewriteForm} layout="vertical" size="small">
                     <Form.Item name="urlPattern" label={t('proxy.url_pattern')} rules={[{ required: true }]}>
-                        <Input placeholder="*/api/*" />
+                        <AutoComplete
+                            placeholder="*/api/*"
+                            options={capturedUrlPatterns}
+                            filterOption={(inputValue, option) =>
+                                (option?.value as string)?.toLowerCase().includes(inputValue.toLowerCase())
+                            }
+                        />
                     </Form.Item>
                     <Space wrap style={{ width: '100%' }}>
                         <Form.Item name="method" label={t('proxy.col_method')} style={{ width: 100 }}>
