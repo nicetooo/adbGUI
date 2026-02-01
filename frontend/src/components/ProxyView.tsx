@@ -1109,6 +1109,29 @@ const ProxyView: React.FC = () => {
         }
     }, [diffBaseLog, openDiffModal, setDiffBaseLog, message, t]);
 
+    // Proxy list click: when diff mode is active, clicking a different request opens diff modal directly
+    const handleProxyListClick = useCallback((log: StoreRequestLog, _index: number) => {
+        if (diffBaseLog && diffBaseLog.id !== log.id && !log.isWsMessage) {
+            // Diff mode active: open diff modal directly with this as target
+            openDiffModal(diffBaseLog, log);
+        } else {
+            // Normal selection (also clears diff base if clicking a WS message or same request)
+            selectLog(log);
+        }
+    }, [diffBaseLog, openDiffModal, selectLog]);
+
+    // Cancel diff mode on Escape key
+    useEffect(() => {
+        if (!diffBaseLog) return;
+        const handleEsc = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && diffBaseLog && !diffModalOpen) {
+                setDiffBaseLog(null);
+            }
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [diffBaseLog, diffModalOpen, setDiffBaseLog]);
+
     // Export captured requests as HAR 1.2 format
     const handleExportHAR = () => {
         const currentLogs = useProxyStore.getState().logs;
@@ -1888,6 +1911,25 @@ const ProxyView: React.FC = () => {
                         <div style={{ height: 4 }} />
                     </div>
                 )}
+                {/* Diff mode hint bar */}
+                {diffBaseLog && !diffModalOpen && (
+                    <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '6px 12px',
+                        background: `linear-gradient(90deg, ${token.colorWarningBg}, ${token.colorWarningBgHover || token.colorWarningBg})`,
+                        borderBottom: `1px solid ${token.colorWarningBorder}`,
+                    }}>
+                        <Space size={8}>
+                            <SwapOutlined style={{ color: token.colorWarning }} />
+                            <Text style={{ fontSize: 12, color: token.colorWarningText || token.colorTextBase }}>
+                                {t('proxy.diff_select_to_compare')}
+                            </Text>
+                        </Space>
+                        <Button size="small" type="text" onClick={() => setDiffBaseLog(null)}>
+                            {t('proxy.diff_cancel')}
+                        </Button>
+                    </div>
+                )}
                 {/* Virtual Table Header - Fixed widths */}
                 <div style={{ display: 'grid', gridTemplateColumns: '80px 70px 80px 1fr 80px 64px 72px', padding: '8px 12px', background: token.colorFillAlter, borderBottom: `1px solid ${token.colorBorderSecondary}`, fontWeight: 'bold', fontSize: '12px', color: token.colorTextSecondary }}>
                     <div>{t('proxy.col_time')}</div>
@@ -1905,10 +1947,12 @@ const ProxyView: React.FC = () => {
                     rowHeight={35}
                     overscan={20}
                     selectedKey={selectedLog?.id}
-                    onItemClick={selectLog}
+                    onItemClick={handleProxyListClick}
                     showBorder={false}
                     style={{ flex: 1 }}
-                    renderItem={(record, index, isSelected) => (
+                    renderItem={(record, index, isSelected) => {
+                        const isDiffBase = !!diffBaseLog && record.id === diffBaseLog.id;
+                        return (
                         <div
                             style={{
                                 display: 'grid',
@@ -1917,12 +1961,15 @@ const ProxyView: React.FC = () => {
                                 fontSize: '12px',
                                 alignItems: 'center',
                                 height: '100%',
-                                background: isSelected 
-                                    ? token.colorPrimaryBg 
-                                    : index % 2 === 0 
-                                        ? token.colorBgContainer 
-                                        : token.colorFillAlter,
+                                background: isDiffBase
+                                    ? token.colorWarningBg
+                                    : isSelected 
+                                        ? token.colorPrimaryBg 
+                                        : index % 2 === 0 
+                                            ? token.colorBgContainer 
+                                            : token.colorFillAlter,
                                 borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                                borderLeft: isDiffBase ? `3px solid ${token.colorWarning}` : '3px solid transparent',
                             }}
                         >
                             <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#888' }}>{record.time}</div>
@@ -1955,7 +2002,7 @@ const ProxyView: React.FC = () => {
                             <div style={{ fontFamily: 'monospace', color: '#666' }}>{formatBytes(record.bodySize || 0)}</div>
                             <div style={{ fontFamily: 'monospace', color: record.duration && record.duration > 3000 ? '#ff4d4f' : record.duration && record.duration > 1000 ? '#faad14' : '#666' }}>{formatMs(record.duration)}</div>
                         </div>
-                    )}
+                    );}}
                 />
             </Card>
 
@@ -3586,11 +3633,13 @@ const ProxyView: React.FC = () => {
                         } catch { return ''; }
                     };
 
-                    // Simple line diff
-                    const diffLines = (a: string, b: string): Array<{ left: string; right: string; type: 'same' | 'changed' | 'added' | 'removed' }> => {
+                    type DiffLine = { left: string; right: string; type: 'same' | 'changed' | 'added' | 'removed' };
+
+                    // Text line diff (for body content)
+                    const diffLines = (a: string, b: string): DiffLine[] => {
                         const linesA = a.split('\n');
                         const linesB = b.split('\n');
-                        const result: Array<{ left: string; right: string; type: 'same' | 'changed' | 'added' | 'removed' }> = [];
+                        const result: DiffLine[] = [];
                         const maxLen = Math.max(linesA.length, linesB.length);
                         for (let i = 0; i < maxLen; i++) {
                             const la = i < linesA.length ? linesA[i] : undefined;
@@ -3606,9 +3655,65 @@ const ProxyView: React.FC = () => {
                         return result;
                     };
 
-                    const DiffBlock = ({ title, leftVal, rightVal }: { title: string; leftVal: string; rightVal: string }) => {
+                    // Key-value diff: align rows by key so same keys are on the same row
+                    const diffKV = (a: string, b: string, separator: string): DiffLine[] => {
+                        const parseLines = (s: string) =>
+                            s.split('\n').filter(Boolean).map(line => {
+                                const idx = line.indexOf(separator);
+                                return { key: idx >= 0 ? line.substring(0, idx).trim() : line.trim(), line };
+                            });
+
+                        const linesA = parseLines(a);
+                        const linesB = parseLines(b);
+
+                        // Build multimap: key → [fullLine, ...] (preserves duplicate keys)
+                        const buildMap = (lines: Array<{ key: string; line: string }>) => {
+                            const map = new Map<string, string[]>();
+                            for (const { key, line } of lines) {
+                                if (!map.has(key)) map.set(key, []);
+                                map.get(key)!.push(line);
+                            }
+                            return map;
+                        };
+
+                        const mapA = buildMap(linesA);
+                        const mapB = buildMap(linesB);
+
+                        // Collect all unique keys preserving first-appearance order
+                        const allKeys: string[] = [];
+                        const seen = new Set<string>();
+                        for (const { key } of [...linesA, ...linesB]) {
+                            if (!seen.has(key)) { seen.add(key); allKeys.push(key); }
+                        }
+
+                        const result: DiffLine[] = [];
+                        for (const key of allKeys) {
+                            const valsA = mapA.get(key) || [];
+                            const valsB = mapB.get(key) || [];
+                            const maxLen = Math.max(valsA.length, valsB.length);
+                            for (let i = 0; i < maxLen; i++) {
+                                const la = i < valsA.length ? valsA[i] : undefined;
+                                const lb = i < valsB.length ? valsB[i] : undefined;
+                                if (la !== undefined && lb !== undefined) {
+                                    result.push({ left: la, right: lb, type: la === lb ? 'same' : 'changed' });
+                                } else if (la !== undefined) {
+                                    result.push({ left: la, right: '', type: 'removed' });
+                                } else {
+                                    result.push({ left: '', right: lb!, type: 'added' });
+                                }
+                            }
+                        }
+                        return result;
+                    };
+
+                    // mode: 'query' = align by query key (sep '='), 'header' = align by header name (sep ': '), 'text' = line diff
+                    const DiffBlock = ({ title, leftVal, rightVal, mode = 'text' }: { title: string; leftVal: string; rightVal: string; mode?: 'query' | 'header' | 'text' }) => {
                         if (!leftVal && !rightVal) return null;
-                        const lines = diffLines(leftVal, rightVal);
+                        const lines = mode === 'query'
+                            ? diffKV(leftVal, rightVal, '=')
+                            : mode === 'header'
+                                ? diffKV(leftVal, rightVal, ': ')
+                                : diffLines(leftVal, rightVal);
                         const hasDiff = lines.some(l => l.type !== 'same');
                         return (
                             <div style={{ marginBottom: 16 }}>
@@ -3623,7 +3728,7 @@ const ProxyView: React.FC = () => {
                                             <React.Fragment key={idx}>
                                                 <div style={{
                                                     padding: '2px 8px',
-                                                    background: line.type === 'removed' ? 'rgba(255,77,79,0.12)' : line.type === 'changed' ? 'rgba(250,173,20,0.08)' : token.colorFillQuaternary,
+                                                    background: line.type === 'removed' ? 'rgba(255,77,79,0.12)' : line.type === 'changed' ? 'rgba(250,173,20,0.08)' : line.type === 'added' ? 'transparent' : token.colorFillQuaternary,
                                                     borderBottom: idx < lines.length - 1 ? `1px solid ${token.colorBorderSecondary}` : 'none',
                                                     whiteSpace: 'pre-wrap',
                                                     wordBreak: 'break-all',
@@ -3631,7 +3736,7 @@ const ProxyView: React.FC = () => {
                                                 }}>{line.left}</div>
                                                 <div style={{
                                                     padding: '2px 8px',
-                                                    background: line.type === 'added' ? 'rgba(82,196,26,0.12)' : line.type === 'changed' ? 'rgba(250,173,20,0.08)' : token.colorFillQuaternary,
+                                                    background: line.type === 'added' ? 'rgba(82,196,26,0.12)' : line.type === 'changed' ? 'rgba(250,173,20,0.08)' : line.type === 'removed' ? 'transparent' : token.colorFillQuaternary,
                                                     borderBottom: idx < lines.length - 1 ? `1px solid ${token.colorBorderSecondary}` : 'none',
                                                     borderLeft: `1px solid ${token.colorBorderSecondary}`,
                                                     whiteSpace: 'pre-wrap',
@@ -3667,10 +3772,10 @@ const ProxyView: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
-                            <DiffBlock title={t('proxy.diff_query_params')} leftVal={parseQuery(diffBaseLog.url)} rightVal={parseQuery(diffTargetLog.url)} />
-                            <DiffBlock title={t('proxy.diff_req_headers')} leftVal={formatHeaders(diffBaseLog.headers)} rightVal={formatHeaders(diffTargetLog.headers)} />
+                            <DiffBlock title={t('proxy.diff_query_params')} leftVal={parseQuery(diffBaseLog.url)} rightVal={parseQuery(diffTargetLog.url)} mode="query" />
+                            <DiffBlock title={t('proxy.diff_req_headers')} leftVal={formatHeaders(diffBaseLog.headers)} rightVal={formatHeaders(diffTargetLog.headers)} mode="header" />
                             <DiffBlock title={t('proxy.diff_req_body')} leftVal={formatBody(diffBaseLog.body)} rightVal={formatBody(diffTargetLog.body)} />
-                            <DiffBlock title={t('proxy.diff_resp_headers')} leftVal={formatHeaders(diffBaseLog.respHeaders)} rightVal={formatHeaders(diffTargetLog.respHeaders)} />
+                            <DiffBlock title={t('proxy.diff_resp_headers')} leftVal={formatHeaders(diffBaseLog.respHeaders)} rightVal={formatHeaders(diffTargetLog.respHeaders)} mode="header" />
                             <DiffBlock title={t('proxy.diff_resp_body')} leftVal={formatBody(diffBaseLog.respBody)} rightVal={formatBody(diffTargetLog.respBody)} />
                         </div>
                     );
