@@ -1,56 +1,55 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"io"
 	"log"
-	"regexp"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 
-	"github.com/bufbuild/protocompile"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
-
-// recoverablePatterns maps error substrings to the fix functions that should be applied.
-// When compilation fails, the error message is checked against these patterns.
-// If a match is found, the corresponding fix is applied to all files and compilation is retried.
-var recoverablePatterns = []struct {
-	pattern string
-	fixName string
-}{
-	{"already defined at", "enum_dedup"},         // duplicate enum value names (C++ scoping)
-	{"C++ scoping rules for enum", "enum_dedup"}, // related
-	{"previously defined at", "enum_dedup"},      // duplicate symbol
-	{"unexpected '<'", "angle_brackets"},         // text-format angle bracket syntax
-	{"syntax error: unexpected '<'", "angle_brackets"},
-	{"unknown '<'", "angle_brackets"},
-}
 
 // protoreflectMessageDescriptor is an alias for convenience.
 type protoreflectMessageDescriptor = protoreflect.MessageDescriptor
 
-// ProtoCompiler compiles .proto files at runtime and provides message descriptors.
+// ProtoCompiler compiles .proto files using Google's official protoc binary
+// and provides message descriptors for runtime protobuf decoding.
 type ProtoCompiler struct {
 	mu          sync.RWMutex
 	descriptors map[string]protoreflect.MessageDescriptor // fullName -> descriptor
+
+	// Paths to protoc binary and well-known type includes.
+	// These are set once at startup and never change.
+	protocPath   string
+	protoInclude string // path to directory with google/protobuf/*.proto
 }
 
 // NewProtoCompiler creates a new compiler.
+// protocPath and protoInclude will be set later via SetPaths().
 func NewProtoCompiler() *ProtoCompiler {
 	return &ProtoCompiler{
 		descriptors: make(map[string]protoreflect.MessageDescriptor),
 	}
 }
 
-// Compile compiles a set of .proto files (name→content) and indexes all message types.
-// It uses a two-pass strategy: first tries strict compilation, then if a recoverable
-// error is detected, pre-processes files to fix the issue and retries.
-//
-// Recoverable errors include:
-//   - Duplicate enum value names across enums (proto3 C++ scoping rules)
-//   - Angle bracket `<>` syntax in option values (text-format style, not supported by protocompile)
+// SetPaths configures the protoc binary and include paths.
+// Must be called before Compile().
+func (c *ProtoCompiler) SetPaths(protocPath, protoInclude string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.protocPath = protocPath
+	c.protoInclude = protoInclude
+}
+
+// Compile compiles a set of .proto files (name→content) using protoc and indexes all message types.
+// It writes files to a temp directory, runs protoc --descriptor_set_out, parses the
+// FileDescriptorSet output, and builds protoreflect descriptors.
 func (c *ProtoCompiler) Compile(files map[string]string) error {
 	if len(files) == 0 {
 		c.mu.Lock()
@@ -59,434 +58,302 @@ func (c *ProtoCompiler) Compile(files map[string]string) error {
 		return nil
 	}
 
-	// First pass: try strict compilation
-	compiled, err := c.compileFiles(files)
-	if err == nil {
-		c.indexCompiled(compiled)
-		return nil
+	c.mu.RLock()
+	protocPath := c.protocPath
+	protoInclude := c.protoInclude
+	c.mu.RUnlock()
+
+	if protocPath == "" {
+		return fmt.Errorf("protoc binary path not configured")
 	}
 
-	// Check if the error matches any recoverable pattern
-	errMsg := err.Error()
-	fixes := make(map[string]bool) // deduplicated set of fixes to apply
-	for _, rp := range recoverablePatterns {
-		if strings.Contains(errMsg, rp.pattern) {
-			fixes[rp.fixName] = true
-		}
+	// Create temp directory for proto files
+	tmpDir, err := os.MkdirTemp("", "gaze-proto-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp dir: %w", err)
 	}
+	defer os.RemoveAll(tmpDir)
 
-	if len(fixes) == 0 {
-		return err // not recoverable
-	}
-
-	// Second pass: apply all matched fixes and retry
-	fixedFiles := make(map[string]string, len(files))
+	// Pre-process: convert angle bracket `<>` option syntax to `{}`.
+	// Some proto files (especially from Google and proto2) use `<>` message literal syntax
+	// in option values, which is valid text-format but not accepted by protoc in source files.
+	preprocessed := make(map[string]string, len(files))
 	for name, content := range files {
-		fixedFiles[name] = content
+		preprocessed[name] = fixAngleBracketOptions(content)
 	}
 
-	if fixes["angle_brackets"] {
-		log.Printf("[Proto] Detected angle bracket syntax, converting <> to {}...")
-		for name, content := range fixedFiles {
-			fixedFiles[name] = fixAngleBracketOptions(content)
+	// Write all proto files to temp directory
+	var protoNames []string
+	for name, content := range preprocessed {
+		filePath := filepath.Join(tmpDir, name)
+		// Ensure parent directories exist (e.g. for "subdir/file.proto")
+		if dir := filepath.Dir(filePath); dir != tmpDir {
+			_ = os.MkdirAll(dir, 0755)
 		}
-	}
-	if fixes["enum_dedup"] {
-		log.Printf("[Proto] Detected enum scoping conflict, deduplicating enum values...")
-		for name, content := range fixedFiles {
-			fixedFiles[name] = fixDuplicateEnumValues(content)
+		if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+			return fmt.Errorf("failed to write proto file %s: %w", name, err)
 		}
+		protoNames = append(protoNames, name)
 	}
 
-	compiled, err = c.compileFiles(fixedFiles)
+	// Output descriptor set file
+	descSetPath := filepath.Join(tmpDir, "descriptor_set.pb")
+
+	// Build protoc command
+	args := []string{
+		"--descriptor_set_out=" + descSetPath,
+		"--include_imports",
+		"--proto_path=" + tmpDir,
+	}
+
+	// Add well-known types include path
+	if protoInclude != "" {
+		args = append(args, "--proto_path="+protoInclude)
+	}
+
+	// Add all proto file names
+	args = append(args, protoNames...)
+
+	log.Printf("[Proto] Running protoc with %d files", len(protoNames))
+
+	cmd := exec.Command(protocPath, args...)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("proto compile error (even after auto-fix): %w", err)
-	}
-
-	log.Printf("[Proto] Compilation succeeded after automatic source fixes")
-	c.indexCompiled(compiled)
-	return nil
-}
-
-// compileFiles does the actual protocompile compilation.
-func (c *ProtoCompiler) compileFiles(files map[string]string) ([]protoreflect.FileDescriptor, error) {
-	accessor := protocompile.SourceAccessorFromMap(files)
-
-	names := make([]string, 0, len(files))
-	for name := range files {
-		names = append(names, name)
-	}
-
-	sourceResolver := &protocompile.SourceResolver{
-		Accessor: accessor,
-	}
-	compiler := protocompile.Compiler{
-		Resolver: protocompile.WithStandardImports(sourceResolver),
-	}
-
-	compiled, err := compiler.Compile(context.Background(), names...)
-	if err != nil {
-		return nil, fmt.Errorf("proto compile error: %w", err)
-	}
-
-	// Convert to []protoreflect.FileDescriptor
-	result := make([]protoreflect.FileDescriptor, len(compiled))
-	for i, f := range compiled {
-		result[i] = f
-	}
-	return result, nil
-}
-
-// indexCompiled indexes all message types from compiled file descriptors.
-func (c *ProtoCompiler) indexCompiled(compiled []protoreflect.FileDescriptor) {
-	descs := make(map[string]protoreflect.MessageDescriptor)
-	for _, f := range compiled {
-		if f == nil {
-			continue
+		errMsg := strings.TrimSpace(string(output))
+		if errMsg == "" {
+			errMsg = err.Error()
 		}
-		indexMessages(f.Messages(), descs)
+		return fmt.Errorf("protoc compile error: %s", errMsg)
+	}
+
+	// Read and parse the descriptor set
+	descSetBytes, err := os.ReadFile(descSetPath)
+	if err != nil {
+		return fmt.Errorf("failed to read descriptor set: %w", err)
+	}
+
+	fdSet := &descriptorpb.FileDescriptorSet{}
+	if err := proto.Unmarshal(descSetBytes, fdSet); err != nil {
+		return fmt.Errorf("failed to parse descriptor set: %w", err)
+	}
+
+	// Build protoreflect file descriptors from the FileDescriptorSet
+	descs, err := buildDescriptors(fdSet, files)
+	if err != nil {
+		return fmt.Errorf("failed to build descriptors: %w", err)
 	}
 
 	c.mu.Lock()
 	c.descriptors = descs
 	c.mu.Unlock()
+
+	log.Printf("[Proto] Compiled %d files, found %d message types", len(protoNames), len(descs))
+	return nil
 }
 
-// fixDuplicateEnumValues processes proto content to make duplicate enum value names
-// unique within their enclosing scope. Proto3 uses C++ scoping rules where enum values
-// are scoped to the enclosing message, not the enum itself. So if two enums in the same
-// message both have "UNKNOWN = 0", they conflict.
-//
-// This function detects such conflicts and prefixes duplicate values with the enum name.
-// For example, if both MessageType.UNKNOWN and MessageStatus.UNKNOWN exist in ChatMessage,
-// MessageStatus.UNKNOWN becomes MessageStatus.MS_UNKNOWN (using initials of the enum name).
-//
-// This transformation doesn't affect protobuf wire format decoding since only field numbers
-// matter, not enum value names.
-func fixDuplicateEnumValues(content string) string {
-	// Parse all top-level and nested message blocks, fix enums within each scope
-	return fixEnumsInScope(content)
-}
+// buildDescriptors converts a FileDescriptorSet into a map of message descriptors.
+// Only indexes messages from user-provided files (not well-known imports).
+func buildDescriptors(fdSet *descriptorpb.FileDescriptorSet, userFiles map[string]string) (map[string]protoreflect.MessageDescriptor, error) {
+	// Build a registry of FileDescriptors so cross-file references resolve
+	fileDescs := make(map[string]protoreflect.FileDescriptor, len(fdSet.File))
 
-// enumValueRegex matches enum value declarations like "UNKNOWN = 0;"
-var enumValueRegex = regexp.MustCompile(`(?m)^\s*([A-Z][A-Z0-9_]*)\s*=\s*(-?\d+)\s*;`)
-
-// enumBlockRegex matches enum blocks: "enum Name { ... }"
-var enumBlockRegex = regexp.MustCompile(`(?ms)enum\s+(\w+)\s*\{([^}]*)\}`)
-
-// fixEnumsInScope finds all enum blocks in the content and renames duplicate values.
-func fixEnumsInScope(content string) string {
-	// Strategy: find all enum blocks, collect value names, detect duplicates,
-	// then rename duplicates by prefixing with a short form of the enum name.
-
-	// We process the content in a scope-aware manner. For simplicity, we process
-	// the entire file as one scope (which matches proto3 C++ scoping behavior where
-	// enum values in nested enums still conflict with values in sibling enums
-	// within the same message).
-
-	// Step 1: Find all enum blocks and their value names
-	type enumInfo struct {
-		name       string
-		matchStart int
-		matchEnd   int
-		body       string
-		values     []string // value names in order
-	}
-
-	matches := enumBlockRegex.FindAllStringSubmatchIndex(content, -1)
-	if len(matches) == 0 {
-		return content
-	}
-
-	var enums []enumInfo
-	for _, m := range matches {
-		enumName := content[m[2]:m[3]]
-		body := content[m[4]:m[5]]
-
-		valueMatches := enumValueRegex.FindAllStringSubmatch(body, -1)
-		var values []string
-		for _, vm := range valueMatches {
-			values = append(values, vm[1])
+	for _, fdProto := range fdSet.File {
+		// Resolve dependencies first
+		deps := make([]protodesc.Resolver, 0)
+		for _, dep := range fdProto.Dependency {
+			if fd, ok := fileDescs[dep]; ok {
+				deps = append(deps, resolverFromFile(fd))
+			}
 		}
 
-		enums = append(enums, enumInfo{
-			name:       enumName,
-			matchStart: m[0],
-			matchEnd:   m[1],
-			body:       body,
-			values:     values,
+		// Build a combined resolver from dependencies
+		var resolver protodesc.Resolver
+		if len(deps) == 0 {
+			resolver = nil
+		} else if len(deps) == 1 {
+			resolver = deps[0]
+		} else {
+			resolver = &multiResolver{resolvers: deps}
+		}
+
+		opts := protodesc.FileOptions{
+			AllowUnresolvable: true, // Lenient: allow missing deps
+		}
+		if resolver != nil {
+			opts.AllowUnresolvable = false
+		}
+
+		fd, err := protodesc.NewFile(fdProto, &resolverWrapper{
+			fileDescs: fileDescs,
+			inner:     resolver,
 		})
-	}
-
-	// Step 2: Detect duplicate value names across enums
-	// Count how many enums define each value name
-	valueCounts := make(map[string]int)
-	for _, e := range enums {
-		for _, v := range e.values {
-			valueCounts[v]++
-		}
-	}
-
-	// Find which values are duplicated
-	hasDuplicates := false
-	for _, count := range valueCounts {
-		if count > 1 {
-			hasDuplicates = true
-			break
-		}
-	}
-
-	if !hasDuplicates {
-		return content
-	}
-
-	// Step 3: Rename duplicates by prefixing with enum name abbreviation
-	// Process in reverse order to preserve positions
-	result := content
-	for i := len(enums) - 1; i >= 0; i-- {
-		e := enums[i]
-		prefix := enumPrefix(e.name)
-
-		needsFix := false
-		for _, v := range e.values {
-			if valueCounts[v] > 1 {
-				needsFix = true
-				break
+		if err != nil {
+			// Try again with lenient mode
+			fd, err = protodesc.NewFile(fdProto, &lenientResolver{fileDescs: fileDescs})
+			if err != nil {
+				log.Printf("[Proto] Warning: skipping file %s: %v", fdProto.GetName(), err)
+				continue
 			}
 		}
 
-		if !needsFix {
-			continue
-		}
+		fileDescs[fdProto.GetName()] = fd
+	}
 
-		// Replace duplicate value names in this enum's body
-		newBody := e.body
-		for _, v := range e.values {
-			if valueCounts[v] > 1 {
-				newName := prefix + "_" + v
-				// Replace the value declaration (careful to match whole word)
-				re := regexp.MustCompile(`(?m)(^\s*)` + regexp.QuoteMeta(v) + `(\s*=)`)
-				newBody = re.ReplaceAllString(newBody, "${1}"+newName+"${2}")
-			}
-		}
-
-		if newBody != e.body {
-			// Reconstruct the enum block
-			oldBlock := content[e.matchStart:e.matchEnd]
-			newBlock := strings.Replace(oldBlock, e.body, newBody, 1)
-			result = result[:e.matchStart] + newBlock + result[e.matchEnd:]
+	// Index message types only from user-provided files
+	descs := make(map[string]protoreflect.MessageDescriptor)
+	for name, fd := range fileDescs {
+		if _, isUser := userFiles[name]; isUser {
+			indexMessages(fd.Messages(), descs)
 		}
 	}
 
-	return result
+	return descs, nil
 }
 
-// enumPrefix generates a short prefix from an enum name using uppercase letters.
-// Examples: "MessageType" -> "MT", "GroupStatus" -> "GS", "Status" -> "S"
-func enumPrefix(enumName string) string {
-	var prefix strings.Builder
-	for i, ch := range enumName {
-		if i == 0 || (ch >= 'A' && ch <= 'Z') {
-			prefix.WriteRune(ch)
-		}
-	}
-	result := prefix.String()
-	if result == "" {
-		return strings.ToUpper(enumName[:1])
-	}
-	return result
+// resolverWrapper implements protodesc.Resolver by looking up files from a map.
+type resolverWrapper struct {
+	fileDescs map[string]protoreflect.FileDescriptor
+	inner     protodesc.Resolver
 }
 
-// fixAngleBracketOptions converts text-format angle bracket syntax `<...>` to `{...}`
-// in protobuf option values. The `<>` message literal syntax is valid in protobuf
-// text-format (used extensively in Google's internal protos and many proto2 files),
-// but the bufbuild/protocompile parser only accepts `{}`.
-//
-// This handles:
-//   - Field options:   [(my_opt) = <name: "test", level: 3>]
-//   - Message options:  option (my_opt) = <name: "test">;
-//   - Nested brackets: <foo: <bar: 1>>
-//
-// This does NOT touch:
-//   - map<K,V> type declarations (different syntax, preceded by "map")
-//   - String literals (inside quotes)
-//   - Comments (// and /* */)
-func fixAngleBracketOptions(content string) string {
-	// We use a character-by-character scanner that tracks context:
-	// - inside string literal (skip)
-	// - inside comment (skip)
-	// - inside option value assignment after '=' (replace <> with {})
-
-	runes := []rune(content)
-	result := make([]rune, 0, len(runes))
-	i := 0
-	n := len(runes)
-
-	for i < n {
-		ch := runes[i]
-
-		// Skip // line comments
-		if ch == '/' && i+1 < n && runes[i+1] == '/' {
-			start := i
-			for i < n && runes[i] != '\n' {
-				i++
-			}
-			result = append(result, runes[start:i]...)
-			continue
-		}
-
-		// Skip /* block comments */
-		if ch == '/' && i+1 < n && runes[i+1] == '*' {
-			start := i
-			i += 2
-			for i+1 < n && !(runes[i] == '*' && runes[i+1] == '/') {
-				i++
-			}
-			if i+1 < n {
-				i += 2 // skip */
-			}
-			result = append(result, runes[start:i]...)
-			continue
-		}
-
-		// Skip string literals (both single and double quoted)
-		if ch == '"' || ch == '\'' {
-			quote := ch
-			result = append(result, ch)
-			i++
-			for i < n {
-				if runes[i] == '\\' && i+1 < n {
-					result = append(result, runes[i], runes[i+1])
-					i += 2
-					continue
-				}
-				if runes[i] == quote {
-					result = append(result, runes[i])
-					i++
-					break
-				}
-				result = append(result, runes[i])
-				i++
-			}
-			continue
-		}
-
-		// Check for map<K,V> — skip the <> in map type declarations
-		if ch == '<' && isMapType(runes, i) {
-			// This is map<K,V> syntax; pass through until matching >
-			result = append(result, ch)
-			i++
-			depth := 1
-			for i < n && depth > 0 {
-				if runes[i] == '<' {
-					depth++
-				} else if runes[i] == '>' {
-					depth--
-				}
-				result = append(result, runes[i])
-				i++
-			}
-			continue
-		}
-
-		// Check for option value context: `= <...>`
-		// We look for '<' and check backwards (ignoring whitespace) for '='
-		if ch == '<' && isOptionAngleBracket(runes, result) {
-			// Replace < with { and find the matching > (handling nesting)
-			result = append(result, '{')
-			i++
-			depth := 1
-			for i < n && depth > 0 {
-				c := runes[i]
-
-				// Even inside option values, respect strings
-				if c == '"' || c == '\'' {
-					quote := c
-					result = append(result, c)
-					i++
-					for i < n {
-						if runes[i] == '\\' && i+1 < n {
-							result = append(result, runes[i], runes[i+1])
-							i += 2
-							continue
-						}
-						if runes[i] == quote {
-							result = append(result, runes[i])
-							i++
-							break
-						}
-						result = append(result, runes[i])
-						i++
-					}
-					continue
-				}
-
-				if c == '<' {
-					result = append(result, '{')
-					depth++
-				} else if c == '>' {
-					result = append(result, '}')
-					depth--
-				} else {
-					result = append(result, c)
-				}
-				i++
-			}
-			continue
-		}
-
-		result = append(result, ch)
-		i++
+func (r *resolverWrapper) FindFileByPath(path string) (protoreflect.FileDescriptor, error) {
+	if fd, ok := r.fileDescs[path]; ok {
+		return fd, nil
 	}
-
-	return string(result)
+	if r.inner != nil {
+		return r.inner.FindFileByPath(path)
+	}
+	return nil, fmt.Errorf("file not found: %s", path)
 }
 
-// isMapType checks if the '<' at position i is part of a `map<K,V>` declaration.
-// It looks backwards from position i for the keyword "map" (with optional whitespace).
-func isMapType(runes []rune, i int) bool {
-	// Walk backwards from i, skipping whitespace
-	j := i - 1
-	for j >= 0 && (runes[j] == ' ' || runes[j] == '\t') {
-		j--
-	}
-	// Check for "map" (case-sensitive, as proto keywords are lowercase)
-	if j >= 2 && runes[j-2] == 'm' && runes[j-1] == 'a' && runes[j] == 'p' {
-		// Make sure 'map' is a whole word (not part of a longer identifier)
-		if j-3 < 0 || !isIdentRune(runes[j-3]) {
-			return true
+func (r *resolverWrapper) FindDescriptorByName(name protoreflect.FullName) (protoreflect.Descriptor, error) {
+	// Search through known files
+	for _, fd := range r.fileDescs {
+		if d := findInFile(fd, name); d != nil {
+			return d, nil
 		}
 	}
-	return false
-}
-
-// isOptionAngleBracket checks if a '<' (about to be appended) is in an option value context.
-// It looks backwards through the already-built result for '=' (skipping whitespace).
-// This catches patterns like:
-//
-//	= <...>
-//	= < ...>
-//	: <...>  (nested message field in text-format)
-func isOptionAngleBracket(runes []rune, result []rune) bool {
-	// Walk backwards through result, skipping whitespace
-	j := len(result) - 1
-	for j >= 0 && (result[j] == ' ' || result[j] == '\t' || result[j] == '\n' || result[j] == '\r') {
-		j--
+	if r.inner != nil {
+		return r.inner.FindDescriptorByName(name)
 	}
-	if j < 0 {
-		return false
+	return nil, fmt.Errorf("descriptor not found: %s", name)
+}
+
+// lenientResolver tries to resolve dependencies but never fails.
+type lenientResolver struct {
+	fileDescs map[string]protoreflect.FileDescriptor
+}
+
+func (r *lenientResolver) FindFileByPath(path string) (protoreflect.FileDescriptor, error) {
+	if fd, ok := r.fileDescs[path]; ok {
+		return fd, nil
 	}
-	// '=' is the option value assignment operator
-	// ':' is used in text-format for field values (nested messages)
-	return result[j] == '=' || result[j] == ':'
+	return nil, fmt.Errorf("file not found: %s", path)
 }
 
-// isIdentRune returns true if r is a valid identifier character.
-func isIdentRune(r rune) bool {
-	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_'
+func (r *lenientResolver) FindDescriptorByName(name protoreflect.FullName) (protoreflect.Descriptor, error) {
+	for _, fd := range r.fileDescs {
+		if d := findInFile(fd, name); d != nil {
+			return d, nil
+		}
+	}
+	return nil, fmt.Errorf("descriptor not found: %s", name)
 }
 
-// indexMessages recursively indexes all message types in a file.
+// findInFile searches a file descriptor for a named descriptor.
+func findInFile(fd protoreflect.FileDescriptor, name protoreflect.FullName) protoreflect.Descriptor {
+	// Check messages
+	if d := findMessageByName(fd.Messages(), name); d != nil {
+		return d
+	}
+	// Check enums
+	enums := fd.Enums()
+	for i := 0; i < enums.Len(); i++ {
+		e := enums.Get(i)
+		if e.FullName() == name {
+			return e
+		}
+	}
+	// Check extensions
+	exts := fd.Extensions()
+	for i := 0; i < exts.Len(); i++ {
+		ext := exts.Get(i)
+		if ext.FullName() == name {
+			return ext
+		}
+	}
+	return nil
+}
+
+func findMessageByName(msgs protoreflect.MessageDescriptors, name protoreflect.FullName) protoreflect.Descriptor {
+	for i := 0; i < msgs.Len(); i++ {
+		msg := msgs.Get(i)
+		if msg.FullName() == name {
+			return msg
+		}
+		// Check nested messages
+		if d := findMessageByName(msg.Messages(), name); d != nil {
+			return d
+		}
+		// Check nested enums
+		enums := msg.Enums()
+		for j := 0; j < enums.Len(); j++ {
+			e := enums.Get(j)
+			if e.FullName() == name {
+				return e
+			}
+		}
+	}
+	return nil
+}
+
+// multiResolver chains multiple resolvers.
+type multiResolver struct {
+	resolvers []protodesc.Resolver
+}
+
+func (m *multiResolver) FindFileByPath(path string) (protoreflect.FileDescriptor, error) {
+	for _, r := range m.resolvers {
+		if fd, err := r.FindFileByPath(path); err == nil {
+			return fd, nil
+		}
+	}
+	return nil, fmt.Errorf("file not found: %s", path)
+}
+
+func (m *multiResolver) FindDescriptorByName(name protoreflect.FullName) (protoreflect.Descriptor, error) {
+	for _, r := range m.resolvers {
+		if d, err := r.FindDescriptorByName(name); err == nil {
+			return d, nil
+		}
+	}
+	return nil, fmt.Errorf("descriptor not found: %s", name)
+}
+
+// resolverFromFile creates a Resolver that serves descriptors from a single FileDescriptor.
+func resolverFromFile(fd protoreflect.FileDescriptor) protodesc.Resolver {
+	return &singleFileResolver{fd: fd}
+}
+
+type singleFileResolver struct {
+	fd protoreflect.FileDescriptor
+}
+
+func (r *singleFileResolver) FindFileByPath(path string) (protoreflect.FileDescriptor, error) {
+	if string(r.fd.Path()) == path {
+		return r.fd, nil
+	}
+	return nil, fmt.Errorf("file not found: %s", path)
+}
+
+func (r *singleFileResolver) FindDescriptorByName(name protoreflect.FullName) (protoreflect.Descriptor, error) {
+	if d := findInFile(r.fd, name); d != nil {
+		return d, nil
+	}
+	return nil, fmt.Errorf("descriptor not found: %s", name)
+}
+
+// indexMessages recursively indexes all message types from message descriptors.
 func indexMessages(msgs protoreflect.MessageDescriptors, out map[string]protoreflect.MessageDescriptor) {
 	for i := 0; i < msgs.Len(); i++ {
 		msg := msgs.Get(i)
@@ -546,5 +413,173 @@ func (c *ProtoCompiler) GetAllMessageTypes() []string {
 	return result
 }
 
-// Ensure SourceAccessorFromMap signature matches - it returns a func(string) (io.ReadCloser, error)
-var _ func(string) (io.ReadCloser, error) = protocompile.SourceAccessorFromMap(nil)
+// --- Preprocessor: angle bracket option syntax ---
+
+// fixAngleBracketOptions converts text-format angle bracket syntax `<...>` to `{...}`
+// in protobuf option values. The `<>` message literal syntax is valid in protobuf
+// text-format (used extensively in Google's internal protos and many proto2 files),
+// but protoc only accepts `{}` in .proto source files.
+//
+// This handles:
+//   - Field options:   [(my_opt) = <name: "test", level: 3>]
+//   - Message options:  option (my_opt) = <name: "test">;
+//   - Nested brackets: <foo: <bar: 1>>
+//
+// This does NOT touch:
+//   - map<K,V> type declarations (different syntax, preceded by "map")
+//   - String literals (inside quotes)
+//   - Comments (// and /* */)
+func fixAngleBracketOptions(content string) string {
+	runes := []rune(content)
+	result := make([]rune, 0, len(runes))
+	i := 0
+	n := len(runes)
+
+	for i < n {
+		ch := runes[i]
+
+		// Skip // line comments
+		if ch == '/' && i+1 < n && runes[i+1] == '/' {
+			start := i
+			for i < n && runes[i] != '\n' {
+				i++
+			}
+			result = append(result, runes[start:i]...)
+			continue
+		}
+
+		// Skip /* block comments */
+		if ch == '/' && i+1 < n && runes[i+1] == '*' {
+			start := i
+			i += 2
+			for i+1 < n && !(runes[i] == '*' && runes[i+1] == '/') {
+				i++
+			}
+			if i+1 < n {
+				i += 2 // skip */
+			}
+			result = append(result, runes[start:i]...)
+			continue
+		}
+
+		// Skip string literals (both single and double quoted)
+		if ch == '"' || ch == '\'' {
+			quote := ch
+			result = append(result, ch)
+			i++
+			for i < n {
+				if runes[i] == '\\' && i+1 < n {
+					result = append(result, runes[i], runes[i+1])
+					i += 2
+					continue
+				}
+				if runes[i] == quote {
+					result = append(result, runes[i])
+					i++
+					break
+				}
+				result = append(result, runes[i])
+				i++
+			}
+			continue
+		}
+
+		// Check for map<K,V> — skip the <> in map type declarations
+		if ch == '<' && isMapType(runes, i) {
+			result = append(result, ch)
+			i++
+			depth := 1
+			for i < n && depth > 0 {
+				if runes[i] == '<' {
+					depth++
+				} else if runes[i] == '>' {
+					depth--
+				}
+				result = append(result, runes[i])
+				i++
+			}
+			continue
+		}
+
+		// Check for option value context: `= <...>` or `: <...>`
+		if ch == '<' && isOptionAngleBracket(runes, result) {
+			result = append(result, '{')
+			i++
+			depth := 1
+			for i < n && depth > 0 {
+				c := runes[i]
+
+				// Respect strings inside option values
+				if c == '"' || c == '\'' {
+					quote := c
+					result = append(result, c)
+					i++
+					for i < n {
+						if runes[i] == '\\' && i+1 < n {
+							result = append(result, runes[i], runes[i+1])
+							i += 2
+							continue
+						}
+						if runes[i] == quote {
+							result = append(result, runes[i])
+							i++
+							break
+						}
+						result = append(result, runes[i])
+						i++
+					}
+					continue
+				}
+
+				if c == '<' {
+					result = append(result, '{')
+					depth++
+				} else if c == '>' {
+					result = append(result, '}')
+					depth--
+				} else {
+					result = append(result, c)
+				}
+				i++
+			}
+			continue
+		}
+
+		result = append(result, ch)
+		i++
+	}
+
+	return string(result)
+}
+
+// isMapType checks if the '<' at position i is part of a `map<K,V>` declaration.
+func isMapType(runes []rune, i int) bool {
+	j := i - 1
+	for j >= 0 && (runes[j] == ' ' || runes[j] == '\t') {
+		j--
+	}
+	if j >= 2 && runes[j-2] == 'm' && runes[j-1] == 'a' && runes[j] == 'p' {
+		if j-3 < 0 || !isIdentRune(runes[j-3]) {
+			return true
+		}
+	}
+	return false
+}
+
+// isOptionAngleBracket checks if a '<' is in an option value context.
+// Looks backwards through the already-built result for '=' or ':' (skipping whitespace).
+func isOptionAngleBracket(runes []rune, result []rune) bool {
+	j := len(result) - 1
+	for j >= 0 && (result[j] == ' ' || result[j] == '\t' || result[j] == '\n' || result[j] == '\r') {
+		j--
+	}
+	if j < 0 {
+		return false
+	}
+	return result[j] == '=' || result[j] == ':'
+}
+
+// isIdentRune returns true if r is a valid identifier character.
+func isIdentRune(r rune) bool {
+	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_'
+}

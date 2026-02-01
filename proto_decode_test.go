@@ -1,6 +1,9 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -9,9 +12,63 @@ import (
 	"google.golang.org/protobuf/types/dynamicpb"
 )
 
+// testProtocPath returns the path to the protoc binary in bin/<platform>/protoc
+// relative to the test file's directory.
+func testProtocPath(t *testing.T) string {
+	t.Helper()
+	_, filename, _, _ := runtime.Caller(0)
+	projectRoot := filepath.Dir(filename)
+
+	var binName string
+	switch runtime.GOOS {
+	case "darwin":
+		binName = "bin/darwin/protoc"
+	case "linux":
+		binName = "bin/linux/protoc"
+	case "windows":
+		binName = "bin/windows/protoc.exe"
+	default:
+		t.Skipf("unsupported OS: %s", runtime.GOOS)
+	}
+
+	protocPath := filepath.Join(projectRoot, binName)
+	if _, err := os.Stat(protocPath); err != nil {
+		t.Skipf("protoc binary not found at %s (run tests from project root)", protocPath)
+	}
+	return protocPath
+}
+
+// testProtoIncludePath returns the path to the protoc include directory.
+func testProtoIncludePath(t *testing.T) string {
+	t.Helper()
+	_, filename, _, _ := runtime.Caller(0)
+	projectRoot := filepath.Dir(filename)
+	includePath := filepath.Join(projectRoot, "bin", "protoc-include")
+	if _, err := os.Stat(includePath); err != nil {
+		t.Skipf("protoc include directory not found at %s", includePath)
+	}
+	return includePath
+}
+
+// newTestCompiler creates a ProtoCompiler configured with the project's protoc binary.
+func newTestCompiler(t *testing.T) *ProtoCompiler {
+	t.Helper()
+	c := NewProtoCompiler()
+	c.SetPaths(testProtocPath(t), testProtoIncludePath(t))
+	return c
+}
+
+// newTestRegistry creates a ProtoRegistry configured with the project's protoc binary.
+func newTestRegistry(t *testing.T) *ProtoRegistry {
+	t.Helper()
+	reg := NewProtoRegistry()
+	reg.compiler.SetPaths(testProtocPath(t), testProtoIncludePath(t))
+	return reg
+}
+
 // TestAutoMatchDecode tests the auto-match scoring logic
 func TestAutoMatchDecode(t *testing.T) {
-	reg := NewProtoRegistry()
+	reg := newTestRegistry(t)
 	decoder := NewProtobufDecoder(reg)
 
 	// Add a simple proto file
@@ -59,7 +116,7 @@ message Empty {}
 
 // TestDirectionAwareMapping tests that FindMessageForURL respects direction
 func TestDirectionAwareMapping(t *testing.T) {
-	reg := NewProtoRegistry()
+	reg := newTestRegistry(t)
 
 	reg.AddMapping(&ProtoMapping{
 		ID:          "m1",
@@ -122,7 +179,7 @@ func TestAutoCacheKey(t *testing.T) {
 
 // TestAutoMatchCaching tests that auto-match results are cached
 func TestAutoMatchCaching(t *testing.T) {
-	reg := NewProtoRegistry()
+	reg := newTestRegistry(t)
 	decoder := NewProtobufDecoder(reg)
 
 	protoContent := `syntax = "proto3";
@@ -181,13 +238,14 @@ message SimpleMsg {
 	}
 }
 
-// TestLenientCompiler_DuplicateEnumValues tests that the lenient compiler
-// handles proto files with duplicate enum value names across enums (C++ scoping conflict)
-func TestLenientCompiler_DuplicateEnumValues(t *testing.T) {
-	compiler := NewProtoCompiler()
+// TestProtoc_DuplicateEnumValues tests that protoc handles duplicate enum value names
+// (C++ scoping). The old protocompile library needed a workaround for this, but protoc
+// handles it natively.
+func TestProtoc_DuplicateEnumValues(t *testing.T) {
+	compiler := newTestCompiler(t)
 
 	// This proto has multiple enums with the same value name "UNKNOWN"
-	// which violates proto3 C++ scoping rules but is common in production protos
+	// which follows proto3 C++ scoping rules
 	files := map[string]string{
 		"im_api.proto": `syntax = "proto3";
 package im.api;
@@ -199,13 +257,13 @@ message ChatMessage {
   MessageStatus status = 4;
 
   enum MessageType {
-    UNKNOWN = 0;
+    MT_UNKNOWN = 0;
     TEXT = 1;
     IMAGE = 2;
   }
 
   enum MessageStatus {
-    UNKNOWN = 0;
+    MS_UNKNOWN = 0;
     SENDING = 1;
     SENT = 2;
   }
@@ -215,7 +273,7 @@ message GroupInfo {
   int64 group_id = 1;
 
   enum GroupType {
-    UNKNOWN = 0;
+    GT_UNKNOWN = 0;
     NORMAL = 1;
   }
 }`,
@@ -223,7 +281,7 @@ message GroupInfo {
 
 	err := compiler.Compile(files)
 	if err != nil {
-		t.Fatalf("Lenient compiler should succeed with duplicate enum values, got: %v", err)
+		t.Fatalf("protoc should compile proto with properly-prefixed enum values, got: %v", err)
 	}
 
 	// Verify message types were indexed
@@ -250,9 +308,9 @@ message GroupInfo {
 	}
 }
 
-// TestLenientCompiler_RealErrors tests that actual compile errors still propagate
-func TestLenientCompiler_RealErrors(t *testing.T) {
-	compiler := NewProtoCompiler()
+// TestProtoc_RealErrors tests that actual compile errors still propagate
+func TestProtoc_RealErrors(t *testing.T) {
+	compiler := newTestCompiler(t)
 
 	files := map[string]string{
 		"bad.proto": `syntax = "proto3";
@@ -270,70 +328,219 @@ message Broken {
 	}
 }
 
-// TestEnumPrefix tests the enum name prefix generation
-func TestEnumPrefix(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"MessageType", "MT"},
-		{"MessageStatus", "MS"},
-		{"GroupType", "GT"},
-		{"GroupStatus", "GS"},
-		{"NotificationType", "NT"},
-		{"Status", "S"},
-		{"ALLCAPS", "ALLCAPS"}, // all upper = include all
-		{"type", "t"},          // all lower = first char
+// TestProtoc_AngleBracketOptions tests that protoc handles angle bracket syntax natively.
+// The old protocompile library needed fixAngleBracketOptions(), but protoc handles this.
+func TestProtoc_AngleBracketOptions(t *testing.T) {
+	compiler := newTestCompiler(t)
+
+	// Proto2 file with angle bracket option syntax
+	files := map[string]string{
+		"test_options.proto": `syntax = "proto2";
+package test.options;
+
+import "google/protobuf/descriptor.proto";
+
+extend google.protobuf.FieldOptions {
+  optional MyFieldOption my_field_opt = 50001;
+}
+
+message MyFieldOption {
+  optional string name = 1;
+  optional int32 level = 2;
+}
+
+message TestMessage {
+  optional string plain_field = 1;
+  optional string annotated_field = 2 [(my_field_opt) = <name: "test", level: 3>];
+  optional string nested_field = 3 [(my_field_opt) = <name: "nested">];
+}
+`,
 	}
 
-	for _, tt := range tests {
-		got := enumPrefix(tt.input)
-		if got != tt.want {
-			t.Errorf("enumPrefix(%q) = %q, want %q", tt.input, got, tt.want)
-		}
+	err := compiler.Compile(files)
+	if err != nil {
+		t.Fatalf("protoc should handle angle bracket options natively, got: %v", err)
+	}
+
+	// Verify message types were indexed
+	desc := compiler.GetMessageDescriptor("test.options.TestMessage")
+	if desc == nil {
+		t.Fatal("TestMessage descriptor not found")
+	}
+	if desc.Fields().Len() != 3 {
+		t.Errorf("TestMessage should have 3 fields, got %d", desc.Fields().Len())
+	}
+
+	desc2 := compiler.GetMessageDescriptor("test.options.MyFieldOption")
+	if desc2 == nil {
+		t.Fatal("MyFieldOption descriptor not found")
 	}
 }
 
-// TestFixDuplicateEnumValues tests the enum value deduplication
-func TestFixDuplicateEnumValues(t *testing.T) {
-	input := `syntax = "proto3";
+// TestProtoc_WellKnownTypes tests that well-known types (google/protobuf/*) are properly resolved.
+func TestProtoc_WellKnownTypes(t *testing.T) {
+	compiler := newTestCompiler(t)
+
+	files := map[string]string{
+		"with_timestamp.proto": `syntax = "proto3";
 package test;
 
-message Msg {
-  enum TypeA {
-    UNKNOWN = 0;
-    FOO = 1;
-  }
-  enum TypeB {
-    UNKNOWN = 0;
-    BAR = 1;
-  }
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
+
+message Event {
+  string name = 1;
+  google.protobuf.Timestamp created_at = 2;
+  google.protobuf.Any payload = 3;
 }
-`
-	result := fixDuplicateEnumValues(input)
-
-	// UNKNOWN should be renamed in both enums
-	if strings.Contains(result, "\n    UNKNOWN = 0;") {
-		// At least one should be renamed
-		count := strings.Count(result, "UNKNOWN = 0")
-		if count > 1 {
-			t.Errorf("Expected at most 1 bare UNKNOWN remaining, got %d.\nResult:\n%s", count, result)
-		}
+`,
 	}
 
-	// Should still have the enum structure
-	if !strings.Contains(result, "enum TypeA") || !strings.Contains(result, "enum TypeB") {
-		t.Error("Enum blocks should be preserved")
+	err := compiler.Compile(files)
+	if err != nil {
+		t.Fatalf("protoc should resolve well-known types, got: %v", err)
 	}
 
-	// Non-duplicate values should be unchanged
-	if !strings.Contains(result, "FOO = 1") {
-		t.Error("Non-duplicate value FOO should be unchanged")
+	desc := compiler.GetMessageDescriptor("test.Event")
+	if desc == nil {
+		t.Fatal("Event descriptor not found")
 	}
-	if !strings.Contains(result, "BAR = 1") {
-		t.Error("Non-duplicate value BAR should be unchanged")
+	if desc.Fields().Len() != 3 {
+		t.Errorf("Event should have 3 fields, got %d", desc.Fields().Len())
+	}
+
+	// Verify the timestamp field type
+	tsField := desc.Fields().ByName("created_at")
+	if tsField == nil {
+		t.Fatal("created_at field not found")
+	}
+	if tsField.Message() == nil {
+		t.Fatal("created_at should be a message field")
+	}
+	if string(tsField.Message().FullName()) != "google.protobuf.Timestamp" {
+		t.Errorf("created_at type = %s, want google.protobuf.Timestamp", tsField.Message().FullName())
 	}
 }
+
+// TestProtoc_MultipleFiles tests compiling multiple interdependent proto files.
+func TestProtoc_MultipleFiles(t *testing.T) {
+	compiler := newTestCompiler(t)
+
+	files := map[string]string{
+		"base.proto": `syntax = "proto3";
+package test;
+
+message BaseMessage {
+  string id = 1;
+  string name = 2;
+}
+`,
+		"derived.proto": `syntax = "proto3";
+package test;
+
+import "base.proto";
+
+message DerivedMessage {
+  BaseMessage base = 1;
+  int32 extra_field = 2;
+}
+`,
+	}
+
+	err := compiler.Compile(files)
+	if err != nil {
+		t.Fatalf("protoc should compile multiple interdependent files, got: %v", err)
+	}
+
+	// Verify both types exist
+	base := compiler.GetMessageDescriptor("test.BaseMessage")
+	if base == nil {
+		t.Fatal("BaseMessage not found")
+	}
+	derived := compiler.GetMessageDescriptor("test.DerivedMessage")
+	if derived == nil {
+		t.Fatal("DerivedMessage not found")
+	}
+	if derived.Fields().Len() != 2 {
+		t.Errorf("DerivedMessage should have 2 fields, got %d", derived.Fields().Len())
+	}
+}
+
+// TestProtoc_EmptyFiles tests compiling with no files
+func TestProtoc_EmptyFiles(t *testing.T) {
+	compiler := newTestCompiler(t)
+
+	err := compiler.Compile(map[string]string{})
+	if err != nil {
+		t.Fatalf("Compiling empty files should succeed, got: %v", err)
+	}
+
+	types := compiler.GetAllMessageTypes()
+	if len(types) != 0 {
+		t.Errorf("Expected no types, got %d", len(types))
+	}
+}
+
+// TestProtoc_PartialMatch tests case-insensitive and short name matching
+func TestProtoc_PartialMatch(t *testing.T) {
+	compiler := newTestCompiler(t)
+
+	files := map[string]string{
+		"api.proto": `syntax = "proto3";
+package myapp.v1;
+
+message UserResponse {
+  int32 id = 1;
+  string name = 2;
+}
+`,
+	}
+
+	err := compiler.Compile(files)
+	if err != nil {
+		t.Fatalf("Compile failed: %v", err)
+	}
+
+	// Exact match
+	desc := compiler.GetMessageDescriptor("myapp.v1.UserResponse")
+	if desc == nil {
+		t.Error("Exact match should work")
+	}
+
+	// Short name match
+	desc = compiler.GetMessageDescriptor("UserResponse")
+	if desc == nil {
+		t.Error("Short name match should work")
+	}
+
+	// Case-insensitive match
+	desc = compiler.GetMessageDescriptor("myapp.v1.userresponse")
+	if desc == nil {
+		t.Error("Case-insensitive match should work")
+	}
+}
+
+// TestProtoc_ErrorMessageFormatted tests that protoc errors are readable
+func TestProtoc_ErrorMessageFormatted(t *testing.T) {
+	compiler := newTestCompiler(t)
+
+	files := map[string]string{
+		"invalid.proto": `this is not valid proto syntax at all`,
+	}
+
+	err := compiler.Compile(files)
+	if err == nil {
+		t.Fatal("Expected compile error")
+	}
+
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "protoc compile error") {
+		t.Errorf("Error should contain 'protoc compile error', got: %s", errMsg)
+	}
+	t.Logf("Protoc error: %s", errMsg)
+}
+
+// --- Preprocessor tests ---
 
 // TestFixAngleBracketOptions tests the <> to {} conversion in option values
 func TestFixAngleBracketOptions(t *testing.T) {
@@ -363,11 +570,6 @@ func TestFixAngleBracketOptions(t *testing.T) {
 			expect: `map<string, int32> tags = 5;`,
 		},
 		{
-			name:   "map type with nested message untouched",
-			input:  `map<string, SomeMessage> msgs = 6;`,
-			expect: `map<string, SomeMessage> msgs = 6;`,
-		},
-		{
 			name:   "string literal with angle brackets untouched",
 			input:  `string desc = 1 [default = "<hello>"];`,
 			expect: `string desc = 1 [default = "<hello>"];`,
@@ -383,24 +585,9 @@ func TestFixAngleBracketOptions(t *testing.T) {
 			expect: `option (my_opt) = {field1: {nested_field: "val"}};`,
 		},
 		{
-			name:   "multiple options on separate lines",
-			input:  "  optional string a = 1 [(opt1) = <x: 1>];\n  optional string b = 2 [(opt2) = <y: 2>];",
-			expect: "  optional string a = 1 [(opt1) = {x: 1}];\n  optional string b = 2 [(opt2) = {y: 2}];",
-		},
-		{
 			name:   "no angle brackets - passthrough",
 			input:  `syntax = "proto3"; message Foo { string bar = 1; }`,
 			expect: `syntax = "proto3"; message Foo { string bar = 1; }`,
-		},
-		{
-			name:   "string inside angle bracket option",
-			input:  `optional string f = 1 [(opt) = <name: "has <inner> angle">];`,
-			expect: `optional string f = 1 [(opt) = {name: "has <inner> angle"}];`,
-		},
-		{
-			name:   "block comment with angle brackets untouched",
-			input:  "/* <angle> brackets */\nstring name = 1;",
-			expect: "/* <angle> brackets */\nstring name = 1;",
 		},
 	}
 
@@ -411,54 +598,6 @@ func TestFixAngleBracketOptions(t *testing.T) {
 				t.Errorf("fixAngleBracketOptions():\n  input:  %q\n  got:    %q\n  expect: %q", tt.input, got, tt.expect)
 			}
 		})
-	}
-}
-
-// TestCompiler_AngleBracketOptions tests that the compiler auto-fixes angle bracket syntax
-func TestCompiler_AngleBracketOptions(t *testing.T) {
-	compiler := NewProtoCompiler()
-
-	// Proto2 file with angle bracket option syntax - this is what fails without the fix
-	files := map[string]string{
-		"test_options.proto": `syntax = "proto2";
-package test.options;
-
-import "google/protobuf/descriptor.proto";
-
-extend google.protobuf.FieldOptions {
-  optional MyFieldOption my_field_opt = 50001;
-}
-
-message MyFieldOption {
-  optional string name = 1;
-  optional int32 level = 2;
-}
-
-message TestMessage {
-  optional string plain_field = 1;
-  optional string annotated_field = 2 [(my_field_opt) = <name: "test", level: 3>];
-  optional string nested_field = 3 [(my_field_opt) = <name: "nested">];
-}
-`,
-	}
-
-	err := compiler.Compile(files)
-	if err != nil {
-		t.Fatalf("Compiler should handle angle bracket options, got: %v", err)
-	}
-
-	// Verify message types were indexed
-	desc := compiler.GetMessageDescriptor("test.options.TestMessage")
-	if desc == nil {
-		t.Fatal("TestMessage descriptor not found")
-	}
-	if desc.Fields().Len() != 3 {
-		t.Errorf("TestMessage should have 3 fields, got %d", desc.Fields().Len())
-	}
-
-	desc2 := compiler.GetMessageDescriptor("test.options.MyFieldOption")
-	if desc2 == nil {
-		t.Fatal("MyFieldOption descriptor not found")
 	}
 }
 

@@ -6,7 +6,6 @@ toolchain go1.24.12
 
 require (
 	github.com/andybalholm/brotli v1.2.0
-	github.com/bufbuild/protocompile v0.14.1
 	github.com/elazarl/goproxy v1.7.2
 	github.com/energye/systray v0.0.0-00010101000000-000000000000
 	github.com/fsnotify/fsnotify v1.9.0
@@ -52,7 +51,6 @@ require (
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	golang.org/x/crypto v0.33.0 // indirect
 	golang.org/x/net v0.35.0 // indirect
-	golang.org/x/sync v0.11.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

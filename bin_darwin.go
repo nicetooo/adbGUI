@@ -18,3 +18,6 @@ var ffmpegBinary []byte
 
 //go:embed bin/darwin/ffprobe
 var ffprobeBinary []byte
+
+//go:embed bin/darwin/protoc
+var protocBinary []byte

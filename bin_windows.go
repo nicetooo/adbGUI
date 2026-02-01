@@ -18,3 +18,6 @@ var ffmpegBinary []byte
 
 //go:embed bin/windows/ffprobe.exe
 var ffprobeBinary []byte
+
+//go:embed bin/windows/protoc.exe
+var protocBinary []byte

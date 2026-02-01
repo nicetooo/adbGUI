@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"embed"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -20,17 +22,19 @@ import (
 
 // App struct
 type App struct {
-	ctx             context.Context
-	ctxCancel       context.CancelFunc // For MCP mode cleanup
-	adbPath         string
-	scrcpyPath      string
-	serverPath      string
-	aaptPath        string
-	ffmpegPath      string
-	ffprobePath     string
-	adbKeyboardPath string // Path to extracted ADBKeyboard APK for Unicode text input
-	logcatCmd       *exec.Cmd
-	logcatCancel    context.CancelFunc
+	ctx              context.Context
+	ctxCancel        context.CancelFunc // For MCP mode cleanup
+	adbPath          string
+	scrcpyPath       string
+	serverPath       string
+	aaptPath         string
+	ffmpegPath       string
+	ffprobePath      string
+	adbKeyboardPath  string // Path to extracted ADBKeyboard APK for Unicode text input
+	protocPath       string // Path to extracted protoc binary
+	protocIncludeDir string // Path to extracted protoc well-known type includes
+	logcatCmd        *exec.Cmd
+	logcatCancel     context.CancelFunc
 
 	// Generic mutex for shared state
 	mu sync.Mutex
@@ -140,6 +144,10 @@ func (a *App) GetAppVersion() string {
 // initCore contains the shared initialization logic for both GUI and MCP modes.
 func (a *App) initCore() {
 	a.setupBinaries()
+
+	// Configure protoc paths for proto compiler (must be before LoadProtoConfig)
+	getProtoRegistry().compiler.SetPaths(a.protocPath, a.protocIncludeDir)
+
 	a.initEventSystem()
 	a.StartDeviceMonitor()
 	a.LoadMockRules()
@@ -390,8 +398,49 @@ func (a *App) setupBinaries() {
 		a.Log("ADBKeyboard APK setup at: %s", a.adbKeyboardPath)
 	}
 
+	// Setup protoc binary
+	if len(protocBinary) > 0 {
+		a.protocPath = extract("protoc", protocBinary)
+		a.Log("Protoc setup at: %s", a.protocPath)
+	}
+
+	// Setup protoc well-known type includes (embedded filesystem → disk)
+	protocIncludeDir := filepath.Join(appBinDir, "protoc-include")
+	a.extractEmbedDir(protocIncludeFS, "bin/protoc-include", protocIncludeDir)
+	a.protocIncludeDir = protocIncludeDir
+	a.Log("Protoc includes at: %s", a.protocIncludeDir)
+
 	a.Log("Binaries setup at: %s", appBinDir)
 	a.Log("Final ADB path: %s", a.adbPath)
+}
+
+// extractEmbedDir extracts an embedded filesystem directory to disk.
+// srcPrefix is the embedded path prefix (e.g. "bin/protoc-include"),
+// dstDir is the target directory on disk.
+func (a *App) extractEmbedDir(fsys embed.FS, srcPrefix string, dstDir string) {
+	_ = os.MkdirAll(dstDir, 0755)
+	entries, err := fs.ReadDir(fsys, srcPrefix)
+	if err != nil {
+		LogDebug("app").Str("prefix", srcPrefix).Err(err).Msg("Failed to read embedded dir")
+		return
+	}
+	for _, entry := range entries {
+		srcPath := srcPrefix + "/" + entry.Name()
+		dstPath := filepath.Join(dstDir, entry.Name())
+		if entry.IsDir() {
+			a.extractEmbedDir(fsys, srcPath, dstPath)
+		} else {
+			data, err := fsys.ReadFile(srcPath)
+			if err != nil {
+				continue
+			}
+			// Only write if content changed (same smart-extract logic as binaries)
+			info, statErr := os.Stat(dstPath)
+			if statErr != nil || info.Size() != int64(len(data)) {
+				_ = os.WriteFile(dstPath, data, 0644)
+			}
+		}
+	}
 }
 
 // Command helper functions
