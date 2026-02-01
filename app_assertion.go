@@ -238,6 +238,129 @@ func (a *App) DeleteStoredAssertion(assertionID string) error {
 	return a.assertionEngine.DeleteStoredAssertion(assertionID)
 }
 
+// ========================================
+// Assertion Set API Methods
+// ========================================
+
+// CreateAssertionSet creates a new assertion set
+func (a *App) CreateAssertionSet(name, description string, assertionIDs []string) (string, error) {
+	if a.assertionEngine == nil {
+		return "", fmt.Errorf("assertion engine not initialized")
+	}
+	return a.assertionEngine.CreateAssertionSet(name, description, assertionIDs)
+}
+
+// CreateAssertionSetJSON creates a new assertion set from JSON
+func (a *App) CreateAssertionSetJSON(jsonStr string) (string, error) {
+	if a.assertionEngine == nil {
+		return "", fmt.Errorf("assertion engine not initialized")
+	}
+
+	var data struct {
+		Name        string   `json:"name"`
+		Description string   `json:"description"`
+		Assertions  []string `json:"assertions"`
+	}
+	if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
+		return "", fmt.Errorf("invalid JSON: %v", err)
+	}
+
+	return a.assertionEngine.CreateAssertionSet(data.Name, data.Description, data.Assertions)
+}
+
+// UpdateAssertionSet updates an existing assertion set
+func (a *App) UpdateAssertionSet(id, name, description string, assertionIDs []string) error {
+	if a.assertionEngine == nil {
+		return fmt.Errorf("assertion engine not initialized")
+	}
+	return a.assertionEngine.UpdateAssertionSet(id, name, description, assertionIDs)
+}
+
+// UpdateAssertionSetJSON updates an existing assertion set from JSON
+func (a *App) UpdateAssertionSetJSON(id string, jsonStr string) error {
+	if a.assertionEngine == nil {
+		return fmt.Errorf("assertion engine not initialized")
+	}
+
+	var data struct {
+		Name        string   `json:"name"`
+		Description string   `json:"description"`
+		Assertions  []string `json:"assertions"`
+	}
+	if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
+		return fmt.Errorf("invalid JSON: %v", err)
+	}
+
+	return a.assertionEngine.UpdateAssertionSet(id, data.Name, data.Description, data.Assertions)
+}
+
+// DeleteAssertionSet deletes an assertion set
+func (a *App) DeleteAssertionSet(id string) error {
+	if a.assertionEngine == nil {
+		return fmt.Errorf("assertion engine not initialized")
+	}
+	return a.assertionEngine.DeleteAssertionSet(id)
+}
+
+// GetAssertionSet gets an assertion set by ID
+func (a *App) GetAssertionSet(id string) (*AssertionSet, error) {
+	if a.assertionEngine == nil {
+		return nil, fmt.Errorf("assertion engine not initialized")
+	}
+	return a.assertionEngine.GetAssertionSet(id)
+}
+
+// ListAssertionSets lists all assertion sets
+func (a *App) ListAssertionSets() ([]AssertionSet, error) {
+	if a.assertionEngine == nil {
+		return nil, fmt.Errorf("assertion engine not initialized")
+	}
+	return a.assertionEngine.ListAssertionSets()
+}
+
+// ExecuteAssertionSet executes all assertions in a set
+func (a *App) ExecuteAssertionSet(setID, sessionID, deviceID string) (*AssertionSetResult, error) {
+	if a.assertionEngine == nil {
+		return nil, fmt.Errorf("assertion engine not initialized")
+	}
+
+	set, err := a.assertionEngine.GetAssertionSet(setID)
+	if err != nil {
+		return nil, err
+	}
+	if set == nil {
+		return nil, fmt.Errorf("assertion set not found: %s", setID)
+	}
+
+	result, err := a.assertionEngine.ExecuteAssertionSet(set, sessionID, deviceID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 持久化结果
+	if err := a.assertionEngine.SaveAssertionSetResult(result); err != nil {
+		LogWarn("assertion_set").Err(err).Str("setId", setID).Msg("Failed to persist assertion set result")
+	}
+
+	return result, nil
+}
+
+// GetAssertionSetResults gets execution history for an assertion set
+func (a *App) GetAssertionSetResults(setID string, limit int) ([]AssertionSetResult, error) {
+	if a.assertionEngine == nil {
+		return nil, fmt.Errorf("assertion engine not initialized")
+	}
+	return a.assertionEngine.ListAssertionSetResults(setID, limit)
+}
+
+// GetAssertionSetResult gets a specific execution result
+func (a *App) GetAssertionSetResultByExecution(executionID string) (*AssertionSetResult, error) {
+	if a.assertionEngine == nil {
+		return nil, fmt.Errorf("assertion engine not initialized")
+	}
+	return a.assertionEngine.GetAssertionSetResult(executionID)
+}
+
 // ExecuteStoredAssertionInSession executes a stored assertion in a specific session context
 func (a *App) ExecuteStoredAssertionInSession(assertionID, sessionID, deviceID string) (*AssertionResult, error) {
 	if a.assertionEngine == nil {

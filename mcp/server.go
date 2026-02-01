@@ -4,6 +4,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -352,8 +353,93 @@ type GazeApp interface {
 	DeleteTouchScript(name string) error
 	ExecuteSingleTouchEvent(deviceId string, event TouchEvent, resolution string) error
 
+	// Individual Assertions
+	ListStoredAssertions(sessionID, deviceID string, templatesOnly bool, limit int) ([]MCPStoredAssertion, error)
+	CreateStoredAssertionJSON(assertionJSON string, saveAsTemplate bool) error
+	GetStoredAssertion(assertionID string) (*MCPStoredAssertion, error)
+	UpdateStoredAssertionJSON(assertionID string, assertionJSON string) error
+	DeleteStoredAssertion(assertionID string) error
+	ExecuteStoredAssertionInSession(assertionID, sessionID, deviceID string) (*MCPAssertionResult, error)
+	QuickAssertNoErrors(sessionID, deviceID string) (*MCPAssertionResult, error)
+	QuickAssertNoCrashes(sessionID, deviceID string) (*MCPAssertionResult, error)
+
+	// Assertion Sets
+	CreateAssertionSet(name, description string, assertionIDs []string) (string, error)
+	UpdateAssertionSet(id, name, description string, assertionIDs []string) error
+	DeleteAssertionSet(id string) error
+	GetAssertionSet(id string) (*MCPAssertionSet, error)
+	ListAssertionSets() ([]MCPAssertionSet, error)
+	ExecuteAssertionSet(setID, sessionID, deviceID string) (*MCPAssertionSetResult, error)
+	GetAssertionSetResults(setID string, limit int) ([]MCPAssertionSetResult, error)
+	GetAssertionSetResultByExecution(executionID string) (*MCPAssertionSetResult, error)
+
 	// Utility
 	GetAppVersion() string
+}
+
+// MCPStoredAssertion represents a stored assertion for MCP interface
+type MCPStoredAssertion struct {
+	ID          string          `json:"id"`
+	Name        string          `json:"name"`
+	Description string          `json:"description,omitempty"`
+	Type        string          `json:"type"`
+	SessionID   string          `json:"sessionId,omitempty"`
+	DeviceID    string          `json:"deviceId,omitempty"`
+	Criteria    json.RawMessage `json:"criteria"`
+	Expected    json.RawMessage `json:"expected"`
+	IsTemplate  bool            `json:"isTemplate"`
+	CreatedAt   int64           `json:"createdAt"`
+	UpdatedAt   int64           `json:"updatedAt"`
+}
+
+// MCPAssertionSet represents an assertion set for MCP interface
+type MCPAssertionSet struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description,omitempty"`
+	Assertions  []string `json:"assertions"`
+	CreatedAt   int64    `json:"createdAt"`
+	UpdatedAt   int64    `json:"updatedAt"`
+}
+
+// MCPAssertionSetSummary represents assertion set execution summary
+type MCPAssertionSetSummary struct {
+	Total    int     `json:"total"`
+	Passed   int     `json:"passed"`
+	Failed   int     `json:"failed"`
+	Error    int     `json:"error"`
+	PassRate float64 `json:"passRate"`
+}
+
+// MCPAssertionResult represents a single assertion result for MCP interface
+type MCPAssertionResult struct {
+	ID            string      `json:"id"`
+	AssertionID   string      `json:"assertionId"`
+	AssertionName string      `json:"assertionName"`
+	SessionID     string      `json:"sessionId"`
+	Passed        bool        `json:"passed"`
+	Message       string      `json:"message"`
+	ActualValue   interface{} `json:"actualValue,omitempty"`
+	ExpectedValue interface{} `json:"expectedValue,omitempty"`
+	ExecutedAt    int64       `json:"executedAt"`
+	Duration      int64       `json:"duration"`
+}
+
+// MCPAssertionSetResult represents an assertion set execution result for MCP interface
+type MCPAssertionSetResult struct {
+	ID          string                 `json:"id"`
+	SetID       string                 `json:"setId"`
+	SetName     string                 `json:"setName"`
+	SessionID   string                 `json:"sessionId"`
+	DeviceID    string                 `json:"deviceId"`
+	ExecutionID string                 `json:"executionId"`
+	StartTime   int64                  `json:"startTime"`
+	EndTime     int64                  `json:"endTime"`
+	Duration    int64                  `json:"duration"`
+	Status      string                 `json:"status"`
+	Summary     MCPAssertionSetSummary `json:"summary"`
+	Results     []MCPAssertionResult   `json:"results"`
+	ExecutedAt  int64                  `json:"executedAt"`
 }
 
 // MCPProtoFile represents a .proto file entry for MCP interface
@@ -521,6 +607,9 @@ func (s *MCPServer) registerTools() {
 
 	// Touch Recording Tools
 	s.registerRecordingTools()
+
+	// Assertion Set Tools
+	s.registerAssertionTools()
 }
 
 // registerResources registers all MCP resources

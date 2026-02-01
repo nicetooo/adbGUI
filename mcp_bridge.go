@@ -1473,6 +1473,237 @@ func (b *MCPBridge) ExecuteSingleTouchEvent(deviceId string, event mcp.TouchEven
 	return b.app.ExecuteSingleTouchEvent(deviceId, mainEvent, resolution)
 }
 
+// === Individual Assertions ===
+
+func (b *MCPBridge) ListStoredAssertions(sessionID, deviceID string, templatesOnly bool, limit int) ([]mcp.MCPStoredAssertion, error) {
+	assertions, err := b.app.ListStoredAssertions(sessionID, deviceID, templatesOnly, limit)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]mcp.MCPStoredAssertion, len(assertions))
+	for i, a := range assertions {
+		result[i] = mcp.MCPStoredAssertion{
+			ID:          a.ID,
+			Name:        a.Name,
+			Description: a.Description,
+			Type:        a.Type,
+			SessionID:   a.SessionID,
+			DeviceID:    a.DeviceID,
+			Criteria:    a.Criteria,
+			Expected:    a.Expected,
+			IsTemplate:  a.IsTemplate,
+			CreatedAt:   a.CreatedAt,
+			UpdatedAt:   a.UpdatedAt,
+		}
+	}
+	return result, nil
+}
+
+func (b *MCPBridge) CreateStoredAssertionJSON(assertionJSON string, saveAsTemplate bool) error {
+	return b.app.CreateStoredAssertionJSON(assertionJSON, saveAsTemplate)
+}
+
+func (b *MCPBridge) GetStoredAssertion(assertionID string) (*mcp.MCPStoredAssertion, error) {
+	stored, err := b.app.GetStoredAssertion(assertionID)
+	if err != nil {
+		return nil, err
+	}
+	return &mcp.MCPStoredAssertion{
+		ID:          stored.ID,
+		Name:        stored.Name,
+		Description: stored.Description,
+		Type:        stored.Type,
+		SessionID:   stored.SessionID,
+		DeviceID:    stored.DeviceID,
+		Criteria:    stored.Criteria,
+		Expected:    stored.Expected,
+		IsTemplate:  stored.IsTemplate,
+		CreatedAt:   stored.CreatedAt,
+		UpdatedAt:   stored.UpdatedAt,
+	}, nil
+}
+
+func (b *MCPBridge) UpdateStoredAssertionJSON(assertionID string, assertionJSON string) error {
+	return b.app.UpdateStoredAssertionJSON(assertionID, assertionJSON)
+}
+
+func (b *MCPBridge) DeleteStoredAssertion(assertionID string) error {
+	return b.app.DeleteStoredAssertion(assertionID)
+}
+
+func (b *MCPBridge) ExecuteStoredAssertionInSession(assertionID, sessionID, deviceID string) (*mcp.MCPAssertionResult, error) {
+	result, err := b.app.ExecuteStoredAssertionInSession(assertionID, sessionID, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	return &mcp.MCPAssertionResult{
+		ID:            result.ID,
+		AssertionID:   result.AssertionID,
+		AssertionName: result.AssertionName,
+		SessionID:     result.SessionID,
+		Passed:        result.Passed,
+		Message:       result.Message,
+		ActualValue:   result.ActualValue,
+		ExpectedValue: result.ExpectedValue,
+		ExecutedAt:    result.ExecutedAt,
+		Duration:      result.Duration,
+	}, nil
+}
+
+func (b *MCPBridge) QuickAssertNoErrors(sessionID, deviceID string) (*mcp.MCPAssertionResult, error) {
+	result, err := b.app.QuickAssertNoErrors(sessionID, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	return &mcp.MCPAssertionResult{
+		ID:            result.ID,
+		AssertionID:   result.AssertionID,
+		AssertionName: result.AssertionName,
+		SessionID:     result.SessionID,
+		Passed:        result.Passed,
+		Message:       result.Message,
+		ActualValue:   result.ActualValue,
+		ExpectedValue: result.ExpectedValue,
+		ExecutedAt:    result.ExecutedAt,
+		Duration:      result.Duration,
+	}, nil
+}
+
+func (b *MCPBridge) QuickAssertNoCrashes(sessionID, deviceID string) (*mcp.MCPAssertionResult, error) {
+	result, err := b.app.QuickAssertNoCrashes(sessionID, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	return &mcp.MCPAssertionResult{
+		ID:            result.ID,
+		AssertionID:   result.AssertionID,
+		AssertionName: result.AssertionName,
+		SessionID:     result.SessionID,
+		Passed:        result.Passed,
+		Message:       result.Message,
+		ActualValue:   result.ActualValue,
+		ExpectedValue: result.ExpectedValue,
+		ExecutedAt:    result.ExecutedAt,
+		Duration:      result.Duration,
+	}, nil
+}
+
+// === Assertion Sets ===
+
+func (b *MCPBridge) CreateAssertionSet(name, description string, assertionIDs []string) (string, error) {
+	return b.app.CreateAssertionSet(name, description, assertionIDs)
+}
+
+func (b *MCPBridge) UpdateAssertionSet(id, name, description string, assertionIDs []string) error {
+	return b.app.UpdateAssertionSet(id, name, description, assertionIDs)
+}
+
+func (b *MCPBridge) DeleteAssertionSet(id string) error {
+	return b.app.DeleteAssertionSet(id)
+}
+
+func (b *MCPBridge) GetAssertionSet(id string) (*mcp.MCPAssertionSet, error) {
+	set, err := b.app.GetAssertionSet(id)
+	if err != nil {
+		return nil, err
+	}
+	return &mcp.MCPAssertionSet{
+		ID:          set.ID,
+		Name:        set.Name,
+		Description: set.Description,
+		Assertions:  set.Assertions,
+		CreatedAt:   set.CreatedAt,
+		UpdatedAt:   set.UpdatedAt,
+	}, nil
+}
+
+func (b *MCPBridge) ListAssertionSets() ([]mcp.MCPAssertionSet, error) {
+	sets, err := b.app.ListAssertionSets()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]mcp.MCPAssertionSet, len(sets))
+	for i, s := range sets {
+		result[i] = mcp.MCPAssertionSet{
+			ID:          s.ID,
+			Name:        s.Name,
+			Description: s.Description,
+			Assertions:  s.Assertions,
+			CreatedAt:   s.CreatedAt,
+			UpdatedAt:   s.UpdatedAt,
+		}
+	}
+	return result, nil
+}
+
+func (b *MCPBridge) ExecuteAssertionSet(setID, sessionID, deviceID string) (*mcp.MCPAssertionSetResult, error) {
+	result, err := b.app.ExecuteAssertionSet(setID, sessionID, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	return b.convertAssertionSetResult(result), nil
+}
+
+func (b *MCPBridge) GetAssertionSetResults(setID string, limit int) ([]mcp.MCPAssertionSetResult, error) {
+	results, err := b.app.GetAssertionSetResults(setID, limit)
+	if err != nil {
+		return nil, err
+	}
+	mcpResults := make([]mcp.MCPAssertionSetResult, len(results))
+	for i, r := range results {
+		mcpResults[i] = *b.convertAssertionSetResult(&r)
+	}
+	return mcpResults, nil
+}
+
+func (b *MCPBridge) GetAssertionSetResultByExecution(executionID string) (*mcp.MCPAssertionSetResult, error) {
+	result, err := b.app.GetAssertionSetResultByExecution(executionID)
+	if err != nil {
+		return nil, err
+	}
+	return b.convertAssertionSetResult(result), nil
+}
+
+// convertAssertionSetResult converts an App-level AssertionSetResult to MCP-level
+func (b *MCPBridge) convertAssertionSetResult(r *AssertionSetResult) *mcp.MCPAssertionSetResult {
+	mcpResults := make([]mcp.MCPAssertionResult, len(r.Results))
+	for i, ar := range r.Results {
+		mcpResults[i] = mcp.MCPAssertionResult{
+			ID:            ar.ID,
+			AssertionID:   ar.AssertionID,
+			AssertionName: ar.AssertionName,
+			SessionID:     ar.SessionID,
+			Passed:        ar.Passed,
+			Message:       ar.Message,
+			ActualValue:   ar.ActualValue,
+			ExpectedValue: ar.ExpectedValue,
+			ExecutedAt:    ar.ExecutedAt,
+			Duration:      ar.Duration,
+		}
+	}
+	return &mcp.MCPAssertionSetResult{
+		ID:          r.ID,
+		SetID:       r.SetID,
+		SetName:     r.SetName,
+		SessionID:   r.SessionID,
+		DeviceID:    r.DeviceID,
+		ExecutionID: r.ExecutionID,
+		StartTime:   r.StartTime,
+		EndTime:     r.EndTime,
+		Duration:    r.Duration,
+		Status:      r.Status,
+		Summary: mcp.MCPAssertionSetSummary{
+			Total:    r.Summary.Total,
+			Passed:   r.Summary.Passed,
+			Failed:   r.Summary.Failed,
+			Error:    r.Summary.Error,
+			PassRate: r.Summary.PassRate,
+		},
+		Results:    mcpResults,
+		ExecutedAt: r.ExecutedAt,
+	}
+}
+
 // StartMCPServer starts the MCP server with the given app
 func StartMCPServer(app *App) {
 	bridge := NewMCPBridge(app)

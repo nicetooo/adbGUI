@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"encoding/json"
 	"errors"
 	"sync"
 )
@@ -914,6 +915,158 @@ func (m *MockGazeApp) DeleteTouchScript(name string) error {
 func (m *MockGazeApp) ExecuteSingleTouchEvent(deviceId string, event TouchEvent, resolution string) error {
 	m.recordCall("ExecuteSingleTouchEvent", deviceId, event, resolution)
 	return nil
+}
+
+// === Individual Assertions ===
+
+func (m *MockGazeApp) ListStoredAssertions(sessionID, deviceID string, templatesOnly bool, limit int) ([]MCPStoredAssertion, error) {
+	m.recordCall("ListStoredAssertions", sessionID, deviceID, templatesOnly, limit)
+	return []MCPStoredAssertion{}, nil
+}
+
+func (m *MockGazeApp) CreateStoredAssertionJSON(assertionJSON string, saveAsTemplate bool) error {
+	m.recordCall("CreateStoredAssertionJSON", assertionJSON, saveAsTemplate)
+	return nil
+}
+
+func (m *MockGazeApp) GetStoredAssertion(assertionID string) (*MCPStoredAssertion, error) {
+	m.recordCall("GetStoredAssertion", assertionID)
+	return &MCPStoredAssertion{
+		ID:        assertionID,
+		Name:      "Mock Assertion",
+		Type:      "exists",
+		Criteria:  json.RawMessage(`{"types":["http_request"]}`),
+		Expected:  json.RawMessage(`{"exists":true}`),
+		CreatedAt: 1000000,
+		UpdatedAt: 1000000,
+	}, nil
+}
+
+func (m *MockGazeApp) UpdateStoredAssertionJSON(assertionID string, assertionJSON string) error {
+	m.recordCall("UpdateStoredAssertionJSON", assertionID, assertionJSON)
+	return nil
+}
+
+func (m *MockGazeApp) DeleteStoredAssertion(assertionID string) error {
+	m.recordCall("DeleteStoredAssertion", assertionID)
+	return nil
+}
+
+func (m *MockGazeApp) ExecuteStoredAssertionInSession(assertionID, sessionID, deviceID string) (*MCPAssertionResult, error) {
+	m.recordCall("ExecuteStoredAssertionInSession", assertionID, sessionID, deviceID)
+	return &MCPAssertionResult{
+		ID:            "mock-result-id",
+		AssertionID:   assertionID,
+		AssertionName: "Mock Assertion",
+		SessionID:     sessionID,
+		Passed:        true,
+		Message:       "Assertion passed",
+		ExecutedAt:    1000000,
+		Duration:      10,
+	}, nil
+}
+
+func (m *MockGazeApp) QuickAssertNoErrors(sessionID, deviceID string) (*MCPAssertionResult, error) {
+	m.recordCall("QuickAssertNoErrors", sessionID, deviceID)
+	return &MCPAssertionResult{
+		ID:            "mock-result-id",
+		AssertionName: "Quick check: no errors",
+		SessionID:     sessionID,
+		Passed:        true,
+		Message:       "No errors found",
+		ExecutedAt:    1000000,
+		Duration:      5,
+	}, nil
+}
+
+func (m *MockGazeApp) QuickAssertNoCrashes(sessionID, deviceID string) (*MCPAssertionResult, error) {
+	m.recordCall("QuickAssertNoCrashes", sessionID, deviceID)
+	return &MCPAssertionResult{
+		ID:            "mock-result-id",
+		AssertionName: "Quick check: no crashes",
+		SessionID:     sessionID,
+		Passed:        true,
+		Message:       "No crashes found",
+		ExecutedAt:    1000000,
+		Duration:      5,
+	}, nil
+}
+
+// === Assertion Sets ===
+
+func (m *MockGazeApp) CreateAssertionSet(name, description string, assertionIDs []string) (string, error) {
+	m.recordCall("CreateAssertionSet", name, description, assertionIDs)
+	return "mock-set-id", nil
+}
+
+func (m *MockGazeApp) UpdateAssertionSet(id, name, description string, assertionIDs []string) error {
+	m.recordCall("UpdateAssertionSet", id, name, description, assertionIDs)
+	return nil
+}
+
+func (m *MockGazeApp) DeleteAssertionSet(id string) error {
+	m.recordCall("DeleteAssertionSet", id)
+	return nil
+}
+
+func (m *MockGazeApp) GetAssertionSet(id string) (*MCPAssertionSet, error) {
+	m.recordCall("GetAssertionSet", id)
+	return &MCPAssertionSet{
+		ID:          id,
+		Name:        "Mock Set",
+		Description: "A mock assertion set",
+		Assertions:  []string{"a1", "a2"},
+		CreatedAt:   1000000,
+		UpdatedAt:   1000000,
+	}, nil
+}
+
+func (m *MockGazeApp) ListAssertionSets() ([]MCPAssertionSet, error) {
+	m.recordCall("ListAssertionSets")
+	return []MCPAssertionSet{}, nil
+}
+
+func (m *MockGazeApp) ExecuteAssertionSet(setID, sessionID, deviceID string) (*MCPAssertionSetResult, error) {
+	m.recordCall("ExecuteAssertionSet", setID, sessionID, deviceID)
+	return &MCPAssertionSetResult{
+		ID:          "mock-result-id",
+		SetID:       setID,
+		SetName:     "Mock Set",
+		SessionID:   sessionID,
+		DeviceID:    deviceID,
+		ExecutionID: "mock-exec-id",
+		Status:      "passed",
+		Summary: MCPAssertionSetSummary{
+			Total:    0,
+			Passed:   0,
+			Failed:   0,
+			Error:    0,
+			PassRate: 100,
+		},
+		Results: []MCPAssertionResult{},
+	}, nil
+}
+
+func (m *MockGazeApp) GetAssertionSetResults(setID string, limit int) ([]MCPAssertionSetResult, error) {
+	m.recordCall("GetAssertionSetResults", setID, limit)
+	return []MCPAssertionSetResult{}, nil
+}
+
+func (m *MockGazeApp) GetAssertionSetResultByExecution(executionID string) (*MCPAssertionSetResult, error) {
+	m.recordCall("GetAssertionSetResultByExecution", executionID)
+	return &MCPAssertionSetResult{
+		ID:          "mock-result-id",
+		ExecutionID: executionID,
+		Status:      "passed",
+		Summary: MCPAssertionSetSummary{
+			Total:    0,
+			Passed:   0,
+			Failed:   0,
+			Error:    0,
+			PassRate: 100,
+		},
+		Results: []MCPAssertionResult{},
+	}, nil
 }
 
 // === Utility ===

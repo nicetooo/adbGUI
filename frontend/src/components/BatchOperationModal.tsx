@@ -241,7 +241,7 @@ const BatchOperationModal: React.FC<BatchOperationModalProps> = ({
         );
       case "push":
         return (
-          <Space direction="vertical" style={{ width: "100%" }}>
+          <Space orientation="vertical" style={{ width: "100%" }}>
             <Space.Compact style={{ width: "100%" }}>
               <Input
                 value={localPath}
@@ -299,7 +299,7 @@ const BatchOperationModal: React.FC<BatchOperationModalProps> = ({
         </Button>,
       ]}
     >
-      <Space direction="vertical" style={{ width: "100%" }} size="middle">
+      <Space orientation="vertical" style={{ width: "100%" }} size="middle">
         {/* Device count */}
         <div>
           <Text strong>

@@ -47,11 +47,17 @@ export function ClickElement(arg1:context.Context,arg2:string,arg3:types.Element
 
 export function CopyFile(arg1:string,arg2:string,arg3:string):Promise<void>;
 
+export function CreateAssertionSet(arg1:string,arg2:string,arg3:Array<string>):Promise<string>;
+
+export function CreateAssertionSetJSON(arg1:string):Promise<string>;
+
 export function CreateSessionBookmark(arg1:string,arg2:number,arg3:string,arg4:string,arg5:string):Promise<void>;
 
 export function CreateStoredAssertion(arg1:main.Assertion,arg2:boolean):Promise<void>;
 
 export function CreateStoredAssertionJSON(arg1:string,arg2:boolean):Promise<void>;
+
+export function DeleteAssertionSet(arg1:string):Promise<void>;
 
 export function DeleteFile(arg1:string,arg2:string):Promise<void>;
 
@@ -82,6 +88,8 @@ export function EnsureADBKeyboard(arg1:string):Promise<boolean>;
 export function ExecuteAssertion(arg1:main.Assertion):Promise<main.AssertionResult>;
 
 export function ExecuteAssertionJSON(arg1:string):Promise<main.AssertionResult>;
+
+export function ExecuteAssertionSet(arg1:string,arg2:string,arg3:string):Promise<main.AssertionSetResult>;
 
 export function ExecuteBatchOperation(arg1:main.BatchOperation):Promise<main.BatchOperationResult>;
 
@@ -114,6 +122,12 @@ export function ForwardAllBreakpoints():Promise<void>;
 export function GetAppInfo(arg1:string,arg2:string,arg3:boolean):Promise<main.AppPackage>;
 
 export function GetAppVersion():Promise<string>;
+
+export function GetAssertionSet(arg1:string):Promise<main.AssertionSet>;
+
+export function GetAssertionSetResultByExecution(arg1:string):Promise<main.AssertionSetResult>;
+
+export function GetAssertionSetResults(arg1:string,arg2:number):Promise<Array<main.AssertionSetResult>>;
 
 export function GetBackendLogs():Promise<Array<string>>;
 
@@ -268,6 +282,8 @@ export function IsTaskPaused(arg1:string):Promise<boolean>;
 export function IsWorkflowRunning(arg1:string):Promise<boolean>;
 
 export function ListAssertionResults(arg1:string,arg2:number):Promise<Array<main.AssertionResult>>;
+
+export function ListAssertionSets():Promise<Array<main.AssertionSet>>;
 
 export function ListCameras(arg1:string):Promise<Array<string>>;
 
@@ -524,6 +540,10 @@ export function TogglePinDevice(arg1:string):Promise<void>;
 export function ToggleRewriteRule(arg1:string,arg2:boolean):Promise<void>;
 
 export function UninstallApp(arg1:string,arg2:string):Promise<string>;
+
+export function UpdateAssertionSet(arg1:string,arg2:string,arg3:string,arg4:Array<string>):Promise<void>;
+
+export function UpdateAssertionSetJSON(arg1:string,arg2:string):Promise<void>;
 
 export function UpdateBreakpointRule(arg1:main.BreakpointRule):Promise<void>;
 

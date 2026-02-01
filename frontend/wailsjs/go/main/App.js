@@ -82,6 +82,14 @@ export function CopyFile(arg1, arg2, arg3) {
   return window['go']['main']['App']['CopyFile'](arg1, arg2, arg3);
 }
 
+export function CreateAssertionSet(arg1, arg2, arg3) {
+  return window['go']['main']['App']['CreateAssertionSet'](arg1, arg2, arg3);
+}
+
+export function CreateAssertionSetJSON(arg1) {
+  return window['go']['main']['App']['CreateAssertionSetJSON'](arg1);
+}
+
 export function CreateSessionBookmark(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['CreateSessionBookmark'](arg1, arg2, arg3, arg4, arg5);
 }
@@ -92,6 +100,10 @@ export function CreateStoredAssertion(arg1, arg2) {
 
 export function CreateStoredAssertionJSON(arg1, arg2) {
   return window['go']['main']['App']['CreateStoredAssertionJSON'](arg1, arg2);
+}
+
+export function DeleteAssertionSet(arg1) {
+  return window['go']['main']['App']['DeleteAssertionSet'](arg1);
 }
 
 export function DeleteFile(arg1, arg2) {
@@ -152,6 +164,10 @@ export function ExecuteAssertion(arg1) {
 
 export function ExecuteAssertionJSON(arg1) {
   return window['go']['main']['App']['ExecuteAssertionJSON'](arg1);
+}
+
+export function ExecuteAssertionSet(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ExecuteAssertionSet'](arg1, arg2, arg3);
 }
 
 export function ExecuteBatchOperation(arg1) {
@@ -216,6 +232,18 @@ export function GetAppInfo(arg1, arg2, arg3) {
 
 export function GetAppVersion() {
   return window['go']['main']['App']['GetAppVersion']();
+}
+
+export function GetAssertionSet(arg1) {
+  return window['go']['main']['App']['GetAssertionSet'](arg1);
+}
+
+export function GetAssertionSetResultByExecution(arg1) {
+  return window['go']['main']['App']['GetAssertionSetResultByExecution'](arg1);
+}
+
+export function GetAssertionSetResults(arg1, arg2) {
+  return window['go']['main']['App']['GetAssertionSetResults'](arg1, arg2);
 }
 
 export function GetBackendLogs() {
@@ -524,6 +552,10 @@ export function IsWorkflowRunning(arg1) {
 
 export function ListAssertionResults(arg1, arg2) {
   return window['go']['main']['App']['ListAssertionResults'](arg1, arg2);
+}
+
+export function ListAssertionSets() {
+  return window['go']['main']['App']['ListAssertionSets']();
 }
 
 export function ListCameras(arg1) {
@@ -1036,6 +1068,14 @@ export function ToggleRewriteRule(arg1, arg2) {
 
 export function UninstallApp(arg1, arg2) {
   return window['go']['main']['App']['UninstallApp'](arg1, arg2);
+}
+
+export function UpdateAssertionSet(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['UpdateAssertionSet'](arg1, arg2, arg3, arg4);
+}
+
+export function UpdateAssertionSetJSON(arg1, arg2) {
+  return window['go']['main']['App']['UpdateAssertionSetJSON'](arg1, arg2);
 }
 
 export function UpdateBreakpointRule(arg1) {

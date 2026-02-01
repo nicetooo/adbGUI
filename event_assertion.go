@@ -714,6 +714,348 @@ func toFloat64(v interface{}) float64 {
 }
 
 // ========================================
+// Assertion Set Types - 断言集类型定义
+// ========================================
+
+// AssertionSet 断言集定义
+type AssertionSet struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description,omitempty"`
+	Assertions  []string `json:"assertions"` // 断言模板 ID 数组
+	CreatedAt   int64    `json:"createdAt"`
+	UpdatedAt   int64    `json:"updatedAt"`
+}
+
+// AssertionSetSummary 断言集执行摘要
+type AssertionSetSummary struct {
+	Total    int     `json:"total"`
+	Passed   int     `json:"passed"`
+	Failed   int     `json:"failed"`
+	Error    int     `json:"error"`
+	PassRate float64 `json:"passRate"`
+}
+
+// AssertionSetResult 断言集执行结果
+type AssertionSetResult struct {
+	ID          string              `json:"id"`
+	SetID       string              `json:"setId"`
+	SetName     string              `json:"setName"`
+	SessionID   string              `json:"sessionId"`
+	DeviceID    string              `json:"deviceId"`
+	ExecutionID string              `json:"executionId"`
+	StartTime   int64               `json:"startTime"`
+	EndTime     int64               `json:"endTime"`
+	Duration    int64               `json:"duration"` // ms
+	Status      string              `json:"status"`   // "passed", "failed", "partial", "error"
+	Summary     AssertionSetSummary `json:"summary"`
+	Results     []AssertionResult   `json:"results"`
+	ExecutedAt  int64               `json:"executedAt"`
+}
+
+// ========================================
+// Assertion Set Engine - 断言集执行引擎
+// ========================================
+
+// ExecuteAssertionSet 执行断言集 (并行执行所有断言)
+func (e *AssertionEngine) ExecuteAssertionSet(set *AssertionSet, sessionID, deviceID string) (*AssertionSetResult, error) {
+	startTime := time.Now()
+	executionID := uuid.New().String()
+
+	setResult := &AssertionSetResult{
+		ID:          uuid.New().String(),
+		SetID:       set.ID,
+		SetName:     set.Name,
+		SessionID:   sessionID,
+		DeviceID:    deviceID,
+		ExecutionID: executionID,
+		StartTime:   startTime.UnixMilli(),
+		Status:      "running",
+		ExecutedAt:  startTime.UnixMilli(),
+	}
+
+	if len(set.Assertions) == 0 {
+		setResult.EndTime = time.Now().UnixMilli()
+		setResult.Duration = setResult.EndTime - setResult.StartTime
+		setResult.Status = "passed"
+		setResult.Summary = AssertionSetSummary{Total: 0, PassRate: 100}
+		return setResult, nil
+	}
+
+	// 加载所有断言模板
+	assertions := make([]*Assertion, 0, len(set.Assertions))
+	for _, assertionID := range set.Assertions {
+		stored, err := e.GetStoredAssertion(assertionID)
+		if err != nil || stored == nil {
+			LogWarn("assertion_set").Str("assertionId", assertionID).Msg("Assertion not found, skipping")
+			continue
+		}
+		// 转换为运行时断言
+		assertion, err := e.storedToRuntime(stored, sessionID, deviceID)
+		if err != nil {
+			LogWarn("assertion_set").Err(err).Str("assertionId", assertionID).Msg("Failed to convert assertion")
+			continue
+		}
+		assertions = append(assertions, assertion)
+	}
+
+	// 并行执行所有断言
+	type resultEntry struct {
+		index  int
+		result *AssertionResult
+		err    error
+	}
+
+	resultChan := make(chan resultEntry, len(assertions))
+	for i, assertion := range assertions {
+		go func(idx int, a *Assertion) {
+			r, err := e.ExecuteAssertion(a)
+			resultChan <- resultEntry{index: idx, result: r, err: err}
+		}(i, assertion)
+	}
+
+	// 收集结果
+	results := make([]AssertionResult, len(assertions))
+	summary := AssertionSetSummary{Total: len(assertions)}
+
+	for range assertions {
+		entry := <-resultChan
+		if entry.err != nil {
+			summary.Error++
+			results[entry.index] = AssertionResult{
+				ID:            uuid.New().String(),
+				AssertionID:   assertions[entry.index].ID,
+				AssertionName: assertions[entry.index].Name,
+				SessionID:     sessionID,
+				Passed:        false,
+				Message:       fmt.Sprintf("Execution error: %v", entry.err),
+				ExecutedAt:    time.Now().UnixMilli(),
+			}
+		} else if entry.result != nil {
+			results[entry.index] = *entry.result
+			if entry.result.Passed {
+				summary.Passed++
+			} else {
+				summary.Failed++
+			}
+		}
+	}
+
+	// 计算摘要
+	if summary.Total > 0 {
+		summary.PassRate = float64(summary.Passed) / float64(summary.Total) * 100
+	}
+
+	// 确定状态
+	endTime := time.Now()
+	setResult.EndTime = endTime.UnixMilli()
+	setResult.Duration = endTime.Sub(startTime).Milliseconds()
+	setResult.Results = results
+	setResult.Summary = summary
+
+	if summary.Failed == 0 && summary.Error == 0 {
+		setResult.Status = "passed"
+	} else if summary.Passed == 0 {
+		setResult.Status = "failed"
+	} else {
+		setResult.Status = "partial"
+	}
+
+	// 发送断言集执行完成事件
+	e.emitAssertionSetResult(setResult)
+
+	return setResult, nil
+}
+
+// storedToRuntime 将存储的断言转换为运行时断言
+func (e *AssertionEngine) storedToRuntime(stored *StoredAssertion, sessionID, deviceID string) (*Assertion, error) {
+	var criteria EventCriteria
+	if err := json.Unmarshal(stored.Criteria, &criteria); err != nil {
+		return nil, fmt.Errorf("invalid criteria: %w", err)
+	}
+	var expected AssertionExpected
+	if err := json.Unmarshal(stored.Expected, &expected); err != nil {
+		return nil, fmt.Errorf("invalid expected: %w", err)
+	}
+	var metadata map[string]interface{}
+	if len(stored.Metadata) > 0 {
+		json.Unmarshal(stored.Metadata, &metadata)
+	}
+
+	effectiveSessionID := sessionID
+	if effectiveSessionID == "" {
+		effectiveSessionID = stored.SessionID
+	}
+	effectiveDeviceID := deviceID
+	if effectiveDeviceID == "" {
+		effectiveDeviceID = stored.DeviceID
+	}
+
+	assertion := &Assertion{
+		ID:          stored.ID,
+		Name:        stored.Name,
+		Description: stored.Description,
+		Type:        AssertionType(stored.Type),
+		SessionID:   effectiveSessionID,
+		DeviceID:    effectiveDeviceID,
+		Criteria:    criteria,
+		Expected:    expected,
+		Timeout:     stored.Timeout,
+		Tags:        stored.Tags,
+		Metadata:    metadata,
+		CreatedAt:   stored.CreatedAt,
+	}
+
+	if stored.TimeRange != nil {
+		assertion.TimeRange = &TimeRange{
+			Start: stored.TimeRange.Start,
+			End:   stored.TimeRange.End,
+		}
+	}
+
+	return assertion, nil
+}
+
+// emitAssertionSetResult 发送断言集执行结果事件
+func (e *AssertionEngine) emitAssertionSetResult(setResult *AssertionSetResult) {
+	if e.pipeline == nil {
+		return
+	}
+
+	level := LevelInfo
+	if setResult.Status == "failed" {
+		level = LevelError
+	} else if setResult.Status == "partial" {
+		level = LevelWarn
+	}
+
+	title := fmt.Sprintf("Assertion Set %s: %s (%d/%d passed)",
+		setResult.SetName,
+		strings.ToUpper(setResult.Status),
+		setResult.Summary.Passed,
+		setResult.Summary.Total,
+	)
+
+	data, err := json.Marshal(map[string]interface{}{
+		"setId":       setResult.SetID,
+		"setName":     setResult.SetName,
+		"executionId": setResult.ExecutionID,
+		"status":      setResult.Status,
+		"summary":     setResult.Summary,
+		"duration":    setResult.Duration,
+	})
+	if err != nil {
+		data = []byte("{}")
+	}
+
+	e.pipeline.Emit(UnifiedEvent{
+		DeviceID:  setResult.DeviceID,
+		SessionID: setResult.SessionID,
+		Timestamp: time.Now().UnixMilli(),
+		Source:    SourceAssertion,
+		Category:  CategoryDiagnostic,
+		Type:      "assertion_set_complete",
+		Level:     level,
+		Title:     title,
+		Data:      data,
+	})
+}
+
+// ========================================
+// Assertion Set CRUD Methods
+// ========================================
+
+// CreateAssertionSet 创建断言集
+func (e *AssertionEngine) CreateAssertionSet(name, description string, assertionIDs []string) (string, error) {
+	if e.store == nil {
+		return "", fmt.Errorf("store not initialized")
+	}
+
+	id := uuid.New().String()
+	now := time.Now().UnixMilli()
+
+	set := &AssertionSet{
+		ID:          id,
+		Name:        name,
+		Description: description,
+		Assertions:  assertionIDs,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+
+	if err := e.store.CreateAssertionSet(set); err != nil {
+		return "", err
+	}
+
+	return id, nil
+}
+
+// UpdateAssertionSet 更新断言集
+func (e *AssertionEngine) UpdateAssertionSet(id, name, description string, assertionIDs []string) error {
+	if e.store == nil {
+		return fmt.Errorf("store not initialized")
+	}
+
+	set := &AssertionSet{
+		ID:          id,
+		Name:        name,
+		Description: description,
+		Assertions:  assertionIDs,
+		UpdatedAt:   time.Now().UnixMilli(),
+	}
+
+	return e.store.UpdateAssertionSet(set)
+}
+
+// DeleteAssertionSet 删除断言集
+func (e *AssertionEngine) DeleteAssertionSet(id string) error {
+	if e.store == nil {
+		return fmt.Errorf("store not initialized")
+	}
+	return e.store.DeleteAssertionSet(id)
+}
+
+// GetAssertionSet 获取断言集
+func (e *AssertionEngine) GetAssertionSet(id string) (*AssertionSet, error) {
+	if e.store == nil {
+		return nil, fmt.Errorf("store not initialized")
+	}
+	return e.store.GetAssertionSet(id)
+}
+
+// ListAssertionSets 列出所有断言集
+func (e *AssertionEngine) ListAssertionSets() ([]AssertionSet, error) {
+	if e.store == nil {
+		return nil, fmt.Errorf("store not initialized")
+	}
+	return e.store.ListAssertionSets()
+}
+
+// SaveAssertionSetResult 保存断言集执行结果
+func (e *AssertionEngine) SaveAssertionSetResult(result *AssertionSetResult) error {
+	if e.store == nil {
+		return fmt.Errorf("store not initialized")
+	}
+	return e.store.SaveAssertionSetResult(result)
+}
+
+// ListAssertionSetResults 获取断言集执行历史
+func (e *AssertionEngine) ListAssertionSetResults(setID string, limit int) ([]AssertionSetResult, error) {
+	if e.store == nil {
+		return nil, fmt.Errorf("store not initialized")
+	}
+	return e.store.ListAssertionSetResults(setID, limit)
+}
+
+// GetAssertionSetResult 获取单个执行结果
+func (e *AssertionEngine) GetAssertionSetResult(executionID string) (*AssertionSetResult, error) {
+	if e.store == nil {
+		return nil, fmt.Errorf("store not initialized")
+	}
+	return e.store.GetAssertionSetResult(executionID)
+}
+
+// ========================================
 // API 方法
 // ========================================
 

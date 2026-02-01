@@ -810,7 +810,7 @@ const ElementPicker: React.FC<ElementPickerProps> = ({
                   onChange={(e) => setSelectedSelectorIndex(e.target.value)}
                   style={{ width: "100%" }}
                 >
-                  <Space direction="vertical" style={{ width: "100%" }}>
+                  <Space orientation="vertical" style={{ width: "100%" }}>
                     {availableSelectors.map((selector, index) => (
                       <Radio
                         key={index}

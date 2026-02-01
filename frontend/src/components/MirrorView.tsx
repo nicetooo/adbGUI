@@ -479,7 +479,7 @@ const MirrorView: React.FC = () => {
                   marginBottom: isRecording ? 12 : 0,
                 }}
               >
-                <Space direction="vertical" size={0}>
+                <Space orientation="vertical" size={0}>
                   <span
                     style={{
                       fontWeight:
@@ -718,7 +718,7 @@ const MirrorView: React.FC = () => {
               }
               size="small"
             >
-              <Space direction="vertical" style={{ width: "100%" }}>
+              <Space orientation="vertical" style={{ width: "100%" }}>
                 <div className="setting-item">
                   <span>{t("mirror.disable_audio")}</span>
                   <Switch
@@ -769,7 +769,7 @@ const MirrorView: React.FC = () => {
               }
               size="small"
             >
-              <Space direction="vertical" style={{ width: "100%" }}>
+              <Space orientation="vertical" style={{ width: "100%" }}>
                 <div className="setting-item">
                   <span>{t("mirror.always_on_top")}</span>
                   <Switch
@@ -865,7 +865,7 @@ const MirrorView: React.FC = () => {
               }
               size="small"
             >
-              <Space direction="vertical" style={{ width: "100%" }}>
+              <Space orientation="vertical" style={{ width: "100%" }}>
                 <div className="setting-item">
                   <Tooltip title={t("mirror.stay_awake_desc")}>
                     <span>{t("mirror.stay_awake")}</span>
@@ -916,7 +916,7 @@ const MirrorView: React.FC = () => {
               }
               size="small"
             >
-              <Space direction="vertical" style={{ width: "100%" }}>
+              <Space orientation="vertical" style={{ width: "100%" }}>
                 <div className="setting-item">
                   <Tooltip title={t("mirror.turn_screen_off_desc")}>
                     <span>{t("mirror.turn_screen_off")}</span>
@@ -983,7 +983,7 @@ const MirrorView: React.FC = () => {
               }
               size="small"
             >
-              <Space direction="vertical" style={{ width: "100%" }}>
+              <Space orientation="vertical" style={{ width: "100%" }}>
                  <div className="setting-item">
                   <span>{t("mirror.video_source")}</span>
                   <Select

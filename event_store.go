@@ -186,6 +186,42 @@ CREATE TABLE IF NOT EXISTS assertion_results (
 
 CREATE INDEX IF NOT EXISTS idx_assertion_results_session ON assertion_results(session_id, executed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_assertion_results_assertion ON assertion_results(assertion_id);
+
+-- ==================== Assertion Sets 表 (断言集定义) ====================
+CREATE TABLE IF NOT EXISTS assertion_sets (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    assertions TEXT NOT NULL, -- JSON array of assertion IDs
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_assertion_sets_name ON assertion_sets(name);
+
+-- ==================== Assertion Set Results 表 (断言集执行结果) ====================
+CREATE TABLE IF NOT EXISTS assertion_set_results (
+    id TEXT PRIMARY KEY,
+    set_id TEXT NOT NULL,
+    set_name TEXT NOT NULL,
+    session_id TEXT,
+    device_id TEXT,
+    execution_id TEXT NOT NULL,
+    start_time INTEGER NOT NULL,
+    end_time INTEGER,
+    duration INTEGER,
+    status TEXT NOT NULL,
+    summary TEXT, -- JSON of AssertionSetSummary
+    results TEXT NOT NULL, -- JSON array of AssertionResult
+    executed_at INTEGER NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES sessions(id),
+    FOREIGN KEY (set_id) REFERENCES assertion_sets(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_assertion_set_results_set ON assertion_set_results(set_id);
+CREATE INDEX IF NOT EXISTS idx_assertion_set_results_session ON assertion_set_results(session_id);
+CREATE INDEX IF NOT EXISTS idx_assertion_set_results_device ON assertion_set_results(device_id);
+CREATE INDEX IF NOT EXISTS idx_assertion_set_results_executed ON assertion_set_results(executed_at DESC);
 `
 
 // FTS Schema (单独创建，因为可能需要检查是否存在)
@@ -1866,6 +1902,236 @@ func (s *EventStore) scanAssertionResultRow(rows *sql.Rows) (*StoredAssertionRes
 	}
 	if details != "" && details != "null" {
 		r.Details = json.RawMessage(details)
+	}
+
+	return &r, nil
+}
+
+// ========================================
+// Assertion Set 操作
+// ========================================
+
+// CreateAssertionSet 创建断言集
+func (s *EventStore) CreateAssertionSet(set *AssertionSet) error {
+	assertionsJSON, err := json.Marshal(set.Assertions)
+	if err != nil {
+		return fmt.Errorf("marshal assertions: %w", err)
+	}
+
+	_, err = s.db.Exec(`
+		INSERT INTO assertion_sets (id, name, description, assertions, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, set.ID, set.Name, nullString(set.Description), string(assertionsJSON),
+		set.CreatedAt, set.UpdatedAt)
+	return err
+}
+
+// UpdateAssertionSet 更新断言集
+func (s *EventStore) UpdateAssertionSet(set *AssertionSet) error {
+	assertionsJSON, err := json.Marshal(set.Assertions)
+	if err != nil {
+		return fmt.Errorf("marshal assertions: %w", err)
+	}
+
+	_, err = s.db.Exec(`
+		UPDATE assertion_sets SET name = ?, description = ?, assertions = ?, updated_at = ?
+		WHERE id = ?
+	`, set.Name, nullString(set.Description), string(assertionsJSON),
+		set.UpdatedAt, set.ID)
+	return err
+}
+
+// DeleteAssertionSet 删除断言集
+func (s *EventStore) DeleteAssertionSet(id string) error {
+	_, err := s.db.Exec(`DELETE FROM assertion_sets WHERE id = ?`, id)
+	return err
+}
+
+// GetAssertionSet 获取断言集
+func (s *EventStore) GetAssertionSet(id string) (*AssertionSet, error) {
+	row := s.db.QueryRow(`
+		SELECT id, name, description, assertions, created_at, updated_at
+		FROM assertion_sets WHERE id = ?
+	`, id)
+
+	var set AssertionSet
+	var description sql.NullString
+	var assertionsJSON string
+
+	err := row.Scan(&set.ID, &set.Name, &description, &assertionsJSON,
+		&set.CreatedAt, &set.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	set.Description = description.String
+	if err := json.Unmarshal([]byte(assertionsJSON), &set.Assertions); err != nil {
+		LogWarn("event_store").Err(err).Str("setId", set.ID).Msg("Failed to unmarshal assertion set assertions")
+		set.Assertions = []string{}
+	}
+
+	return &set, nil
+}
+
+// ListAssertionSets 列出所有断言集
+func (s *EventStore) ListAssertionSets() ([]AssertionSet, error) {
+	rows, err := s.db.Query(`
+		SELECT id, name, description, assertions, created_at, updated_at
+		FROM assertion_sets ORDER BY updated_at DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sets []AssertionSet
+	for rows.Next() {
+		var set AssertionSet
+		var description sql.NullString
+		var assertionsJSON string
+
+		err := rows.Scan(&set.ID, &set.Name, &description, &assertionsJSON,
+			&set.CreatedAt, &set.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+
+		set.Description = description.String
+		if err := json.Unmarshal([]byte(assertionsJSON), &set.Assertions); err != nil {
+			LogWarn("event_store").Err(err).Str("setId", set.ID).Msg("Failed to unmarshal assertion set assertions")
+			set.Assertions = []string{}
+		}
+
+		sets = append(sets, set)
+	}
+	return sets, rows.Err()
+}
+
+// SaveAssertionSetResult 保存断言集执行结果
+func (s *EventStore) SaveAssertionSetResult(result *AssertionSetResult) error {
+	summaryJSON, err := json.Marshal(result.Summary)
+	if err != nil {
+		return fmt.Errorf("marshal summary: %w", err)
+	}
+	resultsJSON, err := json.Marshal(result.Results)
+	if err != nil {
+		return fmt.Errorf("marshal results: %w", err)
+	}
+
+	_, err = s.db.Exec(`
+		INSERT INTO assertion_set_results (
+			id, set_id, set_name, session_id, device_id, execution_id,
+			start_time, end_time, duration, status, summary, results, executed_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, result.ID, result.SetID, result.SetName,
+		nullString(result.SessionID), nullString(result.DeviceID),
+		result.ExecutionID,
+		result.StartTime, result.EndTime, result.Duration,
+		result.Status, string(summaryJSON), string(resultsJSON),
+		result.ExecutedAt)
+	return err
+}
+
+// ListAssertionSetResults 列出断言集执行结果
+func (s *EventStore) ListAssertionSetResults(setID string, limit int) ([]AssertionSetResult, error) {
+	query := `
+		SELECT id, set_id, set_name, session_id, device_id, execution_id,
+			start_time, end_time, duration, status, summary, results, executed_at
+		FROM assertion_set_results
+	`
+	var args []interface{}
+
+	if setID != "" {
+		query += ` WHERE set_id = ?`
+		args = append(args, setID)
+	}
+	query += ` ORDER BY executed_at DESC`
+	if limit > 0 {
+		query += fmt.Sprintf(` LIMIT %d`, limit)
+	}
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []AssertionSetResult
+	for rows.Next() {
+		r, err := s.scanAssertionSetResultRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, *r)
+	}
+	return results, rows.Err()
+}
+
+// GetAssertionSetResult 获取单个断言集执行结果
+func (s *EventStore) GetAssertionSetResult(executionID string) (*AssertionSetResult, error) {
+	row := s.db.QueryRow(`
+		SELECT id, set_id, set_name, session_id, device_id, execution_id,
+			start_time, end_time, duration, status, summary, results, executed_at
+		FROM assertion_set_results WHERE execution_id = ?
+	`, executionID)
+
+	var r AssertionSetResult
+	var sessionID, deviceID sql.NullString
+	var endTime sql.NullInt64
+	var summaryJSON, resultsJSON string
+
+	err := row.Scan(&r.ID, &r.SetID, &r.SetName, &sessionID, &deviceID,
+		&r.ExecutionID, &r.StartTime, &endTime, &r.Duration,
+		&r.Status, &summaryJSON, &resultsJSON, &r.ExecutedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	r.SessionID = sessionID.String
+	r.DeviceID = deviceID.String
+	if endTime.Valid {
+		r.EndTime = endTime.Int64
+	}
+	if summaryJSON != "" {
+		json.Unmarshal([]byte(summaryJSON), &r.Summary)
+	}
+	if resultsJSON != "" {
+		json.Unmarshal([]byte(resultsJSON), &r.Results)
+	}
+
+	return &r, nil
+}
+
+// scanAssertionSetResultRow 扫描断言集结果行
+func (s *EventStore) scanAssertionSetResultRow(rows *sql.Rows) (*AssertionSetResult, error) {
+	var r AssertionSetResult
+	var sessionID, deviceID sql.NullString
+	var endTime sql.NullInt64
+	var summaryJSON, resultsJSON string
+
+	err := rows.Scan(&r.ID, &r.SetID, &r.SetName, &sessionID, &deviceID,
+		&r.ExecutionID, &r.StartTime, &endTime, &r.Duration,
+		&r.Status, &summaryJSON, &resultsJSON, &r.ExecutedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	r.SessionID = sessionID.String
+	r.DeviceID = deviceID.String
+	if endTime.Valid {
+		r.EndTime = endTime.Int64
+	}
+	if summaryJSON != "" {
+		json.Unmarshal([]byte(summaryJSON), &r.Summary)
+	}
+	if resultsJSON != "" {
+		json.Unmarshal([]byte(resultsJSON), &r.Results)
 	}
 
 	return &r, nil

@@ -400,9 +400,9 @@ const RecordingView: React.FC = () => {
                 backgroundColor: isDeviceRecording ? token.colorErrorBg : undefined,
               }}
             >
-              <Space direction="vertical" style={{ width: "100%" }}>
+              <Space orientation="vertical" style={{ width: "100%" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <Space direction="vertical" size={0}>
+                  <Space orientation="vertical" size={0}>
                     <span style={{ fontWeight: 500 }}>{t("recording.mode")}</span>
                     <Radio.Group
                       value={recordingMode}
@@ -1050,7 +1050,7 @@ const RecordingView: React.FC = () => {
         width={600}
         centered
       >
-        <Space direction="vertical" style={{ width: "100%" }} size="middle">
+        <Space orientation="vertical" style={{ width: "100%" }} size="middle">
           <Alert
             message={t("recording.precise_mode_active")}
             description={t("recording.please_choose_selector")}

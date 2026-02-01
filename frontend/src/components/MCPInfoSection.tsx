@@ -14,6 +14,7 @@ import {
   GlobalOutlined,
   VideoCameraOutlined,
   CheckOutlined,
+  CheckSquareOutlined,
   CodeOutlined,
   LineChartOutlined,
   PlayCircleOutlined,
@@ -123,6 +124,19 @@ const TOOL_CATEGORIES = [
       "proto_file_list", "proto_file_add", "proto_file_update", "proto_file_remove",
       "proto_mapping_list", "proto_mapping_add", "proto_mapping_update", "proto_mapping_remove",
       "proto_message_types", "proto_load_url",
+    ],
+  },
+  {
+    key: "assertions",
+    icon: <CheckSquareOutlined />,
+    color: "#389e0d",
+    tools: [
+      "assertion_list", "assertion_create", "assertion_get",
+      "assertion_update", "assertion_delete", "assertion_execute",
+      "assertion_quick_no_errors", "assertion_quick_no_crashes",
+      "assertion_set_create", "assertion_set_update", "assertion_set_delete",
+      "assertion_set_get", "assertion_set_list",
+      "assertion_set_execute", "assertion_set_results", "assertion_set_result",
     ],
   },
 ];

@@ -21,6 +21,7 @@ import UIInspectorView from "./components/UIInspectorView";
 import EventTimeline from "./components/EventTimeline";
 import SessionManager from "./components/SessionManager";
 import PerfView from "./components/PerfView";
+import AssertionsView from "./components/AssertionsView";
 import DeviceInfoModal from "./components/DeviceInfoModal";
 import AboutModal from "./components/AboutModal";
 import WirelessConnectModal from "./components/WirelessConnectModal";
@@ -45,6 +46,7 @@ import {
   DashboardOutlined,
   DatabaseOutlined,
   LineChartOutlined,
+  CheckSquareOutlined,
 } from "@ant-design/icons";
 import "./App.css";
 import { useTheme } from "./ThemeContext";
@@ -274,6 +276,7 @@ function App() {
                 { key: VIEW_KEYS.WORKFLOW, icon: <BranchesOutlined />, label: t("menu.workflow") },
                 { key: VIEW_KEYS.EVENTS, icon: <DashboardOutlined />, label: t("menu.events") },
                 { key: VIEW_KEYS.SESSIONS, icon: <DatabaseOutlined />, label: t("menu.sessions") },
+                { key: VIEW_KEYS.ASSERTIONS, icon: <CheckSquareOutlined />, label: t("menu.assertions") },
               ]}
             />
           </div>
@@ -354,6 +357,7 @@ function App() {
           {selectedKey === VIEW_KEYS.EVENTS && <EventTimeline />}
           {selectedKey === VIEW_KEYS.SESSIONS && <SessionManager />}
           {selectedKey === VIEW_KEYS.PERFORMANCE && <PerfView />}
+          {selectedKey === VIEW_KEYS.ASSERTIONS && <AssertionsView />}
         </Content>
       </Layout>
 

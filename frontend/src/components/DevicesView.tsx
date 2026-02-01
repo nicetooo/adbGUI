@@ -391,7 +391,7 @@ const DevicesView: React.FC<DevicesViewProps> = ({
 
         const stats = netStatsMap[record.id] || { rxSpeed: 0, txSpeed: 0 };
         return (
-          <Space direction="vertical" size={0} style={{ fontSize: '12px' }}>
+          <Space orientation="vertical" size={0} style={{ fontSize: '12px' }}>
             <div style={{ color: '#52c41a', display: 'flex', alignItems: 'center', gap: 4 }}>
               <ArrowDownOutlined style={{ fontSize: '10px' }} /> {formatSpeed(stats.rxSpeed)}
             </div>
