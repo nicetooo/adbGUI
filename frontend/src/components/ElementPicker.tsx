@@ -27,7 +27,7 @@ import {
   SelectOutlined,
 } from "@ant-design/icons";
 import { useDeviceStore } from "../stores";
-import { useElementStore, type ElementSelector } from "../stores/elementStore";
+import { useElementStore, type ElementSelector, type UINode } from "../stores/elementStore";
 import { useElementPickerStore } from "../stores/elementPickerStore";
 
 // Re-export ElementSelector for backward compatibility
@@ -111,7 +111,7 @@ const generateAllSelectors = (node: any): ElementSelector[] => {
     }
 
     // XPath with clickable (useful for buttons)
-    if (node.clickable === "true") {
+    if (node.clickable) {
       if (node.text) {
         selectors.push({
           type: "xpath",
@@ -177,7 +177,7 @@ const ElementPicker: React.FC<ElementPickerProps> = ({
   };
 
   // Helper to get node attribute by name
-  const getNodeAttr = (node: any, attr: string): string => {
+  const getNodeAttr = (node: UINode, attr: string): string => {
     const lowerAttr = attr.toLowerCase();
     switch (lowerAttr) {
       case "text":
@@ -198,13 +198,26 @@ const ElementPicker: React.FC<ElementPickerProps> = ({
       case "bounds":
         return node.bounds || "";
       case "clickable":
-        return node.clickable || "";
+        return String(node.clickable ?? false);
       case "enabled":
-        return node.enabled || "";
+        return String(node.enabled ?? false);
       case "focused":
-        return node.focused || "";
+        return String(node.focused ?? false);
       case "scrollable":
-        return node.scrollable || "";
+        return String(node.scrollable ?? false);
+      case "checkable":
+        return String(node.checkable ?? false);
+      case "checked":
+        return String(node.checked ?? false);
+      case "focusable":
+        return String(node.focusable ?? false);
+      case "long-clickable":
+      case "longclickable":
+        return String(node.longClickable ?? false);
+      case "password":
+        return String(node.password ?? false);
+      case "selected":
+        return String(node.selected ?? false);
       default:
         return "";
     }

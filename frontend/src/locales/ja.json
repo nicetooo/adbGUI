@@ -1078,8 +1078,40 @@
     },
     "auto_scaling": "自動スケーリング",
     "scaling_info": "異なる解像度のスクリプトは自動的にスケーリングされます。精度が異なる場合があります。",
+    "playback_speed": "速度",
+    "smart_tap_timeout": "スマートタップタイムアウト",
     "execute_event": "このイベントを実行",
-    "event_executed": "イベントが実行されました"
+    "event_executed": "イベントが実行されました",
+    "editor": {
+      "title": "スクリプトエディタ",
+      "edit_event": "イベントを編集",
+      "delete_event": "イベントを削除",
+      "delete_event_confirm": "このイベントを削除しますか？",
+      "move_up": "上に移動",
+      "move_down": "下に移動",
+      "insert_wait": "待機を挿入",
+      "insert_wait_after": "この後に待機を挿入",
+      "wait_duration": "待機時間 (ms)",
+      "save_changes": "変更を保存",
+      "discard_changes": "変更を破棄",
+      "unsaved_changes": "未保存の変更があります",
+      "x": "X",
+      "y": "Y",
+      "x2": "X2",
+      "y2": "Y2",
+      "duration_ms": "時間 (ms)",
+      "type": "タイプ",
+      "tap": "タップ",
+      "long_press": "長押し",
+      "swipe": "スワイプ",
+      "wait": "待機",
+      "event_updated": "イベントが更新されました",
+      "event_deleted": "イベントが削除されました",
+      "event_moved": "イベントが移動されました",
+      "wait_inserted": "待機ステップが挿入されました",
+      "changes_saved": "スクリプトの変更が保存されました",
+      "changes_discarded": "変更が破棄されました"
+    }
   },
   "workflow": {
     "title": "ワークフロー編成",
@@ -1365,6 +1397,8 @@
       "perf": "パフォーマンス監視",
       "perf_desc": "パフォーマンス監視の開始/停止、CPU/メモリ/FPS/ネットワーク/バッテリーのスナップショット取得",
       "proto": "Protobuf 管理",
+      "recording": "タッチ録画",
+      "recording_desc": "タッチ自動化スクリプトの録画・再生・管理",
       "proto_desc": ".proto スキーマファイルと URL からメッセージタイプへのマッピングを管理し、protobuf ネットワークトラフィックをデコード"
     },
     "tool": {
@@ -1470,7 +1504,15 @@
       "breakpoint_rule_toggle": "ブレークポイントルールを有効化/無効化",
       "breakpoint_resolve": "保留中のブレークポイントを解決",
       "breakpoint_pending_list": "保留中のブレークポイントを一覧表示",
-      "breakpoint_forward_all": "保留中のすべてのブレークポイントを一括転送"
+      "breakpoint_forward_all": "保留中のすべてのブレークポイントを一括転送",
+      "touch_record_start": "デバイスでタッチ録画を開始（高速または精密モード）",
+      "touch_record_stop": "タッチ録画を停止し、録画スクリプトを返す",
+      "touch_record_status": "デバイスでタッチ録画が有効か確認",
+      "touch_script_list": "保存されたすべてのタッチスクリプトを一覧表示",
+      "touch_script_play": "デバイスで保存されたタッチスクリプトを再生",
+      "touch_script_save": "録画出力からタッチスクリプトを保存",
+      "touch_script_delete": "名前を指定してタッチスクリプトを削除",
+      "touch_playback_stop": "実行中のタッチスクリプト再生を停止"
     },
     "resource": {
       "devices": "接続された Android デバイス一覧 (JSON)",

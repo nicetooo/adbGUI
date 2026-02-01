@@ -47,6 +47,184 @@ export interface ScriptTask {
 // Re-export UINode from elementStore for backward compatibility
 export type { UINode };
 
+// Convert a TouchScript to a Workflow - shared utility
+export async function convertScriptToWorkflow(
+  script: main.TouchScript,
+  t: (key: string, opts?: any) => string,
+): Promise<void> {
+  if (!script.events || script.events.length === 0) {
+    throw new Error(t("automation.no_events_to_convert"));
+  }
+
+  const steps: main.WorkflowStep[] = [];
+  let lastTimestamp = 0;
+  const now = Date.now();
+
+  // Add Start node
+  const startId = `step_start_${now}`;
+  steps.push({
+    id: startId,
+    type: 'start',
+    name: t('workflow.step_type.start'),
+    posX: 250,
+    posY: 50,
+  } as main.WorkflowStep);
+
+  const buildStepName = (action: string, event: main.TouchEvent, fallback: string) => {
+    if (event.selector && event.selector.value) {
+      const val = event.selector.value;
+      const shortVal = val.split('/').pop() || val;
+      return `${action}: "${shortVal}"`;
+    }
+    return fallback;
+  };
+
+  script.events.forEach((event, idx) => {
+    // Add wait step if there is a significant delay
+    const delay = event.timestamp - lastTimestamp;
+    if (delay > 50) {
+      steps.push({
+        id: `step_wait_${now}_${idx}`,
+        type: 'wait',
+        name: `${t('workflow.generated_step_name.wait')} ${delay}ms`,
+        value: String(delay),
+        loop: 1,
+        postDelay: 0,
+        posX: 250,
+        posY: 150 + steps.length * 100,
+      } as main.WorkflowStep);
+    }
+    lastTimestamp = event.timestamp;
+
+    const id = `step_action_${now}_${idx}`;
+
+    if (event.type === 'tap') {
+      const selector = event.selector;
+      if (selector && selector.type !== 'coordinates') {
+        steps.push({
+          id,
+          type: 'click_element',
+          name: buildStepName(t('workflow.generated_step_name.click'), event, `${t('workflow.generated_step_name.click')} ${idx + 1}`),
+          selector: { ...selector },
+          loop: 1,
+          postDelay: 0,
+          onError: 'stop',
+          posX: 250,
+          posY: 150 + steps.length * 100,
+        } as main.WorkflowStep);
+      } else {
+        const tapSize = 10;
+        const x1 = Math.max(0, event.x - tapSize);
+        const y1 = Math.max(0, event.y - tapSize);
+        const x2 = event.x + tapSize;
+        const y2 = event.y + tapSize;
+        const bounds = `[${x1},${y1}][${x2},${y2}]`;
+        steps.push({
+          id,
+          type: 'click_element',
+          name: `${t('workflow.generated_step_name.click')} (${event.x}, ${event.y})`,
+          selector: { type: 'bounds', value: bounds, index: 0 },
+          loop: 1,
+          postDelay: 0,
+          onError: 'stop',
+          posX: 250,
+          posY: 150 + steps.length * 100,
+        } as main.WorkflowStep);
+      }
+    } else if (event.type === 'long_press') {
+      const selector = event.selector;
+      if (selector && selector.type !== 'coordinates') {
+        steps.push({
+          id,
+          type: 'long_click_element',
+          name: buildStepName(t('workflow.generated_step_name.long_press'), event, `${t('workflow.generated_step_name.long_press')} ${idx + 1}`),
+          selector: { ...selector },
+          loop: 1,
+          postDelay: 0,
+          onError: 'stop',
+          posX: 250,
+          posY: 150 + steps.length * 100,
+        } as main.WorkflowStep);
+      } else {
+        const tapSize = 10;
+        const x1 = Math.max(0, event.x - tapSize);
+        const y1 = Math.max(0, event.y - tapSize);
+        const x2 = event.x + tapSize;
+        const y2 = event.y + tapSize;
+        const bounds = `[${x1},${y1}][${x2},${y2}]`;
+        steps.push({
+          id,
+          type: 'long_click_element',
+          name: `${t('workflow.generated_step_name.long_press')} (${event.x}, ${event.y})`,
+          selector: { type: 'bounds', value: bounds, index: 0 },
+          loop: 1,
+          postDelay: 0,
+          onError: 'stop',
+          posX: 250,
+          posY: 150 + steps.length * 100,
+        } as main.WorkflowStep);
+      }
+    } else if (event.type === 'swipe') {
+      const dx = (event.x2 || event.x) - event.x;
+      const dy = (event.y2 || event.y) - event.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      let direction = 'up';
+      if (Math.abs(dx) > Math.abs(dy)) {
+        direction = dx > 0 ? 'right' : 'left';
+      } else {
+        direction = dy > 0 ? 'down' : 'up';
+      }
+      const tapSize = 10;
+      const x1 = Math.max(0, event.x - tapSize);
+      const y1 = Math.max(0, event.y - tapSize);
+      const x2 = event.x + tapSize;
+      const y2 = event.y + tapSize;
+      const bounds = `[${x1},${y1}][${x2},${y2}]`;
+      steps.push({
+        id,
+        type: 'swipe_element',
+        name: `${t('workflow.generated_step_name.swipe')} ${direction}`,
+        selector: { type: 'bounds', value: bounds, index: 0 },
+        value: direction,
+        swipeDistance: Math.round(distance),
+        swipeDuration: event.duration || 300,
+        loop: 1,
+        postDelay: 0,
+        onError: 'stop',
+        posX: 250,
+        posY: 150 + steps.length * 100,
+      } as main.WorkflowStep);
+    } else if (event.type === 'wait') {
+      steps.push({
+        id,
+        type: 'wait',
+        name: `${t('workflow.generated_step_name.wait')} ${idx + 1}`,
+        value: String(event.duration || 1000),
+        loop: 1,
+        postDelay: 0,
+        posX: 250,
+        posY: 150 + steps.length * 100,
+      } as main.WorkflowStep);
+    }
+  });
+
+  // Link steps sequentially
+  for (let i = 0; i < steps.length - 1; i++) {
+    steps[i].nextStepId = steps[i + 1].id;
+  }
+
+  const newWorkflow = new (main as any).Workflow({
+    id: `wf_converted_${now}`,
+    name: `${script.name}${t('workflow.converted_suffix')}`,
+    description: t('workflow.converted_desc', { date: new Date().toLocaleString() }),
+    steps: steps,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  await (window as any).go.main.App.SaveWorkflow(newWorkflow);
+}
+
 interface AutomationState {
   // State
   isRecording: boolean;
@@ -135,6 +313,22 @@ interface AutomationState {
   openRenameModal: (scriptName: string) => void;
   closeRenameModal: () => void;
   closeSaveModal: () => void;
+
+  // Playback settings
+  playbackSpeed: number;
+  smartTapTimeoutMs: number;
+  setPlaybackSpeed: (speed: number) => void;
+  setSmartTapTimeoutMs: (ms: number) => void;
+
+  // Script editing actions
+  editingEventIndex: number | null;
+  setEditingEventIndex: (index: number | null) => void;
+  updateScriptEvent: (index: number, updates: Partial<{ x: number; y: number; x2: number; y2: number; duration: number; type: string }>) => void;
+  deleteScriptEvent: (index: number) => void;
+  moveScriptEvent: (fromIndex: number, toIndex: number) => void;
+  insertWaitEvent: (afterIndex: number, durationMs: number) => void;
+  isScriptDirty: boolean;
+  setScriptDirty: (dirty: boolean) => void;
 }
 
 export const useAutomationStore = create<AutomationState>()(
@@ -174,6 +368,14 @@ export const useAutomationStore = create<AutomationState>()(
     editingScriptName: '',
     newScriptName: '',
     selectedScript: null,
+    
+    // Playback settings
+    playbackSpeed: 1.0,
+    smartTapTimeoutMs: 5000,
+
+    // Script editing state
+    editingEventIndex: null,
+    isScriptDirty: false,
 
     // Actions
     startRecording: async (deviceId: string, mode: 'fast' | 'precise' = 'fast') => {
@@ -298,8 +500,7 @@ export const useAutomationStore = create<AutomationState>()(
 
     renameScript: async (oldName: string, newName: string) => {
       try {
-        // Cast to any because RenameTouchScript might be missing in older bindings
-        await (RenameTouchScript as any)(oldName, newName);
+        await RenameTouchScript(oldName, newName);
         await get().loadScripts();
       } catch (err) {
         console.error('Failed to rename script:', err);
@@ -311,7 +512,7 @@ export const useAutomationStore = create<AutomationState>()(
       try {
         const tasks = await LoadScriptTasks();
         set((state: AutomationState) => {
-          state.tasks = (tasks as unknown as ScriptTask[]) || [];
+          state.tasks = (tasks || []) as ScriptTask[];
         });
       } catch (err) {
         console.error('Failed to load tasks:', err);
@@ -323,7 +524,7 @@ export const useAutomationStore = create<AutomationState>()(
 
     saveTask: async (task: ScriptTask) => {
       try {
-        await SaveScriptTask(task as any);
+        await SaveScriptTask(task as unknown as main.ScriptTask);
         await get().loadTasks();
       } catch (err) {
         console.error('Failed to save task:', err);
@@ -355,7 +556,7 @@ export const useAutomationStore = create<AutomationState>()(
 
     runTask: async (deviceId: string, task: ScriptTask) => {
       try {
-        await RunScriptTask(deviceId, task as any);
+        await RunScriptTask(deviceId, task as unknown as main.ScriptTask);
         set((state: AutomationState) => {
           state.isTaskRunning = true;
           state.isPaused = false;
@@ -370,7 +571,7 @@ export const useAutomationStore = create<AutomationState>()(
     pauseTask: async () => {
       const deviceId = get().playingDeviceId;
       if (deviceId) {
-        await (PauseTask as any)(deviceId);
+        await PauseTask(deviceId);
         set((state: AutomationState) => {
           state.isPaused = true;
         });
@@ -380,7 +581,7 @@ export const useAutomationStore = create<AutomationState>()(
     resumeTask: async () => {
       const deviceId = get().playingDeviceId;
       if (deviceId) {
-        await (ResumeTask as any)(deviceId);
+        await ResumeTask(deviceId);
         set((state: AutomationState) => {
           state.isPaused = false;
         });
@@ -390,7 +591,7 @@ export const useAutomationStore = create<AutomationState>()(
     stopTask: async () => {
       const deviceId = get().playingDeviceId;
       if (deviceId) {
-        await (StopTask as any)(deviceId);
+        await StopTask(deviceId);
         set((state: AutomationState) => {
           state.isTaskRunning = false;
           state.isPaused = false;
@@ -568,6 +769,119 @@ export const useAutomationStore = create<AutomationState>()(
       });
     },
 
+    // Script editing actions
+    setEditingEventIndex: (index: number | null) => {
+      set((state: AutomationState) => {
+        state.editingEventIndex = index;
+      });
+    },
+
+    setScriptDirty: (dirty: boolean) => {
+      set((state: AutomationState) => {
+        state.isScriptDirty = dirty;
+      });
+    },
+
+    setPlaybackSpeed: (speed: number) => {
+      set((state: AutomationState) => {
+        state.playbackSpeed = speed;
+      });
+    },
+
+    setSmartTapTimeoutMs: (ms: number) => {
+      set((state: AutomationState) => {
+        state.smartTapTimeoutMs = ms;
+      });
+    },
+
+    updateScriptEvent: (index: number, updates: Partial<{ x: number; y: number; x2: number; y2: number; duration: number; type: string }>) => {
+      set((state: AutomationState) => {
+        // Determine which script to edit: currentScript (unsaved) or selectedScript (saved)
+        const script = state.currentScript || state.selectedScript;
+        if (!script || !script.events || index < 0 || index >= script.events.length) return;
+
+        const event = script.events[index];
+        if (updates.x !== undefined) event.x = updates.x;
+        if (updates.y !== undefined) event.y = updates.y;
+        if (updates.x2 !== undefined) event.x2 = updates.x2;
+        if (updates.y2 !== undefined) event.y2 = updates.y2;
+        if (updates.duration !== undefined) event.duration = updates.duration;
+        if (updates.type !== undefined) event.type = updates.type;
+
+        state.isScriptDirty = true;
+      });
+    },
+
+    deleteScriptEvent: (index: number) => {
+      set((state: AutomationState) => {
+        const script = state.currentScript || state.selectedScript;
+        if (!script || !script.events || index < 0 || index >= script.events.length) return;
+
+        script.events.splice(index, 1);
+        // Recalculate timestamps to be relative from 0
+        if (script.events.length > 0) {
+          const offset = script.events[0].timestamp;
+          for (const ev of script.events) {
+            ev.timestamp -= offset;
+          }
+        }
+        state.isScriptDirty = true;
+        // Reset editing index if the deleted event was being edited
+        if (state.editingEventIndex === index) {
+          state.editingEventIndex = null;
+        } else if (state.editingEventIndex !== null && state.editingEventIndex > index) {
+          state.editingEventIndex--;
+        }
+      });
+    },
+
+    moveScriptEvent: (fromIndex: number, toIndex: number) => {
+      set((state: AutomationState) => {
+        const script = state.currentScript || state.selectedScript;
+        if (!script || !script.events) return;
+        if (fromIndex < 0 || fromIndex >= script.events.length) return;
+        if (toIndex < 0 || toIndex >= script.events.length) return;
+        if (fromIndex === toIndex) return;
+
+        const [removed] = script.events.splice(fromIndex, 1);
+        script.events.splice(toIndex, 0, removed);
+
+        // Recalculate timestamps to maintain sequential order
+        let accTime = 0;
+        for (let i = 0; i < script.events.length; i++) {
+          script.events[i].timestamp = accTime;
+          accTime += (script.events[i].duration || 100) + 50; // event duration + small gap
+        }
+        state.isScriptDirty = true;
+        // Update editing index to follow the moved item
+        if (state.editingEventIndex === fromIndex) {
+          state.editingEventIndex = toIndex;
+        }
+      });
+    },
+
+    insertWaitEvent: (afterIndex: number, durationMs: number) => {
+      set((state: AutomationState) => {
+        const script = state.currentScript || state.selectedScript;
+        if (!script || !script.events) return;
+        if (afterIndex < -1 || afterIndex >= script.events.length) return;
+
+        const prevEvent = afterIndex >= 0 ? script.events[afterIndex] : null;
+        const timestamp = prevEvent ? prevEvent.timestamp + (prevEvent.duration || 0) + 50 : 0;
+
+        const waitEvent = main.TouchEvent.createFrom({
+          type: 'wait',
+          timestamp,
+          x: 0,
+          y: 0,
+          duration: durationMs,
+        });
+
+        script.events.splice(afterIndex + 1, 0, waitEvent);
+        state.isScriptDirty = true;
+      });
+    },
+
     // Event subscription
     subscribeToEvents: () => {
       const handleRecordStarted = (data: any) => {
@@ -716,8 +1030,13 @@ export const useAutomationStore = create<AutomationState>()(
         EventsOff('task-started');
         EventsOff('task-completed');
         EventsOff('task-step-running');
+        EventsOff('task-paused');
+        EventsOff('task-resumed');
         EventsOff('recording-paused-for-selector');
         EventsOff('recording-resumed');
+        EventsOff('recording-pre-capture-started');
+        EventsOff('recording-pre-capture-finished');
+        EventsOff('recording-analysis-started');
       };
     },
   }))

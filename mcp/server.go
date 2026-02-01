@@ -51,6 +51,30 @@ type (
 	WorkflowExecutionResult = types.WorkflowExecutionResult
 )
 
+// TouchEvent represents a single touch event for MCP interface
+type TouchEvent struct {
+	Timestamp int64            `json:"timestamp"`
+	Type      string           `json:"type"`
+	X         int              `json:"x"`
+	Y         int              `json:"y"`
+	X2        int              `json:"x2,omitempty"`
+	Y2        int              `json:"y2,omitempty"`
+	Duration  int              `json:"duration,omitempty"`
+	Selector  *ElementSelector `json:"selector,omitempty"`
+}
+
+// TouchScript represents a recorded touch automation script for MCP interface
+type TouchScript struct {
+	Name              string       `json:"name"`
+	DeviceID          string       `json:"deviceId"`
+	DeviceModel       string       `json:"deviceModel,omitempty"`
+	Resolution        string       `json:"resolution"`
+	CreatedAt         string       `json:"createdAt"`
+	Events            []TouchEvent `json:"events"`
+	SmartTapTimeoutMs int          `json:"smartTapTimeoutMs,omitempty"` // Smart Tap timeout in ms (default: 5000)
+	PlaybackSpeed     float64      `json:"playbackSpeed,omitempty"`     // Playback speed multiplier (default: 1.0)
+}
+
 // PerfMonitorConfig is the performance monitor configuration for MCP interface
 type PerfMonitorConfig struct {
 	PackageName   string `json:"packageName,omitempty"`
@@ -317,6 +341,17 @@ type GazeApp interface {
 	GetProtoMessageTypes() []string
 	LoadProtoFromURL(rawURL string) ([]string, error)
 
+	// Touch Recording & Script Management
+	StartTouchRecording(deviceId string, mode string) error
+	StopTouchRecording(deviceId string) (*TouchScript, error)
+	IsRecordingTouch(deviceId string) bool
+	PlayTouchScript(deviceId string, script TouchScript) error
+	StopTouchPlayback(deviceId string)
+	LoadTouchScripts() ([]TouchScript, error)
+	SaveTouchScript(script TouchScript) error
+	DeleteTouchScript(name string) error
+	ExecuteSingleTouchEvent(deviceId string, event TouchEvent, resolution string) error
+
 	// Utility
 	GetAppVersion() string
 }
@@ -483,6 +518,9 @@ func (s *MCPServer) registerTools() {
 
 	// Protobuf Management Tools
 	s.registerProtoTools()
+
+	// Touch Recording Tools
+	s.registerRecordingTools()
 }
 
 // registerResources registers all MCP resources

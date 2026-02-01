@@ -1474,16 +1474,16 @@ export namespace main {
 	    class: string;
 	    package: string;
 	    contentDesc: string;
-	    checkable: string;
-	    checked: string;
-	    clickable: string;
-	    enabled: string;
-	    focusable: string;
-	    focused: string;
-	    scrollable: string;
-	    longClickable: string;
-	    password: string;
-	    selected: string;
+	    checkable: boolean;
+	    checked: boolean;
+	    clickable: boolean;
+	    enabled: boolean;
+	    focusable: boolean;
+	    focused: boolean;
+	    scrollable: boolean;
+	    longClickable: boolean;
+	    password: boolean;
+	    selected: boolean;
 	    bounds: string;
 	    nodes: UINode[];
 	
@@ -1715,6 +1715,8 @@ export namespace main {
 	    resolution: string;
 	    createdAt: string;
 	    events: TouchEvent[];
+	    smartTapTimeoutMs?: number;
+	    playbackSpeed?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new TouchScript(source);
@@ -1728,6 +1730,8 @@ export namespace main {
 	        this.resolution = source["resolution"];
 	        this.createdAt = source["createdAt"];
 	        this.events = this.convertValues(source["events"], TouchEvent);
+	        this.smartTapTimeoutMs = source["smartTapTimeoutMs"];
+	        this.playbackSpeed = source["playbackSpeed"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

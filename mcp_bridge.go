@@ -1308,6 +1308,171 @@ func (b *MCPBridge) ToggleRewriteRule(ruleID string, enabled bool) error {
 	return b.app.ToggleRewriteRule(ruleID, enabled)
 }
 
+// Touch Recording & Script Management
+
+func (b *MCPBridge) StartTouchRecording(deviceId string, mode string) error {
+	return b.app.StartTouchRecording(deviceId, mode)
+}
+
+func (b *MCPBridge) StopTouchRecording(deviceId string) (*mcp.TouchScript, error) {
+	script, err := b.app.StopTouchRecording(deviceId)
+	if err != nil {
+		return nil, err
+	}
+	// Convert main.TouchScript to mcp.TouchScript
+	result := &mcp.TouchScript{
+		Name:              script.Name,
+		DeviceID:          script.DeviceID,
+		DeviceModel:       script.DeviceModel,
+		Resolution:        script.Resolution,
+		CreatedAt:         script.CreatedAt,
+		Events:            make([]mcp.TouchEvent, len(script.Events)),
+		SmartTapTimeoutMs: script.SmartTapTimeoutMs,
+		PlaybackSpeed:     script.PlaybackSpeed,
+	}
+	for i, e := range script.Events {
+		result.Events[i] = mcp.TouchEvent{
+			Timestamp: e.Timestamp,
+			Type:      e.Type,
+			X:         e.X,
+			Y:         e.Y,
+			X2:        e.X2,
+			Y2:        e.Y2,
+			Duration:  e.Duration,
+		}
+		if e.Selector != nil {
+			result.Events[i].Selector = &mcp.ElementSelector{
+				Type:  e.Selector.Type,
+				Value: e.Selector.Value,
+				Index: e.Selector.Index,
+			}
+		}
+	}
+	return result, nil
+}
+
+func (b *MCPBridge) IsRecordingTouch(deviceId string) bool {
+	return b.app.IsRecordingTouch(deviceId)
+}
+
+func (b *MCPBridge) PlayTouchScript(deviceId string, script mcp.TouchScript) error {
+	// Convert mcp.TouchScript to main.TouchScript
+	mainScript := TouchScript{
+		Name:              script.Name,
+		DeviceID:          script.DeviceID,
+		DeviceModel:       script.DeviceModel,
+		Resolution:        script.Resolution,
+		CreatedAt:         script.CreatedAt,
+		Events:            make([]TouchEvent, len(script.Events)),
+		SmartTapTimeoutMs: script.SmartTapTimeoutMs,
+		PlaybackSpeed:     script.PlaybackSpeed,
+	}
+	for i, e := range script.Events {
+		mainScript.Events[i] = TouchEvent{
+			Timestamp: e.Timestamp,
+			Type:      e.Type,
+			X:         e.X,
+			Y:         e.Y,
+			X2:        e.X2,
+			Y2:        e.Y2,
+			Duration:  e.Duration,
+		}
+		if e.Selector != nil {
+			mainScript.Events[i].Selector = &ElementSelector{
+				Type:  e.Selector.Type,
+				Value: e.Selector.Value,
+				Index: e.Selector.Index,
+			}
+		}
+	}
+	return b.app.PlayTouchScript(deviceId, mainScript)
+}
+
+func (b *MCPBridge) StopTouchPlayback(deviceId string) {
+	b.app.StopTouchPlayback(deviceId)
+}
+
+func (b *MCPBridge) LoadTouchScripts() ([]mcp.TouchScript, error) {
+	scripts, err := b.app.LoadTouchScripts()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]mcp.TouchScript, len(scripts))
+	for i, s := range scripts {
+		result[i] = mcp.TouchScript{
+			Name:              s.Name,
+			DeviceID:          s.DeviceID,
+			DeviceModel:       s.DeviceModel,
+			Resolution:        s.Resolution,
+			CreatedAt:         s.CreatedAt,
+			Events:            make([]mcp.TouchEvent, len(s.Events)),
+			SmartTapTimeoutMs: s.SmartTapTimeoutMs,
+			PlaybackSpeed:     s.PlaybackSpeed,
+		}
+		for j, e := range s.Events {
+			result[i].Events[j] = mcp.TouchEvent{
+				Timestamp: e.Timestamp,
+				Type:      e.Type,
+				X:         e.X,
+				Y:         e.Y,
+				X2:        e.X2,
+				Y2:        e.Y2,
+				Duration:  e.Duration,
+			}
+		}
+	}
+	return result, nil
+}
+
+func (b *MCPBridge) SaveTouchScript(script mcp.TouchScript) error {
+	mainScript := TouchScript{
+		Name:              script.Name,
+		DeviceID:          script.DeviceID,
+		DeviceModel:       script.DeviceModel,
+		Resolution:        script.Resolution,
+		CreatedAt:         script.CreatedAt,
+		Events:            make([]TouchEvent, len(script.Events)),
+		SmartTapTimeoutMs: script.SmartTapTimeoutMs,
+		PlaybackSpeed:     script.PlaybackSpeed,
+	}
+	for i, e := range script.Events {
+		mainScript.Events[i] = TouchEvent{
+			Timestamp: e.Timestamp,
+			Type:      e.Type,
+			X:         e.X,
+			Y:         e.Y,
+			X2:        e.X2,
+			Y2:        e.Y2,
+			Duration:  e.Duration,
+		}
+	}
+	return b.app.SaveTouchScript(mainScript)
+}
+
+func (b *MCPBridge) DeleteTouchScript(name string) error {
+	return b.app.DeleteTouchScript(name)
+}
+
+func (b *MCPBridge) ExecuteSingleTouchEvent(deviceId string, event mcp.TouchEvent, resolution string) error {
+	mainEvent := TouchEvent{
+		Timestamp: event.Timestamp,
+		Type:      event.Type,
+		X:         event.X,
+		Y:         event.Y,
+		X2:        event.X2,
+		Y2:        event.Y2,
+		Duration:  event.Duration,
+	}
+	if event.Selector != nil {
+		mainEvent.Selector = &ElementSelector{
+			Type:  event.Selector.Type,
+			Value: event.Selector.Value,
+			Index: event.Selector.Index,
+		}
+	}
+	return b.app.ExecuteSingleTouchEvent(deviceId, mainEvent, resolution)
+}
+
 // StartMCPServer starts the MCP server with the given app
 func StartMCPServer(app *App) {
 	bridge := NewMCPBridge(app)

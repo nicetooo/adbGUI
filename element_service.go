@@ -262,19 +262,21 @@ func (a *App) GetElementProperties(deviceId string, selector *ElementSelector) (
 	}
 
 	props := map[string]interface{}{
-		"class":       node.Class,
-		"text":        node.Text,
-		"resourceId":  node.ResourceID,
-		"contentDesc": node.ContentDesc,
-		"bounds":      node.Bounds,
-		"clickable":   node.Clickable,
-		"checkable":   node.Checkable,
-		"checked":     node.Checked,
-		"enabled":     node.Enabled,
-		"focusable":   node.Focusable,
-		"focused":     node.Focused,
-		"scrollable":  node.Scrollable,
-		"selected":    node.Selected,
+		"class":         node.Class,
+		"text":          node.Text,
+		"resourceId":    node.ResourceID,
+		"contentDesc":   node.ContentDesc,
+		"bounds":        node.Bounds,
+		"clickable":     node.Clickable,
+		"checkable":     node.Checkable,
+		"checked":       node.Checked,
+		"enabled":       node.Enabled,
+		"focusable":     node.Focusable,
+		"focused":       node.Focused,
+		"scrollable":    node.Scrollable,
+		"longClickable": node.LongClickable,
+		"password":      node.Password,
+		"selected":      node.Selected,
 	}
 
 	// Add center coordinates

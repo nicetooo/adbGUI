@@ -157,12 +157,14 @@ type TouchEvent struct {
 
 // TouchScript represents a recorded touch automation script
 type TouchScript struct {
-	Name        string       `json:"name"`
-	DeviceID    string       `json:"deviceId"`
-	DeviceModel string       `json:"deviceModel,omitempty"` // Store device model name
-	Resolution  string       `json:"resolution"`            // e.g. "1080x2400"
-	CreatedAt   string       `json:"createdAt"`
-	Events      []TouchEvent `json:"events"`
+	Name              string       `json:"name"`
+	DeviceID          string       `json:"deviceId"`
+	DeviceModel       string       `json:"deviceModel,omitempty"` // Store device model name
+	Resolution        string       `json:"resolution"`            // e.g. "1080x2400"
+	CreatedAt         string       `json:"createdAt"`
+	Events            []TouchEvent `json:"events"`
+	SmartTapTimeoutMs int          `json:"smartTapTimeoutMs,omitempty"` // Smart Tap timeout in ms (default: 5000)
+	PlaybackSpeed     float64      `json:"playbackSpeed,omitempty"`     // Playback speed multiplier (default: 1.0)
 }
 
 // ElementInfo stores captured UI element information at touch point
@@ -198,6 +200,7 @@ type TouchRecordingSession struct {
 	RecordingMode      string                 // "fast" or "precise"
 	IsPaused           bool                   // True when waiting for user selector choice
 	PendingSelectorReq *SelectorChoiceRequest // Current pending selector choice
+	ScannerDone        chan struct{}          // Closed when the getevent scanner goroutine exits
 }
 
 // SelectorChoiceRequest represents a request for user to choose a selector

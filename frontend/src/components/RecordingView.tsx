@@ -7,6 +7,8 @@ import {
   List,
   Modal,
   Input,
+  InputNumber,
+  Select,
   message,
   theme,
   Progress,
@@ -35,9 +37,16 @@ import {
   AimOutlined,
   LoadingOutlined,
   CheckCircleOutlined,
+  ArrowUpOutlined,
+  ArrowDownOutlined,
+  PlusOutlined,
+  CloseOutlined,
+  CheckOutlined,
+  ClockCircleOutlined,
 } from "@ant-design/icons";
 import DeviceSelector from "./DeviceSelector";
 import { useDeviceStore, useAutomationStore, TouchScript } from "../stores";
+import { convertScriptToWorkflow } from "../stores/automationStore";
 import { formatDurationMMSS } from "../stores/eventTypes";
 import { main } from "../types/wails-models";
 
@@ -88,6 +97,20 @@ const RecordingView: React.FC = () => {
     closeSaveModal,
     setSelectedScript,
     setNewScriptName,
+    // Playback settings
+    playbackSpeed,
+    smartTapTimeoutMs,
+    setPlaybackSpeed,
+    setSmartTapTimeoutMs,
+    // Script editing
+    editingEventIndex,
+    setEditingEventIndex,
+    updateScriptEvent,
+    deleteScriptEvent,
+    moveScriptEvent,
+    insertWaitEvent,
+    isScriptDirty,
+    setScriptDirty,
   } = useAutomationStore();
 
   const { t } = useTranslation();
@@ -178,7 +201,13 @@ const RecordingView: React.FC = () => {
       return;
     }
     try {
-      await playScript(selectedDevice, script);
+      // Inject playback settings from store into the script
+      const scriptWithSettings = main.TouchScript.createFrom({
+        ...script,
+        playbackSpeed: playbackSpeed,
+        smartTapTimeoutMs: smartTapTimeoutMs,
+      });
+      await playScript(selectedDevice, scriptWithSettings);
       setSelectedScript(script);
     } catch (err) {
       message.error(String(err));
@@ -240,190 +269,16 @@ const RecordingView: React.FC = () => {
   };
 
   const handleConvertToWorkflow = async (script: TouchScript) => {
-    if (!script.events || script.events.length === 0) {
-      message.warning(t("automation.no_events_to_convert"));
-      return;
-    }
-
-    const steps: main.WorkflowStep[] = [];
-    let lastTimestamp = 0;
-    const now = Date.now();
-
-    // Add Start node
-    const startId = `step_start_${now}`;
-    steps.push({
-      id: startId,
-      type: 'start',
-      name: t('workflow.step_type.start'),
-      posX: 250,
-      posY: 50,
-    } as main.WorkflowStep);
-
-    script.events.forEach((event, idx) => {
-      // Add wait step if there is a significant delay
-      const delay = event.timestamp - lastTimestamp;
-      if (delay > 50) { // 50ms threshold
-        steps.push({
-          id: `step_wait_${now}_${idx}`,
-          type: 'wait',
-          name: `${t('workflow.generated_step_name.wait')} ${delay}ms`,
-          value: String(delay),
-          loop: 1,
-          postDelay: 0,
-          posX: 250,
-          posY: 150 + steps.length * 100,
-        } as main.WorkflowStep);
-      }
-      lastTimestamp = event.timestamp;
-
-      // Add Action Step
-      const id = `step_action_${now}_${idx}`;
-
-      const buildStepName = (action: string, event: main.TouchEvent, fallback: string) => {
-        if (event.selector && event.selector.value) {
-          const val = event.selector.value;
-          const shortVal = val.split('/').pop() || val;
-          return `${action}: "${shortVal}"`;
-        }
-        return fallback;
-      };
-
-      if (event.type === 'tap') {
-        const selector = event.selector;
-        if (selector && selector.type !== 'coordinates') {
-          steps.push({
-            id,
-            type: 'click_element',
-            name: buildStepName(t('workflow.generated_step_name.click'), event, `${t('workflow.generated_step_name.click')} ${idx + 1}`),
-            selector: { ...selector },
-            loop: 1,
-            postDelay: 0,
-            onError: 'stop',
-            posX: 250,
-            posY: 150 + steps.length * 100,
-          } as main.WorkflowStep);
-        } else {
-          // Create a small tap area around the point for better reliability
-          const tapSize = 10;
-          const x1 = Math.max(0, event.x - tapSize);
-          const y1 = Math.max(0, event.y - tapSize);
-          const x2 = event.x + tapSize;
-          const y2 = event.y + tapSize;
-          const bounds = `[${x1},${y1}][${x2},${y2}]`;
-
-          steps.push({
-            id,
-            type: 'click_element',
-            name: `${t('workflow.generated_step_name.click')} (${event.x}, ${event.y})`,
-            selector: { type: 'bounds', value: bounds, index: 0 },
-            loop: 1,
-            postDelay: 0,
-            onError: 'stop',
-            posX: 250,
-            posY: 150 + steps.length * 100,
-          } as main.WorkflowStep);
-        }
-      } else if (event.type === 'long_press') {
-        const selector = event.selector;
-        if (selector && selector.type !== 'coordinates') {
-          steps.push({
-            id,
-            type: 'long_click_element',
-            name: buildStepName(t('workflow.generated_step_name.long_press'), event, `${t('workflow.generated_step_name.long_press')} ${idx + 1}`),
-            selector: { ...selector },
-            loop: 1,
-            postDelay: 0,
-            onError: 'stop',
-            posX: 250,
-            posY: 150 + steps.length * 100,
-          } as main.WorkflowStep);
-        } else {
-          // Use bounds selector for coordinate-based long press
-          const tapSize = 10;
-          const x1 = Math.max(0, event.x - tapSize);
-          const y1 = Math.max(0, event.y - tapSize);
-          const x2 = event.x + tapSize;
-          const y2 = event.y + tapSize;
-          const bounds = `[${x1},${y1}][${x2},${y2}]`;
-
-          steps.push({
-            id,
-            type: 'long_click_element',
-            name: `${t('workflow.generated_step_name.long_press')} (${event.x}, ${event.y})`,
-            selector: { type: 'bounds', value: bounds, index: 0 },
-            loop: 1,
-            postDelay: 0,
-            onError: 'stop',
-            posX: 250,
-            posY: 150 + steps.length * 100,
-          } as main.WorkflowStep);
-        }
-      } else if (event.type === 'swipe') {
-        const dx = (event.x2 || event.x) - event.x;
-        const dy = (event.y2 || event.y) - event.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        let direction = 'up';
-        if (Math.abs(dx) > Math.abs(dy)) {
-          direction = dx > 0 ? 'right' : 'left';
-        } else {
-          direction = dy > 0 ? 'down' : 'up';
-        }
-
-        const tapSize = 10;
-        const x1 = Math.max(0, event.x - tapSize);
-        const y1 = Math.max(0, event.y - tapSize);
-        const x2 = event.x + tapSize;
-        const y2 = event.y + tapSize;
-        const bounds = `[${x1},${y1}][${x2},${y2}]`;
-
-        steps.push({
-          id,
-          type: 'swipe_element',
-          name: `${t('workflow.generated_step_name.swipe')} ${direction}`,
-          selector: { type: 'bounds', value: bounds, index: 0 },
-          value: direction,
-          swipeDistance: Math.round(distance),
-          swipeDuration: event.duration || 300,
-          loop: 1,
-          postDelay: 0,
-          onError: 'stop',
-          posX: 250,
-          posY: 150 + steps.length * 100,
-        } as main.WorkflowStep);
-      } else if (event.type === 'wait') {
-        steps.push({
-          id,
-          type: 'wait',
-          name: `${t('workflow.generated_step_name.wait')} ${idx + 1}`,
-          value: String(event.duration || 1000),
-          loop: 1,
-          postDelay: 0,
-          posX: 250,
-          posY: 150 + steps.length * 100,
-        } as main.WorkflowStep);
-      }
-    });
-
-    // Link steps
-    for (let i = 0; i < steps.length - 1; i++) {
-      steps[i].nextStepId = steps[i + 1].id;
-    }
-
-    const newWorkflow = new (main as any).Workflow({
-      id: `wf_converted_${now}`,
-      name: `${script.name}${t('workflow.converted_suffix')}`,
-      description: t('workflow.converted_desc', { date: new Date().toLocaleString() }),
-      steps: steps,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-
     try {
-      await (window as any).go.main.App.SaveWorkflow(newWorkflow);
+      await convertScriptToWorkflow(script, t);
       message.success(t("automation.converted_success"));
     } catch (err) {
-      message.error(t("automation.convert_failed") + ": " + String(err));
+      const errMsg = String(err);
+      if (errMsg.includes("no_events_to_convert")) {
+        message.warning(t("automation.no_events_to_convert"));
+      } else {
+        message.error(t("automation.convert_failed") + ": " + errMsg);
+      }
     }
   };
 
@@ -440,14 +295,60 @@ const RecordingView: React.FC = () => {
       case "tap":
         return `${index + 1}. tap (${event.x}, ${event.y})${elementSuffix} @ ${event.timestamp}ms`;
       case "long_press":
-        return `${index + 1}. long press (${event.x}, ${event.y})${elementSuffix} ${event.duration}ms @ ${event.timestamp}ms`;
+        return `${index + 1}. long press (${event.x}, ${event.y})${elementSuffix} ${event.duration ?? 0}ms @ ${event.timestamp}ms`;
       case "swipe":
-        return `${index + 1}. swipe (${event.x}, ${event.y}) → (${event.x2}, ${event.y2})${elementSuffix} ${event.duration}ms @ ${event.timestamp}ms`;
+        return `${index + 1}. swipe (${event.x}, ${event.y}) → (${event.x2}, ${event.y2})${elementSuffix}${event.duration ? ` ${event.duration}ms` : ''} @ ${event.timestamp}ms`;
       case "wait":
-        return `${index + 1}. wait ${event.duration}ms`;
+        return `${index + 1}. wait ${event.duration ?? 0}ms`;
       default:
         return `${index + 1}. unknown`;
     }
+  };
+
+  const handleSaveEditedScript = async () => {
+    const script = currentScript || selectedScript;
+    if (!script) return;
+    try {
+      const scriptToSave = main.TouchScript.createFrom({ ...script });
+      await saveScript(scriptToSave);
+      message.success(t("recording.editor.changes_saved"));
+      setScriptDirty(false);
+      setEditingEventIndex(null);
+    } catch (err) {
+      message.error(String(err));
+    }
+  };
+
+  const handleDiscardChanges = async () => {
+    // Reload scripts to discard in-memory changes
+    await loadScripts();
+    setScriptDirty(false);
+    setEditingEventIndex(null);
+    // If editing a selectedScript, reset it from the reloaded list
+    if (selectedScript) {
+      const reloaded = useAutomationStore.getState().scripts.find(s => s.name === selectedScript.name);
+      if (reloaded) {
+        setSelectedScript(reloaded);
+      }
+    }
+    setCurrentScript(null);
+    message.info(t("recording.editor.changes_discarded"));
+  };
+
+  const handleDeleteEvent = (index: number) => {
+    deleteScriptEvent(index);
+    message.success(t("recording.editor.event_deleted"));
+  };
+
+  const handleMoveEvent = (fromIndex: number, direction: 'up' | 'down') => {
+    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
+    moveScriptEvent(fromIndex, toIndex);
+    message.success(t("recording.editor.event_moved"));
+  };
+
+  const handleInsertWait = (afterIndex: number) => {
+    insertWaitEvent(afterIndex, 1000);
+    message.success(t("recording.editor.wait_inserted"));
   };
 
   const isDeviceRecording = isRecording && recordingDeviceId === selectedDevice;
@@ -682,42 +583,209 @@ const RecordingView: React.FC = () => {
               </Card>
             )}
 
-            {/* Script Preview */}
+            {/* Script Preview / Editor */}
             {(currentScript || selectedScript) && (
               <Card
-                title={t("recording.script_preview")}
+                title={
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Space>
+                      <EditOutlined />
+                      {t("recording.editor.title")}
+                      {isScriptDirty && (
+                        <Tag color="warning">{t("recording.editor.unsaved_changes")}</Tag>
+                      )}
+                    </Space>
+                    {isScriptDirty && (
+                      <Space size={4}>
+                        <Button
+                          type="primary"
+                          size="small"
+                          icon={<SaveOutlined />}
+                          onClick={handleSaveEditedScript}
+                          disabled={!(currentScript || selectedScript)?.name}
+                        >
+                          {t("recording.editor.save_changes")}
+                        </Button>
+                        <Button
+                          size="small"
+                          icon={<CloseOutlined />}
+                          onClick={handleDiscardChanges}
+                        >
+                          {t("recording.editor.discard_changes")}
+                        </Button>
+                      </Space>
+                    )}
+                  </div>
+                }
                 size="small"
-                style={{ maxHeight: 300, overflow: "auto" }}
+                style={{ maxHeight: 400, overflow: "auto" }}
               >
                 <div style={{ fontFamily: "monospace", fontSize: 12 }}>
                   {((currentScript || selectedScript)?.events || []).map((event, idx) => {
                     const activeScript = currentScript || selectedScript;
+                    const totalEvents = activeScript?.events?.length || 0;
+                    const isEditing = editingEventIndex === idx;
+
                     return (
-                      <div
-                        key={idx}
-                        style={{
-                          padding: "4px 0",
-                          borderBottom: `1px solid ${token.colorBorderSecondary}`,
-                          color:
-                            isDevicePlaying && playbackProgress && idx < playbackProgress.current
-                              ? token.colorSuccess
-                              : token.colorText,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                        }}
-                      >
-                        <Tooltip title={t("recording.execute_event")}>
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<ThunderboltOutlined />}
-                            onClick={() => handleExecuteSingleEvent(event, activeScript!)}
-                            disabled={!selectedDevice || isRecording || isPlaying}
-                            style={{ padding: "0 4px", minWidth: 24 }}
-                          />
-                        </Tooltip>
-                        <span style={{ flex: 1, wordBreak: "break-all", overflowWrap: "anywhere" }}>{formatEventDescription(event, idx)}</span>
+                      <div key={idx}>
+                        <div
+                          style={{
+                            padding: "6px 0",
+                            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                            color:
+                              isDevicePlaying && playbackProgress && idx < playbackProgress.current
+                                ? token.colorSuccess
+                                : token.colorText,
+                            backgroundColor: isEditing ? token.colorPrimaryBg : undefined,
+                            borderRadius: isEditing ? 4 : 0,
+                          }}
+                        >
+                          {/* Event row */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <Tooltip title={t("recording.execute_event")}>
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<ThunderboltOutlined />}
+                                onClick={() => handleExecuteSingleEvent(event, activeScript!)}
+                                disabled={!selectedDevice || isRecording || isPlaying}
+                                style={{ padding: "0 4px", minWidth: 24 }}
+                              />
+                            </Tooltip>
+                            <span
+                              style={{ flex: 1, wordBreak: "break-all", overflowWrap: "anywhere", cursor: "pointer" }}
+                              onClick={() => setEditingEventIndex(isEditing ? null : idx)}
+                            >
+                              {formatEventDescription(event, idx)}
+                            </span>
+                            <Space size={0}>
+                              <Tooltip title={t("recording.editor.move_up")}>
+                                <Button
+                                  type="text" size="small"
+                                  icon={<ArrowUpOutlined />}
+                                  disabled={idx === 0 || isPlaying}
+                                  onClick={() => handleMoveEvent(idx, 'up')}
+                                  style={{ padding: "0 2px", minWidth: 20 }}
+                                />
+                              </Tooltip>
+                              <Tooltip title={t("recording.editor.move_down")}>
+                                <Button
+                                  type="text" size="small"
+                                  icon={<ArrowDownOutlined />}
+                                  disabled={idx >= totalEvents - 1 || isPlaying}
+                                  onClick={() => handleMoveEvent(idx, 'down')}
+                                  style={{ padding: "0 2px", minWidth: 20 }}
+                                />
+                              </Tooltip>
+                              <Tooltip title={t("recording.editor.edit_event")}>
+                                <Button
+                                  type="text" size="small"
+                                  icon={<EditOutlined />}
+                                  onClick={() => setEditingEventIndex(isEditing ? null : idx)}
+                                  style={{ padding: "0 2px", minWidth: 20, color: isEditing ? token.colorPrimary : undefined }}
+                                />
+                              </Tooltip>
+                              <Tooltip title={t("recording.editor.insert_wait_after")}>
+                                <Button
+                                  type="text" size="small"
+                                  icon={<ClockCircleOutlined />}
+                                  onClick={() => handleInsertWait(idx)}
+                                  disabled={isPlaying}
+                                  style={{ padding: "0 2px", minWidth: 20 }}
+                                />
+                              </Tooltip>
+                              <Popconfirm
+                                title={t("recording.editor.delete_event_confirm")}
+                                onConfirm={() => handleDeleteEvent(idx)}
+                                okText={t("common.ok")}
+                                cancelText={t("common.cancel")}
+                              >
+                                <Tooltip title={t("recording.editor.delete_event")}>
+                                  <Button
+                                    type="text" size="small" danger
+                                    icon={<DeleteOutlined />}
+                                    disabled={isPlaying}
+                                    style={{ padding: "0 2px", minWidth: 20 }}
+                                  />
+                                </Tooltip>
+                              </Popconfirm>
+                            </Space>
+                          </div>
+
+                          {/* Inline editor */}
+                          {isEditing && (
+                            <div style={{
+                              margin: "8px 0 4px 32px",
+                              padding: 8,
+                              backgroundColor: token.colorFillAlter,
+                              borderRadius: 6,
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: 8,
+                              alignItems: "center",
+                            }}>
+                              {event.type !== 'wait' && (
+                                <>
+                                  <Space size={4}>
+                                    <span>{t("recording.editor.x")}:</span>
+                                    <InputNumber
+                                      size="small" style={{ width: 70 }}
+                                      value={event.x}
+                                      onChange={(v: number | null) => v !== null && updateScriptEvent(idx, { x: v })}
+                                    />
+                                  </Space>
+                                  <Space size={4}>
+                                    <span>{t("recording.editor.y")}:</span>
+                                    <InputNumber
+                                      size="small" style={{ width: 70 }}
+                                      value={event.y}
+                                      onChange={(v: number | null) => v !== null && updateScriptEvent(idx, { y: v })}
+                                    />
+                                  </Space>
+                                </>
+                              )}
+                              {event.type === 'swipe' && (
+                                <>
+                                  <Space size={4}>
+                                    <span>{t("recording.editor.x2")}:</span>
+                                    <InputNumber
+                                      size="small" style={{ width: 70 }}
+                                      value={event.x2}
+                                      onChange={(v: number | null) => v !== null && updateScriptEvent(idx, { x2: v })}
+                                    />
+                                  </Space>
+                                  <Space size={4}>
+                                    <span>{t("recording.editor.y2")}:</span>
+                                    <InputNumber
+                                      size="small" style={{ width: 70 }}
+                                      value={event.y2}
+                                      onChange={(v: number | null) => v !== null && updateScriptEvent(idx, { y2: v })}
+                                    />
+                                  </Space>
+                                </>
+                              )}
+                              {(event.type === 'long_press' || event.type === 'swipe' || event.type === 'wait') && (
+                                <Space size={4}>
+                                  <span>{t("recording.editor.duration_ms")}:</span>
+                                  <InputNumber
+                                    size="small" style={{ width: 80 }}
+                                    min={0}
+                                    value={event.duration}
+                                    onChange={(v: number | null) => v !== null && updateScriptEvent(idx, { duration: v })}
+                                  />
+                                </Space>
+                              )}
+                              <Button
+                                type="text" size="small"
+                                icon={<CheckOutlined />}
+                                onClick={() => setEditingEventIndex(null)}
+                                style={{ color: token.colorPrimary }}
+                              >
+                                {t("common.ok")}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -762,6 +830,47 @@ const RecordingView: React.FC = () => {
               size="small"
               styles={{ body: { padding: 0 } }}
             >
+              {/* Playback Settings */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '6px 12px',
+                borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                fontSize: 12,
+                flexWrap: 'wrap',
+              }}>
+                <Space size={4} align="center">
+                  <ThunderboltOutlined style={{ color: token.colorTextSecondary }} />
+                  <span style={{ color: token.colorTextSecondary }}>{t("recording.playback_speed")}:</span>
+                  <Select
+                    size="small"
+                    value={playbackSpeed}
+                    onChange={setPlaybackSpeed}
+                    style={{ width: 80 }}
+                    options={[
+                      { value: 0.5, label: '0.5x' },
+                      { value: 1, label: '1x' },
+                      { value: 2, label: '2x' },
+                      { value: 5, label: '5x' },
+                    ]}
+                  />
+                </Space>
+                <Space size={4} align="center">
+                  <AimOutlined style={{ color: token.colorTextSecondary }} />
+                  <span style={{ color: token.colorTextSecondary }}>{t("recording.smart_tap_timeout")}:</span>
+                  <InputNumber
+                    size="small"
+                    value={smartTapTimeoutMs}
+                    onChange={(v) => setSmartTapTimeoutMs(v || 5000)}
+                    min={1000}
+                    max={30000}
+                    step={1000}
+                    style={{ width: 80 }}
+                    suffix="ms"
+                  />
+                </Space>
+              </div>
               <VirtualList<TouchScript>
                 dataSource={scripts}
                 rowKey="name"
@@ -804,7 +913,7 @@ const RecordingView: React.FC = () => {
                         <div style={{ wordBreak: 'break-all', fontWeight: 500 }}>{script.name}</div>
                         <div style={{ fontSize: 11, color: token.colorTextSecondary }}>
                           {script.events?.length || 0} {t("recording.events")} · {script.resolution}
-                          {(script as any).deviceModel ? ` · ${(script as any).deviceModel}` : null}
+                          {script.deviceModel ? ` · ${script.deviceModel}` : null}
                         </div>
                       </div>
                     </div>

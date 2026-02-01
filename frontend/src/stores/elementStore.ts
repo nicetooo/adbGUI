@@ -17,16 +17,16 @@ export interface UINode {
   package: string;
   contentDesc: string;
   bounds: string;
-  checkable: string;
-  checked: string;
-  clickable: string;
-  enabled: string;
-  focusable: string;
-  focused: string;
-  scrollable: string;
-  longClickable: string;
-  password: string;
-  selected: string;
+  checkable: boolean;
+  checked: boolean;
+  clickable: boolean;
+  enabled: boolean;
+  focusable: boolean;
+  focused: boolean;
+  scrollable: boolean;
+  longClickable: boolean;
+  password: boolean;
+  selected: boolean;
   nodes: UINode[];
 }
 

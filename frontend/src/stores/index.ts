@@ -57,8 +57,7 @@ export { useAssertionsPanelStore } from './assertionsPanelStore';
 export { usePerfStore } from './perfStore';
 export type { PerfSampleData, PerfMonitorConfig, PerfHistoryEntry } from './perfStore';
 
-// Automation View Store
-export { useAutomationViewStore } from './automationViewStore';
+
 
 // Thumbnail Store (for FilesView)
 export { useThumbnailStore } from './thumbnailStore';

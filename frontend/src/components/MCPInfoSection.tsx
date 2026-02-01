@@ -16,6 +16,7 @@ import {
   CheckOutlined,
   CodeOutlined,
   LineChartOutlined,
+  PlayCircleOutlined,
 } from "@ant-design/icons";
 
 const { Text, Paragraph } = Typography;
@@ -55,6 +56,16 @@ const TOOL_CATEGORIES = [
     color: "#722ed1",
     tools: [
       "ui_hierarchy", "ui_search", "ui_tap", "ui_swipe", "ui_input", "ui_resolution", "keyboard_setup",
+    ],
+  },
+  {
+    key: "recording",
+    icon: <PlayCircleOutlined />,
+    color: "#ff4d4f",
+    tools: [
+      "touch_record_start", "touch_record_stop", "touch_record_status",
+      "touch_script_list", "touch_script_play", "touch_script_save", "touch_script_delete",
+      "touch_playback_stop",
     ],
   },
   {

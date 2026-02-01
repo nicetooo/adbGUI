@@ -24,7 +24,7 @@ import {
     CopyOutlined,
     QuestionCircleOutlined,
 } from "@ant-design/icons";
-import { useDeviceStore, useAutomationStore, useUIInspectorStore } from "../stores";
+import { useDeviceStore, useAutomationStore, useUIInspectorStore, type UINode } from "../stores";
 
 const DetailItem: React.FC<{
     label: string;
@@ -199,8 +199,8 @@ const UIInspectorView: React.FC = () => {
         }
     }, [selectedDevice]);
 
-    // Helper to get node attribute by name
-    const getNodeAttr = (node: any, attr: string): string => {
+    // Helper to get node attribute by name (returns string for condition evaluation)
+    const getNodeAttr = (node: UINode, attr: string): string => {
         const lowerAttr = attr.toLowerCase();
         switch (lowerAttr) {
             case "text": return node.text || "";
@@ -209,16 +209,16 @@ const UIInspectorView: React.FC = () => {
             case "package": return node.package || "";
             case "content-desc": case "contentdesc": case "description": case "desc": return node.contentDesc || "";
             case "bounds": return node.bounds || "";
-            case "clickable": return node.clickable || "";
-            case "enabled": return node.enabled || "";
-            case "focused": return node.focused || "";
-            case "scrollable": return node.scrollable || "";
-            case "checkable": return node.checkable || "";
-            case "checked": return node.checked || "";
-            case "focusable": return node.focusable || "";
-            case "long-clickable": case "longclickable": return node.longClickable || "";
-            case "password": return node.password || "";
-            case "selected": return node.selected || "";
+            case "clickable": return String(node.clickable ?? false);
+            case "enabled": return String(node.enabled ?? false);
+            case "focused": return String(node.focused ?? false);
+            case "scrollable": return String(node.scrollable ?? false);
+            case "checkable": return String(node.checkable ?? false);
+            case "checked": return String(node.checked ?? false);
+            case "focusable": return String(node.focusable ?? false);
+            case "long-clickable": case "longclickable": return String(node.longClickable ?? false);
+            case "password": return String(node.password ?? false);
+            case "selected": return String(node.selected ?? false);
             default: return "";
         }
     };

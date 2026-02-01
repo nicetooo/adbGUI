@@ -286,6 +286,7 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 		MinY:          minY,
 		RecordingMode: recordingMode,
 		IsPaused:      false,
+		ScannerDone:   make(chan struct{}),
 	}
 
 	// Pre-capture UI hierarchy in precise mode so the first action has a snapshot
@@ -316,8 +317,13 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 		screenH, _ = strconv.Atoi(parts[1])
 	}
 
+	// Get a reference to the done channel before starting the goroutine
+	scannerDone := touchRecordData[deviceId].ScannerDone
+
 	// Start goroutine to read events
 	go func() {
+		defer close(scannerDone)
+
 		scanner := bufio.NewScanner(stdout)
 		lineCount := 0
 		capturedCount := 0
@@ -520,10 +526,11 @@ func (a *App) StartTouchRecording(deviceId string, recordingMode string) error {
 
 // StopTouchRecording stops recording and returns the parsed touch script
 func (a *App) StopTouchRecording(deviceId string) (*TouchScript, error) {
-	// First, get the cancel function and command without holding the lock
+	// First, get the cancel function, command, and scanner done channel without holding the lock
 	touchRecordMu.Lock()
 	cancel, exists := touchRecordCancel[deviceId]
 	cmd := touchRecordCmd[deviceId]
+	session := touchRecordData[deviceId]
 	touchRecordMu.Unlock()
 
 	if !exists {
@@ -539,8 +546,16 @@ func (a *App) StopTouchRecording(deviceId string) (*TouchScript, error) {
 		_ = cmd.Wait()
 	}
 
-	// Give the reading goroutine a moment to finish processing
-	time.Sleep(100 * time.Millisecond)
+	// Wait for the scanner goroutine to fully complete (replaces unreliable time.Sleep)
+	if session != nil && session.ScannerDone != nil {
+		select {
+		case <-session.ScannerDone:
+			// Scanner goroutine finished
+		case <-time.After(2 * time.Second):
+			// Safety timeout to prevent indefinite blocking
+			log.Println("[automation] Warning: scanner goroutine did not finish within 2s")
+		}
+	}
 
 	// Now acquire the lock to get the recorded data
 	touchRecordMu.Lock()
@@ -1245,7 +1260,8 @@ func (a *App) ExecuteSingleTouchEvent(deviceId string, event TouchEvent, sourceR
 
 // resolveSmartTapCoords attempts to find an element on screen and returns its center coordinates.
 // If multiple matches are found, it picks the one closest to (origX, origY).
-func (a *App) resolveSmartTapCoords(deviceId string, selector *ElementSelector, origX, origY int) (int, int, bool) {
+// timeoutMs controls how long to wait for the element (0 = use default 5000ms).
+func (a *App) resolveSmartTapCoords(deviceId string, selector *ElementSelector, origX, origY int, timeoutMs ...int) (int, int, bool) {
 	if selector == nil || selector.Type == "coordinates" {
 		return 0, 0, false
 	}
@@ -1253,7 +1269,11 @@ func (a *App) resolveSmartTapCoords(deviceId string, selector *ElementSelector, 
 	LogDebug("automation").Interface("selector", selector).Int("origX", origX).Int("origY", origY).Msg("Resolving Smart Tap")
 
 	start := time.Now()
-	timeout := 5 * time.Second
+	timeoutVal := 5000
+	if len(timeoutMs) > 0 && timeoutMs[0] > 0 {
+		timeoutVal = timeoutMs[0]
+	}
+	timeout := time.Duration(timeoutVal) * time.Millisecond
 	retryInterval := 800 * time.Millisecond
 
 	// First wait a bit for transitions
@@ -1406,10 +1426,17 @@ func (a *App) playTouchScriptSync(ctx context.Context, deviceId string, script T
 		default:
 		}
 
-		// Wait until it's time to execute this event
+		// Determine effective playback speed (default 1.0)
+		speed := script.PlaybackSpeed
+		if speed <= 0 {
+			speed = 1.0
+		}
+
+		// Wait until it's time to execute this event (adjusted by speed)
 		elapsed := time.Since(startTime).Milliseconds()
-		if event.Timestamp > elapsed {
-			sleepDuration := time.Duration(event.Timestamp-elapsed) * time.Millisecond
+		adjustedTimestamp := int64(float64(event.Timestamp) / speed)
+		if adjustedTimestamp > elapsed {
+			sleepDuration := time.Duration(adjustedTimestamp-elapsed) * time.Millisecond
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -1432,7 +1459,7 @@ func (a *App) playTouchScriptSync(ctx context.Context, deviceId string, script T
 
 			// Smart Tap: if we have identifying info, try to find the element on screen
 			if event.Selector != nil && event.Selector.Type != "coordinates" {
-				resolvedX, resolvedY, found := a.resolveSmartTapCoords(deviceId, event.Selector, finalX, finalY)
+				resolvedX, resolvedY, found := a.resolveSmartTapCoords(deviceId, event.Selector, finalX, finalY, script.SmartTapTimeoutMs)
 				if found {
 					tapX, tapY = resolvedX, resolvedY
 				}
@@ -1454,7 +1481,12 @@ func (a *App) playTouchScriptSync(ctx context.Context, deviceId string, script T
 				finalX, finalY, finalX2, finalY2, event.Duration)
 			LogDebug("automation").Int("x1", finalX).Int("y1", finalY).Int("x2", finalX2).Int("y2", finalY2).Msg("Executing SWIPE")
 		case "wait":
-			time.Sleep(time.Duration(event.Duration) * time.Millisecond)
+			waitDuration := time.Duration(float64(event.Duration)/speed) * time.Millisecond
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(waitDuration):
+			}
 			continue
 		default:
 			continue
@@ -1680,7 +1712,17 @@ func (a *App) SaveTouchScript(script TouchScript) error {
 		safeName = fmt.Sprintf("script_%d", time.Now().Unix())
 	}
 
+	// Avoid filename collisions: if a file exists with this name but the script
+	// name inside it is different, add a unique suffix
 	filePath := filepath.Join(scriptsPath, safeName+".json")
+	if data, err := os.ReadFile(filePath); err == nil {
+		var existing TouchScript
+		if json.Unmarshal(data, &existing) == nil && existing.Name != script.Name {
+			// Different script with same sanitized name - add unix timestamp suffix
+			safeName = fmt.Sprintf("%s_%d", safeName, time.Now().UnixNano())
+			filePath = filepath.Join(scriptsPath, safeName+".json")
+		}
+	}
 
 	data, err := json.MarshalIndent(script, "", "  ")
 	if err != nil {
@@ -2105,16 +2147,16 @@ type UINode struct {
 	Class         string   `xml:"class,attr" json:"class"`
 	Package       string   `xml:"package,attr" json:"package"`
 	ContentDesc   string   `xml:"content-desc,attr" json:"contentDesc"`
-	Checkable     string   `xml:"checkable,attr" json:"checkable"`
-	Checked       string   `xml:"checked,attr" json:"checked"`
-	Clickable     string   `xml:"clickable,attr" json:"clickable"`
-	Enabled       string   `xml:"enabled,attr" json:"enabled"`
-	Focusable     string   `xml:"focusable,attr" json:"focusable"`
-	Focused       string   `xml:"focused,attr" json:"focused"`
-	Scrollable    string   `xml:"scrollable,attr" json:"scrollable"`
-	LongClickable string   `xml:"long-clickable,attr" json:"longClickable"`
-	Password      string   `xml:"password,attr" json:"password"`
-	Selected      string   `xml:"selected,attr" json:"selected"`
+	Checkable     bool     `xml:"checkable,attr" json:"checkable"`
+	Checked       bool     `xml:"checked,attr" json:"checked"`
+	Clickable     bool     `xml:"clickable,attr" json:"clickable"`
+	Enabled       bool     `xml:"enabled,attr" json:"enabled"`
+	Focusable     bool     `xml:"focusable,attr" json:"focusable"`
+	Focused       bool     `xml:"focused,attr" json:"focused"`
+	Scrollable    bool     `xml:"scrollable,attr" json:"scrollable"`
+	LongClickable bool     `xml:"long-clickable,attr" json:"longClickable"`
+	Password      bool     `xml:"password,attr" json:"password"`
+	Selected      bool     `xml:"selected,attr" json:"selected"`
 	Bounds        string   `xml:"bounds,attr" json:"bounds"`
 	Nodes         []UINode `xml:"node" json:"nodes"`
 }
@@ -2441,25 +2483,25 @@ func (a *App) getNodeAttribute(node *UINode, attr string) string {
 	case "bounds":
 		return node.Bounds
 	case "clickable":
-		return node.Clickable
+		return strconv.FormatBool(node.Clickable)
 	case "enabled":
-		return node.Enabled
+		return strconv.FormatBool(node.Enabled)
 	case "focused":
-		return node.Focused
+		return strconv.FormatBool(node.Focused)
 	case "scrollable":
-		return node.Scrollable
+		return strconv.FormatBool(node.Scrollable)
 	case "checkable":
-		return node.Checkable
+		return strconv.FormatBool(node.Checkable)
 	case "checked":
-		return node.Checked
+		return strconv.FormatBool(node.Checked)
 	case "focusable":
-		return node.Focusable
+		return strconv.FormatBool(node.Focusable)
 	case "long-clickable", "longclickable":
-		return node.LongClickable
+		return strconv.FormatBool(node.LongClickable)
 	case "password":
-		return node.Password
+		return strconv.FormatBool(node.Password)
 	case "selected":
-		return node.Selected
+		return strconv.FormatBool(node.Selected)
 	}
 	return ""
 }

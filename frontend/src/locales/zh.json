@@ -1078,8 +1078,40 @@
     },
     "auto_scaling": "自动适配",
     "scaling_info": "不同分辨率的脚本将自动缩放。精度可能会有所偏差。",
+    "playback_speed": "速度",
+    "smart_tap_timeout": "智能点击超时",
     "execute_event": "执行此事件",
-    "event_executed": "事件已执行"
+    "event_executed": "事件已执行",
+    "editor": {
+      "title": "脚本编辑器",
+      "edit_event": "编辑事件",
+      "delete_event": "删除事件",
+      "delete_event_confirm": "确定删除此事件？",
+      "move_up": "上移",
+      "move_down": "下移",
+      "insert_wait": "插入等待",
+      "insert_wait_after": "在此后插入等待",
+      "wait_duration": "等待时长 (ms)",
+      "save_changes": "保存更改",
+      "discard_changes": "放弃更改",
+      "unsaved_changes": "有未保存的更改",
+      "x": "X",
+      "y": "Y",
+      "x2": "X2",
+      "y2": "Y2",
+      "duration_ms": "时长 (ms)",
+      "type": "类型",
+      "tap": "点击",
+      "long_press": "长按",
+      "swipe": "滑动",
+      "wait": "等待",
+      "event_updated": "事件已更新",
+      "event_deleted": "事件已删除",
+      "event_moved": "事件已移动",
+      "wait_inserted": "等待步骤已插入",
+      "changes_saved": "脚本更改已保存",
+      "changes_discarded": "更改已放弃"
+    }
   },
   "workflow": {
     "title": "工作流编排",
@@ -1365,6 +1397,8 @@
       "perf": "性能监控",
       "perf_desc": "启动/停止性能监控，获取 CPU/内存/FPS/网络/电池快照",
       "proto": "Protobuf 管理",
+      "recording": "触控录制",
+      "recording_desc": "录制、回放和管理触控自动化脚本",
       "proto_desc": "管理 .proto 模式文件和 URL 到消息类型的映射，用于解码 protobuf 网络流量"
     },
     "tool": {
@@ -1470,7 +1504,15 @@
       "breakpoint_rule_toggle": "启用/禁用断点规则",
       "breakpoint_resolve": "处理待处理断点",
       "breakpoint_pending_list": "列出待处理断点",
-      "breakpoint_forward_all": "一次性放行所有待处理断点"
+      "breakpoint_forward_all": "一次性放行所有待处理断点",
+      "touch_record_start": "开始在设备上录制触控操作（快速或精确模式）",
+      "touch_record_stop": "停止触控录制并返回录制脚本",
+      "touch_record_status": "检查设备是否正在录制触控",
+      "touch_script_list": "列出所有已保存的触控脚本",
+      "touch_script_play": "在设备上回放已保存的触控脚本",
+      "touch_script_save": "保存录制输出的触控脚本",
+      "touch_script_delete": "按名称删除已保存的触控脚本",
+      "touch_playback_stop": "停止正在进行的触控脚本回放"
     },
     "resource": {
       "devices": "已连接 Android 设备列表 (JSON)",

@@ -1078,8 +1078,40 @@
     },
     "auto_scaling": "자동 크기 조정",
     "scaling_info": "다른 해상도의 스크립트는 자동으로 크기가 조정됩니다. 정확도가 달라질 수 있습니다.",
+    "playback_speed": "속도",
+    "smart_tap_timeout": "스마트 탭 시간 초과",
     "execute_event": "이 이벤트 실행",
-    "event_executed": "이벤트가 실행되었습니다"
+    "event_executed": "이벤트가 실행되었습니다",
+    "editor": {
+      "title": "스크립트 편집기",
+      "edit_event": "이벤트 편집",
+      "delete_event": "이벤트 삭제",
+      "delete_event_confirm": "이 이벤트를 삭제하시겠습니까?",
+      "move_up": "위로 이동",
+      "move_down": "아래로 이동",
+      "insert_wait": "대기 삽입",
+      "insert_wait_after": "이후에 대기 삽입",
+      "wait_duration": "대기 시간 (ms)",
+      "save_changes": "변경사항 저장",
+      "discard_changes": "변경 취소",
+      "unsaved_changes": "저장하지 않은 변경사항이 있습니다",
+      "x": "X",
+      "y": "Y",
+      "x2": "X2",
+      "y2": "Y2",
+      "duration_ms": "시간 (ms)",
+      "type": "유형",
+      "tap": "탭",
+      "long_press": "길게 누르기",
+      "swipe": "스와이프",
+      "wait": "대기",
+      "event_updated": "이벤트가 업데이트되었습니다",
+      "event_deleted": "이벤트가 삭제되었습니다",
+      "event_moved": "이벤트가 이동되었습니다",
+      "wait_inserted": "대기 단계가 삽입되었습니다",
+      "changes_saved": "스크립트 변경사항이 저장되었습니다",
+      "changes_discarded": "변경사항이 취소되었습니다"
+    }
   },
   "workflow": {
     "title": "워크플로 편성",
@@ -1365,6 +1397,8 @@
       "perf": "성능 모니터링",
       "perf_desc": "성능 모니터링 시작/중지, CPU/메모리/FPS/네트워크/배터리 스냅샷 가져오기",
       "proto": "Protobuf 관리",
+      "recording": "터치 녹화",
+      "recording_desc": "터치 자동화 스크립트 녹화, 재생 및 관리",
       "proto_desc": ".proto 스키마 파일과 URL-메시지 타입 매핑을 관리하여 protobuf 네트워크 트래픽 디코딩"
     },
     "tool": {
@@ -1470,7 +1504,15 @@
       "breakpoint_rule_toggle": "브레이크포인트 규칙 활성화/비활성화",
       "breakpoint_resolve": "대기 중인 브레이크포인트 처리",
       "breakpoint_pending_list": "대기 중인 브레이크포인트 목록 표시",
-      "breakpoint_forward_all": "모든 대기 중인 브레이크포인트를 한번에 전달"
+      "breakpoint_forward_all": "모든 대기 중인 브레이크포인트를 한번에 전달",
+      "touch_record_start": "기기에서 터치 녹화 시작 (빠른 또는 정밀 모드)",
+      "touch_record_stop": "터치 녹화 중지 및 녹화 스크립트 반환",
+      "touch_record_status": "기기에서 터치 녹화 활성 여부 확인",
+      "touch_script_list": "저장된 모든 터치 스크립트 목록 표시",
+      "touch_script_play": "기기에서 저장된 터치 스크립트 재생",
+      "touch_script_save": "녹화 출력에서 터치 스크립트 저장",
+      "touch_script_delete": "이름으로 저장된 터치 스크립트 삭제",
+      "touch_playback_stop": "진행 중인 터치 스크립트 재생 중지"
     },
     "resource": {
       "devices": "연결된 Android 기기 목록 (JSON)",

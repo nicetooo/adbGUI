@@ -148,6 +148,17 @@ type MockGazeApp struct {
 	LoadProtoFromURLResult     []string
 	LoadProtoFromURLError      error
 
+	// Touch Recording
+	StartTouchRecordingError error
+	StopTouchRecordingResult *TouchScript
+	StopTouchRecordingError  error
+	IsRecordingTouchResult   bool
+	PlayTouchScriptError     error
+	LoadTouchScriptsResult   []TouchScript
+	LoadTouchScriptsError    error
+	SaveTouchScriptError     error
+	DeleteTouchScriptError   error
+
 	// Utility
 	AppVersion string
 }
@@ -859,6 +870,52 @@ func (m *MockGazeApp) LoadProtoFromURL(rawURL string) ([]string, error) {
 	return m.LoadProtoFromURLResult, m.LoadProtoFromURLError
 }
 
+// === Touch Recording ===
+
+func (m *MockGazeApp) StartTouchRecording(deviceId string, mode string) error {
+	m.recordCall("StartTouchRecording", deviceId, mode)
+	return m.StartTouchRecordingError
+}
+
+func (m *MockGazeApp) StopTouchRecording(deviceId string) (*TouchScript, error) {
+	m.recordCall("StopTouchRecording", deviceId)
+	return m.StopTouchRecordingResult, m.StopTouchRecordingError
+}
+
+func (m *MockGazeApp) IsRecordingTouch(deviceId string) bool {
+	m.recordCall("IsRecordingTouch", deviceId)
+	return m.IsRecordingTouchResult
+}
+
+func (m *MockGazeApp) PlayTouchScript(deviceId string, script TouchScript) error {
+	m.recordCall("PlayTouchScript", deviceId, script)
+	return m.PlayTouchScriptError
+}
+
+func (m *MockGazeApp) StopTouchPlayback(deviceId string) {
+	m.recordCall("StopTouchPlayback", deviceId)
+}
+
+func (m *MockGazeApp) LoadTouchScripts() ([]TouchScript, error) {
+	m.recordCall("LoadTouchScripts")
+	return m.LoadTouchScriptsResult, m.LoadTouchScriptsError
+}
+
+func (m *MockGazeApp) SaveTouchScript(script TouchScript) error {
+	m.recordCall("SaveTouchScript", script)
+	return m.SaveTouchScriptError
+}
+
+func (m *MockGazeApp) DeleteTouchScript(name string) error {
+	m.recordCall("DeleteTouchScript", name)
+	return m.DeleteTouchScriptError
+}
+
+func (m *MockGazeApp) ExecuteSingleTouchEvent(deviceId string, event TouchEvent, resolution string) error {
+	m.recordCall("ExecuteSingleTouchEvent", deviceId, event, resolution)
+	return nil
+}
+
 // === Utility ===
 
 func (m *MockGazeApp) GetAppVersion() string {
@@ -937,6 +994,18 @@ func (m *MockGazeApp) SetupWithError(method string, err error) *MockGazeApp {
 		m.StartProxyError = err
 	case "StopProxy":
 		m.StopProxyError = err
+	case "StartTouchRecording":
+		m.StartTouchRecordingError = err
+	case "StopTouchRecording":
+		m.StopTouchRecordingError = err
+	case "PlayTouchScript":
+		m.PlayTouchScriptError = err
+	case "LoadTouchScripts":
+		m.LoadTouchScriptsError = err
+	case "SaveTouchScript":
+		m.SaveTouchScriptError = err
+	case "DeleteTouchScript":
+		m.DeleteTouchScriptError = err
 	}
 	return m
 }
