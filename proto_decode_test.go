@@ -735,6 +735,187 @@ func TestIsMapType(t *testing.T) {
 	}
 }
 
+// TestEnhanceNestedBytes_FrameWrapsApiProto tests the real-world scenario where
+// frame.proto defines a wrapper with a bytes field, and api.proto defines the
+// actual payload message. Schema-based decoding should auto-decode the nested bytes.
+func TestEnhanceNestedBytes_FrameWrapsApiProto(t *testing.T) {
+	compiler := newTestCompiler(t)
+	registry := NewProtoRegistry()
+	registry.compiler = compiler
+
+	// Two separate proto files: frame.proto and api.proto
+	err := compiler.Compile(map[string]string{
+		"frame.proto": `syntax = "proto3";
+package app;
+message Frame {
+    int32 cmd = 1;
+    bytes payload = 2;
+}`,
+		"api.proto": `syntax = "proto3";
+package app;
+message UserResponse {
+    string name = 1;
+    int32 age = 2;
+    string email = 3;
+}`,
+	})
+	if err != nil {
+		t.Fatalf("Compile failed: %v", err)
+	}
+
+	// Build inner message: UserResponse{name:"Alice", age:25, email:"alice@test.com"}
+	innerDesc := compiler.GetMessageDescriptor("app.UserResponse")
+	if innerDesc == nil {
+		t.Fatal("Could not find app.UserResponse")
+	}
+	innerMsg := dynamicpb.NewMessage(innerDesc)
+	innerMsg.Set(innerDesc.Fields().ByName("name"), protoreflect.ValueOfString("Alice"))
+	innerMsg.Set(innerDesc.Fields().ByName("age"), protoreflect.ValueOfInt32(25))
+	innerMsg.Set(innerDesc.Fields().ByName("email"), protoreflect.ValueOfString("alice@test.com"))
+
+	innerBytes, err := proto.Marshal(innerMsg)
+	if err != nil {
+		t.Fatalf("Marshal inner failed: %v", err)
+	}
+
+	// Build outer message: Frame{cmd:1, payload:<serialized UserResponse>}
+	outerDesc := compiler.GetMessageDescriptor("app.Frame")
+	if outerDesc == nil {
+		t.Fatal("Could not find app.Frame")
+	}
+	outerMsg := dynamicpb.NewMessage(outerDesc)
+	outerMsg.Set(outerDesc.Fields().ByName("cmd"), protoreflect.ValueOfInt32(1))
+	outerMsg.Set(outerDesc.Fields().ByName("payload"), protoreflect.ValueOfBytes(innerBytes))
+
+	outerBytes, err := proto.Marshal(outerMsg)
+	if err != nil {
+		t.Fatalf("Marshal outer failed: %v", err)
+	}
+
+	// Add URL mapping for Frame
+	registry.AddMapping(&ProtoMapping{
+		ID:          "frame-mapping",
+		URLPattern:  "*",
+		MessageType: "app.Frame",
+		Direction:   "both",
+	})
+
+	decoder := NewProtobufDecoder(registry)
+
+	// Decode with schema — previously this would show payload as base64
+	result := decoder.DecodeBody(outerBytes, "", "https://example.com/ws", "response")
+	if result == "" {
+		t.Fatal("Decode returned empty")
+	}
+
+	t.Logf("Decoded result:\n%s", result)
+
+	// Parse and verify the nested payload was decoded
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(result), &parsed); err != nil {
+		t.Fatalf("Result is not valid JSON: %v", err)
+	}
+
+	// cmd should be present
+	if cmd, _ := parsed["cmd"].(float64); cmd != 1 {
+		t.Errorf("cmd = %v, want 1", parsed["cmd"])
+	}
+
+	// payload should be a decoded object (not a base64 string!)
+	payload, ok := parsed["payload"]
+	if !ok {
+		t.Fatal("payload field missing")
+	}
+	payloadObj, ok := payload.(map[string]interface{})
+	if !ok {
+		t.Fatalf("payload should be a decoded object, got %T: %v", payload, payload)
+	}
+	if name, _ := payloadObj["name"].(string); name != "Alice" {
+		t.Errorf("payload.name = %q, want 'Alice'", name)
+	}
+	if age, _ := payloadObj["age"].(float64); age != 25 {
+		t.Errorf("payload.age = %v, want 25", payloadObj["age"])
+	}
+	if email, _ := payloadObj["email"].(string); email != "alice@test.com" {
+		t.Errorf("payload.email = %q, want 'alice@test.com'", email)
+	}
+}
+
+// TestEnhanceNestedBytes_RepeatedBytesField tests decoding repeated bytes fields
+// where each element contains a nested protobuf message.
+func TestEnhanceNestedBytes_RepeatedBytesField(t *testing.T) {
+	compiler := newTestCompiler(t)
+	registry := NewProtoRegistry()
+	registry.compiler = compiler
+
+	err := compiler.Compile(map[string]string{
+		"batch.proto": `syntax = "proto3";
+package app;
+message Batch {
+    int32 batch_id = 1;
+    repeated bytes items = 2;
+}
+message Item {
+    string name = 1;
+    int32 value = 2;
+}`,
+	})
+	if err != nil {
+		t.Fatalf("Compile failed: %v", err)
+	}
+
+	itemDesc := compiler.GetMessageDescriptor("app.Item")
+	batchDesc := compiler.GetMessageDescriptor("app.Batch")
+
+	// Create two Item messages
+	item1 := dynamicpb.NewMessage(itemDesc)
+	item1.Set(itemDesc.Fields().ByName("name"), protoreflect.ValueOfString("foo"))
+	item1.Set(itemDesc.Fields().ByName("value"), protoreflect.ValueOfInt32(10))
+	item1Bytes, _ := proto.Marshal(item1)
+
+	item2 := dynamicpb.NewMessage(itemDesc)
+	item2.Set(itemDesc.Fields().ByName("name"), protoreflect.ValueOfString("bar"))
+	item2.Set(itemDesc.Fields().ByName("value"), protoreflect.ValueOfInt32(20))
+	item2Bytes, _ := proto.Marshal(item2)
+
+	// Build Batch with repeated bytes
+	batch := dynamicpb.NewMessage(batchDesc)
+	batch.Set(batchDesc.Fields().ByName("batch_id"), protoreflect.ValueOfInt32(99))
+	itemsList := batch.Mutable(batchDesc.Fields().ByName("items")).List()
+	itemsList.Append(protoreflect.ValueOfBytes(item1Bytes))
+	itemsList.Append(protoreflect.ValueOfBytes(item2Bytes))
+
+	batchBytes, _ := proto.Marshal(batch)
+
+	registry.AddMapping(&ProtoMapping{
+		ID: "batch-mapping", URLPattern: "*", MessageType: "app.Batch", Direction: "both",
+	})
+
+	decoder := NewProtobufDecoder(registry)
+	result := decoder.DecodeBody(batchBytes, "", "https://example.com/api", "response")
+
+	t.Logf("Repeated bytes result:\n%s", result)
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(result), &parsed); err != nil {
+		t.Fatalf("Not valid JSON: %v", err)
+	}
+
+	items, ok := parsed["items"].([]interface{})
+	if !ok || len(items) != 2 {
+		t.Fatalf("items should be array of 2, got %T: %v", parsed["items"], parsed["items"])
+	}
+
+	// Check first item is decoded as object
+	item1Obj, ok := items[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("items[0] should be object, got %T: %v", items[0], items[0])
+	}
+	if name, _ := item1Obj["name"].(string); name != "foo" {
+		t.Errorf("items[0].name = %q, want 'foo'", name)
+	}
+}
+
 // TestLooksLikeGRPCFrame tests the heuristic gRPC frame header detection.
 func TestLooksLikeGRPCFrame(t *testing.T) {
 	tests := []struct {

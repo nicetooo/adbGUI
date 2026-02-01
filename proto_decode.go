@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -109,6 +110,19 @@ func (d *ProtobufDecoder) decodeWithType(raw []byte, msgType string) string {
 	if err != nil {
 		return ""
 	}
+
+	// Post-process: try to decode bytes fields that may contain nested protobuf.
+	// This handles the common pattern where a "frame" message wraps inner protobuf
+	// payloads in a bytes field (e.g., frame.proto wrapping api.proto messages).
+	var jsonObj map[string]interface{}
+	if err := json.Unmarshal(jsonBytes, &jsonObj); err == nil {
+		if d.enhanceNestedBytes(jsonObj, desc) {
+			if enhanced, err := json.MarshalIndent(jsonObj, "", "  "); err == nil {
+				return string(enhanced)
+			}
+		}
+	}
+
 	return string(jsonBytes)
 }
 
@@ -229,6 +243,154 @@ func (d *ProtobufDecoder) autoMatchDecode(raw []byte) (string, string) {
 	}
 
 	return best.json, best.name
+}
+
+// enhanceNestedBytes walks a JSON object (produced by protojson.Marshal) using the
+// message descriptor, finds bytes fields that may contain nested protobuf data, and
+// replaces their base64 representation with the decoded protobuf structure.
+// This handles the common pattern where a "frame" proto wraps inner protos in bytes fields.
+// Returns true if any enhancement was made.
+func (d *ProtobufDecoder) enhanceNestedBytes(jsonObj map[string]interface{}, desc protoreflect.MessageDescriptor) bool {
+	if desc == nil || len(jsonObj) == 0 {
+		return false
+	}
+
+	enhanced := false
+	fields := desc.Fields()
+
+	for i := 0; i < fields.Len(); i++ {
+		fd := fields.Get(i)
+
+		// Find the field in JSON (try proto name first, then JSON name)
+		fieldKey := string(fd.Name())
+		val, exists := jsonObj[fieldKey]
+		if !exists {
+			fieldKey = fd.JSONName()
+			val, exists = jsonObj[fieldKey]
+			if !exists {
+				continue
+			}
+		}
+
+		if fd.IsList() {
+			if arr, ok := val.([]interface{}); ok {
+				if fd.Kind() == protoreflect.BytesKind {
+					for idx, elem := range arr {
+						if b64, ok := elem.(string); ok {
+							if decoded := d.tryDecodeBase64Proto(b64); decoded != nil {
+								arr[idx] = decoded
+								enhanced = true
+							}
+						}
+					}
+				} else if fd.Kind() == protoreflect.MessageKind {
+					for _, elem := range arr {
+						if obj, ok := elem.(map[string]interface{}); ok {
+							if d.enhanceNestedBytes(obj, fd.Message()) {
+								enhanced = true
+							}
+						}
+					}
+				}
+			}
+			continue
+		}
+
+		if fd.IsMap() {
+			if mapObj, ok := val.(map[string]interface{}); ok {
+				mvd := fd.MapValue()
+				if mvd.Kind() == protoreflect.BytesKind {
+					for k, v := range mapObj {
+						if b64, ok := v.(string); ok {
+							if decoded := d.tryDecodeBase64Proto(b64); decoded != nil {
+								mapObj[k] = decoded
+								enhanced = true
+							}
+						}
+					}
+				} else if mvd.Kind() == protoreflect.MessageKind {
+					for _, v := range mapObj {
+						if obj, ok := v.(map[string]interface{}); ok {
+							if d.enhanceNestedBytes(obj, mvd.Message()) {
+								enhanced = true
+							}
+						}
+					}
+				}
+			}
+			continue
+		}
+
+		switch fd.Kind() {
+		case protoreflect.BytesKind:
+			if b64, ok := val.(string); ok {
+				if decoded := d.tryDecodeBase64Proto(b64); decoded != nil {
+					jsonObj[fieldKey] = decoded
+					enhanced = true
+				}
+			}
+		case protoreflect.MessageKind:
+			if obj, ok := val.(map[string]interface{}); ok {
+				if d.enhanceNestedBytes(obj, fd.Message()) {
+					enhanced = true
+				}
+			}
+		}
+	}
+
+	return enhanced
+}
+
+// tryDecodeBase64Proto attempts to decode a base64 string as a protobuf message.
+// Returns the decoded object (map/interface{}) or nil if decoding fails.
+func (d *ProtobufDecoder) tryDecodeBase64Proto(b64 string) interface{} {
+	if b64 == "" {
+		return nil
+	}
+
+	// Decode base64 (protojson uses standard encoding with padding)
+	raw, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		// Try without padding
+		raw, err = base64.RawStdEncoding.DecodeString(b64)
+		if err != nil {
+			return nil
+		}
+	}
+	if len(raw) < 2 {
+		return nil // Too small to be meaningful protobuf
+	}
+
+	// Strip gRPC frame header if present
+	decodeData := raw
+	if looksLikeGRPCFrame(raw) {
+		decodeData = raw[5:]
+	}
+
+	// 1. Try schema-based auto-match (all compiled message types)
+	if d.registry != nil && d.registry.compiler != nil {
+		result, matchedType := d.autoMatchDecode(decodeData)
+		if result != "" {
+			var obj interface{}
+			if json.Unmarshal([]byte(result), &obj) == nil {
+				// Recursively enhance nested bytes in the matched result
+				if mapObj, ok := obj.(map[string]interface{}); ok && matchedType != "" {
+					if nestedDesc := d.registry.GetMessageDescriptor(matchedType); nestedDesc != nil {
+						d.enhanceNestedBytes(mapObj, nestedDesc)
+					}
+				}
+				return obj
+			}
+		}
+	}
+
+	// 2. Fall back to raw schemaless decode
+	sub := rawDecodeProtobuf(decodeData)
+	if sub != nil && len(sub) > 0 {
+		return sub
+	}
+
+	return nil
 }
 
 // isProtobufContentType checks if the content type indicates protobuf.
