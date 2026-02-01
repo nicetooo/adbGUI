@@ -278,6 +278,45 @@ const ProxyView: React.FC = () => {
         return { headers, queryParams };
     }, [mockConditionHints, formStoredHints, logs.length]);
 
+    // Aggregate captured URLs into wildcard patterns for autocomplete suggestions
+    const capturedUrlPatterns = useMemo(() => {
+        if (logs.length === 0) return [];
+        const pathMap = new Map<string, { method: string; count: number }>();
+        const cap = Math.min(logs.length, 500);
+        for (let i = 0; i < cap; i++) {
+            const log = logs[i];
+            if (log.isWs) continue;
+            let pathname = '';
+            try {
+                const urlObj = new URL(log.url);
+                pathname = urlObj.pathname;
+            } catch {
+                pathname = log.url.split('?')[0];
+            }
+            if (!pathname || pathname === '/') continue;
+            // Normalize: collapse numeric path segments to * (e.g. /api/users/123 -> /api/users/*)
+            const normalized = pathname.replace(/\/\d+/g, '/*');
+            const pattern = `*${normalized}*`;
+            const existing = pathMap.get(pattern);
+            if (existing) {
+                existing.count++;
+            } else {
+                pathMap.set(pattern, { method: log.method, count: 1 });
+            }
+        }
+        return Array.from(pathMap.entries())
+            .sort((a, b) => b[1].count - a[1].count)
+            .map(([pattern, info]) => ({
+                value: pattern,
+                label: (
+                    <span style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'monospace', fontSize: 12 }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{pattern}</span>
+                        <span style={{ color: 'rgba(255,255,255,0.35)', marginLeft: 8, flexShrink: 0 }}>{info.method} ×{info.count}</span>
+                    </span>
+                ),
+            }));
+    }, [logs.length]);
+
     // Check cert trust status when MITM is enabled and proxy is running
     useEffect(() => {
         if (mitmEnabled && isRunning && selectedDevice) {
@@ -2753,40 +2792,25 @@ const ProxyView: React.FC = () => {
             >
                 <Form form={protoMappingForm} layout="vertical" size="small" style={{ marginTop: 8 }}>
                     <Form.Item name="urlPattern" label={t('proxy.url_pattern')} rules={[{ required: true }]}>
-                        <Input placeholder="*/api/user/*" />
+                        <AutoComplete
+                            placeholder="*/api/user/*"
+                            options={capturedUrlPatterns}
+                            filterOption={(inputValue, option) =>
+                                (option?.value as string)?.toLowerCase().includes(inputValue.toLowerCase())
+                            }
+                        />
                     </Form.Item>
                     <Form.Item name="messageType" label={t('proxy.message_type')} rules={[{ required: true }]}>
-                        {protoMessageTypes.length > 0 ? (
-                            <Input
-                                placeholder="example.UserResponse"
-                                suffix={
-                                    <Popover
-                                        trigger="click"
-                                        content={
-                                            <div style={{ maxHeight: 300, overflow: 'auto' }}>
-                                                {protoMessageTypes.map(msgType => (
-                                                    <div
-                                                        key={msgType}
-                                                        style={{ padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontFamily: 'monospace', borderRadius: 4 }}
-                                                        onMouseEnter={(e) => { (e.target as HTMLElement).style.background = token.colorFillSecondary; }}
-                                                        onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; }}
-                                                        onClick={() => {
-                                                            protoMappingForm.setFieldValue('messageType', msgType);
-                                                        }}
-                                                    >
-                                                        {msgType}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        }
-                                    >
-                                        <Button type="text" size="small" style={{ fontSize: 10 }}>types</Button>
-                                    </Popover>
-                                }
-                            />
-                        ) : (
-                            <Input placeholder="example.UserResponse" />
-                        )}
+                        <AutoComplete
+                            placeholder="example.UserResponse"
+                            options={protoMessageTypes.map(msgType => ({
+                                value: msgType,
+                                label: <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{msgType}</span>,
+                            }))}
+                            filterOption={(inputValue, option) =>
+                                (option?.value as string)?.toLowerCase().includes(inputValue.toLowerCase())
+                            }
+                        />
                     </Form.Item>
                     <Form.Item name="direction" label={t('proxy.direction')} initialValue="response">
                         <Radio.Group buttonStyle="solid" size="small">
