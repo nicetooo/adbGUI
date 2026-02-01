@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -51,6 +52,12 @@ func (d *ProtobufDecoder) DecodeBody(data []byte, contentType, url, direction st
 	// Strip gRPC frame header (5 bytes: 1 byte compressed flag + 4 bytes length)
 	raw := data
 	if isGRPCContentType(contentType) && len(data) >= 5 {
+		raw = data[5:]
+	} else if contentType == "" && looksLikeGRPCFrame(data) {
+		// Auto-detect gRPC framing when content type is not available
+		// (e.g., WebSocket binary frames from gRPC-Web over WS).
+		// This is safe because: byte[0] ≤ 1 means protobuf field 0 which is
+		// always invalid, so valid protobuf data can never trigger this.
 		raw = data[5:]
 	}
 
@@ -239,6 +246,26 @@ func isProtobufContentType(ct string) bool {
 func isGRPCContentType(ct string) bool {
 	ct = strings.ToLower(ct)
 	return strings.Contains(ct, "application/grpc")
+}
+
+// looksLikeGRPCFrame heuristically detects gRPC frame headers in binary data.
+// gRPC frames have the format: [1-byte compressed flag (0|1)][4-byte big-endian message length].
+// This is used for WebSocket binary frames where Content-Type is not available.
+//
+// Safety: protobuf field numbers must be ≥ 1, so byte[0] values 0x00-0x07 all decode
+// to field 0 (invalid). Since gRPC compressed flag is 0 or 1, and combined with the
+// exact length match, false positives on valid protobuf data are essentially impossible.
+func looksLikeGRPCFrame(data []byte) bool {
+	if len(data) < 6 { // Need at least 5 header bytes + 1 payload byte
+		return false
+	}
+	// Compression flag must be 0 (uncompressed) or 1 (compressed)
+	if data[0] > 1 {
+		return false
+	}
+	// Check if the length field exactly matches the remaining data
+	length := binary.BigEndian.Uint32(data[1:5])
+	return int(length) == len(data)-5
 }
 
 // --- Raw protobuf decode (no schema) ---

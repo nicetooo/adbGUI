@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/binary"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -731,6 +733,179 @@ func TestIsMapType(t *testing.T) {
 			t.Errorf("isMapType(%q, %d) = %v, want %v", tt.input, tt.pos, got, tt.expected)
 		}
 	}
+}
+
+// TestLooksLikeGRPCFrame tests the heuristic gRPC frame header detection.
+func TestLooksLikeGRPCFrame(t *testing.T) {
+	tests := []struct {
+		name   string
+		data   []byte
+		expect bool
+	}{
+		{
+			name:   "valid uncompressed gRPC frame",
+			data:   append([]byte{0x00, 0x00, 0x00, 0x00, 0x05}, []byte("hello")...),
+			expect: true,
+		},
+		{
+			name:   "valid compressed gRPC frame (flag=1)",
+			data:   append([]byte{0x01, 0x00, 0x00, 0x00, 0x03}, []byte("abc")...),
+			expect: true,
+		},
+		{
+			name:   "invalid flag byte (2)",
+			data:   append([]byte{0x02, 0x00, 0x00, 0x00, 0x03}, []byte("abc")...),
+			expect: false,
+		},
+		{
+			name:   "length mismatch (too short)",
+			data:   append([]byte{0x00, 0x00, 0x00, 0x00, 0x0A}, []byte("short")...),
+			expect: false,
+		},
+		{
+			name:   "length mismatch (too long)",
+			data:   append([]byte{0x00, 0x00, 0x00, 0x00, 0x01}, []byte("toolong")...),
+			expect: false,
+		},
+		{
+			name:   "too short (less than 6 bytes)",
+			data:   []byte{0x00, 0x00, 0x00, 0x00, 0x00},
+			expect: false,
+		},
+		{
+			name:   "valid protobuf start (field 1 varint)",
+			data:   []byte{0x08, 0x2A, 0x12, 0x05, 0x41, 0x6C, 0x69, 0x63, 0x65},
+			expect: false, // byte[0]=0x08 > 1, not a gRPC frame
+		},
+		{
+			name:   "empty data",
+			data:   nil,
+			expect: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := looksLikeGRPCFrame(tt.data)
+			if got != tt.expect {
+				t.Errorf("looksLikeGRPCFrame() = %v, want %v", got, tt.expect)
+			}
+		})
+	}
+}
+
+// TestDecodeBody_GRPCAutoDetect tests that DecodeBody auto-detects gRPC framing
+// when contentType is empty (e.g., WebSocket binary frames).
+func TestDecodeBody_GRPCAutoDetect(t *testing.T) {
+	// Create a simple protobuf schema
+	compiler := newTestCompiler(t)
+	registry := NewProtoRegistry()
+	registry.compiler = compiler
+
+	protoContent := `syntax = "proto3";
+package test;
+message Inner {
+    string name = 1;
+    int32 value = 2;
+}
+message Outer {
+    int32 id = 1;
+    Inner nested = 2;
+}`
+	err := compiler.Compile(map[string]string{"test.proto": protoContent})
+	if err != nil {
+		t.Fatalf("Compile failed: %v", err)
+	}
+
+	// Create an Outer message with nested Inner
+	outerDesc := compiler.GetMessageDescriptor("test.Outer")
+	if outerDesc == nil {
+		t.Fatal("Could not find test.Outer descriptor")
+	}
+	innerDesc := compiler.GetMessageDescriptor("test.Inner")
+	if innerDesc == nil {
+		t.Fatal("Could not find test.Inner descriptor")
+	}
+
+	innerMsg := dynamicpb.NewMessage(innerDesc)
+	innerMsg.Set(innerDesc.Fields().ByName("name"), protoreflect.ValueOfString("Alice"))
+	innerMsg.Set(innerDesc.Fields().ByName("value"), protoreflect.ValueOfInt32(42))
+
+	outerMsg := dynamicpb.NewMessage(outerDesc)
+	outerMsg.Set(outerDesc.Fields().ByName("id"), protoreflect.ValueOfInt32(1))
+	outerMsg.Set(outerDesc.Fields().ByName("nested"), protoreflect.ValueOfMessage(innerMsg))
+
+	pbBytes, err := proto.Marshal(outerMsg)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	// Wrap in gRPC frame header: [0x00][4-byte length][protobuf data]
+	grpcFrame := make([]byte, 5+len(pbBytes))
+	grpcFrame[0] = 0x00 // uncompressed
+	binary.BigEndian.PutUint32(grpcFrame[1:5], uint32(len(pbBytes)))
+	copy(grpcFrame[5:], pbBytes)
+
+	// Add URL mapping
+	registry.AddMapping(&ProtoMapping{
+		ID:          "test-mapping",
+		URLPattern:  "*/api/test*",
+		MessageType: "test.Outer",
+		Direction:   "both",
+	})
+
+	decoder := NewProtobufDecoder(registry)
+
+	// Test 1: HTTP path (with content type) should decode correctly
+	httpResult := decoder.DecodeBody(grpcFrame, "application/grpc", "https://example.com/api/test", "response")
+	if httpResult == "" {
+		t.Fatal("HTTP decode returned empty result")
+	}
+	var httpParsed map[string]interface{}
+	if err := json.Unmarshal([]byte(httpResult), &httpParsed); err != nil {
+		t.Fatalf("HTTP result is not valid JSON: %v\nResult: %s", err, httpResult)
+	}
+	// Verify nested field is decoded
+	if nested, ok := httpParsed["nested"].(map[string]interface{}); !ok {
+		t.Errorf("HTTP: 'nested' field not decoded as object. Full result: %s", httpResult)
+	} else {
+		if name, _ := nested["name"].(string); name != "Alice" {
+			t.Errorf("HTTP: nested.name = %q, want 'Alice'", name)
+		}
+	}
+
+	// Test 2: WS path (empty content type) should also decode correctly via auto-detection
+	wsResult := decoder.DecodeBody(grpcFrame, "", "https://example.com/api/test", "response")
+	if wsResult == "" {
+		t.Fatal("WS decode returned empty result")
+	}
+	var wsParsed map[string]interface{}
+	if err := json.Unmarshal([]byte(wsResult), &wsParsed); err != nil {
+		t.Fatalf("WS result is not valid JSON: %v\nResult: %s", err, wsResult)
+	}
+	// Verify nested field is decoded identically
+	if nested, ok := wsParsed["nested"].(map[string]interface{}); !ok {
+		t.Errorf("WS: 'nested' field not decoded as object. Full result: %s", wsResult)
+	} else {
+		if name, _ := nested["name"].(string); name != "Alice" {
+			t.Errorf("WS: nested.name = %q, want 'Alice'", name)
+		}
+	}
+
+	// Test 3: Plain protobuf without gRPC frame (should still work for both)
+	httpPlain := decoder.DecodeBody(pbBytes, "application/x-protobuf", "https://example.com/api/test", "response")
+	wsPlain := decoder.DecodeBody(pbBytes, "", "https://example.com/api/test", "response")
+	if httpPlain == "" {
+		t.Error("HTTP plain protobuf decode returned empty")
+	}
+	if wsPlain == "" {
+		t.Error("WS plain protobuf decode returned empty")
+	}
+
+	t.Logf("HTTP (gRPC frame): %s", httpResult)
+	t.Logf("WS   (gRPC frame): %s", wsResult)
+	t.Logf("HTTP (plain pb):   %s", httpPlain)
+	t.Logf("WS   (plain pb):   %s", wsPlain)
 }
 
 // helper to create protoreflect.Value from Go types
