@@ -359,12 +359,14 @@ func (a *App) LoadProtoFromURL(rawURL string) ([]string, error) {
 	}
 
 	var ids []string
+	var lastErrors []string // track last compile errors for user-facing messages
 	for retry := 0; retry <= len(collected) && len(remaining) > 0; retry++ {
 		progress := false
+		lastErrors = nil // reset each pass
 		for name, content := range remaining {
 			id, err := a.AddProtoFile(name, content)
 			if err != nil {
-				// Will retry in next pass (dependency might not be added yet)
+				lastErrors = append(lastErrors, fmt.Sprintf("%s: %v", name, err))
 				continue
 			}
 			ids = append(ids, id)
@@ -372,16 +374,13 @@ func (a *App) LoadProtoFromURL(rawURL string) ([]string, error) {
 			progress = true
 		}
 		if !progress {
-			// No file could be added — remaining files have unresolvable dependencies
-			for name := range remaining {
-				log.Printf("[Proto] Warning: could not add %s (unresolved dependencies)", name)
-			}
 			break
 		}
 	}
 
 	if len(ids) == 0 {
-		return nil, fmt.Errorf("no files were added (possible compile errors, check logs)")
+		errDetail := strings.Join(lastErrors, "; ")
+		return nil, fmt.Errorf("all files failed: %s", errDetail)
 	}
 	return ids, nil
 }

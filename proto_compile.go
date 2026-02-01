@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"strings"
 	"sync"
 
@@ -11,6 +12,16 @@ import (
 	"github.com/bufbuild/protocompile/reporter"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
+
+// lenientErrorPatterns lists error substrings that should be suppressed during compilation.
+// These are technically spec violations but are common in real-world proto files
+// and don't affect message decoding (which is Gaze's primary use case).
+var lenientErrorPatterns = []string{
+	"already defined at",             // duplicate enum value names across enums (C++ scoping)
+	"C++ scoping rules for enum",     // related to the above
+	"previously defined at",          // duplicate symbol in same scope
+	"conflicts with already-defined", // field/message name conflict
+}
 
 // protoreflectMessageDescriptor is an alias for convenience.
 type protoreflectMessageDescriptor = protoreflect.MessageDescriptor
@@ -46,10 +57,23 @@ func (c *ProtoCompiler) Compile(files map[string]string) error {
 		names = append(names, name)
 	}
 
-	// Create a silent reporter to avoid printing to stderr
-	silentReporter := reporter.NewReporter(
-		func(err reporter.ErrorWithPos) error { return err },
-		func(err reporter.ErrorWithPos) {},
+	// Create a lenient reporter that suppresses known non-fatal errors.
+	// Many real-world proto files (especially from production/reverse-engineered sources)
+	// have issues like duplicate enum value names across enums. These don't affect
+	// message structure decoding, so we suppress them and log warnings instead.
+	var suppressedErrors []string
+	lenientReporter := reporter.NewReporter(
+		func(err reporter.ErrorWithPos) error {
+			errMsg := err.Error()
+			for _, pattern := range lenientErrorPatterns {
+				if strings.Contains(errMsg, pattern) {
+					suppressedErrors = append(suppressedErrors, errMsg)
+					return nil // suppress: return nil to continue compilation
+				}
+			}
+			return err // real error: propagate
+		},
+		func(err reporter.ErrorWithPos) {}, // ignore warnings
 	)
 
 	// Use WithStandardImports to make well-known types (google/protobuf/*)
@@ -59,12 +83,17 @@ func (c *ProtoCompiler) Compile(files map[string]string) error {
 	}
 	compiler := protocompile.Compiler{
 		Resolver: protocompile.WithStandardImports(sourceResolver),
-		Reporter: silentReporter,
+		Reporter: lenientReporter,
 	}
 
 	compiled, err := compiler.Compile(context.Background(), names...)
 	if err != nil {
 		return fmt.Errorf("proto compile error: %w", err)
+	}
+
+	// Log suppressed errors as warnings
+	for _, msg := range suppressedErrors {
+		log.Printf("[Proto] Warning (suppressed): %s", msg)
 	}
 
 	// Index all message types
