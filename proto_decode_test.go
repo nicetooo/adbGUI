@@ -335,6 +335,156 @@ message Msg {
 	}
 }
 
+// TestFixAngleBracketOptions tests the <> to {} conversion in option values
+func TestFixAngleBracketOptions(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		expect string
+	}{
+		{
+			name:   "simple field option",
+			input:  `optional string name = 1 [(my_opt) = <name: "test">];`,
+			expect: `optional string name = 1 [(my_opt) = {name: "test"}];`,
+		},
+		{
+			name:   "nested angle brackets",
+			input:  `optional string name = 1 [(my_opt) = <foo: <bar: 1>>];`,
+			expect: `optional string name = 1 [(my_opt) = {foo: {bar: 1}}];`,
+		},
+		{
+			name:   "message option",
+			input:  `option (my_opt) = <name: "hello", level: 3>;`,
+			expect: `option (my_opt) = {name: "hello", level: 3};`,
+		},
+		{
+			name:   "map type untouched",
+			input:  `map<string, int32> tags = 5;`,
+			expect: `map<string, int32> tags = 5;`,
+		},
+		{
+			name:   "map type with nested message untouched",
+			input:  `map<string, SomeMessage> msgs = 6;`,
+			expect: `map<string, SomeMessage> msgs = 6;`,
+		},
+		{
+			name:   "string literal with angle brackets untouched",
+			input:  `string desc = 1 [default = "<hello>"];`,
+			expect: `string desc = 1 [default = "<hello>"];`,
+		},
+		{
+			name:   "comment with angle brackets untouched",
+			input:  "// This uses <angle> brackets\nstring name = 1;",
+			expect: "// This uses <angle> brackets\nstring name = 1;",
+		},
+		{
+			name:   "colon-prefixed nested message",
+			input:  `option (my_opt) = <field1: <nested_field: "val">>;`,
+			expect: `option (my_opt) = {field1: {nested_field: "val"}};`,
+		},
+		{
+			name:   "multiple options on separate lines",
+			input:  "  optional string a = 1 [(opt1) = <x: 1>];\n  optional string b = 2 [(opt2) = <y: 2>];",
+			expect: "  optional string a = 1 [(opt1) = {x: 1}];\n  optional string b = 2 [(opt2) = {y: 2}];",
+		},
+		{
+			name:   "no angle brackets - passthrough",
+			input:  `syntax = "proto3"; message Foo { string bar = 1; }`,
+			expect: `syntax = "proto3"; message Foo { string bar = 1; }`,
+		},
+		{
+			name:   "string inside angle bracket option",
+			input:  `optional string f = 1 [(opt) = <name: "has <inner> angle">];`,
+			expect: `optional string f = 1 [(opt) = {name: "has <inner> angle"}];`,
+		},
+		{
+			name:   "block comment with angle brackets untouched",
+			input:  "/* <angle> brackets */\nstring name = 1;",
+			expect: "/* <angle> brackets */\nstring name = 1;",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := fixAngleBracketOptions(tt.input)
+			if got != tt.expect {
+				t.Errorf("fixAngleBracketOptions():\n  input:  %q\n  got:    %q\n  expect: %q", tt.input, got, tt.expect)
+			}
+		})
+	}
+}
+
+// TestCompiler_AngleBracketOptions tests that the compiler auto-fixes angle bracket syntax
+func TestCompiler_AngleBracketOptions(t *testing.T) {
+	compiler := NewProtoCompiler()
+
+	// Proto2 file with angle bracket option syntax - this is what fails without the fix
+	files := map[string]string{
+		"test_options.proto": `syntax = "proto2";
+package test.options;
+
+import "google/protobuf/descriptor.proto";
+
+extend google.protobuf.FieldOptions {
+  optional MyFieldOption my_field_opt = 50001;
+}
+
+message MyFieldOption {
+  optional string name = 1;
+  optional int32 level = 2;
+}
+
+message TestMessage {
+  optional string plain_field = 1;
+  optional string annotated_field = 2 [(my_field_opt) = <name: "test", level: 3>];
+  optional string nested_field = 3 [(my_field_opt) = <name: "nested">];
+}
+`,
+	}
+
+	err := compiler.Compile(files)
+	if err != nil {
+		t.Fatalf("Compiler should handle angle bracket options, got: %v", err)
+	}
+
+	// Verify message types were indexed
+	desc := compiler.GetMessageDescriptor("test.options.TestMessage")
+	if desc == nil {
+		t.Fatal("TestMessage descriptor not found")
+	}
+	if desc.Fields().Len() != 3 {
+		t.Errorf("TestMessage should have 3 fields, got %d", desc.Fields().Len())
+	}
+
+	desc2 := compiler.GetMessageDescriptor("test.options.MyFieldOption")
+	if desc2 == nil {
+		t.Fatal("MyFieldOption descriptor not found")
+	}
+}
+
+// TestIsMapType tests the map<K,V> detection
+func TestIsMapType(t *testing.T) {
+	tests := []struct {
+		input    string
+		pos      int // position of '<'
+		expected bool
+	}{
+		{"map<string, int32>", 3, true},
+		{"map <string>", 4, true},
+		{" map<K>", 4, true},
+		{"something = <val>", 12, false},
+		{"bitmap<x>", 6, false}, // 'map' is part of 'bitmap'
+	}
+
+	for _, tt := range tests {
+		runes := []rune(tt.input)
+		got := isMapType(runes, tt.pos)
+		if got != tt.expected {
+			t.Errorf("isMapType(%q, %d) = %v, want %v", tt.input, tt.pos, got, tt.expected)
+		}
+	}
+}
+
 // helper to create protoreflect.Value from Go types
 func protoreflect_valueOf(v interface{}) protoreflect.Value {
 	switch val := v.(type) {

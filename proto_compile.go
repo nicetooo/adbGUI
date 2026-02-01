@@ -13,13 +13,19 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-// lenientErrorPatterns lists error substrings that indicate recoverable enum scoping issues.
-// These are technically spec violations but are common in real-world proto files
-// and don't affect message decoding (which is Gaze's primary use case).
-var lenientErrorPatterns = []string{
-	"already defined at",         // duplicate enum value names across enums (C++ scoping)
-	"C++ scoping rules for enum", // related to the above
-	"previously defined at",      // duplicate symbol in same scope
+// recoverablePatterns maps error substrings to the fix functions that should be applied.
+// When compilation fails, the error message is checked against these patterns.
+// If a match is found, the corresponding fix is applied to all files and compilation is retried.
+var recoverablePatterns = []struct {
+	pattern string
+	fixName string
+}{
+	{"already defined at", "enum_dedup"},         // duplicate enum value names (C++ scoping)
+	{"C++ scoping rules for enum", "enum_dedup"}, // related
+	{"previously defined at", "enum_dedup"},      // duplicate symbol
+	{"unexpected '<'", "angle_brackets"},         // text-format angle bracket syntax
+	{"syntax error: unexpected '<'", "angle_brackets"},
+	{"unknown '<'", "angle_brackets"},
 }
 
 // protoreflectMessageDescriptor is an alias for convenience.
@@ -39,8 +45,12 @@ func NewProtoCompiler() *ProtoCompiler {
 }
 
 // Compile compiles a set of .proto files (name→content) and indexes all message types.
-// It uses a two-pass strategy: first tries strict compilation, then if enum scoping
-// errors are detected, pre-processes files to fix duplicate enum value names and retries.
+// It uses a two-pass strategy: first tries strict compilation, then if a recoverable
+// error is detected, pre-processes files to fix the issue and retries.
+//
+// Recoverable errors include:
+//   - Duplicate enum value names across enums (proto3 C++ scoping rules)
+//   - Angle bracket `<>` syntax in option values (text-format style, not supported by protocompile)
 func (c *ProtoCompiler) Compile(files map[string]string) error {
 	if len(files) == 0 {
 		c.mu.Lock()
@@ -56,33 +66,44 @@ func (c *ProtoCompiler) Compile(files map[string]string) error {
 		return nil
 	}
 
-	// Check if the error is a recoverable enum scoping issue
+	// Check if the error matches any recoverable pattern
 	errMsg := err.Error()
-	isEnumScopingError := false
-	for _, pattern := range lenientErrorPatterns {
-		if strings.Contains(errMsg, pattern) {
-			isEnumScopingError = true
-			break
+	fixes := make(map[string]bool) // deduplicated set of fixes to apply
+	for _, rp := range recoverablePatterns {
+		if strings.Contains(errMsg, rp.pattern) {
+			fixes[rp.fixName] = true
 		}
 	}
 
-	if !isEnumScopingError {
-		return err
+	if len(fixes) == 0 {
+		return err // not recoverable
 	}
 
-	// Second pass: pre-process files to fix duplicate enum value names, then retry
-	log.Printf("[Proto] Detected enum scoping conflict, applying automatic fix...")
+	// Second pass: apply all matched fixes and retry
 	fixedFiles := make(map[string]string, len(files))
 	for name, content := range files {
-		fixedFiles[name] = fixDuplicateEnumValues(content)
+		fixedFiles[name] = content
+	}
+
+	if fixes["angle_brackets"] {
+		log.Printf("[Proto] Detected angle bracket syntax, converting <> to {}...")
+		for name, content := range fixedFiles {
+			fixedFiles[name] = fixAngleBracketOptions(content)
+		}
+	}
+	if fixes["enum_dedup"] {
+		log.Printf("[Proto] Detected enum scoping conflict, deduplicating enum values...")
+		for name, content := range fixedFiles {
+			fixedFiles[name] = fixDuplicateEnumValues(content)
+		}
 	}
 
 	compiled, err = c.compileFiles(fixedFiles)
 	if err != nil {
-		return fmt.Errorf("proto compile error (even after enum fix): %w", err)
+		return fmt.Errorf("proto compile error (even after auto-fix): %w", err)
 	}
 
-	log.Printf("[Proto] Compilation succeeded after automatic enum value deduplication")
+	log.Printf("[Proto] Compilation succeeded after automatic source fixes")
 	c.indexCompiled(compiled)
 	return nil
 }
@@ -274,6 +295,195 @@ func enumPrefix(enumName string) string {
 		return strings.ToUpper(enumName[:1])
 	}
 	return result
+}
+
+// fixAngleBracketOptions converts text-format angle bracket syntax `<...>` to `{...}`
+// in protobuf option values. The `<>` message literal syntax is valid in protobuf
+// text-format (used extensively in Google's internal protos and many proto2 files),
+// but the bufbuild/protocompile parser only accepts `{}`.
+//
+// This handles:
+//   - Field options:   [(my_opt) = <name: "test", level: 3>]
+//   - Message options:  option (my_opt) = <name: "test">;
+//   - Nested brackets: <foo: <bar: 1>>
+//
+// This does NOT touch:
+//   - map<K,V> type declarations (different syntax, preceded by "map")
+//   - String literals (inside quotes)
+//   - Comments (// and /* */)
+func fixAngleBracketOptions(content string) string {
+	// We use a character-by-character scanner that tracks context:
+	// - inside string literal (skip)
+	// - inside comment (skip)
+	// - inside option value assignment after '=' (replace <> with {})
+
+	runes := []rune(content)
+	result := make([]rune, 0, len(runes))
+	i := 0
+	n := len(runes)
+
+	for i < n {
+		ch := runes[i]
+
+		// Skip // line comments
+		if ch == '/' && i+1 < n && runes[i+1] == '/' {
+			start := i
+			for i < n && runes[i] != '\n' {
+				i++
+			}
+			result = append(result, runes[start:i]...)
+			continue
+		}
+
+		// Skip /* block comments */
+		if ch == '/' && i+1 < n && runes[i+1] == '*' {
+			start := i
+			i += 2
+			for i+1 < n && !(runes[i] == '*' && runes[i+1] == '/') {
+				i++
+			}
+			if i+1 < n {
+				i += 2 // skip */
+			}
+			result = append(result, runes[start:i]...)
+			continue
+		}
+
+		// Skip string literals (both single and double quoted)
+		if ch == '"' || ch == '\'' {
+			quote := ch
+			result = append(result, ch)
+			i++
+			for i < n {
+				if runes[i] == '\\' && i+1 < n {
+					result = append(result, runes[i], runes[i+1])
+					i += 2
+					continue
+				}
+				if runes[i] == quote {
+					result = append(result, runes[i])
+					i++
+					break
+				}
+				result = append(result, runes[i])
+				i++
+			}
+			continue
+		}
+
+		// Check for map<K,V> — skip the <> in map type declarations
+		if ch == '<' && isMapType(runes, i) {
+			// This is map<K,V> syntax; pass through until matching >
+			result = append(result, ch)
+			i++
+			depth := 1
+			for i < n && depth > 0 {
+				if runes[i] == '<' {
+					depth++
+				} else if runes[i] == '>' {
+					depth--
+				}
+				result = append(result, runes[i])
+				i++
+			}
+			continue
+		}
+
+		// Check for option value context: `= <...>`
+		// We look for '<' and check backwards (ignoring whitespace) for '='
+		if ch == '<' && isOptionAngleBracket(runes, result) {
+			// Replace < with { and find the matching > (handling nesting)
+			result = append(result, '{')
+			i++
+			depth := 1
+			for i < n && depth > 0 {
+				c := runes[i]
+
+				// Even inside option values, respect strings
+				if c == '"' || c == '\'' {
+					quote := c
+					result = append(result, c)
+					i++
+					for i < n {
+						if runes[i] == '\\' && i+1 < n {
+							result = append(result, runes[i], runes[i+1])
+							i += 2
+							continue
+						}
+						if runes[i] == quote {
+							result = append(result, runes[i])
+							i++
+							break
+						}
+						result = append(result, runes[i])
+						i++
+					}
+					continue
+				}
+
+				if c == '<' {
+					result = append(result, '{')
+					depth++
+				} else if c == '>' {
+					result = append(result, '}')
+					depth--
+				} else {
+					result = append(result, c)
+				}
+				i++
+			}
+			continue
+		}
+
+		result = append(result, ch)
+		i++
+	}
+
+	return string(result)
+}
+
+// isMapType checks if the '<' at position i is part of a `map<K,V>` declaration.
+// It looks backwards from position i for the keyword "map" (with optional whitespace).
+func isMapType(runes []rune, i int) bool {
+	// Walk backwards from i, skipping whitespace
+	j := i - 1
+	for j >= 0 && (runes[j] == ' ' || runes[j] == '\t') {
+		j--
+	}
+	// Check for "map" (case-sensitive, as proto keywords are lowercase)
+	if j >= 2 && runes[j-2] == 'm' && runes[j-1] == 'a' && runes[j] == 'p' {
+		// Make sure 'map' is a whole word (not part of a longer identifier)
+		if j-3 < 0 || !isIdentRune(runes[j-3]) {
+			return true
+		}
+	}
+	return false
+}
+
+// isOptionAngleBracket checks if a '<' (about to be appended) is in an option value context.
+// It looks backwards through the already-built result for '=' (skipping whitespace).
+// This catches patterns like:
+//
+//	= <...>
+//	= < ...>
+//	: <...>  (nested message field in text-format)
+func isOptionAngleBracket(runes []rune, result []rune) bool {
+	// Walk backwards through result, skipping whitespace
+	j := len(result) - 1
+	for j >= 0 && (result[j] == ' ' || result[j] == '\t' || result[j] == '\n' || result[j] == '\r') {
+		j--
+	}
+	if j < 0 {
+		return false
+	}
+	// '=' is the option value assignment operator
+	// ':' is used in text-format for field values (nested messages)
+	return result[j] == '=' || result[j] == ':'
+}
+
+// isIdentRune returns true if r is a valid identifier character.
+func isIdentRune(r rune) bool {
+	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_'
 }
 
 // indexMessages recursively indexes all message types in a file.

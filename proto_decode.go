@@ -444,12 +444,23 @@ func (r *ProtoRegistry) AddFile(entry *ProtoFileEntry) error {
 }
 
 // RemoveFile removes a .proto file and recompiles.
+// If recompilation fails after removal (e.g., remaining files have unresolved imports),
+// the file is still removed and a warning is logged. This prevents the registry from
+// getting "stuck" with a bad file that can't be removed.
 func (r *ProtoRegistry) RemoveFile(id string) error {
 	r.mu.Lock()
 	delete(r.files, id)
 	r.mu.Unlock()
 
-	return r.recompile()
+	err := r.recompile()
+	if err != nil {
+		log.Printf("[Proto] Warning: recompile after removing file %s failed (remaining files may have unresolved imports): %v", id, err)
+		// Don't return the error — the file was successfully removed.
+		// The remaining files simply can't compile without it, which is expected
+		// when removing a dependency. Users can fix this by removing the dependent files too.
+		return nil
+	}
+	return nil
 }
 
 // GetFiles returns all loaded proto files.
