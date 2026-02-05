@@ -79,6 +79,7 @@
     "event_types": "Event Types",
     "sources": "Sources",
     "types": "Types",
+    "no_filters": "No event filters configured",
     "sources_placeholder": "Select or enter event sources",
     "types_placeholder": "Select or enter event types",
     "url_pattern": "URL Pattern",

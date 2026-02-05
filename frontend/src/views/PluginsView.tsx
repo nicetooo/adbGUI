@@ -156,6 +156,16 @@ const PluginsView: React.FC = () => {
               hoverable
               style={{
                 opacity: plugin.metadata.enabled ? 1 : 0.6,
+                display: "flex",
+                flexDirection: "column",
+                height: "100%",
+              }}
+              styles={{
+                body: {
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                },
               }}
               actions={[
                 <Button
@@ -200,14 +210,20 @@ const PluginsView: React.FC = () => {
                   </Space>
                 }
                 description={
-                  <div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      height: "100%",
+                    }}
+                  >
                     <Paragraph
                       ellipsis={{ rows: 2 }}
-                      style={{ marginBottom: "12px" }}
+                      style={{ marginBottom: "12px", minHeight: "44px" }}
                     >
                       {plugin.metadata.description || t("plugins.no_description")}
                     </Paragraph>
-                    <Space direction="vertical" size="small" style={{ width: "100%" }}>
+                    <div style={{ flex: 1 }}>
                       <div>
                         <Text type="secondary" style={{ fontSize: "12px" }}>
                           {t("plugins.version")}: {plugin.metadata.version}
@@ -221,59 +237,73 @@ const PluginsView: React.FC = () => {
                           </Text>
                         )}
                       </div>
-                      {plugin.metadata.filters && (
-                        <div>
-                          {plugin.metadata.filters.sources &&
-                            plugin.metadata.filters.sources.length > 0 && (
-                              <div style={{ marginTop: "8px" }}>
-                                <Text type="secondary" style={{ fontSize: "12px" }}>
-                                  {t("plugins.sources")}:{" "}
-                                </Text>
-                                {plugin.metadata.filters.sources.map((s) => (
-                                  <Tag key={s} style={{ fontSize: "11px" }}>
-                                    {s}
-                                  </Tag>
-                                ))}
-                              </div>
-                            )}
-                          {plugin.metadata.filters.types &&
-                            plugin.metadata.filters.types.length > 0 && (
-                              <div style={{ marginTop: "4px" }}>
-                                <Text type="secondary" style={{ fontSize: "12px" }}>
-                                  {t("plugins.types")}:{" "}
-                                </Text>
-                                {plugin.metadata.filters.types.map((t) => (
-                                  <Tag key={t} style={{ fontSize: "11px" }}>
-                                    {t}
-                                  </Tag>
-                                ))}
-                              </div>
-                            )}
-                        </div>
-                      )}
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginTop: "12px",
-                        }}
-                      >
-                        <Space>
-                          <Switch
-                            checked={plugin.metadata.enabled}
-                            onChange={(checked) =>
-                              handleToggle(plugin.metadata.id, checked)
-                            }
-                            checkedChildren={t("plugins.on")}
-                            unCheckedChildren={t("plugins.off")}
-                          />
-                        </Space>
-                        <Text type="secondary" style={{ fontSize: "11px" }}>
-                          {plugin.language === "typescript" ? "TypeScript" : "JavaScript"}
-                        </Text>
+                      {/* Filters section - always show structure for consistent layout */}
+                      <div style={{ marginTop: "8px", minHeight: "60px" }}>
+                        {plugin.metadata.filters?.sources &&
+                        plugin.metadata.filters.sources.length > 0 ? (
+                          <div style={{ marginBottom: "4px" }}>
+                            <Text type="secondary" style={{ fontSize: "12px" }}>
+                              {t("plugins.sources")}:{" "}
+                            </Text>
+                            {plugin.metadata.filters.sources.map((s) => (
+                              <Tag key={s} style={{ fontSize: "11px" }}>
+                                {s}
+                              </Tag>
+                            ))}
+                          </div>
+                        ) : null}
+                        {plugin.metadata.filters?.types &&
+                        plugin.metadata.filters.types.length > 0 ? (
+                          <div style={{ marginTop: "4px" }}>
+                            <Text type="secondary" style={{ fontSize: "12px" }}>
+                              {t("plugins.types")}:{" "}
+                            </Text>
+                            {plugin.metadata.filters.types.map((t) => (
+                              <Tag key={t} style={{ fontSize: "11px" }}>
+                                {t}
+                              </Tag>
+                            ))}
+                          </div>
+                        ) : null}
+                        {(!plugin.metadata.filters?.sources ||
+                          plugin.metadata.filters.sources.length === 0) &&
+                          (!plugin.metadata.filters?.types ||
+                            plugin.metadata.filters.types.length === 0) && (
+                            <Text
+                              type="secondary"
+                              style={{
+                                fontSize: "12px",
+                                fontStyle: "italic",
+                                opacity: 0.5,
+                              }}
+                            >
+                              {t("plugins.no_filters")}
+                            </Text>
+                          )}
                       </div>
-                    </Space>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginTop: "12px",
+                        paddingTop: "12px",
+                        borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+                      }}
+                    >
+                      <Switch
+                        checked={plugin.metadata.enabled}
+                        onChange={(checked) =>
+                          handleToggle(plugin.metadata.id, checked)
+                        }
+                        checkedChildren={t("plugins.on")}
+                        unCheckedChildren={t("plugins.off")}
+                      />
+                      <Text type="secondary" style={{ fontSize: "11px" }}>
+                        {plugin.language === "typescript" ? "TypeScript" : "JavaScript"}
+                      </Text>
+                    </div>
                   </div>
                 }
               />

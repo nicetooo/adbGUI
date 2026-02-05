@@ -79,6 +79,7 @@
     "event_types": "事件类型",
     "sources": "来源",
     "types": "类型",
+    "no_filters": "未配置事件过滤器",
     "sources_placeholder": "选择或输入事件来源",
     "types_placeholder": "选择或输入事件类型",
     "url_pattern": "URL 模式",

@@ -340,6 +340,9 @@ func (pm *PluginManager) createPluginContext(vm *goja.Runtime, plugin *Plugin) g
 	context.Set("pluginID", plugin.Metadata.ID)
 	context.Set("config", plugin.Metadata.Config)
 
+	// 暴露 state 对象（支持直接访问 context.state.xxx）
+	context.Set("state", plugin.State)
+
 	// log 函数
 	context.Set("log", func(message string, level string) {
 		if level == "" {
@@ -348,7 +351,7 @@ func (pm *PluginManager) createPluginContext(vm *goja.Runtime, plugin *Plugin) g
 		log.Printf("[Plugin:%s] [%s] %s", plugin.Metadata.ID, level, message)
 	})
 
-	// setState / getState
+	// setState / getState（保留向后兼容）
 	context.Set("setState", func(key string, value interface{}) {
 		plugin.State[key] = value
 	})
