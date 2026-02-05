@@ -1630,6 +1630,7 @@ func (p *ProxyServer) analyzeBodyFull(data []byte, encoding string, contentType 
 
 	raw := data
 	// 1. Decompress if needed (Shadow copy only)
+	// First check Content-Encoding header
 	if strings.Contains(encoding, "gzip") {
 		gr, err := gzip.NewReader(bytes.NewReader(data))
 		if err == nil {
@@ -1652,6 +1653,18 @@ func (p *ProxyServer) analyzeBodyFull(data []byte, encoding string, contentType 
 			raw = decompressed
 		}
 		fr.Close()
+	} else {
+		// Auto-detect gzip if Content-Encoding not set (check magic number 0x1f 0x8b)
+		if len(data) >= 2 && data[0] == 0x1f && data[1] == 0x8b {
+			gr, err := gzip.NewReader(bytes.NewReader(data))
+			if err == nil {
+				decompressed, err := io.ReadAll(gr)
+				if err == nil {
+					raw = decompressed
+				}
+				gr.Close()
+			}
+		}
 	}
 
 	// 2. Binary Detection

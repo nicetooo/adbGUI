@@ -160,21 +160,34 @@ func (a *App) StartProxy(port int) (string, error) {
 		isProtobuf := false
 		isReqProtobuf := false
 
-		if len(req.RespBodyRaw) > 0 && isProtobufContentType(req.ContentType) {
-			decoded := getProtoDecoder().DecodeBody(req.RespBodyRaw, req.ContentType, req.URL, "response")
-			if decoded != "" {
-				respBody = decoded
-				isProtobuf = true
+		// Try response body decoding: URL mapping takes priority over Content-Type
+		if len(req.RespBodyRaw) > 0 {
+			// Check if there's a URL mapping for this request
+			hasMapping := getProtoRegistry().FindMessageForURL(req.URL, "response") != ""
+			shouldDecode := hasMapping || isProtobufContentType(req.ContentType)
+
+			if shouldDecode {
+				decoded := getProtoDecoder().DecodeBody(req.RespBodyRaw, req.ContentType, req.URL, "response")
+				if decoded != "" {
+					respBody = decoded
+					isProtobuf = true
+				}
 			}
 		}
-		// Also try decoding request body for protobuf (e.g. gRPC requests)
+
+		// Try request body decoding: URL mapping takes priority over Content-Type
 		if len(req.ReqBodyRaw) > 0 {
 			// Check request content-type from headers
 			reqContentType := ""
 			if ct, ok := req.Headers["Content-Type"]; ok && len(ct) > 0 {
 				reqContentType = ct[0]
 			}
-			if isProtobufContentType(reqContentType) {
+
+			// Check if there's a URL mapping for this request
+			hasMapping := getProtoRegistry().FindMessageForURL(req.URL, "request") != ""
+			shouldDecode := hasMapping || isProtobufContentType(reqContentType)
+
+			if shouldDecode {
 				decoded := getProtoDecoder().DecodeBody(req.ReqBodyRaw, reqContentType, req.URL, "request")
 				if decoded != "" {
 					reqBody = decoded
