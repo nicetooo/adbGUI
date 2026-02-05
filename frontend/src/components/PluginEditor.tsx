@@ -60,6 +60,7 @@ const PluginEditor: React.FC<PluginEditorProps> = ({
         sources: plugin.metadata.filters?.sources || [],
         types: plugin.metadata.filters?.types || [],
         urlPattern: plugin.metadata.filters?.urlPattern || "",
+        config: plugin.metadata.config ? JSON.stringify(plugin.metadata.config, null, 2) : "",
       });
       setSourceCode(plugin.sourceCode);
     } else {
@@ -131,6 +132,18 @@ const plugin: Plugin = {
     try {
       const values = await form.validateFields();
       
+      // 解析 config JSON
+      let config = {};
+      if (values.config && values.config.trim()) {
+        try {
+          config = JSON.parse(values.config);
+        } catch (e) {
+          message.error(t("plugins.config_invalid_json"));
+          setActiveTab("filters"); // 切换到 Filters tab 显示错误
+          return;
+        }
+      }
+      
       // 构建插件对象
       const pluginData: Partial<Plugin> = {
         metadata: {
@@ -147,7 +160,7 @@ const plugin: Plugin = {
             urlPattern: values.urlPattern || "",
             titleMatch: "",
           },
-          config: {},
+          config,
           createdAt: plugin?.metadata.createdAt || new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -293,6 +306,18 @@ const plugin: Plugin = {
                     {t("plugins.wildcard")}
                   </Text>
                 }
+              />
+            </Form.Item>
+
+            <Form.Item 
+              name="config" 
+              label={t("plugins.config")}
+              extra={t("plugins.config_hint")}
+            >
+              <TextArea
+                rows={6}
+                placeholder={t("plugins.config_placeholder")}
+                style={{ fontFamily: "monospace", fontSize: "12px" }}
               />
             </Form.Item>
           </Form>
