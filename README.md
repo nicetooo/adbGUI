@@ -234,18 +234,23 @@ To enable **touch control** in Scrcpy, you must:
 
 ### Development
 ```bash
-wails dev
+make dev
+# Or directly: wails dev -tags fts5
 ```
 
 ### Build
 ```bash
-wails build
+make build
+# Or directly: wails build -tags fts5
 ```
 The compiled application will be available in `build/bin`.
 
+**Important**: Always use `-tags fts5` to enable FTS5 full-text search. Without it, search functionality will fall back to slower LIKE queries.
+
 ### Running Tests
 ```bash
-go test ./...
+make test
+# Or directly: go test -tags fts5 ./...
 ```
 
 ### Release

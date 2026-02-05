@@ -235,18 +235,18 @@ Para habilitar el **control tactil** en Scrcpy, debes:
 
 ### Desarrollo
 ```bash
-wails dev
+wails dev -tags fts5
 ```
 
 ### Compilacion
 ```bash
-wails build
+wails build -tags fts5
 ```
 La aplicacion compilada estara disponible en `build/bin`.
 
 ### Ejecucion de Pruebas
 ```bash
-go test ./...
+go test -tags fts5 ./...
 ```
 
 ### Lanzamiento

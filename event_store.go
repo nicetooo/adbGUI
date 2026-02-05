@@ -30,6 +30,9 @@ type EventStore struct {
 	stopChan       chan struct{}
 	wg             sync.WaitGroup // 用于等待后台 goroutine 完成
 
+	// FTS 支持标志（缓存初始化时的检查结果）
+	hasFTS bool
+
 	// 预编译语句
 	stmtInsertEvent        *sql.Stmt
 	stmtInsertEventData    *sql.Stmt
@@ -323,11 +326,27 @@ func (s *EventStore) initSchema() error {
 	if _, err := s.db.Exec(ftsSchemaSQL); err != nil {
 		// FTS5 不可用，跳过
 		LogWarn("event_store").Err(err).Msg("FTS5 not available, full-text search disabled")
+		s.hasFTS = false
 	} else {
 		// 创建 FTS 触发器
 		if _, err := s.db.Exec(ftsTriggerSQL); err != nil {
 			LogWarn("event_store").Err(err).Msg("Failed to create FTS triggers")
+			s.hasFTS = false
+		} else {
+			s.hasFTS = true
 		}
+	}
+
+	// 检查 FTS 表是否实际存在（验证缓存）
+	var ftsExists int
+	if err := s.db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='events_fts'").Scan(&ftsExists); err == nil {
+		s.hasFTS = ftsExists > 0
+	}
+
+	if s.hasFTS {
+		LogInfo("event_store").Msg("FTS5 full-text search enabled")
+	} else {
+		LogWarn("event_store").Msg("FTS5 not available, using LIKE fallback for search")
 	}
 
 	// 数据库迁移：添加插件相关字段
@@ -856,36 +875,49 @@ func (s *EventStore) QueryEvents(q EventQuery) (*EventQueryResult, error) {
 		whereClause = " WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	// 全文搜索 (深度搜索: title + summary + event_data.data)
-	if q.SearchText != "" {
-		// 检查是否有 FTS 表
-		var ftsExists int
-		s.db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='events_fts'").Scan(&ftsExists)
+	// 全文搜索标志和条件
+	hasSearch := q.SearchText != ""
+	var searchCondition string
+	var searchArgs []interface{}
 
+	// 全文搜索 (深度搜索: title + summary + event_data.data)
+	if hasSearch {
 		searchPattern := "%" + q.SearchText + "%"
 
-		if whereClause == "" {
-			whereClause = " WHERE "
-		} else {
-			whereClause += " AND "
-		}
-
-		if ftsExists > 0 {
+		if s.hasFTS {
 			// FTS5 搜索 title/summary + LIKE 搜索 event_data 详情内容
-			whereClause += "(id IN (SELECT id FROM events_fts WHERE events_fts MATCH ?) OR id IN (SELECT event_id FROM event_data WHERE data LIKE ?))"
-			args = append(args, q.SearchText, searchPattern)
+			// 使用 LEFT JOIN，避免子查询性能问题
+			searchCondition = "(e.id IN (SELECT id FROM events_fts WHERE events_fts MATCH ?) OR COALESCE(ed.data, '') LIKE ?)"
+			searchArgs = []interface{}{q.SearchText, searchPattern}
 		} else {
 			// 降级: LIKE 搜索 title/summary + event_data 详情内容
-			whereClause += "(title LIKE ? OR summary LIKE ? OR id IN (SELECT event_id FROM event_data WHERE data LIKE ?))"
-			args = append(args, searchPattern, searchPattern, searchPattern)
+			searchCondition = "(e.title LIKE ? OR COALESCE(e.summary, '') LIKE ? OR COALESCE(ed.data, '') LIKE ?)"
+			searchArgs = []interface{}{searchPattern, searchPattern, searchPattern}
 		}
 	}
 
-	// 获取真实总数 - 始终返回准确的 total，供前端分页和计数使用
+	// 获取真实总数
+	// 如果有搜索，需要 JOIN event_data 表来搜索 data 字段
 	var total int
-	countQuery := "SELECT COUNT(*) FROM events " + whereClause
-	if err := s.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
-		return nil, fmt.Errorf("count query: %w", err)
+	if hasSearch {
+		// COUNT 查询需要 LEFT JOIN event_data
+		countQuery := "SELECT COUNT(DISTINCT e.id) FROM events e LEFT JOIN event_data ed ON e.id = ed.event_id"
+		if whereClause != "" {
+			countQuery += whereClause + " AND " + searchCondition
+		} else {
+			countQuery += " WHERE " + searchCondition
+		}
+		// 合并参数：先是基础条件参数，再是搜索参数
+		countArgs := append(append([]interface{}{}, args...), searchArgs...)
+		if err := s.db.QueryRow(countQuery, countArgs...).Scan(&total); err != nil {
+			return nil, fmt.Errorf("count query: %w", err)
+		}
+	} else {
+		// 无搜索时，只查 events 表
+		countQuery := "SELECT COUNT(*) FROM events " + whereClause
+		if err := s.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
+			return nil, fmt.Errorf("count query: %w", err)
+		}
 	}
 
 	// 构建最终查询
@@ -895,21 +927,41 @@ func (s *EventStore) QueryEvents(q EventQuery) (*EventQueryResult, error) {
 	}
 
 	var query string
-	if q.IncludeData {
-		// JOIN event_data 获取完整数据
-		query = fmt.Sprintf(`
-			SELECT e.id, e.session_id, e.device_id, e.timestamp, e.relative_time, e.duration,
-				e.source, e.category, e.type, e.level, e.title, e.summary,
-				e.parent_id, e.step_id, e.trace_id,
-				e.aggregate_count, e.aggregate_first, e.aggregate_last,
-				ed.data
-			FROM events e
-			LEFT JOIN event_data ed ON e.id = ed.event_id
-			%s
-			ORDER BY e.relative_time %s
-		`, whereClause, order)
+	var queryArgs []interface{}
+
+	// 如果有搜索或需要完整数据，必须 JOIN event_data
+	needJoin := q.IncludeData || hasSearch
+
+	if needJoin {
+		// JOIN event_data 获取完整数据 或 执行深度搜索
+		// 使用 DISTINCT 避免 LEFT JOIN 产生重复行
+		selectClause := `SELECT DISTINCT e.id, e.session_id, e.device_id, e.timestamp, e.relative_time, e.duration,
+			e.source, e.category, e.type, e.level, e.title, e.summary,
+			e.parent_id, e.step_id, e.trace_id,
+			e.aggregate_count, e.aggregate_first, e.aggregate_last,
+			ed.data`
+
+		fromClause := `FROM events e LEFT JOIN event_data ed ON e.id = ed.event_id`
+
+		if hasSearch {
+			// 有搜索时，WHERE 条件需要包含基础条件 + 搜索条件
+			if whereClause != "" {
+				query = fmt.Sprintf("%s %s %s AND %s ORDER BY e.relative_time %s",
+					selectClause, fromClause, whereClause, searchCondition, order)
+			} else {
+				query = fmt.Sprintf("%s %s WHERE %s ORDER BY e.relative_time %s",
+					selectClause, fromClause, searchCondition, order)
+			}
+			// 合并参数
+			queryArgs = append(append([]interface{}{}, args...), searchArgs...)
+		} else {
+			// 无搜索，只是需要加载 event_data
+			query = fmt.Sprintf("%s %s %s ORDER BY e.relative_time %s",
+				selectClause, fromClause, whereClause, order)
+			queryArgs = args
+		}
 	} else {
-		// 不 JOIN event_data，列表不需要完整数据
+		// 不 JOIN event_data，列表不需要完整数据，也无搜索
 		query = fmt.Sprintf(`
 			SELECT id, session_id, device_id, timestamp, relative_time, duration,
 				source, category, type, level, title, summary,
@@ -919,6 +971,7 @@ func (s *EventStore) QueryEvents(q EventQuery) (*EventQueryResult, error) {
 			%s
 			ORDER BY relative_time %s
 		`, whereClause, order)
+		queryArgs = args
 	}
 
 	if q.Limit > 0 {
@@ -928,7 +981,7 @@ func (s *EventStore) QueryEvents(q EventQuery) (*EventQueryResult, error) {
 		query += fmt.Sprintf(" OFFSET %d", q.Offset)
 	}
 
-	rows, err := s.db.Query(query, args...)
+	rows, err := s.db.Query(query, queryArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("query events: %w", err)
 	}
@@ -938,9 +991,11 @@ func (s *EventStore) QueryEvents(q EventQuery) (*EventQueryResult, error) {
 	for rows.Next() {
 		var event *UnifiedEvent
 		var err error
-		if q.IncludeData {
+		if needJoin {
+			// 查询包含 ed.data 字段
 			event, err = s.scanEventRow(rows)
 		} else {
+			// 查询不包含 ed.data 字段
 			event, err = s.scanEventRowWithoutData(rows)
 		}
 		if err != nil {

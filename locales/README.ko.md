@@ -235,18 +235,18 @@ Scrcpy에서 **터치 제어**를 활성화하려면 다음을 수행해야 합�
 
 ### 개발
 ```bash
-wails dev
+wails dev -tags fts5
 ```
 
 ### 빌드
 ```bash
-wails build
+wails build -tags fts5
 ```
 컴파일된 애플리케이션은 `build/bin`에서 확인할 수 있습니다.
 
 ### 테스트 실행
 ```bash
-go test ./...
+go test -tags fts5 ./...
 ```
 
 ### 릴리스

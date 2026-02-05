@@ -235,18 +235,18 @@ Scrcpy で**タッチ操作**を有効にするには、以下の手順が必要
 
 ### 開発
 ```bash
-wails dev
+wails dev -tags fts5
 ```
 
 ### ビルド
 ```bash
-wails build
+wails build -tags fts5
 ```
 コンパイルされたアプリケーションは `build/bin` に生成されます。
 
 ### テストの実行
 ```bash
-go test ./...
+go test -tags fts5 ./...
 ```
 
 ### リリース

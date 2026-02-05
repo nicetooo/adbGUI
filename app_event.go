@@ -13,17 +13,19 @@ import (
 
 // QuerySessionEvents queries events from a session
 func (a *App) QuerySessionEvents(query EventQuery) (*EventQueryResult, error) {
-	log.Printf("[QuerySessionEvents] Called with sessionId=%s, startTime=%d, endTime=%d, limit=%d, sources=%v, categories=%v",
-		query.SessionID, query.StartTime, query.EndTime, query.Limit, query.Sources, query.Categories)
+	startTime := time.Now()
+	log.Printf("[QuerySessionEvents] Called with sessionId=%s, startTime=%d, endTime=%d, limit=%d, sources=%v, categories=%v, searchText=%q",
+		query.SessionID, query.StartTime, query.EndTime, query.Limit, query.Sources, query.Categories, query.SearchText)
 	if a.eventStore == nil {
 		log.Printf("[QuerySessionEvents] ERROR: eventStore is nil!")
 		return &EventQueryResult{Events: []UnifiedEvent{}}, nil
 	}
 	result, err := a.eventStore.QueryEvents(query)
+	elapsed := time.Since(startTime)
 	if err != nil {
-		log.Printf("[QuerySessionEvents] ERROR: %v", err)
+		log.Printf("[QuerySessionEvents] ERROR: %v (took %v)", err, elapsed)
 	} else {
-		log.Printf("[QuerySessionEvents] Returned %d events, total=%d", len(result.Events), result.Total)
+		log.Printf("[QuerySessionEvents] Returned %d events, total=%d (took %v)", len(result.Events), result.Total, elapsed)
 	}
 	return result, err
 }
@@ -212,11 +214,11 @@ func GetRuntimeStats() map[string]interface{} {
 
 	return map[string]interface{}{
 		"goroutines":   runtime.NumGoroutine(),
-		"heapAlloc":    m.HeapAlloc,     // bytes allocated and in use
-		"heapSys":      m.HeapSys,       // bytes obtained from system
-		"heapObjects":  m.HeapObjects,   // total number of allocated objects
-		"gcCycles":     m.NumGC,         // number of completed GC cycles
-		"gcPauseTotal": m.PauseTotalNs,  // total GC pause time in nanoseconds
+		"heapAlloc":    m.HeapAlloc,    // bytes allocated and in use
+		"heapSys":      m.HeapSys,      // bytes obtained from system
+		"heapObjects":  m.HeapObjects,  // total number of allocated objects
+		"gcCycles":     m.NumGC,        // number of completed GC cycles
+		"gcPauseTotal": m.PauseTotalNs, // total GC pause time in nanoseconds
 		"cpus":         runtime.NumCPU(),
 	}
 }

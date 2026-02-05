@@ -235,18 +235,18 @@ claude mcp add gaze --transport sse http://localhost:23816/mcp/sse
 
 ### Разработка
 ```bash
-wails dev
+wails dev -tags fts5
 ```
 
 ### Сборка
 ```bash
-wails build
+wails build -tags fts5
 ```
 Скомпилированное приложение будет доступно в `build/bin`.
 
 ### Запуск тестов
 ```bash
-go test ./...
+go test -tags fts5 ./...
 ```
 
 ### Релиз

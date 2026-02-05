@@ -235,18 +235,18 @@ Para ativar o **controle por toque** no Scrcpy, voce deve:
 
 ### Desenvolvimento
 ```bash
-wails dev
+wails dev -tags fts5
 ```
 
 ### Build
 ```bash
-wails build
+wails build -tags fts5
 ```
 A aplicacao compilada estara disponivel em `build/bin`.
 
 ### Executando Testes
 ```bash
-go test ./...
+go test -tags fts5 ./...
 ```
 
 ### Release

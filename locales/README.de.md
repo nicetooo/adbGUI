@@ -235,18 +235,18 @@ Um die **Touch-Steuerung** in Scrcpy zu aktivieren, muessen Sie:
 
 ### Entwicklung
 ```bash
-wails dev
+wails dev -tags fts5
 ```
 
 ### Build
 ```bash
-wails build
+wails build -tags fts5
 ```
 Die kompilierte Anwendung befindet sich in `build/bin`.
 
 ### Tests ausfuehren
 ```bash
-go test ./...
+go test -tags fts5 ./...
 ```
 
 ### Release

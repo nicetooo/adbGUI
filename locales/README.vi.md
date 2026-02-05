@@ -235,18 +235,18 @@ Khi khởi động, các tệp này được giải nén vào một thư mục t
 
 ### Phát triển
 ```bash
-wails dev
+wails dev -tags fts5
 ```
 
 ### Biên dịch
 ```bash
-wails build
+wails build -tags fts5
 ```
 Ứng dụng đã biên dịch sẽ có sẵn trong `build/bin`.
 
 ### Chạy Kiểm thử
 ```bash
-go test ./...
+go test -tags fts5 ./...
 ```
 
 ### Phát hành

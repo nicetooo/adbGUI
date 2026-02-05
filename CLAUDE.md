@@ -183,15 +183,23 @@ adbGUI/
 ## 常用命令
 
 ```bash
-# 开发模式
-wails dev
+# 开发模式（推荐使用 Makefile）
+make dev
+# 或直接使用 wails
+wails dev -tags fts5
 
 # 构建
-wails build
+make build
+# 或直接使用 wails
+wails build -tags fts5
 
 # 运行测试
-go test ./...
+make test
+# 或直接使用 go
+go test -tags fts5 ./...
 ```
+
+**⚠️ 重要**：必须使用 `-tags fts5` 启用 SQLite FTS5 全文搜索，否则搜索功能会降级为 LIKE 查询。
 
 ## 开发注意事项
 
