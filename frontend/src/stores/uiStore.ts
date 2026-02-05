@@ -16,6 +16,7 @@ interface UIState {
   aboutVisible: boolean;
   wirelessConnectVisible: boolean;
   feedbackVisible: boolean;
+  mcpVisible: boolean;
 
   // App info
   appVersion: string;
@@ -30,6 +31,8 @@ interface UIState {
   hideWirelessConnect: () => void;
   showFeedback: () => void;
   hideFeedback: () => void;
+  showMCP: () => void;
+  hideMCP: () => void;
 
   // Initialization
   init: () => Promise<void>;
@@ -46,6 +49,7 @@ export const useUIStore = create<UIState>()(
     aboutVisible: false,
     wirelessConnectVisible: false,
     feedbackVisible: false,
+    mcpVisible: false,
 
     appVersion: '',
 
@@ -72,6 +76,12 @@ export const useUIStore = create<UIState>()(
     }),
     hideFeedback: () => set((state: UIState) => {
       state.feedbackVisible = false;
+    }),
+    showMCP: () => set((state: UIState) => {
+      state.mcpVisible = true;
+    }),
+    hideMCP: () => set((state: UIState) => {
+      state.mcpVisible = false;
     }),
 
     // Initialization

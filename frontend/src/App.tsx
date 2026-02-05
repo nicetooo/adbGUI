@@ -27,6 +27,7 @@ import DeviceInfoModal from "./components/DeviceInfoModal";
 import AboutModal from "./components/AboutModal";
 import WirelessConnectModal from "./components/WirelessConnectModal";
 import FeedbackModal from "./components/FeedbackModal";
+import MCPModal from "./components/MCPModal";
 import {
   MobileOutlined,
   AppstoreOutlined,
@@ -101,6 +102,7 @@ function App() {
     aboutVisible,
     wirelessConnectVisible,
     feedbackVisible,
+    mcpVisible,
     appVersion,
     setSelectedKey,
     showAbout,
@@ -109,6 +111,8 @@ function App() {
     hideWirelessConnect,
     showFeedback,
     hideFeedback,
+    showMCP,
+    hideMCP,
     init: initUI,
     subscribeToEvents: subscribeUIEvents,
   } = useUIStore();
@@ -336,6 +340,7 @@ function App() {
                 title={t("app.change_language")}
               />
             </Dropdown>
+            <Button type="text" size="small" icon={<ApiOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />} onClick={showMCP} title={t("mcp.title")} />
             <Button type="text" size="small" icon={<InfoCircleOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />} onClick={showAbout} title={t("app.about")} />
             <Button type="text" size="small" icon={<GithubOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />} onClick={() => BrowserOpenURL && BrowserOpenURL("https://github.com/niceto0/gaze")} title={t("app.github")} />
             <Button type="text" size="small" icon={<BugOutlined style={{ fontSize: "16px", color: isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.65)" }} />} onClick={showFeedback} title={t("app.feedback")} />
@@ -388,6 +393,8 @@ function App() {
         appVersion={appVersion}
         deviceInfo={devices.find(d => d.id === selectedDevice) ? `${devices.find(d => d.id === selectedDevice)?.brand} ${devices.find(d => d.id === selectedDevice)?.model} (ID: ${selectedDevice})` : "None"}
       />
+
+      <MCPModal />
 
       <CommandPalette />
     </Layout>
