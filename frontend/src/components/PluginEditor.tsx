@@ -37,7 +37,7 @@ const PluginEditor: React.FC<PluginEditorProps> = ({
   const { t } = useTranslation();
   const { message } = App.useApp();
   const [form] = Form.useForm();
-  const { savePlugin, loading } = usePluginStore();
+  const { savePlugin, loading, editorInitialTab } = usePluginStore();
   const [sourceCode, setSourceCode] = useState("");
   const [compiledCode, setCompiledCode] = useState("");
   const [compileError, setCompileError] = useState<string | null>(null);
@@ -45,8 +45,8 @@ const PluginEditor: React.FC<PluginEditorProps> = ({
 
   useEffect(() => {
     if (open) {
-      // 重置 active tab 到第一个 tab
-      setActiveTab("basic");
+      // 使用 store 中设置的初始 tab
+      setActiveTab(editorInitialTab);
     }
     
     if (plugin) {
@@ -64,34 +64,45 @@ const PluginEditor: React.FC<PluginEditorProps> = ({
       setSourceCode(plugin.sourceCode);
     } else {
       // 新建插件时的默认代码模板
-      const defaultCode = `const plugin = {
-  metadata: {
-    id: "my-plugin",
-    name: "My Plugin",
-    version: "1.0.0",
-    filters: {
-      sources: ["network"],
-      types: ["http_request"]
-    },
-    config: {}
-  },
-  
-  onEvent: function(event, context) {
+      const defaultCode = `// Plugin metadata is managed by the form above (Basic Info & Filters tabs)
+// This code only defines the event processing logic
+
+const plugin: Plugin = {
+  // Called for each event matching your filters
+  onEvent: (event: UnifiedEvent, context: PluginContext): PluginResult => {
+    // Access plugin configuration
+    // const config = context.config;
+    
+    // Log messages (visible in console)
     context.log("Processing event: " + event.id);
     
     // Your logic here
+    // - event: the matched event object
+    // - context.emit(): emit new derived events
+    // - context.state: persistent state storage
     
     return {
-      derivedEvents: [],
-      tags: [],
-      metadata: {}
+      derivedEvents: [],  // New events to emit
+      tags: [],           // Tags to add to the event
+      metadata: {}        // Additional metadata
     };
-  }
+  },
+  
+  // Optional: Called when plugin is loaded (initialization)
+  // onInit: (context: PluginContext): void => {
+  //   context.log("Plugin initialized");
+  //   context.state.counter = 0;
+  // },
+  
+  // Optional: Called when plugin is unloaded (cleanup)
+  // onDestroy: (context: PluginContext): void => {
+  //   context.log("Plugin destroyed");
+  // }
 };`;
       setSourceCode(defaultCode);
       form.resetFields();
     }
-  }, [plugin, form, open]);
+  }, [plugin, form, open, editorInitialTab]);
 
   // 自动编译 TypeScript 代码
   useEffect(() => {

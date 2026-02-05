@@ -9,6 +9,19 @@ import {
 } from "../../wailsjs/go/main/App";
 import { main } from "../../wailsjs/go/models";
 
+/**
+ * Plugin data model (complete plugin object from backend)
+ * 
+ * This represents the complete plugin as stored in the database and returned
+ * by the backend API. It includes:
+ * - metadata: Plugin configuration managed by the form (id, name, filters, etc.)
+ * - sourceCode: User's TypeScript/JavaScript code
+ * - language: Source code language
+ * - compiledCode: Transpiled JavaScript for execution
+ * 
+ * @note This is different from the Plugin type in plugin.d.ts, which represents
+ * the plugin object structure in user's code (without metadata, only logic functions)
+ */
 export interface Plugin {
   metadata: {
     id: string;
@@ -49,6 +62,7 @@ interface PluginState {
   // 当前编辑的插件
   currentPlugin: Plugin | null;
   editorOpen: boolean;
+  editorInitialTab: string; // 编辑器打开时的初始 tab
 
   // 测试相关
   testResult: TestResult | null;
@@ -63,7 +77,7 @@ interface PluginState {
   testPlugin: (script: string, eventId: string) => Promise<TestResult>;
 
   // UI 操作
-  openEditor: (plugin?: Plugin) => void;
+  openEditor: (plugin?: Plugin, initialTab?: string) => void;
   closeEditor: () => void;
   setCurrentPlugin: (plugin: Plugin | null) => void;
 }
@@ -75,6 +89,7 @@ export const usePluginStore = create<PluginState>((set, get) => ({
   error: null,
   currentPlugin: null,
   editorOpen: false,
+  editorInitialTab: "basic", // 默认显示基础信息页
   testResult: null,
   testing: false,
 
@@ -224,10 +239,11 @@ export const usePluginStore = create<PluginState>((set, get) => ({
   },
 
   // UI 操作
-  openEditor: (plugin?: Plugin) => {
+  openEditor: (plugin?: Plugin, initialTab: string = "basic") => {
     set({
       editorOpen: true,
       currentPlugin: plugin || null,
+      editorInitialTab: initialTab,
       error: null,
     });
   },
@@ -236,6 +252,7 @@ export const usePluginStore = create<PluginState>((set, get) => ({
     set({
       editorOpen: false,
       currentPlugin: null,
+      editorInitialTab: "basic", // 重置为默认
       error: null,
     });
   },

@@ -57,22 +57,22 @@ RETURNS: Full plugin object with source code`),
 
 PLUGIN API SPECIFICATION:
 
-Your plugin code must export a 'plugin' object with the following structure:
+Your plugin code must export a 'plugin' object with TypeScript type annotations:
 
-  const plugin = {
+  const plugin: Plugin = {
     metadata: {
       name: "string",        // Display name (optional, overridden by 'name' parameter)
       version: "string",     // Semantic version (optional)
       description: "string"  // What this plugin does (optional)
     },
     
-    onInit: function(context) {
+    onInit: (context: PluginContext): void => {
       // Optional: Called once when plugin is loaded
       // Use context.state to initialize persistent state across events
       // Example: context.state.counter = 0;
     },
     
-    onEvent: function(event, context) {
+    onEvent: (event: UnifiedEvent, context: PluginContext): PluginResult | null => {
       // Required: Called for each matching event
       // Return a PluginResult object or null/undefined
       // Example:
@@ -81,7 +81,7 @@ Your plugin code must export a 'plugin' object with the following structure:
       //   };
     },
     
-    onDestroy: function(context) {
+    onDestroy: (context: PluginContext): void => {
       // Optional: Called when plugin is unloaded
       // Use for cleanup if needed
     }
@@ -131,16 +131,16 @@ PLUGIN RESULT (return value from onEvent):
     metadata?: { key: value }   // Metadata to attach to the original event
   }
 
-COMPLETE EXAMPLE - API Tracking Validator:
+COMPLETE EXAMPLE - API Tracking Validator (TypeScript):
 
-  const plugin = {
+  const plugin: Plugin = {
     metadata: {
       name: "API Tracking Validator",
       version: "1.0.0",
       description: "Validates tracking API calls have required parameters"
     },
     
-    onEvent: function(event, context) {
+    onEvent: (event: UnifiedEvent, context: PluginContext): PluginResult | null => {
       // Extract URL from event data
       const data = event.data || {};
       const url = data.url || "";
@@ -152,8 +152,8 @@ COMPLETE EXAMPLE - API Tracking Validator:
         const params = urlObj.searchParams;
         
         // Get required parameters from config
-        const required = context.config.requiredParams || ["user_id", "event_name"];
-        const missing = [];
+        const required: string[] = context.config.requiredParams || ["user_id", "event_name"];
+        const missing: string[] = [];
         
         for (const param of required) {
           if (!params.has(param)) {
@@ -177,7 +177,7 @@ COMPLETE EXAMPLE - API Tracking Validator:
             }]
           };
         }
-      } catch (err) {
+      } catch (err: any) {
         context.log("Failed to parse URL: " + err.message);
       }
       
@@ -191,9 +191,9 @@ PARAMETERS:
   version: Semantic version (default: "1.0.0")
   author: Plugin author name (optional)
   description: Plugin description (optional)
-  source_code: Plugin source code (JavaScript or TypeScript)
-  language: "javascript" or "typescript" (default: "javascript")
-  compiled_code: Compiled JavaScript code (for TypeScript, compile to JS first)
+  source_code: TypeScript source code with type annotations
+  language: Ignored (system always uses TypeScript)
+  compiled_code: JavaScript code transpiled from source_code
   
 FILTERS (JSON string):
   All filters use AND logic (event must match all specified filters).
@@ -212,20 +212,19 @@ CONFIG (JSON string):
   Example: {"requiredParams": ["user_id", "event_name"], "timeout": 5000}
 
 USAGE EXAMPLE:
-  # 1. Create the plugin
+  # 1. Create the plugin (TypeScript source code with types)
   plugin_create \
     id="tracking-validator" \
     name="API Tracking Validator" \
     version="1.0.0" \
-    source_code='const plugin = { ... (see complete example above) ... }' \
-    language="javascript" \
-    compiled_code='const plugin = { ... }' \
+    source_code='const plugin: Plugin = { ... (see complete example above) ... }' \
+    compiled_code='const plugin = { ... (JavaScript transpiled from TypeScript) ... }' \
     filters_json='{"sources": ["network"], "urlPattern": "*/api/track*"}' \
     config_json='{"requiredParams": ["user_id", "event_name"]}'
 
   # 2. Test against a real event before deploying
   plugin_test \
-    script='const plugin = { ... }' \
+    script='const plugin: Plugin = { ... }' \
     event_id="abc123-network-event-id"
 
   # 3. Enable the plugin
@@ -251,14 +250,14 @@ RETURNS: Success message with plugin ID`),
 			),
 			mcp.WithString("source_code",
 				mcp.Required(),
-				mcp.Description("Plugin source code (JavaScript or TypeScript)"),
+				mcp.Description("TypeScript source code (shown in editor with type checking)"),
 			),
 			mcp.WithString("language",
-				mcp.Description("Source language: 'javascript' or 'typescript' (default: 'javascript')"),
+				mcp.Description("Ignored (system always uses TypeScript, kept for compatibility)"),
 			),
 			mcp.WithString("compiled_code",
 				mcp.Required(),
-				mcp.Description("Compiled JavaScript code for execution"),
+				mcp.Description("JavaScript code transpiled from source_code"),
 			),
 			mcp.WithString("filters_json",
 				mcp.Description("JSON string of event filters (e.g., '{\"sources\": [\"network\"]}')"),
@@ -275,51 +274,112 @@ RETURNS: Success message with plugin ID`),
 		mcp.NewTool("plugin_update",
 			mcp.WithDescription(`Update an existing plugin. All fields are replaced with new values.
 
-Same parameters as plugin_create. Use plugin_get first to retrieve current values,
-then modify and update.
+WORKFLOW:
+  1. Get current plugin: plugin_get plugin_id="xxx"
+  2. Modify the fields you want to change
+  3. Call plugin_update with ALL required fields (id, name, source_code, compiled_code)
+  4. Optional fields will use defaults if not provided
+
+IMPORTANT: This is a full replacement, not a merge. All fields must be provided.
+
+PARAMETERS EXPLAINED:
+  
+  id (required):
+    Plugin ID to update. Must match an existing plugin.
+  
+  name (required):
+    Display name shown in UI (e.g., "API Tracking Validator v2")
+  
+  source_code (required):
+    Plugin source code in TypeScript with type annotations.
+    This is what users see and edit in the plugin editor.
+    Must use TypeScript syntax: 'const plugin: Plugin = { onEvent: (e, ctx) => { ... } }'
+  
+  compiled_code (required):
+    Executable JavaScript code transpiled from source_code.
+    Use TypeScript compiler to convert source_code to JavaScript.
+    This separation allows showing TypeScript in editor while running JS.
+    
+  language (optional, ignored):
+    This parameter is ignored. System always uses TypeScript.
+    Kept for backward compatibility only.
+  
+  version (optional):
+    Semantic version (e.g., "2.0.0")
+    Default: "1.0.0"
+  
+  author (optional):
+    Plugin author name (shown in plugin list)
+  
+  description (optional):
+    What this plugin does (shown as tooltip in UI)
+  
+  filters_json (optional):
+    JSON string defining which events this plugin processes.
+    Structure: {
+      "sources": ["network", "logcat"],    // Event sources (OR logic)
+      "types": ["http_request"],           // Event types (OR logic)
+      "levels": ["error", "warn"],         // Event levels (OR logic)
+      "urlPattern": "*/api/track*",        // URL wildcard (network events only)
+      "titleMatch": "ActivityManager.*"    // Title regex pattern
+    }
+    All filters use AND logic (event must match all specified filters).
+    Empty arrays match all values. Multiple values within a field use OR logic.
+  
+  config_json (optional):
+    JSON object passed to plugin as context.config
+    Use this for user-configurable parameters.
+    Example: {"requiredParams": ["user_id"], "timeout": 5000}
+    Access in plugin: context.config.requiredParams
 
 EXAMPLE:
+  # Get current plugin
+  plugin_get plugin_id="tracking-validator"
+  
+  # Update with new version and code
   plugin_update \
     id="tracking-validator" \
     name="Tracking Validator v2" \
     version="2.0.0" \
-    source_code='const plugin = { ... }' \
-    compiled_code='const plugin = { ... }'
+    source_code='const plugin: Plugin = { ... TypeScript code ... }' \
+    compiled_code='const plugin = { ... JavaScript compiled code ... }' \
+    filters_json='{"sources": ["network"], "urlPattern": "*/api/*"}' \
+    config_json='{"requiredParams": ["user_id", "session_id"]}'
 
-RETURNS: Success message`),
+RETURNS: Success message with plugin ID`),
 			mcp.WithString("id",
 				mcp.Required(),
-				mcp.Description("Plugin ID to update"),
+				mcp.Description("Plugin ID to update (must exist)"),
 			),
 			mcp.WithString("name",
 				mcp.Required(),
-				mcp.Description("New plugin name"),
+				mcp.Description("Display name for UI (e.g., 'API Validator v2')"),
 			),
 			mcp.WithString("version",
-				mcp.Description("New version"),
+				mcp.Description("Semantic version (default: '1.0.0')"),
 			),
 			mcp.WithString("author",
-				mcp.Description("New author"),
+				mcp.Description("Author name (optional)"),
 			),
 			mcp.WithString("description",
-				mcp.Description("New description"),
+				mcp.Description("What this plugin does (shown as tooltip)"),
 			),
 			mcp.WithString("source_code",
 				mcp.Required(),
-				mcp.Description("New source code"),
+				mcp.Description("TypeScript source code (shown in editor with type checking)"),
 			),
 			mcp.WithString("language",
-				mcp.Description("Source language"),
+				mcp.Description("Ignored (system always uses TypeScript, kept for compatibility)"),
 			),
 			mcp.WithString("compiled_code",
 				mcp.Required(),
-				mcp.Description("New compiled code"),
+				mcp.Description("JavaScript code transpiled from source_code"),
 			),
 			mcp.WithString("filters_json",
-				mcp.Description("New filters JSON"),
+				mcp.Description("Event filters JSON: {\"sources\": [...], \"types\": [...], \"urlPattern\": \"*...*\"}"),
 			),
 			mcp.WithString("config_json",
-				mcp.Description("New config JSON"),
+				mcp.Description("Plugin config JSON (passed to context.config): {\"key\": \"value\"}"),
 			),
 		),
 		s.handlePluginUpdate,
@@ -388,7 +448,7 @@ DEBUGGING WORKFLOW:
 3. Write your plugin code (see plugin_create for API specification)
 
 4. Test it:
-   plugin_test script='const plugin = { ... }' event_id="<event-id>"
+   plugin_test script='const plugin: Plugin = { ... }' event_id="<event-id>"
 
 5. Check the output:
    - If empty array: plugin didn't generate any derived events (check your logic)
@@ -429,10 +489,10 @@ EXAMPLE:
   # Get an event ID from a session
   session_events session_id="session-abc" sources="network" limit=1
   
-  # Test plugin against that event
+  # Test plugin against that event (use TypeScript syntax)
   plugin_test \
-    script='const plugin = {
-      onEvent: function(event, context) {
+    script='const plugin: Plugin = {
+      onEvent: (event: UnifiedEvent, context: PluginContext): PluginResult | null => {
         context.log("Processing event: " + event.type);
         if (event.source === "network") {
           return {
@@ -547,7 +607,7 @@ func (s *MCPServer) handlePluginSave(ctx context.Context, request mcp.CallToolRe
 		version = "1.0.0"
 	}
 	if language == "" {
-		language = "javascript"
+		language = "typescript" // System always uses TypeScript
 	}
 
 	// Parse filters

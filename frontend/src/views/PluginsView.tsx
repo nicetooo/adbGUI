@@ -69,11 +69,11 @@ const PluginsView: React.FC = () => {
     }
   };
 
-  const handleEdit = async (plugin: any) => {
+  const handleEdit = async (plugin: any, initialTab: string = "basic") => {
     // 从后端获取完整的插件信息（包含源码）
     const fullPlugin = await getPlugin(plugin.metadata.id);
     if (fullPlugin) {
-      openEditor(fullPlugin);
+      openEditor(fullPlugin, initialTab);
     } else {
       message.error(t("plugins.load_failed"));
     }
@@ -161,14 +161,14 @@ const PluginsView: React.FC = () => {
                 <Button
                   type="text"
                   icon={<EditOutlined />}
-                  onClick={() => handleEdit(plugin)}
+                  onClick={() => handleEdit(plugin, "basic")}
                 >
                   {t("plugins.edit")}
                 </Button>,
                 <Button
                   type="text"
                   icon={<CodeOutlined />}
-                  onClick={() => handleEdit(plugin)}
+                  onClick={() => handleEdit(plugin, "code")}
                 >
                   {t("plugins.view_code")}
                 </Button>,

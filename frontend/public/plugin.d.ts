@@ -148,10 +148,49 @@ declare interface PluginMetadata {
  */
 declare interface PluginContext {
   /**
+   * Plugin configuration from database (set in form's config field)
+   * @example const threshold = context.config.slowThresholdMs || 2000;
+   */
+  config: Record<string, any>;
+
+  /**
+   * Plugin persistent state (survives across events)
+   * @example context.state.counter = (context.state.counter || 0) + 1;
+   */
+  state: Record<string, any>;
+
+  /**
    * Log a message (visible in plugin logs)
    * @param message - Message to log
    */
   log(message: string): void;
+
+  /**
+   * Emit a derived event (shorthand for adding to derivedEvents)
+   * @param type - Event type
+   * @param title - Event title
+   * @param data - Event data
+   * @example context.emit("alert", "High CPU usage", { cpu: 95 });
+   */
+  emit(type: string, title: string, data?: any): void;
+
+  /**
+   * Extract value from JSON using path
+   * @param json - JSON object or string
+   * @param path - JSON path (e.g., "user.id")
+   * @returns Extracted value or undefined
+   * @example const userId = context.jsonPath(event.data, "user.id");
+   */
+  jsonPath(json: any, path: string): any;
+
+  /**
+   * Match URL against wildcard pattern
+   * @param url - URL to match
+   * @param pattern - Wildcard pattern (e.g., "*/api/users*")
+   * @returns true if URL matches pattern
+   * @example if (context.matchURL(data.url, "*/api/track*")) { ... }
+   */
+  matchURL(url: string, pattern: string): boolean;
 }
 
 // ============ Plugin Result ============
@@ -294,13 +333,24 @@ declare function getState(key: string): any;
 // ============ Plugin Definition ============
 
 /**
- * Plugin definition
+ * Plugin script definition (user code)
+ * 
+ * ⚠️ IMPORTANT: This type represents the plugin object in your CODE, not the
+ * complete plugin data model. Plugin metadata (id, name, version, filters, config) 
+ * is managed by the plugin form (Basic Info & Filters tabs), NOT in the code.
+ * 
+ * Your code should only define the event processing logic (onEvent, onInit, onDestroy).
+ * Including metadata in code is optional and will be ignored at runtime.
+ * 
+ * @note This is different from the Plugin type in pluginStore.ts, which represents
+ * the complete plugin data model (including metadata, sourceCode, language, etc.)
  */
 declare interface Plugin {
   /**
-   * Plugin metadata
+   * Plugin metadata (OPTIONAL - managed by form, ignored if present in code)
+   * @deprecated Use the plugin form to configure metadata instead
    */
-  metadata: PluginMetadata;
+  metadata?: PluginMetadata;
 
   /**
    * Optional initialization function (called once when plugin loads)
@@ -326,20 +376,25 @@ declare interface Plugin {
 /**
  * Declare plugin constant - this is the main export of your plugin
  * 
+ * Plugin metadata is configured in the form (Basic Info & Filters tabs).
+ * Your code should focus on event processing logic only.
+ * 
  * @example
+ * // Plugin metadata is managed by the form (Basic Info & Filters tabs)
+ * // This code only defines the event processing logic
+ * 
  * const plugin: Plugin = {
- *   metadata: {
- *     id: "my-plugin",
- *     name: "My Plugin",
- *     version: "1.0.0",
- *     filters: {
- *       sources: ["network"],
- *       types: ["http_request"]
- *     }
- *   },
  *   onEvent: (event, context) => {
+ *     // Access plugin configuration from context
+ *     const config = context.config || {};
+ *     
  *     context.log("Processing: " + event.id);
- *     return { derivedEvents: [] };
+ *     
+ *     return { 
+ *       derivedEvents: [],
+ *       tags: [],
+ *       metadata: {}
+ *     };
  *   }
  * };
  */
