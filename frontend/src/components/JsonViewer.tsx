@@ -11,7 +11,7 @@ const { Text } = Typography;
 // JSON Search Hook - DOM-based text highlight + navigation
 // ============================================================
 
-function useJsonSearch(containerRef: React.RefObject<HTMLDivElement | null>, searchTerm: string) {
+function useJsonSearch(containerRef: React.RefObject<HTMLDivElement | null>, searchTerm: string, trigger: number) {
   const [matchCount, setMatchCount] = useState(0);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const matchesRef = useRef<HTMLElement[]>([]);
@@ -93,7 +93,7 @@ function useJsonSearch(containerRef: React.RefObject<HTMLDivElement | null>, sea
     matchesRef.current = allMarks;
     setMatchCount(allMarks.length);
     setCurrentIndex(allMarks.length > 0 ? 0 : -1);
-  }, [searchTerm, containerRef, clearMarks]);
+  }, [searchTerm, containerRef, clearMarks, trigger]);
 
   // Update active highlight when currentIndex changes
   useEffect(() => {
@@ -279,14 +279,22 @@ const JsonViewer = memo(({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchTrigger, setSearchTrigger] = useState(0);
 
   // Priority: internal search > external search
   // If internal search is active, use searchTerm; otherwise use externalSearchTerm
   const activeSearchTerm = searchOpen ? searchTerm : (externalSearchTerm || '');
-  const { matchCount, currentIndex, goNext, goPrev, reset } = useJsonSearch(containerRef, activeSearchTerm);
+  const { matchCount, currentIndex, goNext, goPrev, reset } = useJsonSearch(containerRef, activeSearchTerm, searchTrigger);
 
   // Inject highlight styles once
   useEffect(() => ensureStyles(), []);
+
+  // Trigger re-search when data changes (e.g., switching events while search is active)
+  useEffect(() => {
+    if (activeSearchTerm) {
+      setSearchTrigger(prev => prev + 1);
+    }
+  }, [data, activeSearchTerm]);
 
   // Keyboard shortcut: Ctrl/Cmd+F to open search
   useEffect(() => {
