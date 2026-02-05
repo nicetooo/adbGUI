@@ -42,6 +42,7 @@ const PluginEditor: React.FC<PluginEditorProps> = ({
   const [compiledCode, setCompiledCode] = useState("");
   const [compileError, setCompileError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("basic");
+  const [configCode, setConfigCode] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -60,9 +61,15 @@ const PluginEditor: React.FC<PluginEditorProps> = ({
         sources: plugin.metadata.filters?.sources || [],
         types: plugin.metadata.filters?.types || [],
         urlPattern: plugin.metadata.filters?.urlPattern || "",
-        config: plugin.metadata.config ? JSON.stringify(plugin.metadata.config, null, 2) : "",
       });
       setSourceCode(plugin.sourceCode);
+      
+      // 设置 config 代码（如果有的话）
+      if (plugin.metadata.config && Object.keys(plugin.metadata.config).length > 0) {
+        setConfigCode(JSON.stringify(plugin.metadata.config, null, 2));
+      } else {
+        setConfigCode("");
+      }
     } else {
       // 新建插件时的默认代码模板
       const defaultCode = `// Plugin metadata is managed by the form above (Basic Info & Filters tabs)
@@ -101,6 +108,26 @@ const plugin: Plugin = {
   // }
 };`;
       setSourceCode(defaultCode);
+      
+      // 默认 config 模板（带注释说明）
+      const defaultConfig = `{
+  // Plugin configuration (accessed via context.config in your code)
+  
+  // Example: Threshold for slow request detection (milliseconds)
+  // Usage in code: const threshold = context.config.slowThresholdMs || 2000;
+  "slowThresholdMs": 2000,
+  
+  // Example: Required parameters for API tracking validation
+  // Usage in code: const required = context.config.requiredParams || [];
+  "requiredParams": ["user_id", "event_name"],
+  
+  // Example: Timeout for async operations (milliseconds)
+  "timeout": 5000,
+  
+  // Add your custom configuration here...
+}`;
+      setConfigCode(defaultConfig);
+      
       form.resetFields();
     }
   }, [plugin, form, open, editorInitialTab]);
@@ -132,14 +159,20 @@ const plugin: Plugin = {
     try {
       const values = await form.validateFields();
       
-      // 解析 config JSON
+      // 解析 config JSON（支持 JSON with Comments）
       let config = {};
-      if (values.config && values.config.trim()) {
+      if (configCode && configCode.trim()) {
         try {
-          config = JSON.parse(values.config);
+          // 使用简单的正则移除 JSON 注释（单行 // 和多行 /* */）
+          const jsonWithoutComments = configCode
+            .replace(/\/\*[\s\S]*?\*\//g, '') // 移除 /* ... */
+            .replace(/\/\/.*/g, '');           // 移除 // ...
+          
+          const parsed = JSON.parse(jsonWithoutComments);
+          config = parsed;
         } catch (e) {
           message.error(t("plugins.config_invalid_json"));
-          setActiveTab("filters"); // 切换到 Filters tab 显示错误
+          setActiveTab("config"); // 切换到 Config tab 显示错误
           return;
         }
       }
@@ -308,19 +341,26 @@ const plugin: Plugin = {
                 }
               />
             </Form.Item>
-
-            <Form.Item 
-              name="config" 
-              label={t("plugins.config")}
-              extra={t("plugins.config_hint")}
-            >
-              <TextArea
-                rows={6}
-                placeholder={t("plugins.config_placeholder")}
-                style={{ fontFamily: "monospace", fontSize: "12px" }}
-              />
-            </Form.Item>
           </Form>
+        </TabPane>
+
+        <TabPane tab={t("plugins.config")} key="config">
+          <Space direction="vertical" style={{ width: "100%" }} size="small">
+            <Text type="secondary" style={{ fontSize: "12px" }}>
+              {t("plugins.config_description")}
+            </Text>
+            
+            <MonacoPluginEditor
+              value={configCode}
+              onChange={setConfigCode}
+              language="json"
+              height="400px"
+            />
+            
+            <Text type="secondary" style={{ fontSize: "11px" }}>
+              {t("plugins.config_note")}
+            </Text>
+          </Space>
         </TabPane>
 
         <TabPane tab={t("plugins.code")} key="code">

@@ -6,7 +6,7 @@ import * as monaco from "monaco-editor";
 interface MonacoPluginEditorProps {
   value: string;
   onChange: (value: string) => void;
-  language: "javascript" | "typescript";
+  language: "javascript" | "typescript" | "json";
   height?: string;
 }
 
