@@ -886,7 +886,7 @@ const EventDetail = memo(({ event, onClose }: EventDetailProps) => {
     >
       {!isNetworkEvent && (
         <div style={{ padding: '12px 12px 0', flexShrink: 0 }}>
-          <Descriptions column={1} size="small" bordered style={{ marginBottom: 12 }}>
+          <Descriptions column={3} size="small" bordered style={{ marginBottom: 12 }}>
             <Descriptions.Item label="Time">
               <Text style={{ fontSize: 11 }}>
                 {formatTimestamp(event.timestamp)} ({formatRelativeTime(event.relativeTime)})
