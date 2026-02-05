@@ -55,33 +55,181 @@ RETURNS: Full plugin object with source code`),
 		mcp.NewTool("plugin_create",
 			mcp.WithDescription(`Create a new plugin from source code.
 
+PLUGIN API SPECIFICATION:
+
+Your plugin code must export a 'plugin' object with the following structure:
+
+  const plugin = {
+    metadata: {
+      name: "string",        // Display name (optional, overridden by 'name' parameter)
+      version: "string",     // Semantic version (optional)
+      description: "string"  // What this plugin does (optional)
+    },
+    
+    onInit: function(context) {
+      // Optional: Called once when plugin is loaded
+      // Use context.state to initialize persistent state across events
+      // Example: context.state.counter = 0;
+    },
+    
+    onEvent: function(event, context) {
+      // Required: Called for each matching event
+      // Return a PluginResult object or null/undefined
+      // Example:
+      //   return {
+      //     derivedEvents: [{ source: "plugin", type: "alert", level: "warn", title: "Issue found" }]
+      //   };
+    },
+    
+    onDestroy: function(context) {
+      // Optional: Called when plugin is unloaded
+      // Use for cleanup if needed
+    }
+  };
+
+EVENT OBJECT (passed to onEvent):
+  {
+    id: "string",               // Unique event ID
+    deviceId: "string",         // Device ID
+    sessionId: "string",        // Session ID
+    timestamp: number,          // Unix milliseconds
+    relativeTime: number,       // Milliseconds from session start
+    source: "string",           // Event source: "network", "logcat", "app", "device", etc.
+    category: "string",         // Category: "network", "log", "state", etc.
+    type: "string",             // Event type: "http_request", "logcat", "app_crash", etc.
+    level: "string",            // Level: "info", "warn", "error", "debug", "verbose", "fatal"
+    title: "string",            // Short description
+    content?: "string",         // Optional detailed content
+    data?: any                  // Event-specific data as JSON object
+  }
+
+CONTEXT OBJECT (passed to onEvent and onInit):
+  {
+    config: any,                // User configuration from config_json parameter
+    state: any,                 // Persistent state object (survives across events)
+    
+    // Helper functions:
+    log(message: string): void,              // Write debug log
+    emit(type, title, data): void,           // Emit a derived event (shortcut)
+    jsonPath(json, path): any,               // Extract JSON value by path (e.g., "user.name")
+    matchURL(url, pattern): boolean          // URL wildcard matching (* supported)
+  }
+
+PLUGIN RESULT (return value from onEvent):
+  {
+    derivedEvents?: [           // Array of new events to generate
+      {
+        source: "string",       // Event source (typically "plugin")
+        type: "string",         // Event type (e.g., "validation_error", "alert")
+        level: "string",        // "info", "warn", or "error"
+        title: "string",        // Short description
+        content?: "string",     // Optional detailed content
+        data?: any              // Optional data object
+      }
+    ],
+    tags?: ["string"],          // Tags to add to the original event
+    metadata?: { key: value }   // Metadata to attach to the original event
+  }
+
+COMPLETE EXAMPLE - API Tracking Validator:
+
+  const plugin = {
+    metadata: {
+      name: "API Tracking Validator",
+      version: "1.0.0",
+      description: "Validates tracking API calls have required parameters"
+    },
+    
+    onEvent: function(event, context) {
+      // Extract URL from event data
+      const data = event.data || {};
+      const url = data.url || "";
+      
+      if (!url) return null;
+      
+      try {
+        const urlObj = new URL(url);
+        const params = urlObj.searchParams;
+        
+        // Get required parameters from config
+        const required = context.config.requiredParams || ["user_id", "event_name"];
+        const missing = [];
+        
+        for (const param of required) {
+          if (!params.has(param)) {
+            missing.push(param);
+          }
+        }
+        
+        // If parameters are missing, emit a warning event
+        if (missing.length > 0) {
+          return {
+            derivedEvents: [{
+              source: "plugin",
+              type: "validation_error",
+              level: "warn",
+              title: "Missing tracking parameters: " + missing.join(", "),
+              data: {
+                url: url,
+                missingParams: missing,
+                foundParams: Array.from(params.keys())
+              }
+            }]
+          };
+        }
+      } catch (err) {
+        context.log("Failed to parse URL: " + err.message);
+      }
+      
+      return null;
+    }
+  };
+
 PARAMETERS:
-  id: Unique plugin ID (e.g., "tracking-validator")
+  id: Unique plugin ID (lowercase, numbers, hyphens only, e.g., "tracking-validator")
   name: Display name (e.g., "Tracking Parameter Validator")
-  version: Semantic version (e.g., "1.0.0")
+  version: Semantic version (default: "1.0.0")
+  author: Plugin author name (optional)
+  description: Plugin description (optional)
   source_code: Plugin source code (JavaScript or TypeScript)
-  language: "javascript" or "typescript"
-  compiled_code: Compiled JavaScript code (for TypeScript, pass TS→JS compiled output)
+  language: "javascript" or "typescript" (default: "javascript")
+  compiled_code: Compiled JavaScript code (for TypeScript, compile to JS first)
   
 FILTERS (JSON string):
-  sources: Array of event sources to match (e.g., ["network", "logcat"])
-  types: Array of event types to match (e.g., ["http_request"])
-  levels: Array of event levels to match (e.g., ["error", "warn"])
-  urlPattern: URL wildcard pattern (e.g., "*/api/track*")
+  All filters use AND logic (event must match all specified filters).
+  Empty arrays match all values for that field. Multiple values use OR logic within the field.
+  
+  {
+    "sources": ["network", "logcat"],   // Event sources (OR logic)
+    "types": ["http_request"],          // Event types (OR logic)
+    "levels": ["error", "warn"],        // Event levels (OR logic)
+    "urlPattern": "*/api/track*",       // URL wildcard (only for network events, * = wildcard)
+    "titleMatch": "ActivityManager.*"   // Title regex pattern (optional)
+  }
   
 CONFIG (JSON string):
-  Any user-defined configuration object (e.g., {"requiredParams": ["user_id"]})
+  User-defined configuration passed to context.config in plugin code.
+  Example: {"requiredParams": ["user_id", "event_name"], "timeout": 5000}
 
-EXAMPLE:
+USAGE EXAMPLE:
+  # 1. Create the plugin
   plugin_create \
     id="tracking-validator" \
-    name="Tracking Parameter Validator" \
+    name="API Tracking Validator" \
     version="1.0.0" \
-    source_code='const plugin = { ... }' \
+    source_code='const plugin = { ... (see complete example above) ... }' \
     language="javascript" \
     compiled_code='const plugin = { ... }' \
     filters_json='{"sources": ["network"], "urlPattern": "*/api/track*"}' \
     config_json='{"requiredParams": ["user_id", "event_name"]}'
+
+  # 2. Test against a real event before deploying
+  plugin_test \
+    script='const plugin = { ... }' \
+    event_id="abc123-network-event-id"
+
+  # 3. Enable the plugin
+  plugin_toggle plugin_id="tracking-validator" enabled=true
 
 RETURNS: Success message with plugin ID`),
 			mcp.WithString("id",
@@ -226,20 +374,89 @@ RETURNS: Success message`),
 		mcp.NewTool("plugin_test",
 			mcp.WithDescription(`Test plugin code against a specific event without saving to database.
 
-This is useful for debugging and validating plugin logic before deployment.
+This is the primary debugging tool for plugin development. It executes your plugin
+code against a real event from your session and shows exactly what derived events
+would be generated.
 
-WORKFLOW:
-1. Find an event ID using session_events
-2. Write your plugin code
-3. Test it with plugin_test
-4. If results are correct, create the plugin with plugin_create
+DEBUGGING WORKFLOW:
+
+1. Find a matching event:
+   session_events session_id="<id>" sources="network" limit=10
+   
+2. Copy an event ID from the results
+
+3. Write your plugin code (see plugin_create for API specification)
+
+4. Test it:
+   plugin_test script='const plugin = { ... }' event_id="<event-id>"
+
+5. Check the output:
+   - If empty array: plugin didn't generate any derived events (check your logic)
+   - If has events: review the derived event structure
+   - If error: fix the JavaScript error and test again
+
+6. Iterate until working correctly
+
+7. Create the plugin:
+   plugin_create id="my-plugin" name="My Plugin" source_code='...' compiled_code='...'
+
+ERROR HANDLING:
+
+If your plugin code throws an error, you'll see:
+  Error: <JavaScript error message with line number>
+
+Common errors:
+- "undefined is not a function": Check function names (onEvent, not onevent)
+- "Cannot read property 'x' of undefined": Add null checks for event.data
+- "URL is not a constructor": Wrap URL parsing in try-catch
+
+DEBUGGING TIPS:
+
+1. Use context.log() to output debug messages:
+   context.log("URL: " + event.data.url);
+   
+2. Check event.data structure first:
+   context.log("Event data: " + JSON.stringify(event.data));
+   
+3. Always validate data before processing:
+   if (!event.data || !event.data.url) return null;
+
+4. Test with multiple events to ensure robustness:
+   - Find events with different data structures
+   - Test edge cases (missing fields, null values, etc.)
 
 EXAMPLE:
+  # Get an event ID from a session
+  session_events session_id="session-abc" sources="network" limit=1
+  
+  # Test plugin against that event
   plugin_test \
-    script='const plugin = { metadata: {...}, onEvent: function(event, context) { ... } }' \
+    script='const plugin = {
+      onEvent: function(event, context) {
+        context.log("Processing event: " + event.type);
+        if (event.source === "network") {
+          return {
+            derivedEvents: [{
+              source: "plugin",
+              type: "network_detected",
+              level: "info",
+              title: "Network event processed"
+            }]
+          };
+        }
+        return null;
+      }
+    }' \
     event_id="abc123-event-id"
 
-RETURNS: Array of derived events that the plugin would generate`),
+RETURNS: 
+  On success: JSON array of derived events that would be generated
+  On error: Error message with details
+  
+NOTES:
+  - The event must exist in the database (use session_events to find IDs)
+  - context.state is available but not persisted (testing is stateless)
+  - context.log() output is not returned (only visible in server logs)`),
 			mcp.WithString("script",
 				mcp.Required(),
 				mcp.Description("Plugin JavaScript code to test"),

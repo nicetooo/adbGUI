@@ -894,8 +894,17 @@ mcp/
 ├── tools_session.go     # session_create, session_end, session_events...
 ├── tools_workflow.go    # workflow_create, workflow_run, workflow_execute_step...
 ├── tools_proxy.go       # proxy_start, proxy_stop, proxy_status
+├── tools_plugins.go     # ⭐ plugin_list, plugin_create, plugin_test (含完整 API 规范)
 └── tools_video.go       # video_frame, video_metadata, session_video_frame...
 ```
+
+**⭐ 插件开发文档**: `tools_plugins.go` 中的 `plugin_create` 工具包含了完整的插件 JavaScript API 规范：
+- `plugin` 对象结构 (`metadata`, `onInit`, `onEvent`, `onDestroy`)
+- `event` 对象字段定义（传递给 `onEvent` 的参数）
+- `context` 对象 API（`config`, `state`, `log()`, `emit()`, `jsonPath()`, `matchURL()`）
+- `PluginResult` 返回值格式
+- 完整的可运行示例（API Tracking Validator）
+- 调试工作流和错误处理指南（`plugin_test` 工具）
 
 ### 内置 CLI 工具
 
