@@ -188,8 +188,8 @@
     "workflow": "워크플로",
     "plugins": "Plugins",
     "timeline": "세션 타임라인",
-    "events": "세션",
-    "sessions": "세션 목록",
+    "events": "세션 타임라인",
+    "sessions": "세션 관리",
     "performance": "성능 모니터",
     "assertion_sets": "어설션 세트",
     "assertions": "어설션"

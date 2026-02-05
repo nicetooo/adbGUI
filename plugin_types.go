@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"time"
 
 	"Gaze/proxy"
@@ -80,6 +81,19 @@ type PluginSaveRequest struct {
 	Config       map[string]interface{} `json:"config"`
 }
 
+// ========== 插件测试结果 ==========
+
+// PluginTestResult 插件测试结果（增强版，包含详细信息）
+type PluginTestResult struct {
+	Success        bool           `json:"success"`         // 是否成功
+	DerivedEvents  []UnifiedEvent `json:"derivedEvents"`   // 生成的派生事件
+	ExecutionTime  int64          `json:"executionTimeMs"` // 执行时间（毫秒）
+	Error          string         `json:"error,omitempty"` // 错误信息
+	Logs           []string       `json:"logs,omitempty"`  // 执行日志
+	MatchedFilters bool           `json:"matchedFilters"`  // 是否匹配过滤器
+	EventSnapshot  *UnifiedEvent  `json:"eventSnapshot"`   // 测试用的事件快照
+}
+
 // ========== 辅助方法 ==========
 
 // MatchesEvent 检查插件是否匹配事件
@@ -135,11 +149,23 @@ func (p *Plugin) MatchesEvent(event UnifiedEvent) bool {
 		if event.Data != nil {
 			if err := json.Unmarshal(event.Data, &eventData); err == nil {
 				if url, ok := eventData["url"].(string); ok {
-					if !matchURLPattern(filters.URLPattern, url) {
+					matched := matchURLPattern(filters.URLPattern, url)
+					log.Printf("[PluginManager] 🔍 URL match: pattern='%s', url='%s', matched=%v",
+						filters.URLPattern, url, matched)
+					if !matched {
 						return false
 					}
+				} else {
+					log.Printf("[PluginManager] 🔍 URL not found in event data for plugin %s", p.Metadata.ID)
+					return false // ⚠️ 如果没有 URL 字段，应该返回 false
 				}
+			} else {
+				log.Printf("[PluginManager] 🔍 Failed to unmarshal event data: %v", err)
+				return false // ⚠️ 如果 JSON 解析失败，应该返回 false
 			}
+		} else {
+			log.Printf("[PluginManager] 🔍 Event data is nil for plugin %s", p.Metadata.ID)
+			return false // ⚠️ 如果 event.Data 为 nil，应该返回 false
 		}
 	}
 

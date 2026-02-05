@@ -187,9 +187,9 @@
     "recording": "觸控錄製",
     "workflow": "工作流編排",
     "plugins": "Plugins",
-    "timeline": "會話時間軸",
-    "events": "會話",
-    "sessions": "會話列表",
+    "timeline": "會話時間線",
+    "events": "會話時間線",
+    "sessions": "會話管理",
     "performance": "效能監控",
     "assertion_sets": "斷言集",
     "assertions": "斷言"

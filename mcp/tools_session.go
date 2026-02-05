@@ -145,7 +145,7 @@ Examples:
 				mcp.Description("Search text in event title/content"),
 			),
 			mcp.WithString("types",
-				mcp.Description("Event types to filter (comma-separated, e.g., 'logcat,http_request')"),
+				mcp.Description("Event types to filter (comma-separated, e.g., 'logcat,network_request')"),
 			),
 			mcp.WithString("sources",
 				mcp.Description("Event sources to filter (comma-separated, e.g., 'logcat,network,app')"),

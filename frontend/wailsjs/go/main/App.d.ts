@@ -197,6 +197,8 @@ export function GetRecordingsDir():Promise<string>;
 
 export function GetRewriteRules():Promise<Array<main.RewriteRule>>;
 
+export function GetSampleEvents(arg1:string,arg2:Array<string>,arg3:Array<string>,arg4:number):Promise<Array<main.UnifiedEvent>>;
+
 export function GetSessionBookmarks(arg1:string):Promise<Array<main.Bookmark>>;
 
 export function GetSessionEventLevels(arg1:string):Promise<Array<string>>;
@@ -538,6 +540,12 @@ export function TakeScreenshot(arg1:string,arg2:string):Promise<string>;
 export function TapAtCoordinates(arg1:string,arg2:number,arg3:number):Promise<void>;
 
 export function TestPlugin(arg1:string,arg2:string):Promise<Array<main.UnifiedEvent>>;
+
+export function TestPluginBatch(arg1:string,arg2:Array<string>):Promise<Array<main.PluginTestResult>>;
+
+export function TestPluginDetailed(arg1:string,arg2:string):Promise<main.PluginTestResult>;
+
+export function TestPluginWithEventData(arg1:string,arg2:string):Promise<main.PluginTestResult>;
 
 export function ToggleBreakpointRule(arg1:string,arg2:boolean):Promise<void>;
 

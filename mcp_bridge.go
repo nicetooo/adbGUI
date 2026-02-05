@@ -1753,6 +1753,43 @@ func (b *MCPBridge) TestPlugin(script string, eventID string) (interface{}, erro
 	return events, nil
 }
 
+func (b *MCPBridge) TestPluginDetailed(script string, eventID string) (interface{}, error) {
+	result, err := b.app.TestPluginDetailed(script, eventID)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (b *MCPBridge) TestPluginWithEventData(script string, eventDataJSON string) (interface{}, error) {
+	result, err := b.app.TestPluginWithEventData(script, eventDataJSON)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (b *MCPBridge) TestPluginBatch(script string, eventIDs []string) (interface{}, error) {
+	results, err := b.app.TestPluginBatch(script, eventIDs)
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+func (b *MCPBridge) GetSampleEvents(sessionID string, sources []string, types []string, limit int) ([]interface{}, error) {
+	events, err := b.app.GetSampleEvents(sessionID, sources, types, limit)
+	if err != nil {
+		return nil, err
+	}
+	// 转换为 []interface{}
+	result := make([]interface{}, len(events))
+	for i, e := range events {
+		result[i] = e
+	}
+	return result, nil
+}
+
 // StartMCPServer starts the MCP server with the given app
 func StartMCPServer(app *App) {
 	bridge := NewMCPBridge(app)

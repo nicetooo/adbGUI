@@ -382,7 +382,11 @@ type GazeApp interface {
 	SavePlugin(req interface{}) error         // Accepts PluginSaveRequest
 	DeletePlugin(id string) error
 	TogglePlugin(id string, enabled bool) error
-	TestPlugin(script string, eventID string) (interface{}, error) // Returns []UnifiedEvent
+	TestPlugin(script string, eventID string) (interface{}, error)                                        // Returns []UnifiedEvent
+	TestPluginDetailed(script string, eventID string) (interface{}, error)                                // Returns PluginTestResult
+	TestPluginWithEventData(script string, eventDataJSON string) (interface{}, error)                     // Returns PluginTestResult
+	TestPluginBatch(script string, eventIDs []string) (interface{}, error)                                // Returns []PluginTestResult
+	GetSampleEvents(sessionID string, sources []string, types []string, limit int) ([]interface{}, error) // Returns []UnifiedEvent
 }
 
 // MCPStoredAssertion represents a stored assertion for MCP interface

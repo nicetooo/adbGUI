@@ -145,7 +145,8 @@ const TOOL_CATEGORIES = [
     color: "#d4380d",
     tools: [
       "plugin_list", "plugin_get", "plugin_create", "plugin_update",
-      "plugin_delete", "plugin_toggle", "plugin_test",
+      "plugin_delete", "plugin_toggle", "plugin_test", "plugin_test_detailed",
+      "plugin_test_custom", "plugin_test_batch", "plugin_sample_events",
     ],
   },
 ];

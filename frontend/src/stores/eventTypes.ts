@@ -40,6 +40,7 @@ import {
   CheckOutlined,
   BorderOutlined,
   FieldTimeOutlined,
+  AppstoreAddOutlined,
 } from '@ant-design/icons';
 
 // ========================================
@@ -56,7 +57,8 @@ export type EventSource =
   | 'workflow'   // 自动化流程
   | 'perf'       // 性能指标
   | 'system'     // 系统事件
-  | 'assertion'; // 断言结果
+  | 'assertion'  // 断言结果
+  | 'plugin';    // 插件生成的事件
 
 // ========================================
 // Event Category - 事件大类
@@ -68,7 +70,8 @@ export type EventCategory =
   | 'state'
   | 'interaction'
   | 'automation'
-  | 'diagnostic';
+  | 'diagnostic'
+  | 'plugin'; // 插件生成的事件
 
 // ========================================
 // Event Level - 事件级别
@@ -272,6 +275,7 @@ export const sourceConfig: Record<EventSource, { label: string; icon: string; ic
   perf: { label: 'Perf', icon: '📊', iconComponent: React.createElement(BarChartOutlined), color: 'gold' },
   system: { label: 'System', icon: '🔧', iconComponent: React.createElement(ToolOutlined), color: 'default' },
   assertion: { label: 'Assert', icon: '✅', iconComponent: React.createElement(CheckCircleOutlined), color: 'green' },
+  plugin: { label: 'Plugin', icon: '🧩', iconComponent: React.createElement(AppstoreAddOutlined), color: 'volcano' },
 };
 
 // Category 显示配置 - 使用 Ant Design 预设颜色名称以适配主题
@@ -282,6 +286,7 @@ export const categoryConfig: Record<EventCategory, { label: string; color: strin
   interaction: { label: 'Interaction', color: 'orange' },
   automation: { label: 'Automation', color: 'geekblue' },
   diagnostic: { label: 'Diagnostic', color: 'default' },
+  plugin: { label: 'Plugin', color: 'volcano' },
 };
 
 // Level 显示配置 - 使用 Ant Design 预设颜色名称以适配主题
@@ -341,6 +346,11 @@ export const eventTypeConfig: Record<string, { label: string; icon: string; icon
   // Recording
   recording_start: { label: 'Recording Start', icon: '🔴', iconComponent: React.createElement(FieldTimeOutlined, { style: { color: '#ff4d4f' } }) },
   recording_end: { label: 'Recording End', icon: '⏹️', iconComponent: React.createElement(PauseCircleOutlined) },
+
+  // Plugin - TikTok events
+  tiktok_launch: { label: 'TikTok Launch', icon: '🚀', iconComponent: React.createElement(PlayCircleOutlined, { style: { color: '#ff6b35' } }) },
+  tiktok_event: { label: 'TikTok Event', icon: '📱', iconComponent: React.createElement(MobileOutlined, { style: { color: '#ff6b35' } }) },
+  tiktok_event_v3: { label: 'TikTok Event V3', icon: '📊', iconComponent: React.createElement(BarChartOutlined, { style: { color: '#ff6b35' } }) },
 };
 
 // ========================================

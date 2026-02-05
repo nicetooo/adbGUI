@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback, useMemo, useState } from 'react';
 import {
   Table,
   Card,
@@ -37,6 +37,7 @@ import {
   ImportOutlined,
   DownloadOutlined,
   FolderOpenOutlined,
+  CopyOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { ColumnsType } from 'antd/es/table';
@@ -121,6 +122,18 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
     setExporting,
     setImporting,
   } = useSessionManagerStore();
+
+  // Debounced search text for filtering (300ms delay)
+  const [debouncedSearchText, setDebouncedSearchText] = useState(searchText);
+
+  // Debounce search text
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchText(searchText);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchText]);
 
   // Load sessions
   const loadSessions = useCallback(async () => {
@@ -285,12 +298,12 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
     }
   }, [t, setImporting, loadSessions]);
 
-  // Filter sessions
+  // Filter sessions (using debounced search text to avoid lag)
   const filteredSessions = useMemo(() => {
     return sessions.filter(session => {
-      // Search filter
-      if (searchText) {
-        const search = searchText.toLowerCase();
+      // Search filter (debounced)
+      if (debouncedSearchText) {
+        const search = debouncedSearchText.toLowerCase();
         if (!session.name.toLowerCase().includes(search) &&
             !session.id.toLowerCase().includes(search) &&
             !session.deviceId.toLowerCase().includes(search)) {
@@ -303,7 +316,7 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
       }
       return true;
     });
-  }, [sessions, searchText, statusFilter]);
+  }, [sessions, debouncedSearchText, statusFilter]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -321,17 +334,31 @@ const SessionManager: React.FC<SessionManagerProps> = ({ style }) => {
       title: t('session_manager.col_name'),
       dataIndex: 'name',
       key: 'name',
-      width: 200,
-      ellipsis: true,
+      width: 250,
+      ellipsis: false,
       render: (name, record) => (
-        <Space>
-          <Text strong>{name || t('session_manager.unnamed')}</Text>
-          {record.videoPath && (
-            <Tooltip title={t('session_manager.has_video')}>
-              <VideoCameraOutlined style={{ color: '#1890ff' }} />
-            </Tooltip>
-          )}
-        </Space>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Space>
+            <Text strong>{name || t('session_manager.unnamed')}</Text>
+            {record.videoPath && (
+              <Tooltip title={t('session_manager.has_video')}>
+                <VideoCameraOutlined style={{ color: '#1890ff' }} />
+              </Tooltip>
+            )}
+          </Space>
+          <Space size={4}>
+            <Text
+              type="secondary"
+              style={{ fontSize: 11, fontFamily: 'monospace' }}
+              copyable={{
+                text: record.id,
+                tooltips: [t('common.copy'), t('common.copy')],
+              }}
+            >
+              {record.id.length > 24 ? `${record.id.slice(0, 24)}...` : record.id}
+            </Text>
+          </Space>
+        </div>
       ),
     },
     {

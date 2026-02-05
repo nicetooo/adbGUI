@@ -50,6 +50,7 @@ import {
   LineChartOutlined,
   CheckSquareOutlined,
   ApiOutlined,
+  AppstoreAddOutlined,
 } from "@ant-design/icons";
 import "./App.css";
 import { useTheme } from "./ThemeContext";
@@ -283,7 +284,7 @@ function App() {
                 { key: VIEW_KEYS.EVENTS, icon: <DashboardOutlined />, label: t("menu.events") },
                 { key: VIEW_KEYS.SESSIONS, icon: <DatabaseOutlined />, label: t("menu.sessions") },
                 { key: VIEW_KEYS.ASSERTIONS, icon: <CheckSquareOutlined />, label: t("menu.assertions") },
-                { key: VIEW_KEYS.PLUGINS, icon: <ApiOutlined />, label: t("menu.plugins") },
+                { key: VIEW_KEYS.PLUGINS, icon: <AppstoreAddOutlined />, label: t("menu.plugins") },
               ]}
             />
           </div>

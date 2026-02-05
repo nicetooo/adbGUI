@@ -84,72 +84,82 @@ const PluginsView: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: "24px" }}>
-      {/* Header */}
+    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      {/* Header - Fixed */}
       <div
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "24px",
+          padding: "24px",
+          paddingBottom: "16px",
+          flexShrink: 0,
+          borderBottom: "1px solid rgba(5, 5, 5, 0.06)",
         }}
       >
-        <div>
-          <Title level={2} style={{ margin: 0 }}>
-            {t("plugins.title")}
-          </Title>
-          <Text type="secondary">{t("plugins.subtitle")}</Text>
-        </div>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={handleCreate}
-          size="large"
-        >
-          {t("plugins.create")}
-        </Button>
-      </div>
-
-      {/* Error Alert */}
-      {error && (
-        <Alert
-          message={t("plugins.error")}
-          description={error}
-          type="error"
-          closable
-          style={{ marginBottom: "16px" }}
-        />
-      )}
-
-      {/* Loading */}
-      {loading && (
-        <div style={{ textAlign: "center", padding: "48px" }}>
-          <Spin size="large" />
-        </div>
-      )}
-
-      {/* Empty State */}
-      {!loading && plugins.length === 0 && (
-        <Empty
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description={t("plugins.empty")}
-          style={{ marginTop: "64px" }}
-        >
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-            {t("plugins.create_first")}
-          </Button>
-        </Empty>
-      )}
-
-      {/* Plugin Cards */}
-      {!loading && plugins.length > 0 && (
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))",
-            gap: "16px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
+          <div>
+            <Title level={2} style={{ margin: 0 }}>
+              {t("plugins.title")}
+            </Title>
+            <Text type="secondary">{t("plugins.subtitle")}</Text>
+          </div>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={handleCreate}
+            size="large"
+          >
+            {t("plugins.create")}
+          </Button>
+        </div>
+
+        {/* Error Alert */}
+        {error && (
+          <Alert
+            message={t("plugins.error")}
+            description={error}
+            type="error"
+            closable
+            style={{ marginTop: "16px" }}
+          />
+        )}
+      </div>
+
+      {/* Scrollable Content */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
+        {/* Loading */}
+        {loading && (
+          <div style={{ textAlign: "center", padding: "48px" }}>
+            <Spin size="large" />
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && plugins.length === 0 && (
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description={t("plugins.empty")}
+            style={{ marginTop: "64px" }}
+          >
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+              {t("plugins.create_first")}
+            </Button>
+          </Empty>
+        )}
+
+        {/* Plugin Cards */}
+        {!loading && plugins.length > 0 && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))",
+              gap: "16px",
+            }}
+          >
           {plugins.map((plugin) => (
             <Card
               key={plugin.metadata.id}
@@ -311,6 +321,7 @@ const PluginsView: React.FC = () => {
           ))}
         </div>
       )}
+      </div>
 
       {/* Plugin Editor Modal */}
       {editorOpen && (

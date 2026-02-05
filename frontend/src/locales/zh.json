@@ -38,8 +38,8 @@
     "workflow": "工作流编排",
     "plugins": "插件管理",
     "timeline": "会话时间线",
-    "events": "会话管理",
-    "sessions": "会话列表",
+    "events": "会话时间线",
+    "sessions": "会话管理",
     "performance": "性能监控",
     "assertion_sets": "断言集",
     "assertions": "断言"
@@ -1649,7 +1649,11 @@
       "plugin_update": "更新现有插件（替换所有字段）",
       "plugin_delete": "永久删除已保存的插件",
       "plugin_toggle": "启用或禁用插件而不删除",
-      "plugin_test": "针对特定事件测试插件代码，而不保存到数据库"
+      "plugin_test": "针对特定事件测试插件代码，而不保存到数据库",
+      "plugin_test_detailed": "测试插件并返回详细结果（日志、执行时间、错误）",
+      "plugin_test_custom": "使用自定义事件数据测试插件（无需数据库事件）",
+      "plugin_test_batch": "一次性测试插件对多个事件的处理（最多 50 个）",
+      "plugin_sample_events": "从会话中获取示例事件用于插件测试"
     },
     "resource": {
       "devices": "已连接 Android 设备列表 (JSON)",

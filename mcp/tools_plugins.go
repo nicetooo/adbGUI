@@ -96,7 +96,7 @@ EVENT OBJECT (passed to onEvent):
     relativeTime: number,       // Milliseconds from session start
     source: "string",           // Event source: "network", "logcat", "app", "device", etc.
     category: "string",         // Category: "network", "log", "state", etc.
-    type: "string",             // Event type: "http_request", "logcat", "app_crash", etc.
+    type: "string",             // Event type: "network_request", "logcat", "app_crash", etc.
     level: "string",            // Level: "info", "warn", "error", "debug", "verbose", "fatal"
     title: "string",            // Short description
     content?: "string",         // Optional detailed content
@@ -201,7 +201,7 @@ FILTERS (JSON string):
   
   {
     "sources": ["network", "logcat"],   // Event sources (OR logic)
-    "types": ["http_request"],          // Event types (OR logic)
+    "types": ["network_request"],       // Event types (OR logic)
     "levels": ["error", "warn"],        // Event levels (OR logic)
     "urlPattern": "*/api/track*",       // URL wildcard (only for network events, * = wildcard)
     "titleMatch": "ActivityManager.*"   // Title regex pattern (optional)
@@ -318,7 +318,7 @@ PARAMETERS EXPLAINED:
     JSON string defining which events this plugin processes.
     Structure: {
       "sources": ["network", "logcat"],    // Event sources (OR logic)
-      "types": ["http_request"],           // Event types (OR logic)
+      "types": ["network_request"],        // Event types (OR logic)
       "levels": ["error", "warn"],         // Event levels (OR logic)
       "urlPattern": "*/api/track*",        // URL wildcard (network events only)
       "titleMatch": "ActivityManager.*"    // Title regex pattern
@@ -427,6 +427,214 @@ RETURNS: Success message`),
 			),
 		),
 		s.handlePluginToggle,
+	)
+
+	// plugin_test_detailed - Test plugin and return detailed results
+	s.server.AddTool(
+		mcp.NewTool("plugin_test_detailed",
+			mcp.WithDescription(`Test plugin code against a specific event and return detailed results.
+
+Similar to plugin_test but returns comprehensive information including:
+- Execution status (success/failure)
+- Generated derived events
+- Execution time in milliseconds
+- Captured logs from context.log() calls
+- Error messages with stack traces
+- Whether the event matched the plugin's filters
+- Snapshot of the test event
+
+This is useful for debugging and understanding exactly what your plugin does.
+
+EXAMPLE:
+  plugin_test_detailed \
+    script='const plugin: Plugin = { ... }' \
+    event_id="abc123-event-id"
+
+RETURNS:
+  {
+    "success": true,
+    "derivedEvents": [...],
+    "executionTimeMs": 15,
+    "logs": ["[info] Processing network request", "[info] URL matched pattern"],
+    "matchedFilters": true,
+    "eventSnapshot": {...}
+  }`),
+			mcp.WithString("script",
+				mcp.Required(),
+				mcp.Description("Plugin JavaScript code to test"),
+			),
+			mcp.WithString("event_id",
+				mcp.Required(),
+				mcp.Description("Event ID to test against (from session_events)"),
+			),
+		),
+		s.handlePluginTestDetailed,
+	)
+
+	// plugin_test_custom - Test plugin with custom event data
+	s.server.AddTool(
+		mcp.NewTool("plugin_test_custom",
+			mcp.WithDescription(`Test plugin code against custom event data without needing a real event in the database.
+
+This is useful for:
+- Testing plugins before you have real event data
+- Creating reproducible test cases
+- Testing edge cases and error handling
+- Rapid prototyping without device connection
+
+You can provide a JSON object representing a UnifiedEvent. The system will auto-fill
+missing required fields (id, timestamp, deviceId, sessionId).
+
+MINIMAL EVENT DATA:
+  {
+    "source": "network",
+    "type": "http_request",
+    "level": "info",
+    "title": "GET /api/users",
+    "data": {
+      "url": "https://api.example.com/users?page=1",
+      "method": "GET",
+      "statusCode": 200
+    }
+  }
+
+FULL EVENT DATA EXAMPLE:
+  {
+    "id": "test-event-1",
+    "deviceId": "test-device",
+    "sessionId": "test-session",
+    "timestamp": 1704067200000,
+    "relativeTime": 1000,
+    "source": "network",
+    "category": "network",
+    "type": "http_request",
+    "level": "info",
+    "title": "POST /api/tracking",
+    "data": {
+      "url": "https://api.example.com/tracking?event=click&user_id=123",
+      "method": "POST",
+      "statusCode": 200,
+      "requestHeaders": {"Content-Type": "application/json"},
+      "requestBody": "{\"action\":\"click\"}",
+      "responseBody": "{\"success\":true}"
+    }
+  }
+
+EXAMPLE:
+  plugin_test_custom \
+    script='const plugin: Plugin = { onEvent: (e, ctx) => { ... } }' \
+    event_data='{"source":"network","type":"http_request","title":"Test","data":{"url":"https://example.com"}}'
+
+RETURNS: Same detailed result as plugin_test_detailed`),
+			mcp.WithString("script",
+				mcp.Required(),
+				mcp.Description("Plugin JavaScript code to test"),
+			),
+			mcp.WithString("event_data",
+				mcp.Required(),
+				mcp.Description("JSON string of event data (UnifiedEvent structure)"),
+			),
+		),
+		s.handlePluginTestCustom,
+	)
+
+	// plugin_test_batch - Test plugin against multiple events
+	s.server.AddTool(
+		mcp.NewTool("plugin_test_batch",
+			mcp.WithDescription(`Test plugin code against multiple events at once.
+
+This is useful for:
+- Validating plugin behavior across different event types
+- Ensuring robustness (no errors on unexpected data)
+- Performance testing (finding slow operations)
+- Batch validation before deploying to production
+
+The tool will test the plugin against each event and return an array of results.
+Maximum 50 events can be tested at once.
+
+EXAMPLE:
+  # First, find some events to test
+  session_events session_id="session-abc" sources="network" limit=10
+  
+  # Extract event IDs and test
+  plugin_test_batch \
+    script='const plugin: Plugin = { ... }' \
+    event_ids='["event-id-1","event-id-2","event-id-3"]'
+
+RETURNS:
+  [
+    {
+      "success": true,
+      "derivedEvents": [...],
+      "executionTimeMs": 12,
+      "logs": [...],
+      "eventSnapshot": {...}
+    },
+    {
+      "success": false,
+      "error": "...",
+      "executionTimeMs": 5,
+      "logs": [...],
+      "eventSnapshot": {...}
+    }
+  ]
+
+TIP: Look for patterns in failures - are certain event types causing errors?`),
+			mcp.WithString("script",
+				mcp.Required(),
+				mcp.Description("Plugin JavaScript code to test"),
+			),
+			mcp.WithString("event_ids",
+				mcp.Required(),
+				mcp.Description("JSON array of event IDs to test (max 50)"),
+			),
+		),
+		s.handlePluginTestBatch,
+	)
+
+	// plugin_sample_events - Get sample events for testing
+	s.server.AddTool(
+		mcp.NewTool("plugin_sample_events",
+			mcp.WithDescription(`Get sample events from a session for plugin testing.
+
+This tool helps you find suitable events to test your plugin against.
+You can filter by source, type, and limit the number of results.
+
+COMMON USE CASE:
+  1. Get sample network events: plugin_sample_events session_id="xxx" sources='["network"]' limit=10
+  2. Pick an event ID from the results
+  3. Test your plugin: plugin_test_detailed script='...' event_id="..."
+
+FILTERS:
+  - sources: Array of event sources (e.g., ["network", "logcat", "app"])
+  - types: Array of event types (e.g., ["http_request", "websocket_message"])
+  - limit: Number of events to return (default: 20, max: 100)
+
+EXAMPLE:
+  # Get network events with errors
+  plugin_sample_events \
+    session_id="session-abc" \
+    sources='["network"]' \
+    types='["http_request"]' \
+    limit=5
+
+RETURNS:
+  Array of UnifiedEvent objects (same structure as session_events)`),
+			mcp.WithString("session_id",
+				mcp.Required(),
+				mcp.Description("Session ID to query events from"),
+			),
+			mcp.WithString("sources",
+				mcp.Description("JSON array of event sources (e.g., [\"network\",\"logcat\"])"),
+			),
+			mcp.WithString("types",
+				mcp.Description("JSON array of event types (e.g., [\"http_request\"])"),
+			),
+			mcp.WithNumber("limit",
+				mcp.Description("Number of events to return (default: 20, max: 100)"),
+			),
+		),
+		s.handlePluginSampleEvents,
 	)
 
 	// plugin_test - Test a plugin against a specific event
@@ -769,6 +977,156 @@ func (s *MCPServer) handlePluginTest(ctx context.Context, request mcp.CallToolRe
 	}
 
 	jsonData, _ := json.MarshalIndent(derivedEvents, "", "  ")
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(string(jsonData))},
+	}, nil
+}
+
+func (s *MCPServer) handlePluginTestDetailed(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	script, _ := args["script"].(string)
+	eventID, _ := args["event_id"].(string)
+
+	if script == "" || eventID == "" {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.NewTextContent("Error: script and event_id are required")},
+			IsError: true,
+		}, nil
+	}
+
+	result, err := s.app.TestPluginDetailed(script, eventID)
+	if err != nil {
+		// 即使有错误，如果 result 中已包含错误信息，也返回 result
+		if resultInterface, ok := result.(interface{ GetError() string }); ok && resultInterface.GetError() != "" {
+			jsonData, _ := json.MarshalIndent(result, "", "  ")
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{mcp.NewTextContent(string(jsonData))},
+			}, nil
+		}
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error: %v", err))},
+			IsError: true,
+		}, nil
+	}
+
+	jsonData, _ := json.MarshalIndent(result, "", "  ")
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(string(jsonData))},
+	}, nil
+}
+
+func (s *MCPServer) handlePluginTestCustom(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	script, _ := args["script"].(string)
+	eventData, _ := args["event_data"].(string)
+
+	if script == "" || eventData == "" {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.NewTextContent("Error: script and event_data are required")},
+			IsError: true,
+		}, nil
+	}
+
+	result, err := s.app.TestPluginWithEventData(script, eventData)
+	if err != nil {
+		// 即使有错误，如果 result 中已包含错误信息，也返回 result
+		jsonData, _ := json.MarshalIndent(result, "", "  ")
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.NewTextContent(string(jsonData))},
+		}, nil
+	}
+
+	jsonData, _ := json.MarshalIndent(result, "", "  ")
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(string(jsonData))},
+	}, nil
+}
+
+func (s *MCPServer) handlePluginTestBatch(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	script, _ := args["script"].(string)
+	eventIDsJSON, _ := args["event_ids"].(string)
+
+	if script == "" || eventIDsJSON == "" {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.NewTextContent("Error: script and event_ids are required")},
+			IsError: true,
+		}, nil
+	}
+
+	// 解析事件 ID 数组
+	var eventIDs []string
+	if err := json.Unmarshal([]byte(eventIDsJSON), &eventIDs); err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error parsing event_ids: %v", err))},
+			IsError: true,
+		}, nil
+	}
+
+	results, err := s.app.TestPluginBatch(script, eventIDs)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error: %v", err))},
+			IsError: true,
+		}, nil
+	}
+
+	jsonData, _ := json.MarshalIndent(results, "", "  ")
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{mcp.NewTextContent(string(jsonData))},
+	}, nil
+}
+
+func (s *MCPServer) handlePluginSampleEvents(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+	sessionID, _ := args["session_id"].(string)
+	sourcesJSON, _ := args["sources"].(string)
+	typesJSON, _ := args["types"].(string)
+	limit, _ := args["limit"].(float64)
+
+	if sessionID == "" {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.NewTextContent("Error: session_id is required")},
+			IsError: true,
+		}, nil
+	}
+
+	// 解析 sources 数组
+	var sources []string
+	if sourcesJSON != "" {
+		if err := json.Unmarshal([]byte(sourcesJSON), &sources); err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error parsing sources: %v", err))},
+				IsError: true,
+			}, nil
+		}
+	}
+
+	// 解析 types 数组
+	var types []string
+	if typesJSON != "" {
+		if err := json.Unmarshal([]byte(typesJSON), &types); err != nil {
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error parsing types: %v", err))},
+				IsError: true,
+			}, nil
+		}
+	}
+
+	limitInt := int(limit)
+	if limitInt == 0 {
+		limitInt = 20
+	}
+
+	events, err := s.app.GetSampleEvents(sessionID, sources, types, limitInt)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{mcp.NewTextContent(fmt.Sprintf("Error: %v", err))},
+			IsError: true,
+		}, nil
+	}
+
+	jsonData, _ := json.MarshalIndent(events, "", "  ")
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{mcp.NewTextContent(string(jsonData))},
 	}, nil

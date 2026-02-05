@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/andybalholm/brotli"
+	"github.com/klauspost/compress/zstd"
 )
 
 // ==================== MatchPattern ====================
@@ -185,6 +186,111 @@ func TestAnalyzeBodyFull_Deflate(t *testing.T) {
 	result := p.analyzeBodyFull(buf.Bytes(), "deflate", "text/plain")
 	if result.Text != original {
 		t.Errorf("Expected %q after deflate decompression, got %q", original, result.Text)
+	}
+}
+
+func TestAnalyzeBodyFull_Zstd(t *testing.T) {
+	original := "zstd compressed content"
+	var buf bytes.Buffer
+	encoder, _ := zstd.NewWriter(&buf)
+	encoder.Write([]byte(original))
+	encoder.Close()
+
+	p := &ProxyServer{}
+	result := p.analyzeBodyFull(buf.Bytes(), "zstd", "text/plain")
+	if result.Text != original {
+		t.Errorf("Expected %q after zstd decompression, got %q", original, result.Text)
+	}
+}
+
+func TestAnalyzeBodyFull_ZstdDictMonitor(t *testing.T) {
+	// Test zstd/dict_monitor encoding hint
+	original := "test data for dict_monitor"
+	var buf bytes.Buffer
+	encoder, _ := zstd.NewWriter(&buf)
+	encoder.Write([]byte(original))
+	encoder.Close()
+
+	p := &ProxyServer{}
+	// Should decompress successfully for standard zstd
+	result := p.analyzeBodyFull(buf.Bytes(), "zstd/dict_monitor", "text/plain")
+	if result.Text != original {
+		t.Errorf("Expected %q after zstd/dict_monitor decompression, got %q", original, result.Text)
+	}
+}
+
+func TestAnalyzeBodyFull_ZstdAutoDetect(t *testing.T) {
+	// Test auto-detection of zstd without Content-Encoding header
+	original := "zstd auto-detect content"
+	var buf bytes.Buffer
+	encoder, _ := zstd.NewWriter(&buf)
+	encoder.Write([]byte(original))
+	encoder.Close()
+	compressed := buf.Bytes()
+
+	// Verify magic number is present
+	if len(compressed) < 4 || compressed[0] != 0x28 || compressed[1] != 0xB5 || compressed[2] != 0x2F || compressed[3] != 0xFD {
+		t.Fatal("Zstd compressed data should have magic number 0x28 0xB5 0x2F 0xFD")
+	}
+
+	p := &ProxyServer{}
+	// Pass empty encoding to trigger auto-detection
+	result := p.analyzeBodyFull(compressed, "", "application/octet-stream")
+	if result.Text != original {
+		t.Errorf("Expected %q after zstd auto-detection, got %q", original, result.Text)
+	}
+}
+
+func TestAnalyzeBodyFull_ZstdCorrupted(t *testing.T) {
+	// Test corrupted zstd data with valid magic number but invalid content
+	p := &ProxyServer{}
+	// Create data with zstd magic number but corrupted payload
+	corruptedData := []byte{0x28, 0xB5, 0x2F, 0xFD, 0x00, 0x01, 0x02, 0x03} // magic + garbage
+
+	result := p.analyzeBodyFull(corruptedData, "", "application/octet-stream")
+	// Should detect zstd but fail to decompress
+	if !result.IsBinary {
+		t.Error("Corrupted zstd data should be marked as binary")
+	}
+	if !bytes.Contains([]byte(result.Text), []byte("zstd detected but decompression failed")) {
+		t.Errorf("Expected error message about zstd decompression failure, got: %s", result.Text)
+	}
+}
+
+func TestAnalyzeBodyFull_ZstdDictRequired(t *testing.T) {
+	// Test zstd with dict_monitor encoding hint
+	p := &ProxyServer{}
+	// Simulate data that might need a dictionary - using invalid zstd data
+	fakeCompressed := []byte{0x28, 0xB5, 0x2F, 0xFD, 0xFF, 0xFF} // magic + invalid
+
+	result := p.analyzeBodyFull(fakeCompressed, "zstd/dict_monitor", "application/octet-stream")
+	if !result.IsBinary {
+		t.Error("Zstd data requiring dictionary should be marked as binary")
+	}
+	if !bytes.Contains([]byte(result.Text), []byte("requires dictionary")) {
+		t.Errorf("Expected error message about dictionary requirement, got: %s", result.Text)
+	}
+}
+
+func TestAnalyzeBodyFull_BinaryAfterDecompression(t *testing.T) {
+	// Test data that decompresses successfully but result is binary (e.g. Protobuf)
+	p := &ProxyServer{}
+	// Create data with null bytes
+	binaryData := []byte{0x00, 0x01, 0x02, 0x03, 0x00, 0x05}
+
+	// Compress it with gzip
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	gw.Write(binaryData)
+	gw.Close()
+	compressed := buf.Bytes()
+
+	result := p.analyzeBodyFull(compressed, "gzip", "application/octet-stream")
+	if !result.IsBinary {
+		t.Error("Binary data after decompression should be marked as binary")
+	}
+	if !bytes.Contains([]byte(result.Text), []byte("after decompression")) {
+		t.Errorf("Expected message about binary data after decompression, got: %s", result.Text)
 	}
 }
 

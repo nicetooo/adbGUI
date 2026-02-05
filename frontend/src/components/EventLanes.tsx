@@ -13,6 +13,7 @@ import {
   NodeIndexOutlined,
   DownOutlined,
   RightOutlined,
+  AppstoreAddOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { UnifiedEvent, EventSource } from '../stores/eventTypes';
@@ -39,6 +40,7 @@ const sourceIcons: Record<EventSource, React.ReactNode> = {
   perf: <MobileOutlined />,
   system: <MobileOutlined />,
   assertion: <MobileOutlined />,
+  plugin: <AppstoreAddOutlined />,
 };
 
 // Ant Design 颜色映射
@@ -52,6 +54,7 @@ const colorMap: Record<string, string> = {
   geekblue: '#2f54eb',
   gold: '#faad14',
   red: '#ff4d4f',
+  volcano: '#fa541c',
   default: '#8c8c8c',
 };
 

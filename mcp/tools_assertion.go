@@ -79,13 +79,13 @@ PARAMETERS:
 
 EXAMPLES:
   Check API calls exist:
-    assertion_json: '{"id":"api-check","name":"API calls exist","type":"exists","criteria":{"types":["http_request"]},"expected":{"exists":true}}'
+    assertion_json: '{"id":"api-check","name":"API calls exist","type":"exists","criteria":{"types":["network_request"]},"expected":{"exists":true}}'
 
   No errors occurred:
     assertion_json: '{"id":"no-err","name":"No errors","type":"not_exists","criteria":{"types":["logcat"],"titleMatch":".*ERROR.*"},"expected":{"exists":false}}'
 
   Event count in range:
-    assertion_json: '{"id":"count-check","name":"3-10 network requests","type":"count","criteria":{"types":["http_request"]},"expected":{"minCount":3,"maxCount":10}}'`),
+    assertion_json: '{"id":"count-check","name":"3-10 network requests","type":"count","criteria":{"types":["network_request"]},"expected":{"minCount":3,"maxCount":10}}'`),
 			mcp.WithString("assertion_json",
 				mcp.Required(),
 				mcp.Description("JSON string defining the assertion (see description for structure)"),

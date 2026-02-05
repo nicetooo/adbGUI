@@ -382,6 +382,10 @@ export function GetRewriteRules() {
   return window['go']['main']['App']['GetRewriteRules']();
 }
 
+export function GetSampleEvents(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['GetSampleEvents'](arg1, arg2, arg3, arg4);
+}
+
 export function GetSessionBookmarks(arg1) {
   return window['go']['main']['App']['GetSessionBookmarks'](arg1);
 }
@@ -1064,6 +1068,18 @@ export function TapAtCoordinates(arg1, arg2, arg3) {
 
 export function TestPlugin(arg1, arg2) {
   return window['go']['main']['App']['TestPlugin'](arg1, arg2);
+}
+
+export function TestPluginBatch(arg1, arg2) {
+  return window['go']['main']['App']['TestPluginBatch'](arg1, arg2);
+}
+
+export function TestPluginDetailed(arg1, arg2) {
+  return window['go']['main']['App']['TestPluginDetailed'](arg1, arg2);
+}
+
+export function TestPluginWithEventData(arg1, arg2) {
+  return window['go']['main']['App']['TestPluginWithEventData'](arg1, arg2);
 }
 
 export function ToggleBreakpointRule(arg1, arg2) {

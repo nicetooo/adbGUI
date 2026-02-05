@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"log"
@@ -16,6 +17,8 @@ import (
 	"time"
 
 	"Gaze/pkg/cache"
+
+	"github.com/google/uuid"
 )
 
 // Binaries are embedded in platform-specific files (bin_*.go) and bin_common.go
@@ -992,4 +995,207 @@ func (a *App) TestPlugin(script string, eventID string) ([]UnifiedEvent, error) 
 	derivedEvents := a.pluginManager.ProcessEvent(*event, event.SessionID)
 
 	return derivedEvents, nil
+}
+
+// TestPluginDetailed 测试插件（返回详细结果）
+func (a *App) TestPluginDetailed(script string, eventID string) (PluginTestResult, error) {
+	result := PluginTestResult{
+		Success:       false,
+		DerivedEvents: []UnifiedEvent{},
+		Logs:          []string{},
+	}
+
+	if a.pluginManager == nil || a.eventStore == nil {
+		result.Error = "plugin system not initialized"
+		return result, fmt.Errorf(result.Error)
+	}
+
+	// 获取测试事件
+	event, err := a.eventStore.GetEvent(eventID)
+	if err != nil {
+		result.Error = fmt.Sprintf("get test event failed: %v", err)
+		return result, err
+	}
+
+	result.EventSnapshot = event
+
+	// 创建临时插件
+	tempPlugin := &Plugin{
+		Metadata: PluginMetadata{
+			ID:      "test-plugin",
+			Name:    "Test Plugin",
+			Version: "1.0.0",
+			Enabled: true,
+			Filters: PluginFilters{}, // 匹配所有事件
+			Config:  make(map[string]interface{}),
+		},
+		SourceCode:   script,
+		Language:     "javascript",
+		CompiledCode: script,
+		State:        make(map[string]interface{}),
+	}
+
+	// 加载插件
+	if err := a.pluginManager.LoadPlugin(tempPlugin); err != nil {
+		result.Error = fmt.Sprintf("load test plugin failed: %v", err)
+		return result, err
+	}
+	defer a.pluginManager.UnloadPlugin("test-plugin")
+
+	// 检查是否匹配过滤器
+	result.MatchedFilters = tempPlugin.MatchesEvent(*event)
+
+	// 执行插件（带日志捕获）
+	pluginResult, logs, execTime, err := a.pluginManager.ExecutePluginWithLogging(tempPlugin, *event, event.SessionID)
+	result.Logs = logs
+	result.ExecutionTime = execTime
+
+	if err != nil {
+		result.Error = err.Error()
+		result.Success = false
+		return result, nil // 不返回 error，错误信息在 result 中
+	}
+
+	// 填充派生事件
+	if pluginResult != nil && len(pluginResult.DerivedEvents) > 0 {
+		result.DerivedEvents = pluginResult.DerivedEvents
+	}
+
+	result.Success = true
+	return result, nil
+}
+
+// TestPluginWithEventData 使用自定义事件数据测试插件
+func (a *App) TestPluginWithEventData(script string, eventDataJSON string) (PluginTestResult, error) {
+	result := PluginTestResult{
+		Success:       false,
+		DerivedEvents: []UnifiedEvent{},
+		Logs:          []string{},
+	}
+
+	if a.pluginManager == nil {
+		result.Error = "plugin system not initialized"
+		return result, fmt.Errorf(result.Error)
+	}
+
+	// 解析事件数据
+	var event UnifiedEvent
+	if err := json.Unmarshal([]byte(eventDataJSON), &event); err != nil {
+		result.Error = fmt.Sprintf("parse event data failed: %v", err)
+		return result, err
+	}
+
+	// 如果缺少必要字段，填充默认值
+	if event.ID == "" {
+		event.ID = uuid.New().String()
+	}
+	if event.Timestamp == 0 {
+		event.Timestamp = time.Now().UnixMilli()
+	}
+	if event.DeviceID == "" {
+		event.DeviceID = "test-device"
+	}
+	if event.SessionID == "" {
+		event.SessionID = "test-session"
+	}
+
+	result.EventSnapshot = &event
+
+	// 创建临时插件
+	tempPlugin := &Plugin{
+		Metadata: PluginMetadata{
+			ID:      "test-plugin",
+			Name:    "Test Plugin",
+			Version: "1.0.0",
+			Enabled: true,
+			Filters: PluginFilters{},
+			Config:  make(map[string]interface{}),
+		},
+		SourceCode:   script,
+		Language:     "javascript",
+		CompiledCode: script,
+		State:        make(map[string]interface{}),
+	}
+
+	// 加载插件
+	if err := a.pluginManager.LoadPlugin(tempPlugin); err != nil {
+		result.Error = fmt.Sprintf("load test plugin failed: %v", err)
+		return result, err
+	}
+	defer a.pluginManager.UnloadPlugin("test-plugin")
+
+	// 检查是否匹配过滤器
+	result.MatchedFilters = tempPlugin.MatchesEvent(event)
+
+	// 执行插件（带日志捕获）
+	pluginResult, logs, execTime, err := a.pluginManager.ExecutePluginWithLogging(tempPlugin, event, event.SessionID)
+	result.Logs = logs
+	result.ExecutionTime = execTime
+
+	if err != nil {
+		result.Error = err.Error()
+		result.Success = false
+		return result, nil
+	}
+
+	if pluginResult != nil && len(pluginResult.DerivedEvents) > 0 {
+		result.DerivedEvents = pluginResult.DerivedEvents
+	}
+
+	result.Success = true
+	return result, nil
+}
+
+// TestPluginBatch 批量测试插件（对多个事件运行）
+func (a *App) TestPluginBatch(script string, eventIDs []string) ([]PluginTestResult, error) {
+	if len(eventIDs) > 50 {
+		return nil, fmt.Errorf("too many events for batch test (max: 50, got: %d)", len(eventIDs))
+	}
+
+	results := make([]PluginTestResult, 0, len(eventIDs))
+
+	for _, eventID := range eventIDs {
+		result, err := a.TestPluginDetailed(script, eventID)
+		if err != nil && result.Error == "" {
+			// 如果 TestPluginDetailed 返回了 error 但 result.Error 为空，填充错误信息
+			result.Error = err.Error()
+		}
+		results = append(results, result)
+	}
+
+	return results, nil
+}
+
+// GetSampleEvents 获取会话中的示例事件供测试使用
+func (a *App) GetSampleEvents(sessionID string, sources []string, types []string, limit int) ([]UnifiedEvent, error) {
+	if a.eventStore == nil {
+		return nil, fmt.Errorf("event store not initialized")
+	}
+
+	if limit <= 0 || limit > 100 {
+		limit = 20 // 默认 20 条
+	}
+
+	// 转换 sources 类型
+	eventSources := make([]EventSource, len(sources))
+	for i, s := range sources {
+		eventSources[i] = EventSource(s)
+	}
+
+	// 构造查询条件
+	query := EventQuery{
+		SessionID: sessionID,
+		Sources:   eventSources,
+		Types:     types,
+		Limit:     limit,
+		Offset:    0,
+	}
+
+	// 查询事件
+	result, err := a.eventStore.QueryEvents(query)
+	if err != nil {
+		return nil, fmt.Errorf("query events failed: %w", err)
+	}
+
+	return result.Events, nil
 }

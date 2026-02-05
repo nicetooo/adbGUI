@@ -188,8 +188,8 @@
     "workflow": "ワークフロー",
     "plugins": "Plugins",
     "timeline": "セッションタイムライン",
-    "events": "セッション",
-    "sessions": "セッション一覧",
+    "events": "セッションタイムライン",
+    "sessions": "セッション管理",
     "performance": "パフォーマンス",
     "assertion_sets": "アサーションセット",
     "assertions": "アサーション"

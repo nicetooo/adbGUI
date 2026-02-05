@@ -38,8 +38,8 @@
     "inspector": "UI Inspector",
     "plugins": "Plugins",
     "timeline": "Session Timeline",
-    "events": "Session",
-    "sessions": "Session List",
+    "events": "Session Timeline",
+    "sessions": "Session Manager",
     "performance": "Performance",
     "assertion_sets": "Assertion Sets",
     "assertions": "Assertions"
@@ -1649,7 +1649,11 @@
       "plugin_update": "Update an existing plugin (replaces all fields)",
       "plugin_delete": "Delete a saved plugin permanently",
       "plugin_toggle": "Enable or disable a plugin without deleting it",
-      "plugin_test": "Test plugin code against a specific event without saving to database"
+      "plugin_test": "Test plugin code against a specific event without saving to database",
+      "plugin_test_detailed": "Test plugin and return detailed results (logs, execution time, errors)",
+      "plugin_test_custom": "Test plugin with custom event data (no database event required)",
+      "plugin_test_batch": "Test plugin against multiple events at once (max 50)",
+      "plugin_sample_events": "Get sample events from a session for plugin testing"
     },
     "resource": {
       "devices": "Connected Android devices list (JSON)",

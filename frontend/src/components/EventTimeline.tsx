@@ -949,8 +949,8 @@ const FilterPopover = memo(({
   onLevelsChange,
 }: FilterPopoverProps) => {
   const { t } = useTranslation();
-  const allSources: EventSource[] = ['logcat', 'network', 'device', 'app', 'ui', 'touch', 'workflow', 'perf', 'system', 'assertion'];
-  const allCategories: EventCategory[] = ['log', 'network', 'state', 'interaction', 'automation', 'diagnostic'];
+  const allSources: EventSource[] = ['logcat', 'network', 'device', 'app', 'ui', 'touch', 'workflow', 'perf', 'system', 'assertion', 'plugin'];
+  const allCategories: EventCategory[] = ['log', 'network', 'state', 'interaction', 'automation', 'diagnostic', 'plugin'];
   const allLevels: EventLevel[] = ['verbose', 'debug', 'info', 'warn', 'error', 'fatal'];
 
   return (
@@ -1211,7 +1211,8 @@ const EventTimeline = () => {
       applyFilter();
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchText, setFilter, applyFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchText]); // Only depend on searchText to avoid breaking debounce
 
   // Scroll to selected event after filter changes
   useEffect(() => {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -602,6 +603,13 @@ func (p *EventPipeline) processEvent(event UnifiedEvent) {
 	if state != nil {
 		// 5. 计算相对时间
 		event.RelativeTime = event.Timestamp - state.StartTime
+
+		// 修正插件生成的历史事件：如果相对时间为负数，说明事件的时间戳早于 session 开始
+		// 这通常发生在批量上报的历史事件中，将其设为 0 以保持时间线合理性
+		if event.RelativeTime < 0 && event.Category == CategoryPlugin {
+			event.RelativeTime = 0
+		}
+
 		// 6. 更新 Session 状态
 		state.EventCount++
 		state.LastEventAt = event.Timestamp
@@ -612,12 +620,17 @@ func (p *EventPipeline) processEvent(event UnifiedEvent) {
 	// 7. 插件处理（生成派生事件）
 	if p.pluginManager != nil {
 		derivedEvents := p.pluginManager.ProcessEvent(event, sessionID)
+		if len(derivedEvents) > 0 {
+			log.Printf("[EventPipeline] 🔥 Plugin generated %d events for event %s (%s)", len(derivedEvents), event.ID, event.Type)
+		}
 		// 将派生事件递归发送到管道（会被标记，避免死循环）
 		for _, derived := range derivedEvents {
 			// 派生事件已由插件管理器设置好所有字段
 			// 直接发送到管道，让它经过完整的处理流程
 			p.Emit(derived)
 		}
+	} else {
+		log.Printf("[EventPipeline] ⚠️ pluginManager is nil, skipping plugin processing")
 	}
 
 	// 8. 更新时间索引

@@ -222,11 +222,11 @@ var EventRegistry = map[string]EventTypeInfo{
 	// === Network 事件 ===
 	"http_request": {
 		Type: "http_request", Source: SourceNetwork, Category: CategoryNetwork,
-		Description: "HTTP/HTTPS request",
+		Description: "DEPRECATED: Use 'network_request' instead. HTTP/HTTPS request (legacy name)",
 	},
 	"network_request": {
 		Type: "network_request", Source: SourceNetwork, Category: CategoryNetwork,
-		Description: "Network request (proxy-captured)",
+		Description: "Network request (proxy-captured) - Standard event type for all HTTP/HTTPS traffic",
 	},
 	"websocket_message": {
 		Type: "websocket_message", Source: SourceNetwork, Category: CategoryNetwork,

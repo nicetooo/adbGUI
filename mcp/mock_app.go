@@ -946,7 +946,7 @@ func (m *MockGazeApp) GetStoredAssertion(assertionID string) (*MCPStoredAssertio
 		ID:        assertionID,
 		Name:      "Mock Assertion",
 		Type:      "exists",
-		Criteria:  json.RawMessage(`{"types":["http_request"]}`),
+		Criteria:  json.RawMessage(`{"types":["network_request"]}`),
 		Expected:  json.RawMessage(`{"exists":true}`),
 		CreatedAt: 1000000,
 		UpdatedAt: 1000000,
@@ -1110,6 +1110,27 @@ func (m *MockGazeApp) TogglePlugin(id string, enabled bool) error {
 func (m *MockGazeApp) TestPlugin(script string, eventID string) (interface{}, error) {
 	m.recordCall("TestPlugin", script, eventID)
 	return m.TestPluginResult, m.TestPluginError
+}
+
+func (m *MockGazeApp) TestPluginDetailed(script string, eventID string) (interface{}, error) {
+	m.recordCall("TestPluginDetailed", script, eventID)
+	return m.TestPluginResult, m.TestPluginError
+}
+
+func (m *MockGazeApp) TestPluginWithEventData(script string, eventDataJSON string) (interface{}, error) {
+	m.recordCall("TestPluginWithEventData", script, eventDataJSON)
+	return m.TestPluginResult, m.TestPluginError
+}
+
+func (m *MockGazeApp) TestPluginBatch(script string, eventIDs []string) (interface{}, error) {
+	m.recordCall("TestPluginBatch", script, eventIDs)
+	return m.TestPluginResult, m.TestPluginError
+}
+
+func (m *MockGazeApp) GetSampleEvents(sessionID string, sources []string, types []string, limit int) ([]interface{}, error) {
+	m.recordCall("GetSampleEvents", sessionID, sources, types, limit)
+	// Return empty slice as default
+	return []interface{}{}, nil
 }
 
 // === Utility ===
