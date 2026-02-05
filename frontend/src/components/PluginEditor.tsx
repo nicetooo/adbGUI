@@ -109,20 +109,76 @@ const plugin: Plugin = {
 };`;
       setSourceCode(defaultCode);
       
-      // 默认 config 模板（带注释说明）
+      // 默认 config 模板（带完整实例和注释说明）
       const defaultConfig = `{
-  // Plugin configuration (accessed via context.config in your code)
+  // ========== Performance Monitoring ==========
   
-  // Example: Threshold for slow request detection (milliseconds)
-  // Usage in code: const threshold = context.config.slowThresholdMs || 2000;
+  // Slow request threshold in milliseconds
+  // Usage: if (duration > context.config.slowThresholdMs) { ... }
   "slowThresholdMs": 2000,
   
-  // Example: Required parameters for API tracking validation
-  // Usage in code: const required = context.config.requiredParams || [];
-  "requiredParams": ["user_id", "event_name"],
+  // High CPU usage threshold (percentage)
+  "highCpuThreshold": 80,
   
-  // Example: Timeout for async operations (milliseconds)
+  // Memory warning threshold in MB
+  "memoryWarningMb": 512,
+  
+  
+  // ========== API Validation ==========
+  
+  // Required parameters for tracking API calls
+  // Usage: const required = context.config.requiredParams || [];
+  "requiredParams": ["user_id", "event_name", "timestamp"],
+  
+  // Allowed HTTP methods
+  "allowedMethods": ["GET", "POST", "PUT", "DELETE"],
+  
+  // API endpoint patterns to monitor
+  "monitoredEndpoints": [
+    "*/api/track*",
+    "*/api/analytics*",
+    "*/api/events*"
+  ],
+  
+  
+  // ========== Error Detection ==========
+  
+  // Enable automatic error detection
+  "autoDetectErrors": true,
+  
+  // Keywords to identify errors in logs
+  "errorKeywords": ["ERROR", "FATAL", "Exception", "crash"],
+  
+  // Regex pattern for error messages (optional)
+  // "errorPattern": "^ERROR:\\s+(.+)$",
+  
+  
+  // ========== Notification Settings ==========
+  
+  // Enable notifications for critical events
+  "enableNotifications": true,
+  
+  // Minimum event level for notifications (info/warn/error/fatal)
+  "notificationLevel": "error",
+  
+  // Maximum notifications per minute (rate limiting)
+  "maxNotificationsPerMinute": 5,
+  
+  
+  // ========== Custom Rules ==========
+  
+  // Custom business rules configuration
+  "customRules": {
+    "validateUserSession": true,
+    "checkDataIntegrity": true,
+    "enforceRateLimits": false
+  },
+  
+  // Timeout for async operations (milliseconds)
   "timeout": 5000,
+  
+  // Enable debug logging
+  "debugMode": false
   
   // Add your custom configuration here...
 }`;
