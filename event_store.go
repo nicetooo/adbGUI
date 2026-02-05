@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -258,6 +261,50 @@ CREATE TRIGGER IF NOT EXISTS events_au AFTER UPDATE ON events BEGIN
     VALUES (new.rowid, new.id, new.title, new.summary);
 END;
 `
+
+// ========================================
+// 数据压缩辅助函数
+// ========================================
+
+// compressData 压缩数据 (使用 gzip)
+// 小于 1KB 的数据不压缩，避免头部开销
+func compressData(data []byte) ([]byte, error) {
+	if len(data) < 1024 {
+		return data, nil
+	}
+
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	if _, err := gz.Write(data); err != nil {
+		return nil, err
+	}
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+
+	// 如果压缩后更大，保留原始数据
+	if buf.Len() >= len(data) {
+		return data, nil
+	}
+	return buf.Bytes(), nil
+}
+
+// decompressData 解压数据
+// 自动检测是否为 gzip 格式，兼容未压缩的数据
+func decompressData(data []byte) ([]byte, error) {
+	// 检测 gzip 魔数
+	if len(data) < 2 || data[0] != 0x1f || data[1] != 0x8b {
+		return data, nil // 未压缩，直接返回
+	}
+
+	gz, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	defer gz.Close()
+
+	return io.ReadAll(gz)
+}
 
 // NewEventStore 创建事件存储
 func NewEventStore(dataDir string) (*EventStore, error) {
@@ -609,7 +656,15 @@ func (s *EventStore) writeEventsBatch(events []UnifiedEvent) error {
 
 		// 插入扩展数据
 		if len(event.Data) > 0 {
-			_, err = stmtData.Exec(event.ID, string(event.Data), len(event.Data))
+			// 压缩数据
+			compressedData, err := compressData([]byte(event.Data))
+			if err != nil {
+				// 压缩失败，使用原始数据
+				LogWarn("event_store").Err(err).Str("eventId", event.ID).Msg("Failed to compress event data, using raw data")
+				compressedData = []byte(event.Data)
+			}
+
+			_, err = stmtData.Exec(event.ID, compressedData, len(event.Data))
 			if err != nil {
 				return fmt.Errorf("insert event data %s: %w", event.ID, err)
 			}
@@ -1060,7 +1115,14 @@ func (s *EventStore) scanEventRow(rows *sql.Rows) (*UnifiedEvent, error) {
 	event.TraceID = traceID.String
 
 	if data.Valid && data.String != "" {
-		event.Data = json.RawMessage(data.String)
+		// 解压数据（自动检测是否压缩）
+		decompressedData, err := decompressData([]byte(data.String))
+		if err != nil {
+			LogWarn("event_store").Err(err).Str("eventId", event.ID).Msg("Failed to decompress event data, using raw data")
+			event.Data = json.RawMessage(data.String)
+		} else {
+			event.Data = json.RawMessage(decompressedData)
+		}
 	}
 
 	return &event, nil
@@ -1126,7 +1188,14 @@ func (s *EventStore) scanEventSingle(row *sql.Row) (*UnifiedEvent, error) {
 	event.TraceID = traceID.String
 
 	if data.Valid && data.String != "" {
-		event.Data = json.RawMessage(data.String)
+		// 解压数据（自动检测是否压缩）
+		decompressedData, err := decompressData([]byte(data.String))
+		if err != nil {
+			LogWarn("event_store").Err(err).Str("eventId", event.ID).Msg("Failed to decompress event data, using raw data")
+			event.Data = json.RawMessage(data.String)
+		} else {
+			event.Data = json.RawMessage(decompressedData)
+		}
 	}
 
 	return &event, nil
