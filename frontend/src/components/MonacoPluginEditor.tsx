@@ -6,7 +6,7 @@ import * as monaco from "monaco-editor";
 interface MonacoPluginEditorProps {
   value: string;
   onChange: (value: string) => void;
-  language: "javascript" | "typescript" | "json";
+  language: "javascript" | "typescript" | "json" | "jsonc";
   height?: string;
 }
 
@@ -107,6 +107,14 @@ const MonacoPluginEditor: React.FC<MonacoPluginEditorProps> = ({
       noSemanticValidation: false,
       noSyntaxValidation: false,
       diagnosticCodesToIgnore: [2304],
+    });
+
+    // 配置 JSONC (JSON with Comments) - 允许注释
+    monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
+      validate: true,
+      allowComments: true,
+      schemas: [],
+      enableSchemaRequest: false,
     });
 
     // 添加自定义代码补全

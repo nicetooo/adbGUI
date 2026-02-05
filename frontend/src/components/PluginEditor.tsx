@@ -409,7 +409,7 @@ const plugin: Plugin = {
             <MonacoPluginEditor
               value={configCode}
               onChange={setConfigCode}
-              language="json"
+              language="jsonc"
               height="400px"
             />
             
