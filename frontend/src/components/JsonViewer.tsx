@@ -255,6 +255,8 @@ interface JsonViewerProps {
   fontSize?: number;
   /** Whether to show search bar (default: true for JSON objects, false for plain strings) */
   searchable?: boolean;
+  /** External search term from parent component (e.g., global search) */
+  externalSearchTerm?: string;
 }
 
 /**
@@ -270,6 +272,7 @@ const JsonViewer = memo(({
   style,
   fontSize = 12,
   searchable,
+  externalSearchTerm,
 }: JsonViewerProps) => {
   const { isDark } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -277,7 +280,10 @@ const JsonViewer = memo(({
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { matchCount, currentIndex, goNext, goPrev, reset } = useJsonSearch(containerRef, searchOpen ? searchTerm : '');
+  // Priority: internal search > external search
+  // If internal search is active, use searchTerm; otherwise use externalSearchTerm
+  const activeSearchTerm = searchOpen ? searchTerm : (externalSearchTerm || '');
+  const { matchCount, currentIndex, goNext, goPrev, reset } = useJsonSearch(containerRef, activeSearchTerm);
 
   // Inject highlight styles once
   useEffect(() => ensureStyles(), []);

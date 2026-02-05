@@ -558,10 +558,11 @@ EventRow.displayName = 'EventRow';
 interface EventDetailProps {
   event: UnifiedEvent | null;
   onClose: () => void;
+  globalSearchText?: string;
 }
 
 // Network event detail component
-const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => {
+const NetworkEventDetail = memo(({ data, token, externalSearchTerm }: { data: any; token: any; externalSearchTerm?: string }) => {
   const { t } = useTranslation();
   const { networkDetailActiveTab: activeTab, setNetworkDetailActiveTab: setActiveTab } = useEventTimelineStore();
 
@@ -599,13 +600,13 @@ const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => 
     if (contentType?.includes('json')) {
       try {
         const parsed = JSON.parse(body);
-        return <JsonViewer data={parsed} fontSize={11} />;
+        return <JsonViewer data={parsed} fontSize={11} externalSearchTerm={externalSearchTerm} />;
       } catch {
         // Fall through to plain text
       }
     }
 
-    return <JsonViewer data={body} fontSize={11} />;
+    return <JsonViewer data={body} fontSize={11} externalSearchTerm={externalSearchTerm} />;
   };
 
   // Wrapper to make each tab's content scrollable within the constrained height
@@ -753,7 +754,7 @@ const NetworkEventDetail = memo(({ data, token }: { data: any; token: any }) => 
 
 NetworkEventDetail.displayName = 'NetworkEventDetail';
 
-const EventDetail = memo(({ event, onClose }: EventDetailProps) => {
+const EventDetail = memo(({ event, onClose, globalSearchText }: EventDetailProps) => {
   const { token } = theme.useToken();
   const { t } = useTranslation();
   const { setSelectedKey } = useUIStore();
@@ -822,11 +823,11 @@ const EventDetail = memo(({ event, onClose }: EventDetailProps) => {
 
     // Use specialized view for network events
     if (isNetworkEvent && data) {
-      return <NetworkEventDetail data={data} token={token} />;
+      return <NetworkEventDetail data={data} token={token} externalSearchTerm={globalSearchText} />;
     }
 
     // Generic JSON view for other events
-    return <JsonViewer data={data ?? event.data} fontSize={11} />;
+    return <JsonViewer data={data ?? event.data} fontSize={11} externalSearchTerm={globalSearchText} />;
   };
 
   // For network events, show a simplified header
@@ -1757,6 +1758,7 @@ const EventTimeline = () => {
                 setSelectedEventId(null);
                 setSelectedEventFull(null);
               }}
+              globalSearchText={searchText}
             />
           </div>
         )}
