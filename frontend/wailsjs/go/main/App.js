@@ -110,6 +110,10 @@ export function DeleteFile(arg1, arg2) {
   return window['go']['main']['App']['DeleteFile'](arg1, arg2);
 }
 
+export function DeletePlugin(arg1) {
+  return window['go']['main']['App']['DeletePlugin'](arg1);
+}
+
 export function DeleteScriptTask(arg1) {
   return window['go']['main']['App']['DeleteScriptTask'](arg1);
 }
@@ -328,6 +332,10 @@ export function GetPerfMonitorConfig(arg1) {
 
 export function GetPerfSnapshot(arg1, arg2) {
   return window['go']['main']['App']['GetPerfSnapshot'](arg1, arg2);
+}
+
+export function GetPlugin(arg1) {
+  return window['go']['main']['App']['GetPlugin'](arg1);
 }
 
 export function GetProcessDetail(arg1, arg2) {
@@ -578,6 +586,10 @@ export function ListPackages(arg1, arg2) {
   return window['go']['main']['App']['ListPackages'](arg1, arg2);
 }
 
+export function ListPlugins() {
+  return window['go']['main']['App']['ListPlugins']();
+}
+
 export function ListRecordings() {
   return window['go']['main']['App']['ListRecordings']();
 }
@@ -804,6 +816,10 @@ export function RunScriptTask(arg1, arg2) {
 
 export function RunWorkflow(arg1, arg2) {
   return window['go']['main']['App']['RunWorkflow'](arg1, arg2);
+}
+
+export function SavePlugin(arg1) {
+  return window['go']['main']['App']['SavePlugin'](arg1);
 }
 
 export function SaveScriptTask(arg1) {
@@ -1046,6 +1062,10 @@ export function TapAtCoordinates(arg1, arg2, arg3) {
   return window['go']['main']['App']['TapAtCoordinates'](arg1, arg2, arg3);
 }
 
+export function TestPlugin(arg1, arg2) {
+  return window['go']['main']['App']['TestPlugin'](arg1, arg2);
+}
+
 export function ToggleBreakpointRule(arg1, arg2) {
   return window['go']['main']['App']['ToggleBreakpointRule'](arg1, arg2);
 }
@@ -1060,6 +1080,10 @@ export function ToggleMockRule(arg1, arg2) {
 
 export function TogglePinDevice(arg1) {
   return window['go']['main']['App']['TogglePinDevice'](arg1);
+}
+
+export function TogglePlugin(arg1, arg2) {
+  return window['go']['main']['App']['TogglePlugin'](arg1, arg2);
 }
 
 export function ToggleRewriteRule(arg1, arg2) {

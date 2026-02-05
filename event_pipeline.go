@@ -41,6 +41,9 @@ type EventPipeline struct {
 	// 背压控制
 	backpressure *BackpressureController
 
+	// 插件管理器
+	pluginManager *PluginManager
+
 	// 停止信号
 	stopChan chan struct{}
 	wg       sync.WaitGroup
@@ -410,6 +413,11 @@ func NewEventPipeline(ctx, wailsCtx context.Context, store *EventStore, mcpMode 
 	}
 }
 
+// SetPluginManager 设置插件管理器
+func (p *EventPipeline) SetPluginManager(pm *PluginManager) {
+	p.pluginManager = pm
+}
+
 // Start 启动管道
 func (p *EventPipeline) Start() {
 	// 事件处理协程
@@ -601,13 +609,24 @@ func (p *EventPipeline) processEvent(event UnifiedEvent) {
 	}
 	p.sessionMu.Unlock()
 
-	// 7. 更新时间索引
+	// 7. 插件处理（生成派生事件）
+	if p.pluginManager != nil {
+		derivedEvents := p.pluginManager.ProcessEvent(event, sessionID)
+		// 将派生事件递归发送到管道（会被标记，避免死循环）
+		for _, derived := range derivedEvents {
+			// 派生事件已由插件管理器设置好所有字段
+			// 直接发送到管道，让它经过完整的处理流程
+			p.Emit(derived)
+		}
+	}
+
+	// 8. 更新时间索引
 	p.updateTimeIndex(event)
 
-	// 8. 写入存储
+	// 9. 写入存储
 	p.store.WriteEvent(event)
 
-	// 9. 添加到前端缓冲
+	// 10. 添加到前端缓冲
 	p.addToFrontendBuffer(event)
 }
 

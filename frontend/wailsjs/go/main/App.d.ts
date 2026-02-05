@@ -61,6 +61,8 @@ export function DeleteAssertionSet(arg1:string):Promise<void>;
 
 export function DeleteFile(arg1:string,arg2:string):Promise<void>;
 
+export function DeletePlugin(arg1:string):Promise<void>;
+
 export function DeleteScriptTask(arg1:string):Promise<void>;
 
 export function DeleteSessionBookmark(arg1:string):Promise<void>;
@@ -170,6 +172,8 @@ export function GetPendingBreakpoints():Promise<Array<proxy.PendingBreakpointInf
 export function GetPerfMonitorConfig(arg1:string):Promise<main.PerfMonitorConfig>;
 
 export function GetPerfSnapshot(arg1:string,arg2:string):Promise<main.PerfSampleData>;
+
+export function GetPlugin(arg1:string):Promise<main.Plugin>;
 
 export function GetProcessDetail(arg1:string,arg2:number):Promise<main.ProcessDetail>;
 
@@ -295,6 +299,8 @@ export function ListLogFiles():Promise<Array<string>>;
 
 export function ListPackages(arg1:string,arg2:string):Promise<Array<main.AppPackage>>;
 
+export function ListPlugins():Promise<Array<main.PluginMetadata>>;
+
 export function ListRecordings():Promise<Array<Record<string, any>>>;
 
 export function ListStoredAssertions(arg1:string,arg2:string,arg3:boolean,arg4:number):Promise<Array<main.StoredAssertion>>;
@@ -408,6 +414,8 @@ export function RunFfprobeCommand(arg1:string,arg2:number):Promise<string>;
 export function RunScriptTask(arg1:string,arg2:main.ScriptTask):Promise<void>;
 
 export function RunWorkflow(arg1:main.Device,arg2:types.Workflow):Promise<void>;
+
+export function SavePlugin(arg1:main.PluginSaveRequest):Promise<void>;
 
 export function SaveScriptTask(arg1:main.ScriptTask):Promise<void>;
 
@@ -529,6 +537,8 @@ export function TakeScreenshot(arg1:string,arg2:string):Promise<string>;
 
 export function TapAtCoordinates(arg1:string,arg2:number,arg3:number):Promise<void>;
 
+export function TestPlugin(arg1:string,arg2:string):Promise<Array<main.UnifiedEvent>>;
+
 export function ToggleBreakpointRule(arg1:string,arg2:boolean):Promise<void>;
 
 export function ToggleMapRemoteRule(arg1:string,arg2:boolean):Promise<void>;
@@ -536,6 +546,8 @@ export function ToggleMapRemoteRule(arg1:string,arg2:boolean):Promise<void>;
 export function ToggleMockRule(arg1:string,arg2:boolean):Promise<void>;
 
 export function TogglePinDevice(arg1:string):Promise<void>;
+
+export function TogglePlugin(arg1:string,arg2:boolean):Promise<void>;
 
 export function ToggleRewriteRule(arg1:string,arg2:boolean):Promise<void>;
 

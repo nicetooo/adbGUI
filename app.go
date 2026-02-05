@@ -85,6 +85,8 @@ type App struct {
 	eventStore      *EventStore
 	eventPipeline   *EventPipeline
 	assertionEngine *AssertionEngine
+	pluginStore     *PluginStore
+	pluginManager   *PluginManager
 	eventSystemMu   sync.RWMutex
 	dataDir         string
 
@@ -535,6 +537,25 @@ func (a *App) initEventSystem() {
 	// Create assertion engine
 	a.assertionEngine = NewAssertionEngine(a, store, a.eventPipeline)
 
+	// Create plugin system
+	pluginStore := NewPluginStore(store.db)
+	if err := pluginStore.InitSchema(); err != nil {
+		a.Log("Failed to initialize plugin store: %v", err)
+	} else {
+		a.pluginStore = pluginStore
+		a.pluginManager = NewPluginManager(pluginStore, a.eventPipeline)
+
+		// 连接到 EventPipeline
+		a.eventPipeline.SetPluginManager(a.pluginManager)
+
+		// 加载所有启用的插件
+		if err := a.pluginManager.LoadAllPlugins(); err != nil {
+			a.Log("Failed to load plugins: %v", err)
+		} else {
+			a.Log("Plugin system initialized, loaded %d plugins", len(a.pluginManager.ListPlugins()))
+		}
+	}
+
 	a.Log("Event system initialized at: %s", a.dataDir)
 }
 
@@ -833,4 +854,142 @@ func (a *App) OpenLogDir() error {
 		cmd = exec.Command("xdg-open", logDir)
 	}
 	return cmd.Start()
+}
+
+// ========================================
+// Plugin System APIs
+// ========================================
+
+// ListPlugins 列出所有插件
+func (a *App) ListPlugins() ([]PluginMetadata, error) {
+	if a.pluginStore == nil {
+		return nil, fmt.Errorf("plugin system not initialized")
+	}
+
+	plugins, err := a.pluginStore.ListPlugins()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]PluginMetadata, len(plugins))
+	for i, p := range plugins {
+		result[i] = p.Metadata
+	}
+
+	return result, nil
+}
+
+// GetPlugin 获取插件详情（包含源代码）
+func (a *App) GetPlugin(id string) (*Plugin, error) {
+	if a.pluginStore == nil {
+		return nil, fmt.Errorf("plugin system not initialized")
+	}
+
+	return a.pluginStore.GetPlugin(id)
+}
+
+// SavePlugin 保存插件（创建或更新）
+func (a *App) SavePlugin(req PluginSaveRequest) error {
+	if a.pluginManager == nil {
+		return fmt.Errorf("plugin system not initialized")
+	}
+
+	// 构造插件对象
+	plugin := &Plugin{
+		Metadata: PluginMetadata{
+			ID:          req.ID,
+			Name:        req.Name,
+			Version:     req.Version,
+			Author:      req.Author,
+			Description: req.Description,
+			Enabled:     true, // 默认启用
+			Filters:     req.Filters,
+			Config:      req.Config,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		},
+		SourceCode:   req.SourceCode,
+		Language:     req.Language,
+		CompiledCode: req.CompiledCode,
+	}
+
+	// 保存并加载
+	if err := a.pluginManager.SavePlugin(plugin); err != nil {
+		return fmt.Errorf("save plugin failed: %w", err)
+	}
+
+	a.Log("Plugin saved: %s (%s)", plugin.Metadata.Name, plugin.Metadata.ID)
+	return nil
+}
+
+// DeletePlugin 删除插件
+func (a *App) DeletePlugin(id string) error {
+	if a.pluginManager == nil {
+		return fmt.Errorf("plugin system not initialized")
+	}
+
+	if err := a.pluginManager.DeletePlugin(id); err != nil {
+		return fmt.Errorf("delete plugin failed: %w", err)
+	}
+
+	a.Log("Plugin deleted: %s", id)
+	return nil
+}
+
+// TogglePlugin 启用/禁用插件
+func (a *App) TogglePlugin(id string, enabled bool) error {
+	if a.pluginManager == nil {
+		return fmt.Errorf("plugin system not initialized")
+	}
+
+	if err := a.pluginManager.TogglePlugin(id, enabled); err != nil {
+		return fmt.Errorf("toggle plugin failed: %w", err)
+	}
+
+	action := "enabled"
+	if !enabled {
+		action = "disabled"
+	}
+	a.Log("Plugin %s: %s", action, id)
+	return nil
+}
+
+// TestPlugin 测试插件（对单个事件运行，不写入数据库）
+func (a *App) TestPlugin(script string, eventID string) ([]UnifiedEvent, error) {
+	if a.pluginManager == nil || a.eventStore == nil {
+		return nil, fmt.Errorf("plugin system not initialized")
+	}
+
+	// 获取测试事件
+	event, err := a.eventStore.GetEvent(eventID)
+	if err != nil {
+		return nil, fmt.Errorf("get test event failed: %w", err)
+	}
+
+	// 创建临时插件
+	tempPlugin := &Plugin{
+		Metadata: PluginMetadata{
+			ID:      "test-plugin",
+			Name:    "Test Plugin",
+			Version: "1.0.0",
+			Enabled: true,
+			Filters: PluginFilters{}, // 匹配所有事件
+			Config:  make(map[string]interface{}),
+		},
+		SourceCode:   script,
+		Language:     "javascript",
+		CompiledCode: script, // 假设已编译
+		State:        make(map[string]interface{}),
+	}
+
+	// 加载插件（不保存到数据库）
+	if err := a.pluginManager.LoadPlugin(tempPlugin); err != nil {
+		return nil, fmt.Errorf("load test plugin failed: %w", err)
+	}
+	defer a.pluginManager.UnloadPlugin("test-plugin")
+
+	// 执行插件
+	derivedEvents := a.pluginManager.ProcessEvent(*event, event.SessionID)
+
+	return derivedEvents, nil
 }

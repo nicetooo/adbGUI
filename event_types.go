@@ -21,6 +21,7 @@ const (
 	SourcePerf      EventSource = "perf"      // 性能指标
 	SourceSystem    EventSource = "system"    // 系统事件
 	SourceAssertion EventSource = "assertion" // 断言结果
+	SourcePlugin    EventSource = "plugin"    // 插件生成的事件
 )
 
 // ========================================
@@ -36,6 +37,7 @@ const (
 	CategoryInteraction EventCategory = "interaction"
 	CategoryAutomation  EventCategory = "automation"
 	CategoryDiagnostic  EventCategory = "diagnostic"
+	CategoryPlugin      EventCategory = "plugin" // 插件生成的事件
 )
 
 // ========================================
@@ -91,6 +93,12 @@ type UnifiedEvent struct {
 	AggregateCount int   `json:"aggregateCount,omitempty"` // 聚合的事件数量
 	AggregateFirst int64 `json:"aggregateFirst,omitempty"` // 聚合的第一条时间
 	AggregateLast  int64 `json:"aggregateLast,omitempty"`  // 聚合的最后一条时间
+
+	// === 插件扩展字段 ===
+	Tags              []string               `json:"tags,omitempty"`              // 标签（插件可添加）
+	Metadata          map[string]interface{} `json:"metadata,omitempty"`          // 元数据（插件可附加）
+	ParentEventID     string                 `json:"parentEventId,omitempty"`     // 派生事件的父事件 ID
+	GeneratedByPlugin string                 `json:"generatedByPlugin,omitempty"` // 生成此事件的插件 ID
 }
 
 // ========================================

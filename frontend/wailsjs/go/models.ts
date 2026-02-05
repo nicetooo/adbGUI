@@ -931,6 +931,10 @@ export namespace main {
 	    aggregateCount?: number;
 	    aggregateFirst?: number;
 	    aggregateLast?: number;
+	    tags?: string[];
+	    metadata?: Record<string, any>;
+	    parentEventId?: string;
+	    generatedByPlugin?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new UnifiedEvent(source);
@@ -958,6 +962,10 @@ export namespace main {
 	        this.aggregateCount = source["aggregateCount"];
 	        this.aggregateFirst = source["aggregateFirst"];
 	        this.aggregateLast = source["aggregateLast"];
+	        this.tags = source["tags"];
+	        this.metadata = source["metadata"];
+	        this.parentEventId = source["parentEventId"];
+	        this.generatedByPlugin = source["generatedByPlugin"];
 	    }
 	}
 	export class EventQueryResult {
@@ -1238,6 +1246,160 @@ export namespace main {
 	        this.batteryTemp = source["batteryTemp"];
 	        this.packageName = source["packageName"];
 	        this.processes = this.convertValues(source["processes"], ProcessPerfData);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class PluginFilters {
+	    sources: string[];
+	    types: string[];
+	    levels: string[];
+	    urlPattern: string;
+	    titleMatch: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new PluginFilters(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sources = source["sources"];
+	        this.types = source["types"];
+	        this.levels = source["levels"];
+	        this.urlPattern = source["urlPattern"];
+	        this.titleMatch = source["titleMatch"];
+	    }
+	}
+	export class PluginMetadata {
+	    id: string;
+	    name: string;
+	    version: string;
+	    author: string;
+	    description: string;
+	    enabled: boolean;
+	    filters: PluginFilters;
+	    config: Record<string, any>;
+	    createdAt: time.Time;
+	    updatedAt: time.Time;
+	
+	    static createFrom(source: any = {}) {
+	        return new PluginMetadata(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.version = source["version"];
+	        this.author = source["author"];
+	        this.description = source["description"];
+	        this.enabled = source["enabled"];
+	        this.filters = this.convertValues(source["filters"], PluginFilters);
+	        this.config = source["config"];
+	        this.createdAt = this.convertValues(source["createdAt"], time.Time);
+	        this.updatedAt = this.convertValues(source["updatedAt"], time.Time);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class Plugin {
+	    metadata: PluginMetadata;
+	    sourceCode: string;
+	    language: string;
+	    compiledCode: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Plugin(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.metadata = this.convertValues(source["metadata"], PluginMetadata);
+	        this.sourceCode = source["sourceCode"];
+	        this.language = source["language"];
+	        this.compiledCode = source["compiledCode"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	
+	export class PluginSaveRequest {
+	    id: string;
+	    name: string;
+	    version: string;
+	    author: string;
+	    description: string;
+	    sourceCode: string;
+	    language: string;
+	    compiledCode: string;
+	    filters: PluginFilters;
+	    config: Record<string, any>;
+	
+	    static createFrom(source: any = {}) {
+	        return new PluginSaveRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.version = source["version"];
+	        this.author = source["author"];
+	        this.description = source["description"];
+	        this.sourceCode = source["sourceCode"];
+	        this.language = source["language"];
+	        this.compiledCode = source["compiledCode"];
+	        this.filters = this.convertValues(source["filters"], PluginFilters);
+	        this.config = source["config"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

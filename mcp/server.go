@@ -375,6 +375,14 @@ type GazeApp interface {
 
 	// Utility
 	GetAppVersion() string
+
+	// Plugin System (需要定义这些类型的导入)
+	ListPlugins() ([]interface{}, error)      // Returns []PluginMetadata
+	GetPlugin(id string) (interface{}, error) // Returns *Plugin
+	SavePlugin(req interface{}) error         // Accepts PluginSaveRequest
+	DeletePlugin(id string) error
+	TogglePlugin(id string, enabled bool) error
+	TestPlugin(script string, eventID string) (interface{}, error) // Returns []UnifiedEvent
 }
 
 // MCPStoredAssertion represents a stored assertion for MCP interface
@@ -610,6 +618,9 @@ func (s *MCPServer) registerTools() {
 
 	// Assertion Set Tools
 	s.registerAssertionTools()
+
+	// Plugin System Tools
+	s.registerPluginTools()
 }
 
 // registerResources registers all MCP resources

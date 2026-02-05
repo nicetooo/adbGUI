@@ -330,6 +330,32 @@ func (s *EventStore) initSchema() error {
 		}
 	}
 
+	// 数据库迁移：添加插件相关字段
+	if err := s.migratePluginFields(); err != nil {
+		return fmt.Errorf("failed to migrate plugin fields: %w", err)
+	}
+
+	return nil
+}
+
+// migratePluginFields 迁移插件相关字段
+func (s *EventStore) migratePluginFields() error {
+	// 添加 tags 字段 (JSON 数组)
+	s.db.Exec("ALTER TABLE events ADD COLUMN tags TEXT")
+
+	// 添加 metadata 字段 (JSON 对象)
+	s.db.Exec("ALTER TABLE events ADD COLUMN metadata TEXT")
+
+	// 添加 parent_event_id 字段
+	s.db.Exec("ALTER TABLE events ADD COLUMN parent_event_id TEXT")
+
+	// 添加 generated_by_plugin 字段
+	s.db.Exec("ALTER TABLE events ADD COLUMN generated_by_plugin TEXT")
+
+	// 创建索引 (忽略错误，可能已存在)
+	s.db.Exec("CREATE INDEX IF NOT EXISTS idx_events_parent_event ON events(parent_event_id)")
+	s.db.Exec("CREATE INDEX IF NOT EXISTS idx_events_plugin ON events(generated_by_plugin)")
+
 	return nil
 }
 
@@ -342,8 +368,9 @@ func (s *EventStore) prepareStatements() error {
 			id, session_id, device_id, timestamp, relative_time, duration,
 			source, category, type, level, title, summary,
 			parent_id, step_id, trace_id,
-			aggregate_count, aggregate_first, aggregate_last
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			aggregate_count, aggregate_first, aggregate_last,
+			tags, metadata, parent_event_id, generated_by_plugin
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return fmt.Errorf("prepare insert event: %w", err)
@@ -533,6 +560,19 @@ func (s *EventStore) writeEventsBatch(events []UnifiedEvent) error {
 	stmtData := tx.Stmt(s.stmtInsertEventData)
 
 	for _, event := range events {
+		// 序列化 tags 和 metadata
+		var tagsJSON, metadataJSON string
+		if len(event.Tags) > 0 {
+			if b, err := json.Marshal(event.Tags); err == nil {
+				tagsJSON = string(b)
+			}
+		}
+		if len(event.Metadata) > 0 {
+			if b, err := json.Marshal(event.Metadata); err == nil {
+				metadataJSON = string(b)
+			}
+		}
+
 		// 插入基础事件
 		_, err := stmtEvent.Exec(
 			event.ID, event.SessionID, event.DeviceID,
@@ -541,6 +581,8 @@ func (s *EventStore) writeEventsBatch(events []UnifiedEvent) error {
 			event.Title, nullString(event.Summary),
 			nullString(event.ParentID), nullString(event.StepID), nullString(event.TraceID),
 			event.AggregateCount, event.AggregateFirst, event.AggregateLast,
+			nullString(tagsJSON), nullString(metadataJSON),
+			nullString(event.ParentEventID), nullString(event.GeneratedByPlugin),
 		)
 		if err != nil {
 			return fmt.Errorf("insert event %s: %w", event.ID, err)

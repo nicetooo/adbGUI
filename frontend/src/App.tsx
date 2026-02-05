@@ -22,6 +22,7 @@ import EventTimeline from "./components/EventTimeline";
 import SessionManager from "./components/SessionManager";
 import PerfView from "./components/PerfView";
 import AssertionsView from "./components/AssertionsView";
+import PluginsView from "./views/PluginsView";
 import DeviceInfoModal from "./components/DeviceInfoModal";
 import AboutModal from "./components/AboutModal";
 import WirelessConnectModal from "./components/WirelessConnectModal";
@@ -47,6 +48,7 @@ import {
   DatabaseOutlined,
   LineChartOutlined,
   CheckSquareOutlined,
+  ApiOutlined,
 } from "@ant-design/icons";
 import "./App.css";
 import { useTheme } from "./ThemeContext";
@@ -277,6 +279,7 @@ function App() {
                 { key: VIEW_KEYS.EVENTS, icon: <DashboardOutlined />, label: t("menu.events") },
                 { key: VIEW_KEYS.SESSIONS, icon: <DatabaseOutlined />, label: t("menu.sessions") },
                 { key: VIEW_KEYS.ASSERTIONS, icon: <CheckSquareOutlined />, label: t("menu.assertions") },
+                { key: VIEW_KEYS.PLUGINS, icon: <ApiOutlined />, label: t("menu.plugins") },
               ]}
             />
           </div>
@@ -354,6 +357,7 @@ function App() {
           {selectedKey === VIEW_KEYS.RECORDING && <RecordingView />}
           {selectedKey === VIEW_KEYS.INSPECTOR && <UIInspectorView />}
           {selectedKey === VIEW_KEYS.WORKFLOW && <WorkflowView />}
+          {selectedKey === VIEW_KEYS.PLUGINS && <PluginsView />}
           {selectedKey === VIEW_KEYS.EVENTS && <EventTimeline />}
           {selectedKey === VIEW_KEYS.SESSIONS && <SessionManager />}
           {selectedKey === VIEW_KEYS.PERFORMANCE && <PerfView />}

@@ -1704,6 +1704,55 @@ func (b *MCPBridge) convertAssertionSetResult(r *AssertionSetResult) *mcp.MCPAss
 	}
 }
 
+// ========================================
+// Plugin System Bridge
+// ========================================
+
+func (b *MCPBridge) ListPlugins() ([]interface{}, error) {
+	plugins, err := b.app.ListPlugins()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]interface{}, len(plugins))
+	for i, p := range plugins {
+		result[i] = p
+	}
+	return result, nil
+}
+
+func (b *MCPBridge) GetPlugin(id string) (interface{}, error) {
+	return b.app.GetPlugin(id)
+}
+
+func (b *MCPBridge) SavePlugin(req interface{}) error {
+	// Convert interface{} back to PluginSaveRequest
+	jsonData, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+	var saveReq PluginSaveRequest
+	if err := json.Unmarshal(jsonData, &saveReq); err != nil {
+		return err
+	}
+	return b.app.SavePlugin(saveReq)
+}
+
+func (b *MCPBridge) DeletePlugin(id string) error {
+	return b.app.DeletePlugin(id)
+}
+
+func (b *MCPBridge) TogglePlugin(id string, enabled bool) error {
+	return b.app.TogglePlugin(id, enabled)
+}
+
+func (b *MCPBridge) TestPlugin(script string, eventID string) (interface{}, error) {
+	events, err := b.app.TestPlugin(script, eventID)
+	if err != nil {
+		return nil, err
+	}
+	return events, nil
+}
+
 // StartMCPServer starts the MCP server with the given app
 func StartMCPServer(app *App) {
 	bridge := NewMCPBridge(app)

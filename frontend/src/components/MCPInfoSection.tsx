@@ -139,6 +139,15 @@ const TOOL_CATEGORIES = [
       "assertion_set_execute", "assertion_set_results", "assertion_set_result",
     ],
   },
+  {
+    key: "plugins",
+    icon: <ApiOutlined />,
+    color: "#d4380d",
+    tools: [
+      "plugin_list", "plugin_get", "plugin_create", "plugin_update",
+      "plugin_delete", "plugin_toggle", "plugin_test",
+    ],
+  },
 ];
 
 const RESOURCES = [

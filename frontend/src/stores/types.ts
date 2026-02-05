@@ -42,7 +42,7 @@ export interface RecordStatus {
 }
 
 // Navigation types
-export type ViewKey = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12' | '13' | '14';
+export type ViewKey = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12' | '13' | '14' | '15';
 
 export const VIEW_KEYS = {
   DEVICES: '1' as ViewKey,
@@ -59,6 +59,7 @@ export const VIEW_KEYS = {
   SESSIONS: '12' as ViewKey,
   PERFORMANCE: '13' as ViewKey,
   ASSERTIONS: '14' as ViewKey,
+  PLUGINS: '15' as ViewKey,
 } as const;
 
 export const VIEW_NAME_MAP: Record<string, ViewKey> = {
@@ -76,6 +77,7 @@ export const VIEW_NAME_MAP: Record<string, ViewKey> = {
   sessions: VIEW_KEYS.SESSIONS,
   performance: VIEW_KEYS.PERFORMANCE,
   assertions: VIEW_KEYS.ASSERTIONS,
+  plugins: VIEW_KEYS.PLUGINS,
 };
 
 // Batch operation types
