@@ -160,6 +160,17 @@ type MockGazeApp struct {
 	SaveTouchScriptError     error
 	DeleteTouchScriptError   error
 
+	// Plugin Management
+	ListPluginsResult []interface{}
+	ListPluginsError  error
+	GetPluginResult   interface{}
+	GetPluginError    error
+	SavePluginError   error
+	DeletePluginError error
+	TogglePluginError error
+	TestPluginResult  interface{}
+	TestPluginError   error
+
 	// Utility
 	AppVersion string
 }
@@ -1067,6 +1078,38 @@ func (m *MockGazeApp) GetAssertionSetResultByExecution(executionID string) (*MCP
 		},
 		Results: []MCPAssertionResult{},
 	}, nil
+}
+
+// === Plugin Management ===
+
+func (m *MockGazeApp) ListPlugins() ([]interface{}, error) {
+	m.recordCall("ListPlugins")
+	return m.ListPluginsResult, m.ListPluginsError
+}
+
+func (m *MockGazeApp) GetPlugin(id string) (interface{}, error) {
+	m.recordCall("GetPlugin", id)
+	return m.GetPluginResult, m.GetPluginError
+}
+
+func (m *MockGazeApp) SavePlugin(req interface{}) error {
+	m.recordCall("SavePlugin", req)
+	return m.SavePluginError
+}
+
+func (m *MockGazeApp) DeletePlugin(id string) error {
+	m.recordCall("DeletePlugin", id)
+	return m.DeletePluginError
+}
+
+func (m *MockGazeApp) TogglePlugin(id string, enabled bool) error {
+	m.recordCall("TogglePlugin", id, enabled)
+	return m.TogglePluginError
+}
+
+func (m *MockGazeApp) TestPlugin(script string, eventID string) (interface{}, error) {
+	m.recordCall("TestPlugin", script, eventID)
+	return m.TestPluginResult, m.TestPluginError
 }
 
 // === Utility ===
