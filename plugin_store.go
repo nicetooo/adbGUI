@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -43,6 +44,30 @@ func (ps *PluginStore) InitSchema() error {
 		created_at INTEGER NOT NULL,
 		updated_at INTEGER NOT NULL
 	);
+
+	CREATE TABLE IF NOT EXISTS plugin_versions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		plugin_id TEXT NOT NULL,
+		version TEXT NOT NULL,
+		name TEXT NOT NULL,
+		author TEXT,
+		description TEXT,
+		source_code TEXT NOT NULL,
+		source_language TEXT DEFAULT 'typescript',
+		compiled_code TEXT NOT NULL,
+		filters TEXT,
+		config TEXT,
+		saved_at INTEGER NOT NULL,
+		FOREIGN KEY (plugin_id) REFERENCES plugins(id) ON DELETE CASCADE
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_plugin_versions_plugin_id ON plugin_versions(plugin_id);
+	CREATE INDEX IF NOT EXISTS idx_plugin_versions_saved_at ON plugin_versions(saved_at);
+
+	-- plugins 表索引
+	CREATE INDEX IF NOT EXISTS idx_plugins_enabled ON plugins(enabled);
+	CREATE INDEX IF NOT EXISTS idx_plugins_created_at ON plugins(created_at);
+	CREATE INDEX IF NOT EXISTS idx_plugins_updated_at ON plugins(updated_at);
 	`
 
 	_, err := ps.db.Exec(schema)
@@ -75,8 +100,71 @@ func (ps *PluginStore) SavePlugin(plugin *Plugin) error {
 	}
 
 	if exists > 0 {
+		// 使用事务保护更新操作（版本历史 + 更新当前记录）
+		tx, txErr := ps.db.Begin()
+		if txErr != nil {
+			return fmt.Errorf("开始事务失败: %w", txErr)
+		}
+		defer func() {
+			if txErr != nil {
+				tx.Rollback()
+			}
+		}()
+
+		// 更新前先保存旧版本到历史表
+		var oldPlugin Plugin
+		var oldFiltersJSON, oldConfigJSON string
+		var oldEnabled int
+		err = tx.QueryRow(`
+			SELECT name, version, author, description,
+				   source_code, source_language, compiled_code,
+				   filters, config, enabled
+			FROM plugins WHERE id = ?
+		`, plugin.Metadata.ID).Scan(
+			&oldPlugin.Metadata.Name,
+			&oldPlugin.Metadata.Version,
+			&oldPlugin.Metadata.Author,
+			&oldPlugin.Metadata.Description,
+			&oldPlugin.SourceCode,
+			&oldPlugin.Language,
+			&oldPlugin.CompiledCode,
+			&oldFiltersJSON,
+			&oldConfigJSON,
+			&oldEnabled,
+		)
+
+		if err == nil {
+			// 保存旧版本到历史表
+			_, err = tx.Exec(`
+				INSERT INTO plugin_versions (
+					plugin_id, version, name, author, description,
+					source_code, source_language, compiled_code,
+					filters, config, saved_at
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`,
+				plugin.Metadata.ID,
+				oldPlugin.Metadata.Version,
+				oldPlugin.Metadata.Name,
+				oldPlugin.Metadata.Author,
+				oldPlugin.Metadata.Description,
+				oldPlugin.SourceCode,
+				oldPlugin.Language,
+				oldPlugin.CompiledCode,
+				oldFiltersJSON,
+				oldConfigJSON,
+				now,
+			)
+			if err != nil {
+				log.Printf("[PluginStore] Failed to save old version: %v", err)
+				// 继续执行更新，不因历史保存失败而阻止更新
+			}
+
+			// 自动清理旧版本：保留最近 maxVersions 个
+			ps.pruneVersions(plugin.Metadata.ID, 20)
+		}
+
 		// 更新
-		_, err = ps.db.Exec(`
+		_, txErr = tx.Exec(`
 			UPDATE plugins SET
 				name = ?,
 				version = ?,
@@ -104,6 +192,11 @@ func (ps *PluginStore) SavePlugin(plugin *Plugin) error {
 			now,
 			plugin.Metadata.ID,
 		)
+		if txErr != nil {
+			return txErr
+		}
+
+		return tx.Commit()
 	} else {
 		// 插入
 		_, err = ps.db.Exec(`
@@ -249,11 +342,13 @@ func (ps *PluginStore) ListPlugins() ([]*Plugin, error) {
 
 		var filters PluginFilters
 		if err := json.Unmarshal([]byte(filtersJSON), &filters); err != nil {
+			log.Printf("[PluginStore] Skipping plugin %s: invalid filters JSON: %v", id, err)
 			continue
 		}
 
 		var config map[string]interface{}
 		if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
+			log.Printf("[PluginStore] Skipping plugin %s: invalid config JSON: %v", id, err)
 			continue
 		}
 
@@ -285,5 +380,167 @@ func (ps *PluginStore) ListPlugins() ([]*Plugin, error) {
 // DeletePlugin 删除插件
 func (ps *PluginStore) DeletePlugin(id string) error {
 	_, err := ps.db.Exec("DELETE FROM plugins WHERE id = ?", id)
+	return err
+}
+
+// pruneVersions 清理旧版本，保留最近 maxVersions 个
+func (ps *PluginStore) pruneVersions(pluginID string, maxVersions int) {
+	_, err := ps.db.Exec(`
+		DELETE FROM plugin_versions
+		WHERE plugin_id = ? AND id NOT IN (
+			SELECT id FROM plugin_versions
+			WHERE plugin_id = ?
+			ORDER BY saved_at DESC
+			LIMIT ?
+		)
+	`, pluginID, pluginID, maxVersions)
+	if err != nil {
+		log.Printf("[PluginStore] Failed to prune old versions for %s: %v", pluginID, err)
+	}
+}
+
+// PluginVersion 插件历史版本
+type PluginVersion struct {
+	ID          int       `json:"id"`
+	PluginID    string    `json:"pluginId"`
+	Version     string    `json:"version"`
+	Name        string    `json:"name"`
+	Author      string    `json:"author"`
+	Description string    `json:"description"`
+	SavedAt     time.Time `json:"savedAt"`
+}
+
+// GetPluginVersions 获取插件的历史版本列表
+func (ps *PluginStore) GetPluginVersions(pluginID string, limit int) ([]PluginVersion, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	rows, err := ps.db.Query(`
+		SELECT id, plugin_id, version, name, author, description, saved_at
+		FROM plugin_versions
+		WHERE plugin_id = ?
+		ORDER BY saved_at DESC
+		LIMIT ?
+	`, pluginID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var versions []PluginVersion
+	for rows.Next() {
+		var v PluginVersion
+		var savedAt int64
+		err := rows.Scan(&v.ID, &v.PluginID, &v.Version, &v.Name, &v.Author, &v.Description, &savedAt)
+		if err != nil {
+			continue
+		}
+		v.SavedAt = time.Unix(savedAt, 0)
+		versions = append(versions, v)
+	}
+
+	return versions, rows.Err()
+}
+
+// RollbackPlugin 回滚到指定版本
+func (ps *PluginStore) RollbackPlugin(versionID int) error {
+	// 获取历史版本数据
+	var (
+		pluginID     string
+		version      string
+		name         string
+		author       string
+		description  string
+		sourceCode   string
+		language     string
+		compiledCode string
+		filtersJSON  string
+		configJSON   string
+	)
+
+	err := ps.db.QueryRow(`
+		SELECT plugin_id, version, name, author, description,
+			   source_code, source_language, compiled_code,
+			   filters, config
+		FROM plugin_versions
+		WHERE id = ?
+	`, versionID).Scan(
+		&pluginID, &version, &name, &author, &description,
+		&sourceCode, &language, &compiledCode,
+		&filtersJSON, &configJSON,
+	)
+	if err != nil {
+		return fmt.Errorf("历史版本不存在: %w", err)
+	}
+
+	// 先保存当前版本到历史（回滚前备份）
+	now := time.Now().Unix()
+	var currentPlugin Plugin
+	var currentFiltersJSON, currentConfigJSON string
+	var currentEnabled int
+
+	err = ps.db.QueryRow(`
+		SELECT name, version, author, description,
+			   source_code, source_language, compiled_code,
+			   filters, config, enabled
+		FROM plugins WHERE id = ?
+	`, pluginID).Scan(
+		&currentPlugin.Metadata.Name,
+		&currentPlugin.Metadata.Version,
+		&currentPlugin.Metadata.Author,
+		&currentPlugin.Metadata.Description,
+		&currentPlugin.SourceCode,
+		&currentPlugin.Language,
+		&currentPlugin.CompiledCode,
+		&currentFiltersJSON,
+		&currentConfigJSON,
+		&currentEnabled,
+	)
+
+	if err == nil {
+		// 保存当前版本到历史
+		_, _ = ps.db.Exec(`
+			INSERT INTO plugin_versions (
+				plugin_id, version, name, author, description,
+				source_code, source_language, compiled_code,
+				filters, config, saved_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`,
+			pluginID,
+			currentPlugin.Metadata.Version,
+			currentPlugin.Metadata.Name,
+			currentPlugin.Metadata.Author,
+			currentPlugin.Metadata.Description,
+			currentPlugin.SourceCode,
+			currentPlugin.Language,
+			currentPlugin.CompiledCode,
+			currentFiltersJSON,
+			currentConfigJSON,
+			now,
+		)
+	}
+
+	// 更新插件为历史版本
+	_, err = ps.db.Exec(`
+		UPDATE plugins SET
+			name = ?,
+			version = ?,
+			author = ?,
+			description = ?,
+			source_code = ?,
+			source_language = ?,
+			compiled_code = ?,
+			filters = ?,
+			config = ?,
+			updated_at = ?
+		WHERE id = ?
+	`,
+		name, version, author, description,
+		sourceCode, language, compiledCode,
+		filtersJSON, configJSON,
+		now, pluginID,
+	)
+
 	return err
 }

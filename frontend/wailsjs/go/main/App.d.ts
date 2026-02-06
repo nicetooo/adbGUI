@@ -213,6 +213,8 @@ export function GetSessionTimeIndex(arg1:string):Promise<Array<main.TimeIndexEnt
 
 export function GetSessionVideoInfo(arg1:string):Promise<Record<string, any>>;
 
+export function GetStorageInfo():Promise<Record<string, any>>;
+
 export function GetStoredAssertion(arg1:string):Promise<main.StoredAssertion>;
 
 export function GetStoredEvent(arg1:string):Promise<main.UnifiedEvent>;
@@ -340,6 +342,8 @@ export function LongPressAtCoordinates(arg1:string,arg2:number,arg3:number,arg4:
 export function Mkdir(arg1:string,arg2:string):Promise<void>;
 
 export function MoveFile(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function OpenDataDir():Promise<void>;
 
 export function OpenFile(arg1:string):Promise<void>;
 

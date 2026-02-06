@@ -398,7 +398,16 @@
     "license": "License",
     "made_with": "Made with ❤️ for Android Developers & Power Users",
     "github": "GitHub Repository",
-    "mit_license": "MIT License"
+    "mit_license": "MIT License",
+    "storage": "Storage",
+    "storage_database": "Database",
+    "storage_recordings": "Recordings",
+    "storage_bin": "Tools",
+    "storage_workflows": "Workflows",
+    "storage_scripts": "Scripts",
+    "storage_logs": "Logs",
+    "storage_cache": "Cache",
+    "storage_other": "Other"
   },
   "app": {
     "select_device": "Please select a device first",

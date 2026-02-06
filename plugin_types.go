@@ -2,7 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"log"
+	"regexp"
+	"sync"
 	"time"
 
 	"Gaze/proxy"
@@ -51,6 +52,12 @@ type Plugin struct {
 	OnInitFunc  goja.Callable `json:"-"` // onInit 函数引用
 	OnEventFunc goja.Callable `json:"-"` // onEvent 函数引用
 	OnDestroy   goja.Callable `json:"-"` // onDestroy 函数引用
+
+	// 并发保护: goja.Runtime 不是线程安全的，每次访问 VM/State 必须持有此锁
+	mu sync.Mutex `json:"-"`
+
+	// 预编译的正则表达式 (在 loadPluginLocked 时编译，避免热路径重复编译)
+	titleMatchRegex *regexp.Regexp `json:"-"`
 
 	// 状态
 	State map[string]interface{} `json:"-"` // 插件状态存储 (跨事件)
@@ -142,34 +149,38 @@ func (p *Plugin) MatchesEvent(event UnifiedEvent) bool {
 		}
 	}
 
-	// 检查 URL pattern (仅对 network 事件)
-	if filters.URLPattern != "" && event.Source == SourceNetwork {
+	// 检查 URL pattern
+	if filters.URLPattern != "" {
+		// URLPattern 隐式要求 Source 为 network：
+		// 如果事件不是 network 来源，直接不匹配
+		if event.Source != SourceNetwork {
+			return false
+		}
 		// 从 event.data 中提取 URL
 		var eventData map[string]interface{}
 		if event.Data != nil {
 			if err := json.Unmarshal(event.Data, &eventData); err == nil {
 				if url, ok := eventData["url"].(string); ok {
-					matched := matchURLPattern(filters.URLPattern, url)
-					log.Printf("[PluginManager] 🔍 URL match: pattern='%s', url='%s', matched=%v",
-						filters.URLPattern, url, matched)
-					if !matched {
+					if !matchURLPattern(filters.URLPattern, url) {
 						return false
 					}
 				} else {
-					log.Printf("[PluginManager] 🔍 URL not found in event data for plugin %s", p.Metadata.ID)
-					return false // ⚠️ 如果没有 URL 字段，应该返回 false
+					return false // 没有 URL 字段
 				}
 			} else {
-				log.Printf("[PluginManager] 🔍 Failed to unmarshal event data: %v", err)
-				return false // ⚠️ 如果 JSON 解析失败，应该返回 false
+				return false // JSON 解析失败
 			}
 		} else {
-			log.Printf("[PluginManager] 🔍 Event data is nil for plugin %s", p.Metadata.ID)
-			return false // ⚠️ 如果 event.Data 为 nil，应该返回 false
+			return false // event.Data 为 nil
 		}
 	}
 
-	// TODO: 检查 titleMatch (正则匹配)
+	// 检查 titleMatch (使用预编译正则)
+	if p.titleMatchRegex != nil {
+		if !p.titleMatchRegex.MatchString(event.Title) {
+			return false
+		}
+	}
 
 	return true
 }

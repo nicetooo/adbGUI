@@ -97,6 +97,7 @@ func main() {
 		customAppMenu := menu.NewMenu()
 		customAppMenu.Append(menu.Text("About Gaze", nil, func(_ *menu.CallbackData) {
 			wailsRuntime.WindowShow(app.ctx)
+			wailsRuntime.EventsEmit(app.ctx, "show-about")
 		}))
 		customAppMenu.Append(menu.Separator())
 		customAppMenu.Append(menu.Text("Quit Gaze", keys.CmdOrCtrl("q"), func(_ *menu.CallbackData) {

@@ -303,6 +303,18 @@ const plugin: Plugin = {
         </Button>,
       ]}
     >
+      {/* 编译错误提示 */}
+      {compileError && (
+        <Alert
+          message={t("plugins.compile_error")}
+          description={compileError}
+          type="error"
+          closable
+          onClose={() => setCompileError(null)}
+          style={{ marginBottom: 16 }}
+        />
+      )}
+      
       <Tabs activeKey={activeTab} onChange={setActiveTab}>
         <TabPane tab={t("plugins.basic_info")} key="basic">
           <Form form={form} layout="vertical">
@@ -420,7 +432,7 @@ const plugin: Plugin = {
         </TabPane>
 
         <TabPane tab={t("plugins.code")} key="code">
-          <Space orientation="vertical" style={{ width: "100%" }} size="middle">
+          <Space direction="vertical" style={{ width: "100%" }} size="middle">
             {/* Compilation Error */}
             {compileError && (
               <Alert

@@ -3,6 +3,12 @@ import Editor, { OnMount } from "@monaco-editor/react";
 import { useTheme } from "../ThemeContext";
 import * as monaco from "monaco-editor";
 
+// 全局标记：completion providers 只需注册一次
+let completionProvidersRegistered = false;
+// 全局 disposables 列表：在组件卸载时不 dispose（因为是全局注册）
+// 但可以在应用重新加载时清理
+const globalDisposables: monaco.IDisposable[] = [];
+
 interface MonacoPluginEditorProps {
   value: string;
   onChange: (value: string) => void;
@@ -117,8 +123,10 @@ const MonacoPluginEditor: React.FC<MonacoPluginEditorProps> = ({
       diagnosticCodesToIgnore: [2304],
     });
 
-    // 添加自定义代码补全
-    monaco.languages.registerCompletionItemProvider("typescript", {
+    // 添加自定义代码补全（只注册一次，避免多实例累积）
+    if (!completionProvidersRegistered) {
+    completionProvidersRegistered = true;
+    globalDisposables.push(monaco.languages.registerCompletionItemProvider("typescript", {
       provideCompletionItems: (model: any, position: any) => {
         const word = model.getWordUntilPosition(position);
         const range = {
@@ -186,10 +194,10 @@ const MonacoPluginEditor: React.FC<MonacoPluginEditorProps> = ({
 
         return { suggestions };
       },
-    });
+    }));
 
     // JavaScript 也添加相同的代码补全
-    monaco.languages.registerCompletionItemProvider("javascript", {
+    globalDisposables.push(monaco.languages.registerCompletionItemProvider("javascript", {
       provideCompletionItems: (model: any, position: any) => {
         const word = model.getWordUntilPosition(position);
         const range = {
@@ -235,7 +243,8 @@ const MonacoPluginEditor: React.FC<MonacoPluginEditorProps> = ({
 
         return { suggestions };
       },
-    });
+    }));
+    } // end if (!completionProvidersRegistered)
   };
 
   return (

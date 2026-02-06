@@ -299,7 +299,7 @@ const PluginsView: React.FC = () => {
                         alignItems: "center",
                         marginTop: "12px",
                         paddingTop: "12px",
-                        borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+                        borderTop: "1px solid var(--ant-color-border-secondary, rgba(0, 0, 0, 0.06))",
                       }}
                     >
                       <Switch

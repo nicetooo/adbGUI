@@ -287,16 +287,16 @@ declare function matchURL(url: string, pattern: string): boolean;
 declare function jsonPath(data: any, path: string): any;
 
 /**
- * Match string against regex pattern
- * @param str - String to match
+ * Match string against regex pattern and return capture groups
  * @param pattern - Regex pattern
- * @returns true if string matches pattern
+ * @param text - String to match against
+ * @returns Array of matches (index 0 = full match, 1+ = capture groups), or null if no match
  * 
  * @example
- * matchRegex("user_123", "user_\\d+") // true
- * matchRegex("admin", "user_\\d+") // false
+ * matchRegex("user_(\\d+)", "user_123") // ["user_123", "123"]
+ * matchRegex("user_\\d+", "admin") // null
  */
-declare function matchRegex(str: string, pattern: string): boolean;
+declare function matchRegex(pattern: string, text: string): string[] | null;
 
 /**
  * Format timestamp to human-readable string

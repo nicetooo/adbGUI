@@ -99,6 +99,7 @@ type UnifiedEvent struct {
 	Metadata          map[string]interface{} `json:"metadata,omitempty"`          // 元数据（插件可附加）
 	ParentEventID     string                 `json:"parentEventId,omitempty"`     // 派生事件的父事件 ID
 	GeneratedByPlugin string                 `json:"generatedByPlugin,omitempty"` // 生成此事件的插件 ID
+	DerivedDepth      int                    `json:"derivedDepth,omitempty"`      // 派生深度 (0=原始事件, 1=一级派生, ...)
 }
 
 // ========================================

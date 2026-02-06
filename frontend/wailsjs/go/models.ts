@@ -935,6 +935,7 @@ export namespace main {
 	    metadata?: Record<string, any>;
 	    parentEventId?: string;
 	    generatedByPlugin?: string;
+	    derivedDepth?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new UnifiedEvent(source);
@@ -966,6 +967,7 @@ export namespace main {
 	        this.metadata = source["metadata"];
 	        this.parentEventId = source["parentEventId"];
 	        this.generatedByPlugin = source["generatedByPlugin"];
+	        this.derivedDepth = source["derivedDepth"];
 	    }
 	}
 	export class EventQueryResult {

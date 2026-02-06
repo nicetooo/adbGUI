@@ -195,6 +195,14 @@ function App() {
     }
   }, [selectedDevice]);
 
+  // Listen for native menu "About Gaze" click
+  useEffect(() => {
+    const unregister = EventsOn("show-about", () => {
+      showAbout();
+    });
+    return () => unregister();
+  }, [showAbout]);
+
   // Screenshot progress listener
   useEffect(() => {
     const msgKey = "screenshot-msg";

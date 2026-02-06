@@ -414,6 +414,10 @@ export function GetSessionVideoInfo(arg1) {
   return window['go']['main']['App']['GetSessionVideoInfo'](arg1);
 }
 
+export function GetStorageInfo() {
+  return window['go']['main']['App']['GetStorageInfo']();
+}
+
 export function GetStoredAssertion(arg1) {
   return window['go']['main']['App']['GetStoredAssertion'](arg1);
 }
@@ -668,6 +672,10 @@ export function Mkdir(arg1, arg2) {
 
 export function MoveFile(arg1, arg2, arg3) {
   return window['go']['main']['App']['MoveFile'](arg1, arg2, arg3);
+}
+
+export function OpenDataDir() {
+  return window['go']['main']['App']['OpenDataDir']();
 }
 
 export function OpenFile(arg1) {

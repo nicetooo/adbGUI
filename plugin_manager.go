@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"regexp"
 	"sync"
 	"time"
@@ -35,8 +37,6 @@ func NewPluginManager(store *PluginStore, eventPipeline *EventPipeline) *PluginM
 func (pm *PluginManager) LoadAllPlugins() error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
-
-	log.Printf("[PluginManager] 🎯🎯🎯 DEBUG VERSION WITH ENHANCED LOGGING LOADED 🎯🎯🎯")
 
 	plugins, err := pm.store.ListPlugins()
 	if err != nil {
@@ -117,6 +117,17 @@ func (pm *PluginManager) loadPluginLocked(plugin *Plugin) error {
 		onDestroyFunc, _ = goja.AssertFunction(onDestroyVal)
 	}
 
+	// 预编译 titleMatch 正则表达式 (避免热路径重复编译)
+	if plugin.Metadata.Filters.TitleMatch != "" {
+		re, err := regexp.Compile(plugin.Metadata.Filters.TitleMatch)
+		if err != nil {
+			return fmt.Errorf("无效的 titleMatch 正则表达式 '%s': %w", plugin.Metadata.Filters.TitleMatch, err)
+		}
+		plugin.titleMatchRegex = re
+	} else {
+		plugin.titleMatchRegex = nil
+	}
+
 	// 保存到插件实例
 	plugin.VM = vm
 	plugin.OnEventFunc = onEventFunc
@@ -147,6 +158,10 @@ func (pm *PluginManager) UnloadPlugin(id string) error {
 		return fmt.Errorf("插件不存在: %s", id)
 	}
 
+	// ⭐ 获取插件锁，确保没有正在执行的 goroutine 在使用 VM/State
+	plugin.mu.Lock()
+	defer plugin.mu.Unlock()
+
 	// 调用 onDestroy (如果存在)
 	if plugin.OnDestroy != nil {
 		context := pm.createPluginContext(plugin.VM, plugin)
@@ -155,89 +170,131 @@ func (pm *PluginManager) UnloadPlugin(id string) error {
 		}
 	}
 
+	// 清空插件状态和运行时，帮助 GC 回收内存
+	plugin.State = nil
+	plugin.VM = nil
+	plugin.OnInitFunc = nil
+	plugin.OnEventFunc = nil
+	plugin.OnDestroy = nil
+
 	// 从内存删除
 	delete(pm.plugins, id)
 
-	log.Printf("[PluginManager] 已卸载插件: %s", id)
+	log.Printf("[PluginManager] 已卸载插件: %s (内存已清理)", id)
 	return nil
 }
 
 // ProcessEvent 处理事件 (从 EventPipeline 调用)
 func (pm *PluginManager) ProcessEvent(event UnifiedEvent, sessionID string) []UnifiedEvent {
+	// 短暂持有读锁，仅用于收集匹配的插件列表
 	pm.mu.RLock()
-	defer pm.mu.RUnlock()
-
-	log.Printf("[PluginManager] 🔍 ProcessEvent called: type=%s, source=%s, sessionID=%s, pluginCount=%d",
-		event.Type, event.Source, sessionID, len(pm.plugins))
-
-	var allDerivedEvents []UnifiedEvent
-
-	// 遍历所有启用的插件
+	var eligiblePlugins []*Plugin
 	for _, plugin := range pm.plugins {
-		log.Printf("[PluginManager] 🔎 Checking plugin: %s (enabled=%v)", plugin.Metadata.ID, plugin.Metadata.Enabled)
-
 		if !plugin.Metadata.Enabled {
-			log.Printf("[PluginManager] ⏭️  Skipping disabled plugin: %s", plugin.Metadata.ID)
 			continue
 		}
-
-		// 检查是否匹配事件
-		matches := plugin.MatchesEvent(event)
-		log.Printf("[PluginManager] 🎯 Plugin %s matches event: %v", plugin.Metadata.ID, matches)
-
-		if !matches {
-			continue
+		if plugin.MatchesEvent(event) {
+			eligiblePlugins = append(eligiblePlugins, plugin)
 		}
+	}
+	pm.mu.RUnlock()
+	// 读锁已释放：后续 goroutine 通过 plugin.mu 保护 VM 访问，
+	// 不再需要持有 pm.mu，这样 LoadPlugin/UnloadPlugin 可以及时获取写锁
 
-		// 执行插件
-		log.Printf("[PluginManager] 🚀 Executing plugin: %s", plugin.Metadata.ID)
-		result, err := pm.executePlugin(plugin, event, sessionID)
-		if err != nil {
-			log.Printf("[PluginManager] ❌ 插件 %s 执行失败: %v", plugin.Metadata.ID, err)
-			// 生成错误事件
-			errorEvent := pm.createPluginErrorEvent(plugin.Metadata.ID, event.ID, err)
-			allDerivedEvents = append(allDerivedEvents, errorEvent)
-			continue
-		}
+	// 如果没有匹配的插件，直接返回
+	if len(eligiblePlugins) == 0 {
+		return []UnifiedEvent{}
+	}
 
-		// 收集派生事件
-		log.Printf("[PluginManager] 📊 Plugin %s result: derivedEvents=%d", plugin.Metadata.ID, len(result.DerivedEvents))
-		if result != nil && len(result.DerivedEvents) > 0 {
-			// 设置派生事件的字段
-			for i := range result.DerivedEvents {
-				derived := &result.DerivedEvents[i]
-				derived.ID = uuid.New().String()
-				derived.DeviceID = event.DeviceID
-				derived.SessionID = sessionID
+	// 并发执行所有匹配的插件
+	type pluginResult struct {
+		pluginID      string
+		pluginName    string
+		derivedEvents []UnifiedEvent
+		err           error
+	}
 
-				// 仅在插件未设置时间戳时才使用父事件的时间戳
-				if derived.Timestamp == 0 {
-					derived.Timestamp = event.Timestamp
+	resultsChan := make(chan pluginResult, len(eligiblePlugins))
+
+	for _, plugin := range eligiblePlugins {
+		go func(p *Plugin) {
+			// panic recovery: 防止单个插件崩溃导致整个事件管道阻塞
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[PluginManager] Plugin %s panicked: %v", p.Metadata.ID, r)
+					errorEvent := pm.createPluginErrorEvent(p.Metadata.ID, event.ID, fmt.Errorf("plugin panic: %v", r))
+					resultsChan <- pluginResult{
+						pluginID:      p.Metadata.ID,
+						pluginName:    p.Metadata.Name,
+						derivedEvents: []UnifiedEvent{errorEvent},
+						err:           fmt.Errorf("plugin panic: %v", r),
+					}
 				}
-				// RelativeTime 会在派生事件重新进入 EventPipeline 时自动计算
+			}()
 
-				derived.Category = CategoryPlugin
-				derived.ParentEventID = event.ID
-				derived.GeneratedByPlugin = plugin.Metadata.ID
+			result, err := pm.executePlugin(p, event, sessionID)
 
-				// 添加元数据标记
-				if derived.Metadata == nil {
-					derived.Metadata = make(map[string]interface{})
+			if err != nil {
+				log.Printf("[PluginManager] Plugin %s failed: %v", p.Metadata.ID, err)
+				errorEvent := pm.createPluginErrorEvent(p.Metadata.ID, event.ID, err)
+				resultsChan <- pluginResult{
+					pluginID:      p.Metadata.ID,
+					pluginName:    p.Metadata.Name,
+					derivedEvents: []UnifiedEvent{errorEvent},
+					err:           err,
 				}
-				derived.Metadata["generatedBy"] = plugin.Metadata.ID
-				derived.Metadata["pluginName"] = plugin.Metadata.Name
+				return
 			}
 
-			allDerivedEvents = append(allDerivedEvents, result.DerivedEvents...)
-		}
+			// 填充派生事件字段
+			var derivedEvents []UnifiedEvent
+			if result != nil && len(result.DerivedEvents) > 0 {
+				for i := range result.DerivedEvents {
+					derived := &result.DerivedEvents[i]
+					derived.ID = uuid.New().String()
+					derived.DeviceID = event.DeviceID
+					derived.SessionID = sessionID
 
-		// TODO: 处理 tags 和 metadata (附加到原事件)
+					// 仅在插件未设置时间戳时才使用父事件的时间戳
+					if derived.Timestamp == 0 {
+						derived.Timestamp = event.Timestamp
+					}
+					// RelativeTime 会在派生事件重新进入 EventPipeline 时自动计算
+
+					derived.Category = CategoryPlugin
+					derived.ParentEventID = event.ID
+					derived.GeneratedByPlugin = p.Metadata.ID
+					derived.DerivedDepth = event.DerivedDepth + 1 // 继承父事件深度 + 1
+
+					// 添加元数据标记
+					if derived.Metadata == nil {
+						derived.Metadata = make(map[string]interface{})
+					}
+					derived.Metadata["generatedBy"] = p.Metadata.ID
+					derived.Metadata["pluginName"] = p.Metadata.Name
+				}
+				derivedEvents = result.DerivedEvents
+			}
+
+			resultsChan <- pluginResult{
+				pluginID:      p.Metadata.ID,
+				pluginName:    p.Metadata.Name,
+				derivedEvents: derivedEvents,
+			}
+		}(plugin)
+	}
+
+	// 收集所有结果
+	var allDerivedEvents []UnifiedEvent
+	for i := 0; i < len(eligiblePlugins); i++ {
+		result := <-resultsChan
+		allDerivedEvents = append(allDerivedEvents, result.derivedEvents...)
 	}
 
 	return allDerivedEvents
 }
 
-// ExecutePluginWithLogging 执行插件并捕获日志（用于测试）
+// ExecutePluginWithLogging 执行插件并捕获日志（用于测试，带并发安全）
 func (pm *PluginManager) ExecutePluginWithLogging(plugin *Plugin, event UnifiedEvent, sessionID string) (result *PluginResult, logs []string, executionTime int64, err error) {
 	startTime := time.Now()
 	logs = []string{}
@@ -251,8 +308,31 @@ func (pm *PluginManager) ExecutePluginWithLogging(plugin *Plugin, event UnifiedE
 	go func() {
 		capturedLogs := []string{}
 
+		// panic recovery
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[PluginManager] Plugin %s VM panicked during test: %v", plugin.Metadata.ID, r)
+				errorChan <- fmt.Errorf("plugin VM panic: %v", r)
+				logsChan <- capturedLogs
+			}
+		}()
+
+		// 加锁保护: goja.Runtime 不是线程安全的
+		plugin.mu.Lock()
+		defer plugin.mu.Unlock()
+
+		// 检查插件是否已被卸载
+		if plugin.VM == nil || plugin.OnEventFunc == nil {
+			errorChan <- fmt.Errorf("plugin %s has been unloaded", plugin.Metadata.ID)
+			logsChan <- capturedLogs
+			return
+		}
+
+		// 清除可能残留的 interrupt 状态（上次超时可能留下的）
+		plugin.VM.ClearInterrupt()
+
 		// 创建带日志捕获的上下文
-		context := pm.createEventContextWithLogging(plugin.VM, plugin, event, sessionID, &capturedLogs)
+		context, collector := pm.createEventContextWithLogging(plugin.VM, plugin, event, sessionID, &capturedLogs)
 
 		// 准备事件对象
 		var eventForPlugin map[string]interface{}
@@ -294,6 +374,11 @@ func (pm *PluginManager) ExecutePluginWithLogging(plugin *Plugin, event UnifiedE
 			}
 		}
 
+		// 合并 context.emit() 产生的事件到返回结果
+		if len(collector.events) > 0 {
+			result.DerivedEvents = append(result.DerivedEvents, collector.events...)
+		}
+
 		resultChan <- result
 		logsChan <- capturedLogs
 	}()
@@ -308,13 +393,17 @@ func (pm *PluginManager) ExecutePluginWithLogging(plugin *Plugin, event UnifiedE
 		executionTime = time.Since(startTime).Milliseconds()
 		return nil, logs, executionTime, err
 	case <-time.After(timeout):
-		plugin.VM.Interrupt("timeout")
+		// Interrupt 是线程安全的，可以在不持有锁时调用
+		if plugin.VM != nil {
+			plugin.VM.Interrupt("timeout")
+		}
 		executionTime = time.Since(startTime).Milliseconds()
 		return nil, logs, executionTime, fmt.Errorf("插件执行超时 (>%v)", timeout)
 	}
 }
 
-// executePlugin 执行单个插件 (带超时保护)
+// executePlugin 执行单个插件 (带超时保护和并发安全)
+// 通过 plugin.mu 锁保证同一插件的 VM 和 State 不会被并发访问
 func (pm *PluginManager) executePlugin(plugin *Plugin, event UnifiedEvent, sessionID string) (*PluginResult, error) {
 	// 超时控制
 	timeout := 5 * time.Second
@@ -322,15 +411,35 @@ func (pm *PluginManager) executePlugin(plugin *Plugin, event UnifiedEvent, sessi
 	errorChan := make(chan error, 1)
 
 	go func() {
-		// 准备事件上下文
-		context := pm.createEventContext(plugin.VM, plugin, event, sessionID)
+		// panic recovery: 防止 VM 内部 panic 导致 channel 阻塞
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[PluginManager] Plugin %s VM panicked: %v", plugin.Metadata.ID, r)
+				errorChan <- fmt.Errorf("plugin VM panic: %v", r)
+			}
+		}()
 
-		// ⭐ 修复：将 event.Data (json.RawMessage) 解析为 map，以便插件可以直接访问字段
+		// 加锁保护: goja.Runtime 不是线程安全的，同一插件的 VM 必须串行访问
+		plugin.mu.Lock()
+		defer plugin.mu.Unlock()
+
+		// 检查插件是否已被卸载 (VM 被设为 nil)
+		if plugin.VM == nil || plugin.OnEventFunc == nil {
+			errorChan <- fmt.Errorf("plugin %s has been unloaded", plugin.Metadata.ID)
+			return
+		}
+
+		// 清除可能残留的 interrupt 状态（上次超时可能留下的）
+		plugin.VM.ClearInterrupt()
+
+		// 准备事件上下文
+		context, collector := pm.createEventContext(plugin.VM, plugin, event, sessionID)
+
+		// 将 event.Data (json.RawMessage) 解析为 map，以便插件可以直接访问字段
 		var eventForPlugin map[string]interface{}
 		eventBytes, _ := json.Marshal(event)
 		json.Unmarshal(eventBytes, &eventForPlugin)
 
-		// 如果 event.Data 不为空，解析为 map
 		if len(event.Data) > 0 {
 			var dataMap map[string]interface{}
 			if err := json.Unmarshal(event.Data, &dataMap); err == nil {
@@ -338,46 +447,35 @@ func (pm *PluginManager) executePlugin(plugin *Plugin, event UnifiedEvent, sessi
 			}
 		}
 
-		// 准备事件对象
 		eventObj := plugin.VM.ToValue(eventForPlugin)
 
 		// 调用 onEvent
 		resultVal, err := plugin.OnEventFunc(goja.Undefined(), eventObj, context)
 		if err != nil {
-			log.Printf("[PluginManager] ❌ JS execution error: %v", err)
 			errorChan <- err
 			return
 		}
 
-		log.Printf("[PluginManager] 🔬 JS returned: type=%s, isUndefined=%v, isNull=%v, value=%v",
-			resultVal.ExportType(), goja.IsUndefined(resultVal), goja.IsNull(resultVal), resultVal.Export())
-
 		// 解析返回值
 		result := &PluginResult{}
 		if !goja.IsUndefined(resultVal) && !goja.IsNull(resultVal) {
-			// 🔧 FIX: 先导出为 JSON，再用 json.Unmarshal 解析
+			// 先导出为 JSON，再用 json.Unmarshal 解析
 			// 这样可以正确使用 Go 结构体的 JSON tags (derivedEvents -> DerivedEvents)
-			// vm.ExportTo() 不会使用 JSON tags，会导致字段名大小写不匹配
 			jsObj := resultVal.Export()
-			log.Printf("[PluginManager] 🔬 Exported JS object: %+v", jsObj)
-
 			jsonBytes, err := json.Marshal(jsObj)
 			if err != nil {
-				log.Printf("[PluginManager] ❌ JSON Marshal error: %v", err)
 				errorChan <- fmt.Errorf("JSON 序列化失败: %w", err)
 				return
 			}
-			log.Printf("[PluginManager] 🔬 JSON bytes: %s", string(jsonBytes))
-
 			if err := json.Unmarshal(jsonBytes, result); err != nil {
-				log.Printf("[PluginManager] ❌ JSON Unmarshal error: %v", err)
 				errorChan <- fmt.Errorf("解析插件返回值失败: %w", err)
 				return
 			}
-			log.Printf("[PluginManager] 🔬 Parsed result: derivedEvents=%d, tags=%v",
-				len(result.DerivedEvents), result.Tags)
-		} else {
-			log.Printf("[PluginManager] ⚠️  Plugin returned undefined/null")
+		}
+
+		// 合并 context.emit() 产生的事件到返回结果
+		if len(collector.events) > 0 {
+			result.DerivedEvents = append(result.DerivedEvents, collector.events...)
 		}
 
 		resultChan <- result
@@ -389,8 +487,11 @@ func (pm *PluginManager) executePlugin(plugin *Plugin, event UnifiedEvent, sessi
 	case err := <-errorChan:
 		return nil, err
 	case <-time.After(timeout):
-		// 超时：中断 VM
-		plugin.VM.Interrupt("timeout")
+		// 超时：中断 VM (Interrupt 是线程安全的，可以在不持有锁时调用)
+		// 注意: 如果插件已被卸载 (VM=nil)，此处需要保护
+		if plugin.VM != nil {
+			plugin.VM.Interrupt("timeout")
+		}
 		return nil, fmt.Errorf("插件执行超时 (>%v)", timeout)
 	}
 }
@@ -434,20 +535,51 @@ func (pm *PluginManager) injectHelpers(vm *goja.Runtime, plugin *Plugin) error {
 
 	// base64Decode: Base64 解码
 	vm.Set("base64Decode", func(encoded string) string {
-		// TODO: 实现 Base64 解码
-		return encoded
+		decoded, err := base64.StdEncoding.DecodeString(encoded)
+		if err != nil {
+			log.Printf("[PluginManager] Base64 decode error: %v", err)
+			return ""
+		}
+		return string(decoded)
 	})
 
 	// parseURL: URL 解析
 	vm.Set("parseURL", func(urlStr string) interface{} {
-		// TODO: 实现 URL 解析
-		return nil
+		parsedURL, err := url.Parse(urlStr)
+		if err != nil {
+			log.Printf("[PluginManager] URL parse error: %v", err)
+			return nil
+		}
+
+		// 返回 URL 对象的关键字段
+		return map[string]interface{}{
+			"scheme":   parsedURL.Scheme,
+			"host":     parsedURL.Host,
+			"hostname": parsedURL.Hostname(),
+			"port":     parsedURL.Port(),
+			"path":     parsedURL.Path,
+			"query":    parsedURL.RawQuery,
+			"fragment": parsedURL.Fragment,
+			"href":     parsedURL.String(),
+		}
 	})
 
 	// parseQuery: 查询参数解析
 	vm.Set("parseQuery", func(query string) map[string]string {
-		// TODO: 实现查询参数解析
-		return nil
+		values, err := url.ParseQuery(query)
+		if err != nil {
+			log.Printf("[PluginManager] Query parse error: %v", err)
+			return make(map[string]string)
+		}
+
+		// 转换为简单的 map[string]string (只取第一个值)
+		result := make(map[string]string)
+		for key, vals := range values {
+			if len(vals) > 0 {
+				result[key] = vals[0]
+			}
+		}
+		return result
 	})
 
 	// formatTime: 时间格式化
@@ -493,8 +625,17 @@ func (pm *PluginManager) createPluginContext(vm *goja.Runtime, plugin *Plugin) g
 	return context
 }
 
+// emittedEvents 收集 context.emit() 产生的派生事件
+// 在 executePlugin 中使用，收集器生命周期与单次 onEvent 调用绑定
+type emittedEvents struct {
+	events []UnifiedEvent
+}
+
 // createEventContext 创建事件处理上下文 (onEvent 用)
-func (pm *PluginManager) createEventContext(vm *goja.Runtime, plugin *Plugin, event UnifiedEvent, sessionID string) goja.Value {
+// 返回 context goja.Value 和 emittedEvents 收集器
+func (pm *PluginManager) createEventContext(vm *goja.Runtime, plugin *Plugin, event UnifiedEvent, sessionID string) (goja.Value, *emittedEvents) {
+	collector := &emittedEvents{}
+
 	context := pm.createPluginContext(vm, plugin)
 	obj := context.ToObject(vm)
 
@@ -511,8 +652,21 @@ func (pm *PluginManager) createEventContext(vm *goja.Runtime, plugin *Plugin, ev
 	})
 
 	// emit 辅助函数（简化派生事件生成）
-	obj.Set("emit", func(eventType, title string, data interface{}) {
-		log.Printf("[Plugin:%s] emit called: type=%s, title=%s", plugin.Metadata.ID, eventType, title)
+	// 调用 emit 产生的事件会被收集，最终与 return derivedEvents 合并
+	obj.Set("emit", func(eventType string, title string, data ...interface{}) {
+		derived := UnifiedEvent{
+			Source: SourcePlugin,
+			Type:   eventType,
+			Level:  LevelInfo,
+			Title:  title,
+		}
+		if len(data) > 0 && data[0] != nil {
+			dataBytes, err := json.Marshal(data[0])
+			if err == nil {
+				derived.Data = dataBytes
+			}
+		}
+		collector.events = append(collector.events, derived)
 	})
 
 	// jsonPath 辅助函数
@@ -542,19 +696,13 @@ func (pm *PluginManager) createEventContext(vm *goja.Runtime, plugin *Plugin, ev
 		return plugin.State[key]
 	})
 
-	// queryEvents 函数
-	obj.Set("queryEvents", func(query map[string]interface{}) []UnifiedEvent {
-		// TODO: 实现事件查询
-		return []UnifiedEvent{}
-	})
-
-	return context
+	return context, collector
 }
 
 // createEventContextWithLogging 创建带日志捕获的事件上下文（用于测试）
-func (pm *PluginManager) createEventContextWithLogging(vm *goja.Runtime, plugin *Plugin, event UnifiedEvent, sessionID string, logs *[]string) goja.Value {
+func (pm *PluginManager) createEventContextWithLogging(vm *goja.Runtime, plugin *Plugin, event UnifiedEvent, sessionID string, logs *[]string) (goja.Value, *emittedEvents) {
 	// 复用生产环境的 context 创建逻辑
-	context := pm.createEventContext(vm, plugin, event, sessionID)
+	context, collector := pm.createEventContext(vm, plugin, event, sessionID)
 	obj := context.ToObject(vm)
 
 	// 只覆盖 log 函数，添加日志捕获
@@ -568,7 +716,7 @@ func (pm *PluginManager) createEventContextWithLogging(vm *goja.Runtime, plugin 
 		log.Printf("[Plugin:%s] %s", plugin.Metadata.ID, logMsg)
 	})
 
-	return context
+	return context, collector
 }
 
 // createPluginErrorEvent 创建插件错误事件
@@ -625,12 +773,8 @@ func (pm *PluginManager) SavePlugin(plugin *Plugin) error {
 		return fmt.Errorf("保存插件到数据库失败: %w", err)
 	}
 
-	// 如果已加载，则重新加载
-	if _, exists := pm.plugins[plugin.Metadata.ID]; exists {
-		if err := pm.UnloadPlugin(plugin.Metadata.ID); err != nil {
-			log.Printf("[PluginManager] 卸载旧插件失败: %v", err)
-		}
-	}
+	// 先尝试卸载旧插件（忽略不存在错误），避免无锁检查 pm.plugins 的 race condition
+	_ = pm.UnloadPlugin(plugin.Metadata.ID)
 
 	// 如果启用，则加载
 	if plugin.Metadata.Enabled {

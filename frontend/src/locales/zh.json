@@ -398,7 +398,16 @@
     "license": "许可证",
     "made_with": "为 Android 开发者和高级用户精心打造 ❤️",
     "github": "GitHub 仓库",
-    "mit_license": "MIT 许可证"
+    "mit_license": "MIT 许可证",
+    "storage": "存储",
+    "storage_database": "数据库",
+    "storage_recordings": "录屏",
+    "storage_bin": "工具",
+    "storage_workflows": "工作流",
+    "storage_scripts": "脚本",
+    "storage_logs": "日志",
+    "storage_cache": "缓存",
+    "storage_other": "其他"
   },
   "app": {
     "select_device": "请先选择一个设备",

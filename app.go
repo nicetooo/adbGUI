@@ -146,6 +146,95 @@ func (a *App) GetAppVersion() string {
 	return a.version
 }
 
+// GetStorageInfo returns storage location and total size used by the app
+func (a *App) GetStorageInfo() map[string]interface{} {
+	result := map[string]interface{}{
+		"dataDir":       "",
+		"totalSize":     int64(0),
+		"dbSize":        int64(0),
+		"recordingSize": int64(0),
+		"binSize":       int64(0),
+		"workflowSize":  int64(0),
+		"scriptSize":    int64(0),
+		"logSize":       int64(0),
+		"cacheSize":     int64(0),
+		"otherSize":     int64(0),
+	}
+
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return result
+	}
+
+	gazeDir := filepath.Join(configDir, "Gaze")
+	result["dataDir"] = gazeDir
+
+	// Calculate total size by walking the directory
+	var totalSize, dbSize, recordingSize, binSize, workflowSize, scriptSize, logSize, cacheSize int64
+	_ = filepath.Walk(gazeDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		size := info.Size()
+		totalSize += size
+
+		rel, _ := filepath.Rel(gazeDir, path)
+		ext := filepath.Ext(info.Name())
+
+		switch {
+		case ext == ".db" || ext == ".db-wal" || ext == ".db-shm":
+			dbSize += size
+		case strings.HasPrefix(rel, "recordings"):
+			recordingSize += size
+		case strings.HasPrefix(rel, "bin"):
+			binSize += size
+		case strings.HasPrefix(rel, "workflows"):
+			workflowSize += size
+		case strings.HasPrefix(rel, "scripts") || strings.HasPrefix(rel, "tasks"):
+			scriptSize += size
+		case strings.HasPrefix(rel, "logs"):
+			logSize += size
+		case strings.HasPrefix(rel, "thumbnails") || strings.HasPrefix(rel, "video_cache") || strings.HasPrefix(rel, "cache"):
+			cacheSize += size
+		}
+		return nil
+	})
+
+	classified := dbSize + recordingSize + binSize + workflowSize + scriptSize + logSize + cacheSize
+
+	result["totalSize"] = totalSize
+	result["dbSize"] = dbSize
+	result["recordingSize"] = recordingSize
+	result["binSize"] = binSize
+	result["workflowSize"] = workflowSize
+	result["scriptSize"] = scriptSize
+	result["logSize"] = logSize
+	result["cacheSize"] = cacheSize
+	result["otherSize"] = totalSize - classified
+
+	return result
+}
+
+// OpenDataDir opens the application data directory in the system file manager
+func (a *App) OpenDataDir() error {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return fmt.Errorf("cannot determine config directory: %w", err)
+	}
+	gazeDir := filepath.Join(configDir, "Gaze")
+
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", gazeDir)
+	case "windows":
+		cmd = exec.Command("explorer", gazeDir)
+	default:
+		cmd = exec.Command("xdg-open", gazeDir)
+	}
+	return cmd.Start()
+}
+
 // initCore contains the shared initialization logic for both GUI and MCP modes.
 func (a *App) initCore() {
 	a.setupBinaries()
@@ -969,10 +1058,11 @@ func (a *App) TestPlugin(script string, eventID string) ([]UnifiedEvent, error) 
 		return nil, fmt.Errorf("get test event failed: %w", err)
 	}
 
-	// 创建临时插件
+	// 创建临时插件（使用唯一 ID 避免并发冲突）
+	tempID := "test-" + uuid.New().String()[:8]
 	tempPlugin := &Plugin{
 		Metadata: PluginMetadata{
-			ID:      "test-plugin",
+			ID:      tempID,
 			Name:    "Test Plugin",
 			Version: "1.0.0",
 			Enabled: true,
@@ -989,7 +1079,7 @@ func (a *App) TestPlugin(script string, eventID string) ([]UnifiedEvent, error) 
 	if err := a.pluginManager.LoadPlugin(tempPlugin); err != nil {
 		return nil, fmt.Errorf("load test plugin failed: %w", err)
 	}
-	defer a.pluginManager.UnloadPlugin("test-plugin")
+	defer a.pluginManager.UnloadPlugin(tempID)
 
 	// 执行插件
 	derivedEvents := a.pluginManager.ProcessEvent(*event, event.SessionID)
@@ -1019,10 +1109,11 @@ func (a *App) TestPluginDetailed(script string, eventID string) (PluginTestResul
 
 	result.EventSnapshot = event
 
-	// 创建临时插件
+	// 创建临时插件（使用唯一 ID 避免并发冲突）
+	tempID := "test-" + uuid.New().String()[:8]
 	tempPlugin := &Plugin{
 		Metadata: PluginMetadata{
-			ID:      "test-plugin",
+			ID:      tempID,
 			Name:    "Test Plugin",
 			Version: "1.0.0",
 			Enabled: true,
@@ -1040,7 +1131,7 @@ func (a *App) TestPluginDetailed(script string, eventID string) (PluginTestResul
 		result.Error = fmt.Sprintf("load test plugin failed: %v", err)
 		return result, err
 	}
-	defer a.pluginManager.UnloadPlugin("test-plugin")
+	defer a.pluginManager.UnloadPlugin(tempID)
 
 	// 检查是否匹配过滤器
 	result.MatchedFilters = tempPlugin.MatchesEvent(*event)
@@ -1101,10 +1192,11 @@ func (a *App) TestPluginWithEventData(script string, eventDataJSON string) (Plug
 
 	result.EventSnapshot = &event
 
-	// 创建临时插件
+	// 创建临时插件（使用唯一 ID 避免并发冲突）
+	tempID := "test-" + uuid.New().String()[:8]
 	tempPlugin := &Plugin{
 		Metadata: PluginMetadata{
-			ID:      "test-plugin",
+			ID:      tempID,
 			Name:    "Test Plugin",
 			Version: "1.0.0",
 			Enabled: true,
@@ -1122,7 +1214,7 @@ func (a *App) TestPluginWithEventData(script string, eventDataJSON string) (Plug
 		result.Error = fmt.Sprintf("load test plugin failed: %v", err)
 		return result, err
 	}
-	defer a.pluginManager.UnloadPlugin("test-plugin")
+	defer a.pluginManager.UnloadPlugin(tempID)
 
 	// 检查是否匹配过滤器
 	result.MatchedFilters = tempPlugin.MatchesEvent(event)

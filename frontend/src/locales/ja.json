@@ -338,7 +338,16 @@
     "license": "ライセンス",
     "made_with": "Android 開発者とパワーユーザーのために ❤️ を込めて作成",
     "github": "GitHub リポジトリ",
-    "mit_license": "MIT ライセンス"
+    "mit_license": "MIT ライセンス",
+    "storage": "ストレージ",
+    "storage_database": "データベース",
+    "storage_recordings": "録画",
+    "storage_bin": "ツール",
+    "storage_workflows": "ワークフロー",
+    "storage_scripts": "スクリプト",
+    "storage_logs": "ログ",
+    "storage_cache": "キャッシュ",
+    "storage_other": "その他"
   },
   "app": {
     "select_device": "まずデバイスを選択してください",

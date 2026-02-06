@@ -338,7 +338,16 @@
     "license": "許可證",
     "made_with": "為 Android 開發者和高級用戶精心打造 ❤️",
     "github": "GitHub 倉庫",
-    "mit_license": "MIT 許可證"
+    "mit_license": "MIT 許可證",
+    "storage": "儲存空間",
+    "storage_database": "資料庫",
+    "storage_recordings": "錄影",
+    "storage_bin": "工具",
+    "storage_workflows": "工作流程",
+    "storage_scripts": "腳本",
+    "storage_logs": "日誌",
+    "storage_cache": "快取",
+    "storage_other": "其他"
   },
   "app": {
     "select_device": "請先選擇一個裝置",
