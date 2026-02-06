@@ -1,5 +1,5 @@
 import React from "react";
-import { Collapse, Typography, Tag, Space, Table, Button, message, theme } from "antd";
+import { Collapse, Typography, Tag, Space, Table, Button, message } from "antd";
 import { useTranslation } from "react-i18next";
 import CodeBlock from "./CodeBlock";
 import {
@@ -183,7 +183,6 @@ const CURSOR_CONFIG = `{
 
 const MCPInfoSection: React.FC = () => {
   const { t } = useTranslation();
-  const { token } = theme.useToken();
   const [copiedKey, setCopiedKey] = React.useState<string | null>(null);
 
   const handleCopy = (text: string, key: string) => {
@@ -231,205 +230,183 @@ const MCPInfoSection: React.FC = () => {
   ];
 
   return (
-    <div style={{ marginTop: 16 }}>
+    <div>
+      {/* Overview */}
+      <Paragraph type="secondary" style={{ marginBottom: 16, fontSize: 13 }}>
+        {t("mcp.description")}
+      </Paragraph>
+
+      {/* Setup Configurations */}
       <Collapse
-        ghost
+        size="small"
+        style={{ marginBottom: 16 }}
         items={[
           {
-            key: "mcp",
+            key: "setup",
             label: (
               <Space>
-                <ApiOutlined style={{ color: token.colorPrimary }} />
-                <Text strong>{t("mcp.title")}</Text>
-                <Tag color="blue">MCP</Tag>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {t("mcp.subtitle")}
+                <CodeOutlined />
+                <Text strong style={{ fontSize: 13 }}>{t("mcp.setup_title")}</Text>
+              </Space>
+            ),
+            children: (
+              <div>
+                <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
+                  {t("mcp.setup_desc")}
+                </Paragraph>
+
+                {/* Claude Desktop */}
+                <div style={{ marginBottom: 16 }}>
+                  <Text strong style={{ fontSize: 13 }}>{t("mcp.setup_claude_title")}</Text>
+                  <Paragraph type="secondary" style={{ fontSize: 12, margin: "4px 0 8px" }}>
+                    {t("mcp.setup_claude_desc")}
+                  </Paragraph>
+                  <div style={{ position: "relative" }}>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={copiedKey === "claude" ? <CheckOutlined style={{ color: "#52c41a" }} /> : <CopyOutlined />}
+                      onClick={() => handleCopy(CLAUDE_DESKTOP_CONFIG, "claude")}
+                      style={{ position: "absolute", top: 4, right: 12, zIndex: 10 }}
+                    />
+                    <CodeBlock code={CLAUDE_DESKTOP_CONFIG} language="json" />
+                  </div>
+                </div>
+
+                {/* Claude Code */}
+                <div style={{ marginBottom: 16 }}>
+                  <Text strong style={{ fontSize: 13 }}>{t("mcp.setup_claude_code_title")}</Text>
+                  <Paragraph type="secondary" style={{ fontSize: 12, margin: "4px 0 8px" }}>
+                    {t("mcp.setup_claude_code_desc")}
+                  </Paragraph>
+                  <div style={{ position: "relative" }}>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={copiedKey === "claude_code" ? <CheckOutlined style={{ color: "#52c41a" }} /> : <CopyOutlined />}
+                      onClick={() => handleCopy(CLAUDE_CODE_COMMAND, "claude_code")}
+                      style={{ position: "absolute", top: 4, right: 12, zIndex: 10 }}
+                    />
+                    <CodeBlock code={CLAUDE_CODE_COMMAND} language="shell" />
+                  </div>
+                </div>
+
+                {/* Cursor */}
+                <div style={{ marginBottom: 16 }}>
+                  <Text strong style={{ fontSize: 13 }}>{t("mcp.setup_cursor_title")}</Text>
+                  <Paragraph type="secondary" style={{ fontSize: 12, margin: "4px 0 8px" }}>
+                    {t("mcp.setup_cursor_desc")}
+                  </Paragraph>
+                  <div style={{ position: "relative" }}>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={copiedKey === "cursor" ? <CheckOutlined style={{ color: "#52c41a" }} /> : <CopyOutlined />}
+                      onClick={() => handleCopy(CURSOR_CONFIG, "cursor")}
+                      style={{ position: "absolute", top: 4, right: 12, zIndex: 10 }}
+                    />
+                    <CodeBlock code={CURSOR_CONFIG} language="json" />
+                  </div>
+                </div>
+
+                <Paragraph type="warning" style={{ fontSize: 12, marginBottom: 0 }}>
+                  {t("mcp.binary_path_note")}
+                </Paragraph>
+              </div>
+            ),
+          },
+        ]}
+      />
+
+      {/* Tools by Category */}
+      <Collapse
+        size="small"
+        style={{ marginBottom: 16 }}
+        items={[
+          {
+            key: "tools",
+            label: (
+              <Space>
+                <ApiOutlined />
+                <Text strong style={{ fontSize: 13 }}>
+                  {t("mcp.tools_title", { count: TOTAL_TOOLS })}
                 </Text>
               </Space>
             ),
             children: (
-              <div style={{ padding: "0 8px" }}>
-                {/* Overview */}
-                <Paragraph type="secondary" style={{ marginBottom: 16, fontSize: 13 }}>
-                  {t("mcp.description")}
+              <div>
+                <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
+                  {t("mcp.tools_desc")}
                 </Paragraph>
 
-                {/* Setup Configurations */}
                 <Collapse
                   size="small"
-                  style={{ marginBottom: 16 }}
-                  items={[
-                    {
-                      key: "setup",
-                      label: (
-                        <Space>
-                          <CodeOutlined />
-                          <Text strong style={{ fontSize: 13 }}>{t("mcp.setup_title")}</Text>
-                        </Space>
-                      ),
-                      children: (
-                        <div>
-                          <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
-                            {t("mcp.setup_desc")}
-                          </Paragraph>
-
-                          {/* Claude Desktop */}
-                          <div style={{ marginBottom: 16 }}>
-                            <Text strong style={{ fontSize: 13 }}>{t("mcp.setup_claude_title")}</Text>
-                            <Paragraph type="secondary" style={{ fontSize: 12, margin: "4px 0 8px" }}>
-                              {t("mcp.setup_claude_desc")}
-                            </Paragraph>
-                            <div style={{ position: "relative" }}>
-                              <Button
-                                type="text"
-                                size="small"
-                                icon={copiedKey === "claude" ? <CheckOutlined style={{ color: "#52c41a" }} /> : <CopyOutlined />}
-                                onClick={() => handleCopy(CLAUDE_DESKTOP_CONFIG, "claude")}
-                                style={{ position: "absolute", top: 4, right: 12, zIndex: 10 }}
-                              />
-                              <CodeBlock code={CLAUDE_DESKTOP_CONFIG} language="json" />
-                            </div>
-                          </div>
-
-                          {/* Claude Code */}
-                          <div style={{ marginBottom: 16 }}>
-                            <Text strong style={{ fontSize: 13 }}>{t("mcp.setup_claude_code_title")}</Text>
-                            <Paragraph type="secondary" style={{ fontSize: 12, margin: "4px 0 8px" }}>
-                              {t("mcp.setup_claude_code_desc")}
-                            </Paragraph>
-                            <div style={{ position: "relative" }}>
-                              <Button
-                                type="text"
-                                size="small"
-                                icon={copiedKey === "claude_code" ? <CheckOutlined style={{ color: "#52c41a" }} /> : <CopyOutlined />}
-                                onClick={() => handleCopy(CLAUDE_CODE_COMMAND, "claude_code")}
-                                style={{ position: "absolute", top: 4, right: 12, zIndex: 10 }}
-                              />
-                              <CodeBlock code={CLAUDE_CODE_COMMAND} language="shell" />
-                            </div>
-                          </div>
-
-                          {/* Cursor */}
-                          <div style={{ marginBottom: 16 }}>
-                            <Text strong style={{ fontSize: 13 }}>{t("mcp.setup_cursor_title")}</Text>
-                            <Paragraph type="secondary" style={{ fontSize: 12, margin: "4px 0 8px" }}>
-                              {t("mcp.setup_cursor_desc")}
-                            </Paragraph>
-                            <div style={{ position: "relative" }}>
-                              <Button
-                                type="text"
-                                size="small"
-                                icon={copiedKey === "cursor" ? <CheckOutlined style={{ color: "#52c41a" }} /> : <CopyOutlined />}
-                                onClick={() => handleCopy(CURSOR_CONFIG, "cursor")}
-                                style={{ position: "absolute", top: 4, right: 12, zIndex: 10 }}
-                              />
-                              <CodeBlock code={CURSOR_CONFIG} language="json" />
-                            </div>
-                          </div>
-
-                          <Paragraph type="warning" style={{ fontSize: 12, marginBottom: 0 }}>
-                            {t("mcp.binary_path_note")}
-                          </Paragraph>
-                        </div>
-                      ),
-                    },
-                  ]}
+                  ghost
+                  items={TOOL_CATEGORIES.map((cat) => ({
+                    key: cat.key,
+                    label: (
+                      <Space>
+                        <span style={{ color: cat.color }}>{cat.icon}</span>
+                        <Text strong style={{ fontSize: 13 }}>
+                          {t(`mcp.category.${cat.key}`)}
+                        </Text>
+                        <Tag>{cat.tools.length}</Tag>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {t(`mcp.category.${cat.key}_desc`)}
+                        </Text>
+                      </Space>
+                    ),
+                    children: (
+                      <Table
+                        size="small"
+                        columns={toolColumns}
+                        dataSource={cat.tools.map((tool) => ({
+                          key: tool,
+                          tool,
+                          description: t(`mcp.tool.${tool}`),
+                        }))}
+                        pagination={false}
+                        showHeader={false}
+                        style={{ marginTop: -8 }}
+                      />
+                    ),
+                  }))}
                 />
+              </div>
+            ),
+          },
+        ]}
+      />
 
-                {/* Tools by Category */}
-                <Collapse
+      {/* Resources */}
+      <Collapse
+        size="small"
+        items={[
+          {
+            key: "resources",
+            label: (
+              <Space>
+                <DatabaseOutlined />
+                <Text strong style={{ fontSize: 13 }}>
+                  {t("mcp.resources_title")}
+                </Text>
+                <Tag>{RESOURCES.length}</Tag>
+              </Space>
+            ),
+            children: (
+              <div>
+                <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
+                  {t("mcp.resources_desc")}
+                </Paragraph>
+                <Table
                   size="small"
-                  style={{ marginBottom: 16 }}
-                  items={[
-                    {
-                      key: "tools",
-                      label: (
-                        <Space>
-                          <ApiOutlined />
-                          <Text strong style={{ fontSize: 13 }}>
-                            {t("mcp.tools_title", { count: TOTAL_TOOLS })}
-                          </Text>
-                        </Space>
-                      ),
-                      children: (
-                        <div>
-                          <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
-                            {t("mcp.tools_desc")}
-                          </Paragraph>
-
-                          <Collapse
-                            size="small"
-                            ghost
-                            items={TOOL_CATEGORIES.map((cat) => ({
-                              key: cat.key,
-                              label: (
-                                <Space>
-                                  <span style={{ color: cat.color }}>{cat.icon}</span>
-                                  <Text strong style={{ fontSize: 13 }}>
-                                    {t(`mcp.category.${cat.key}`)}
-                                  </Text>
-                                  <Tag>{cat.tools.length}</Tag>
-                                  <Text type="secondary" style={{ fontSize: 12 }}>
-                                    {t(`mcp.category.${cat.key}_desc`)}
-                                  </Text>
-                                </Space>
-                              ),
-                              children: (
-                                <Table
-                                  size="small"
-                                  columns={toolColumns}
-                                  dataSource={cat.tools.map((tool) => ({
-                                    key: tool,
-                                    tool,
-                                    description: t(`mcp.tool.${tool}`),
-                                  }))}
-                                  pagination={false}
-                                  showHeader={false}
-                                  style={{ marginTop: -8 }}
-                                />
-                              ),
-                            }))}
-                          />
-                        </div>
-                      ),
-                    },
-                  ]}
-                />
-
-                {/* Resources */}
-                <Collapse
-                  size="small"
-                  items={[
-                    {
-                      key: "resources",
-                      label: (
-                        <Space>
-                          <DatabaseOutlined />
-                          <Text strong style={{ fontSize: 13 }}>
-                            {t("mcp.resources_title")}
-                          </Text>
-                          <Tag>{RESOURCES.length}</Tag>
-                        </Space>
-                      ),
-                      children: (
-                        <div>
-                          <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
-                            {t("mcp.resources_desc")}
-                          </Paragraph>
-                          <Table
-                            size="small"
-                            columns={resourceColumns}
-                            dataSource={RESOURCES.map((r) => ({
-                              key: r.uri,
-                              uri: r.uri,
-                              description: t(`mcp.resource.${r.key}`),
-                            }))}
-                            pagination={false}
-                          />
-                        </div>
-                      ),
-                    },
-                  ]}
+                  columns={resourceColumns}
+                  dataSource={RESOURCES.map((r) => ({
+                    key: r.uri,
+                    uri: r.uri,
+                    description: t(`mcp.resource.${r.key}`),
+                  }))}
+                  pagination={false}
                 />
               </div>
             ),
